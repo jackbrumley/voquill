@@ -6,7 +6,6 @@ require (
 	fyne.io/fyne/v2 v2.6.1
 	github.com/go-vgo/robotgo v0.110.8
 	github.com/gordonklaus/portaudio v0.0.0-20250206071425-98a94950218b
-	github.com/robotn/gohook v0.42.2
 	gopkg.in/ini.v1 v1.67.0
 )
 
@@ -29,6 +28,7 @@ require (
 	github.com/go-text/render v0.2.0 // indirect
 	github.com/go-text/typesetting v0.2.1 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/gvalkov/golang-evdev v0.0.0-20220815104727-7e27d6ce89b6 // indirect
 	github.com/hack-pad/go-indexeddb v0.3.2 // indirect
 	github.com/hack-pad/safejs v0.1.0 // indirect
 	github.com/jeandeaual/go-locale v0.0.0-20241217141322-fcc2cadd6f08 // indirect
@@ -36,6 +36,7 @@ require (
 	github.com/jsummers/gobmp v0.0.0-20230614200233-a9de23ed2e25 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
+	github.com/micmonay/keybd_event v1.1.2 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/nicksnyder/go-i18n/v2 v2.5.1 // indirect
 	github.com/otiai10/gosseract v2.2.1+incompatible // indirect

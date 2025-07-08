@@ -52,6 +52,8 @@ github.com/google/pprof v0.0.0-20211214055906-6f57359322fd h1:1FjCyPC+syAzJ5/2S8
 github.com/google/pprof v0.0.0-20211214055906-6f57359322fd/go.mod h1:KgnwoLYCZ8IQu3XUZ8Nc/bM9CCZFOyjUNOSygVozoDg=
 github.com/gordonklaus/portaudio v0.0.0-20250206071425-98a94950218b h1:WEuQWBxelOGHA6z9lABqaMLMrfwVyMdN3UgRLT+YUPo=
 github.com/gordonklaus/portaudio v0.0.0-20250206071425-98a94950218b/go.mod h1:esZFQEUwqC+l76f2R8bIWSwXMaPbp79PppwZ1eJhFco=
+github.com/gvalkov/golang-evdev v0.0.0-20220815104727-7e27d6ce89b6 h1:K9b8efT9f1NkITNgNAm2A1LuoamhG4pAhXVjz5Sfa5Q=
+github.com/gvalkov/golang-evdev v0.0.0-20220815104727-7e27d6ce89b6/go.mod h1:SAzVFKCRezozJTGavF3GX8MBUruETCqzivVLYiywouA=
 github.com/hack-pad/go-indexeddb v0.3.2 h1:DTqeJJYc1usa45Q5r52t01KhvlSN02+Oq+tQbSBI91A=
 github.com/hack-pad/go-indexeddb v0.3.2/go.mod h1:QvfTevpDVlkfomY498LhstjwbPW6QC4VC/lxYb0Kom0=
 github.com/hack-pad/safejs v0.1.0 h1:qPS6vjreAqh2amUqj4WNG1zIw7qlRQJ9K10eDKMCnE8=
@@ -66,6 +68,8 @@ github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
 github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 h1:PpXWgLPs+Fqr325bN2FD2ISlRRztXibcX6e8f5FR5Dc=
 github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35/go.mod h1:autxFIvghDt3jPTLoqZ9OZ7s9qTGNAWmYCjVFWPX/zg=
+github.com/micmonay/keybd_event v1.1.2 h1:RpgvPJKOh4Jc+ZYe0OrVzGd2eNMCfuVg3dFTCsuSah4=
+github.com/micmonay/keybd_event v1.1.2/go.mod h1:CGMWMDNgsfPljzrAWoybUOSKafQPZpv+rLigt2LzNGI=
 github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 h1:zYyBkD/k9seD2A7fsi6Oo2LfFZAehjjQMERAvZLEDnQ=
 github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646/go.mod h1:jpp1/29i3P1S/RLdc7JQKbRpFeM1dOBd8T9ki5s+AY8=
 github.com/nicksnyder/go-i18n/v2 v2.5.1 h1:IxtPxYsR9Gp60cGXjfuR/llTqV8aYMsC472zD0D1vHk=
@@ -82,8 +86,6 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 h1:o4JXh1EVt9k/+g42oCprj/FisM4qX9L3sZB3upGN2ZU=
 github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55/go.mod h1:OmDBASR4679mdNQnz2pUhc2G8CO2JrUAVFDRBDP/hJE=
-github.com/robotn/gohook v0.42.2 h1:AI9OVh5o59c76jp9Xcc4NpIvze2YeKX1Rn8JvflAUXY=
-github.com/robotn/gohook v0.42.2/go.mod h1:PYgH0f1EaxhCvNSqIVTfo+SIUh1MrM2Uhe2w7SvFJDE=
 github.com/robotn/xgb v0.0.0-20190912153532-2cb92d044934/go.mod h1:SxQhJskUJ4rleVU44YvnrdvxQr0tKy5SRSigBrCgyyQ=
 github.com/robotn/xgb v0.10.0 h1:O3kFbIwtwZ3pgLbp1h5slCQ4OpY8BdwugJLrUe6GPIM=
 github.com/robotn/xgb v0.10.0/go.mod h1:SxQhJskUJ4rleVU44YvnrdvxQr0tKy5SRSigBrCgyyQ=
