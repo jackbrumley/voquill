@@ -2,7 +2,7 @@
 
 A cross-platform voice-to-text application with GUI and global hotkey support, powered by OpenAI's Whisper API.
 
-![Voice-to-Text Dictation](assets/icon256x256.png)
+---
 
 ## What is Voquill?
 
