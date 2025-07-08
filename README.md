@@ -1,228 +1,175 @@
-# Voquill
+# Voquill - Voice-to-Text Dictation App
 
-A cross-platform voice dictation tool that converts speech to text using OpenAI's Whisper API and types it directly into any application.
+A cross-platform voice-to-text application with GUI and global hotkey support, powered by OpenAI's Whisper API.
 
-## Quick Start (Developer)
+## Quick Start Guide (Developer)
 
 ### Prerequisites
-- Go 1.24+ installed
+- Go 1.19 or later
+- PortAudio development libraries
 - OpenAI API key
-- System audio dependencies (see OS-specific sections below)
 
-### Run from Source
+### Install Dependencies
+
+**Arch Linux (Manjaro):**
 ```bash
-# Clone and navigate to project
-git clone https://github.com/jackbrumley/voquill.git
+sudo pacman -S go portaudio
+```
+
+**Debian/Ubuntu:**
+```bash
+sudo apt update
+sudo apt install golang-go libportaudio2 libportaudio-dev
+```
+
+**Windows:**
+- Install Go from https://golang.org/download/
+- Install TDM-GCC or MinGW-w64
+- Download PortAudio and place in your PATH
+
+### Run the Application
+
+1. Clone and navigate to the project:
+```bash
+git clone <repository-url>
 cd voquill
+```
 
-# Install dependencies
+2. Install Go dependencies:
+```bash
 go mod tidy
-
-# Run the application
-go run main.go
 ```
 
-On first run, the app will create a config file. Edit it with your OpenAI API key:
-- **Linux**: `~/.config/voikey/config.ini`
-- **Windows**: `%LOCALAPPDATA%\voikey\config.ini`
-
-### Usage
-1. Look for the Voquill icon in your system tray
-2. Right-click the tray icon and select "Start Dictation"
-3. Speak for 5 seconds when the "Recording..." popup appears
-4. The transcribed text will be typed into the active application
-
-## Build Instructions
-
-### Arch Linux / Manjaro
-
-#### Install Dependencies
+3. Build and run:
 ```bash
-# Install Go
-sudo pacman -S go
-
-# Install PortAudio
-sudo pacman -S portaudio
-
-# Install X11 development libraries (for robotgo)
-sudo pacman -S libx11 libxtst libxinerama libxrandr libxss
-```
-
-#### Build
-```bash
-# Build binary
-go build -o voquill main.go
-
-# Make executable and run
-chmod +x voquill
+cd src
+go build -o ../voquill .
+cd ..
 ./voquill
 ```
 
-#### Create Desktop Entry (Optional)
-```bash
-# Create desktop file
-cat > ~/.local/share/applications/voquill.desktop << EOF
-[Desktop Entry]
-Name=Voquill
-Comment=Voice dictation tool
-Exec=/path/to/voquill/voquill
-Icon=/path/to/voquill/assets/icon256x256.png
-Type=Application
-Categories=Utility;
-StartupNotify=false
-EOF
+4. Configure your OpenAI API key in the Settings tab or edit the config file directly.
 
-# Update desktop database
+## Building for Different Operating Systems
+
+### Build for Current Platform
+```bash
+cd src
+go build -o ../voquill .
+```
+
+### Cross-Platform Builds
+
+**For Windows (from Linux/macOS):**
+```bash
+cd src
+CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -o ../voquill.exe .
+```
+
+**For Linux (from other platforms):**
+```bash
+cd src
+CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o ../voquill .
+```
+
+**For macOS (from other platforms):**
+```bash
+cd src
+CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o ../voquill .
+```
+
+### Platform-Specific Build Instructions
+
+#### Arch Linux (Manjaro)
+```bash
+# Install dependencies
+sudo pacman -S go portaudio gcc
+
+# Build
+cd src
+go build -o ../voquill .
+
+# Install desktop file (optional)
+cp voquill.desktop ~/.local/share/applications/
 update-desktop-database ~/.local/share/applications/
 ```
 
-### Ubuntu / Debian
-
-#### Install Dependencies
+#### Debian/Ubuntu
 ```bash
-# Install Go (if not already installed)
+# Install dependencies
 sudo apt update
-sudo apt install golang-go
+sudo apt install golang-go libportaudio2 libportaudio-dev build-essential
 
-# Install PortAudio
-sudo apt install libportaudio2 libportaudio-dev
+# Build
+cd src
+go build -o ../voquill .
 
-# Install X11 development libraries (for robotgo)
-sudo apt install libx11-dev libxtst-dev libxinerama-dev libxrandr-dev libxss-dev
-
-# Install additional dependencies for robotgo
-sudo apt install gcc libc6-dev
+# Install desktop file (optional)
+cp voquill.desktop ~/.local/share/applications/
+update-desktop-database ~/.local/share/applications/
 ```
 
-#### Build
+#### Windows
 ```bash
-# Build binary
-go build -o voquill main.go
-
-# Make executable and run
-chmod +x voquill
-./voquill
+# Prerequisites: Install Go, TDM-GCC/MinGW-w64, and PortAudio
+# Then build:
+cd src
+go build -o ../voquill.exe .
 ```
 
-#### Install System-wide (Optional)
-```bash
-# Copy binary to system path
-sudo cp voquill /usr/local/bin/
+## Project Structure
 
-# Copy icon
-sudo mkdir -p /usr/local/share/pixmaps
-sudo cp assets/icon256x256.png /usr/local/share/pixmaps/voquill.png
-
-# Create desktop file
-sudo tee /usr/share/applications/voquill.desktop > /dev/null << EOF
-[Desktop Entry]
-Name=Voquill
-Comment=Voice dictation tool
-Exec=voquill
-Icon=voquill
-Type=Application
-Categories=Utility;
-StartupNotify=false
-EOF
 ```
-
-### Windows
-
-#### Install Dependencies
-1. **Install Go**: Download from [golang.org](https://golang.org/dl/)
-2. **Install Git**: Download from [git-scm.com](https://git-scm.com/)
-3. **Install TDM-GCC** (for CGO compilation): Download from [tdm-gcc.tdragon.net](https://jmeubank.github.io/tdm-gcc/)
-
-#### Build
-```cmd
-REM Clone repository
-git clone https://github.com/jackbrumley/voquill.git
-cd voquill
-
-REM Install dependencies
-go mod tidy
-
-REM Build executable
-go build -o voquill.exe main.go
+voquill/
+├── src/                    # Source code directory
+│   ├── main.go            # Application entry point
+│   ├── types.go           # Type definitions and constants
+│   ├── config.go          # Configuration management
+│   ├── history.go         # Transcription history
+│   ├── audio.go           # Audio recording functionality
+│   ├── transcription.go   # OpenAI Whisper integration
+│   ├── keyboard.go        # Keyboard simulation
+│   ├── gui.go             # GUI components
+│   ├── core.go            # Core application logic
+│   └── icon.go            # Embedded icon resource
+├── assets/                # Application assets
+├── voquill.desktop        # Linux desktop file
+├── go.mod                 # Go module definition
+├── go.sum                 # Go module checksums
+└── README.md              # This file
 ```
-
-#### Create Portable Package
-```cmd
-REM Create distribution folder
-mkdir dist
-copy voquill.exe dist\
-xcopy assets dist\assets\ /E /I
-
-REM The executable is now ready to run from dist\
-```
-
-#### Build with Icon (Optional)
-```cmd
-REM Install rsrc tool for embedding icon
-go install github.com/akavel/rsrc@latest
-
-REM Generate resource file (if you have a .ico file)
-rsrc -ico assets\icon.ico -o rsrc.syso
-
-REM Build with embedded icon
-go build -o voquill.exe main.go
-
-REM Clean up
-del rsrc.syso
-```
-
-## Configuration
-
-Edit the config file with your settings:
-
-```ini
-WHISPER_API_KEY = sk-your-openai-api-key-here
-TYPING_SPEED_INTERVAL = 0.01
-```
-
-- `WHISPER_API_KEY`: Your OpenAI API key (required)
-- `TYPING_SPEED_INTERVAL`: Delay between keystrokes in seconds (0.01 = 10ms)
-
-## Troubleshooting
-
-### Linux Issues
-- **Audio not working**: Ensure your user is in the `audio` group: `sudo usermod -a -G audio $USER`
-- **Permission denied**: Make sure the binary is executable: `chmod +x voquill`
-- **Missing libraries**: Install development packages for X11 and audio
-
-### Windows Issues
-- **CGO errors**: Ensure TDM-GCC is installed and in your PATH
-- **Audio not working**: Check Windows audio permissions and microphone access
-- **Antivirus blocking**: Add exception for the executable
-
-### General Issues
-- **API errors**: Verify your OpenAI API key is valid and has credits
-- **No system tray**: Some desktop environments may not support system tray icons
-- **Typing not working**: Ensure the target application has focus and accepts text input
 
 ## Features
 
-- ✅ Cross-platform (Windows, Linux)
-- ✅ System tray integration
-- ✅ OpenAI Whisper API transcription
-- ✅ Configurable typing speed
-- ✅ Real-time status popups
-- ✅ Auto-update checker
-- 🔄 Planned: Global hotkey support
-- 🔄 Planned: Offline Whisper support
+- **Voice Recording**: Click-to-record with visual feedback
+- **Real-time Transcription**: Powered by OpenAI Whisper API
+- **Text Simulation**: Automatically types transcribed text
+- **History Management**: View and copy previous transcriptions with text wrapping
+- **Cross-platform**: Works on Windows, Linux, and macOS
+- **Desktop Integration**: Proper icon display in taskbar/dock
 
-## License
+## Configuration
 
-This project is open source. See the repository for license details.
+The application stores configuration in:
+- **Linux**: `~/.config/voquill/config.ini`
+- **Windows**: `%LOCALAPPDATA%\voquill\config.ini`
 
-## Contributing
+Required settings:
+- `WHISPER_API_KEY`: Your OpenAI API key
+- `TYPING_SPEED_INTERVAL`: Delay between keystrokes (default: 0.01s)
+- `HOTKEY`: Global hotkey combination (currently basic support)
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test on multiple platforms
-5. Submit a pull request
+## Usage
 
-## Repository
+1. **Setup**: Enter your OpenAI API key in the Settings tab
+2. **Record**: Click the microphone button to start/stop recording
+3. **Transcribe**: Audio is automatically sent to OpenAI for transcription
+4. **Type**: Transcribed text is automatically typed at cursor position
+5. **History**: View previous transcriptions in the History tab with copy buttons
 
-GitHub: [https://github.com/jackbrumley/voquill](https://github.com/jackbrumley/voquill)
+## Development Notes
+
+- The application uses CGO for audio recording (PortAudio) and keyboard simulation
+- Global hotkey detection is currently basic and may need platform-specific improvements
+- The GUI is built with Fyne for cross-platform compatibility
+- Icon is embedded as a Go resource for proper desktop integration
