@@ -7,8 +7,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"image"
-	"image/png"
 	"io"
 	"log"
 	"mime/multipart"
@@ -632,7 +630,7 @@ func openConfigFile() {
 
 // createMainGUI creates the main application window with tabs
 func createMainGUI() {
-	appState.mainApp = app.New()
+	appState.mainApp = app.NewWithID("com.voquill.app")
 	appState.mainApp.SetIcon(loadIcon())
 	appState.mainWindow = appState.mainApp.NewWindow("Voquill - Voice Dictation")
 	appState.mainWindow.Resize(fyne.NewSize(500, 400))
@@ -770,27 +768,8 @@ func createMainGUI() {
 
 // loadIcon loads the application icon
 func loadIcon() fyne.Resource {
-	if _, err := os.Stat(iconPath); err != nil {
-		return nil
-	}
-	
-	file, err := os.Open(iconPath)
-	if err != nil {
-		return nil
-	}
-	defer file.Close()
-	
-	img, _, err := image.Decode(file)
-	if err != nil {
-		return nil
-	}
-	
-	buf := new(bytes.Buffer)
-	if err := png.Encode(buf, img); err != nil {
-		return nil
-	}
-	
-	return fyne.NewStaticResource("icon.png", buf.Bytes())
+	// Use the embedded resource instead of loading from file
+	return resourceIcon256x256Png
 }
 
 // main is the entry point

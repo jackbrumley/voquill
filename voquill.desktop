@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Voquill
+Comment=Voice dictation application
+Exec=/home/jackb/Coding/voquill/voquill
+Icon=/home/jackb/Coding/voquill/assets/icon256x256.png
+Terminal=false
+Categories=Utility;Audio;
+StartupWMClass=Voquill - Voice Dictation
