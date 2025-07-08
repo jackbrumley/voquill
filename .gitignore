@@ -1,0 +1,5 @@
+# Old/backup directories
+old/
+
+# Configuration files with sensitive data
+config.ini

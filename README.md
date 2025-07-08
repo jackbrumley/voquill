@@ -2,141 +2,146 @@
 
 A cross-platform voice-to-text application with GUI and global hotkey support, powered by OpenAI's Whisper API.
 
-## Quick Start Guide (Developer)
+---
 
-### Prerequisites
-- Go 1.19 or later
-- PortAudio development libraries
-- OpenAI API key
+## 📱 For Users
 
-### Install Dependencies
+### What is Voquill?
 
-**Arch Linux (Manjaro):**
-```bash
-sudo pacman -S go portaudio
-```
+Voquill is a **system-wide voice dictation tool** that converts your speech to text and automatically types it wherever your cursor is positioned. Unlike other dictation apps that only work in specific applications, Voquill uses **keyboard simulation** to work in **any text input field** - from email clients and word processors to web browsers, code editors, and chat applications.
 
-**Debian/Ubuntu:**
-```bash
-sudo apt update
-sudo apt install golang-go libportaudio2 libportaudio-dev
-```
+**Key Advantage:** Because Voquill simulates actual keystrokes, it integrates seamlessly with any application that accepts text input, giving you true system-wide voice dictation capabilities.
 
-**Windows:**
-- Install Go from https://golang.org/download/
-- Install TDM-GCC or MinGW-w64
-- Download PortAudio and place in your PATH
+Perfect for:
+- Writing emails, documents, and messages in any application
+- Taking notes during meetings in your preferred text editor
+- Coding with voice input in IDEs and code editors
+- Accessibility and hands-free computing across all programs
+- Quick voice-to-text conversion anywhere on your system
 
-### Run the Application
+### Features
 
-1. Clone and navigate to the project:
-```bash
-git clone <repository-url>
-cd voquill
-```
+- **Voice Recording**: Click-to-record with visual feedback
+- **Real-time Transcription**: Powered by OpenAI Whisper API
+- **Text Simulation**: Automatically types transcribed text at cursor position
+- **History Management**: View and copy previous transcriptions
+- **Cross-platform**: Works on Windows, Linux, and macOS
+- **Desktop Integration**: Proper icon display in taskbar/dock
 
-2. Install Go dependencies:
-```bash
-cd src
-go mod tidy
-cd ..
-```
+### How to Use
 
-3. Build and run:
-```bash
-./build.sh
-./bin/voquill
-```
+1. **Download**: Get the appropriate binary for your platform from releases
+2. **Setup**: Run the application and enter your OpenAI API key in the Settings tab
+3. **Record**: Click the microphone button to start/stop recording
+4. **Transcribe**: Audio is automatically sent to OpenAI for transcription
+5. **Type**: Transcribed text appears wherever your cursor was positioned
+6. **History**: View previous transcriptions in the History tab with copy buttons
 
-4. Configure your OpenAI API key in the Settings tab or edit the config file directly.
+### System Requirements
 
-## Building for Different Operating Systems
+- **Windows**: Windows 10/11
+- **Linux**: Any modern distribution with audio support
+- **macOS**: macOS 10.14 or later
+- **Internet**: Required for OpenAI Whisper API
+- **Microphone**: For voice recording
+- **OpenAI API Key**: Required for transcription service
 
-### Easy Build (Recommended)
-Use the provided build script:
-```bash
-./build.sh
-```
+### Configuration
 
-This will create binaries in the `bin/` directory for your current platform and cross-compile for other platforms if the required tools are available.
+The application stores settings in:
+- **Linux**: `~/.config/voquill/config.ini`
+- **Windows**: `%LOCALAPPDATA%\voquill\config.ini`
+- **macOS**: `~/Library/Application Support/voquill/config.ini`
 
-### Manual Build Commands
+Required settings:
+- `WHISPER_API_KEY`: Your OpenAI API key
+- `TYPING_SPEED_INTERVAL`: Delay between keystrokes (default: 0.01s)
+- `HOTKEY`: Global hotkey combination (currently basic support)
 
-**Build for Current Platform:**
-```bash
-cd src
-go build -o ../bin/voquill .
-cd ..
-```
+---
 
-**Cross-Platform Builds:**
+## 🛠️ For Developers
 
-**For Windows (from Linux/macOS):**
-```bash
-cd src
-CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -o ../bin/voquill.exe .
-cd ..
-```
+### Development Environment
 
-**For Linux (from other platforms):**
-```bash
-cd src
-CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o ../bin/voquill-linux .
-cd ..
-```
+**Prerequisites:** These instructions assume you're developing on a Debian-based (Ubuntu) or Arch-based (Manjaro) Linux system.
 
-**For macOS (from other platforms):**
-```bash
-cd src
-CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o ../bin/voquill-macos .
-cd ..
-```
+### Development Environment Setup
 
-### Platform-Specific Build Instructions
+**Important:** Due to complex CGO dependencies (PortAudio, OpenGL), cross-compilation between platforms is not reliable. Build on the target platform for best results.
 
-#### Arch Linux (Manjaro)
+#### Linux Development (Arch/Manjaro)
 ```bash
 # Install dependencies
 sudo pacman -S go portaudio gcc
 
-# For cross-compilation to Windows (optional)
-sudo pacman -S mingw-w64-gcc
+# Clone and setup
+git clone <repository-url>
+cd voquill
+cd src
+go mod tidy
 
-# Build
-./build.sh
+# Build Linux binary
+go build -o ../bin/voquill-linux-amd64 .
 
-# Install desktop file (optional)
-cp packaging/linux/voquill.desktop ~/.local/share/applications/
-update-desktop-database ~/.local/share/applications/
+# Run
+../bin/voquill-linux-amd64
 ```
 
-#### Debian/Ubuntu
+#### Linux Development (Debian/Ubuntu)
 ```bash
 # Install dependencies
 sudo apt update
 sudo apt install golang-go libportaudio2 libportaudio-dev build-essential
 
-# For cross-compilation to Windows (optional)
-sudo apt install gcc-mingw-w64
-
-# Build
-./build.sh
-
-# Install desktop file (optional)
-cp packaging/linux/voquill.desktop ~/.local/share/applications/
-update-desktop-database ~/.local/share/applications/
-```
-
-#### Windows
-```bash
-# Prerequisites: Install Go, TDM-GCC/MinGW-w64, and PortAudio
-# Then build:
+# Clone and setup
+git clone <repository-url>
+cd voquill
 cd src
-go build -o ../bin/voquill.exe .
-cd ..
+go mod tidy
+
+# Build Linux binary
+go build -o ../bin/voquill-linux-amd64 .
+
+# Run
+../bin/voquill-linux-amd64
 ```
 
-## Project Structure
+#### Windows Development
+```cmd
+# Prerequisites:
+# 1. Install Go from https://golang.org/download/
+# 2. Install TDM-GCC from https://jmeubank.github.io/tdm-gcc/
+# 3. Install PortAudio:
+#    - Download from http://www.portaudio.com/download.html
+#    - Or use vcpkg: vcpkg install portaudio
+
+# Clone and setup
+git clone <repository-url>
+cd voquill
+cd src
+go mod tidy
+
+# Build Windows binary
+go build -o ../bin/voquill-windows-amd64.exe .
+
+# Run
+../bin/voquill-windows-amd64.exe
+```
+
+### Build Commands Summary
+
+**Linux (on Linux):**
+```bash
+cd src && go build -o ../bin/voquill-linux-amd64 .
+```
+
+**Windows (on Windows):**
+```cmd
+cd src && go build -o ../bin/voquill-windows-amd64.exe .
+```
+
+### Project Structure
 
 ```
 voquill/
@@ -152,53 +157,55 @@ voquill/
 │   ├── core.go            # Core application logic
 │   ├── icon.go            # Embedded icon resource
 │   ├── go.mod             # Go module definition
-│   └── go.sum             # Go module checksums
+│   ├── go.sum             # Go module checksums
+│   └── version.txt        # Version information
 ├── bin/                   # Compiled binaries
-│   ├── voquill           # Linux/macOS binary
-│   ├── voquill.exe       # Windows binary
-│   └── voquill-*         # Platform-specific binaries
+│   ├── voquill-linux-amd64      # Linux binary
+│   └── voquill-windows-amd64.exe # Windows binary
 ├── packaging/            # Packaging and deployment files
 │   └── linux/           # Linux-specific packaging
 │       └── voquill.desktop  # Desktop file for Linux
 ├── assets/               # Application assets
-├── build.sh              # Build script for all platforms
+├── DESIGN.md             # Technical documentation
 └── README.md             # This file
 ```
 
-## Features
+### Linux Desktop Integration
 
-- **Voice Recording**: Click-to-record with visual feedback
-- **Real-time Transcription**: Powered by OpenAI Whisper API
-- **Text Simulation**: Automatically types transcribed text
-- **History Management**: View and copy previous transcriptions with text wrapping
-- **Cross-platform**: Works on Windows, Linux, and macOS
-- **Desktop Integration**: Proper icon display in taskbar/dock
+Install the desktop file for system integration:
 
-## Configuration
+**Arch Linux (Manjaro):**
+```bash
+cp packaging/linux/voquill.desktop ~/.local/share/applications/
+update-desktop-database ~/.local/share/applications/
+```
 
-The application stores configuration in:
-- **Linux**: `~/.config/voquill/config.ini`
-- **Windows**: `%LOCALAPPDATA%\voquill\config.ini`
+**Debian/Ubuntu:**
+```bash
+cp packaging/linux/voquill.desktop ~/.local/share/applications/
+update-desktop-database ~/.local/share/applications/
+```
 
-Required settings:
-- `WHISPER_API_KEY`: Your OpenAI API key
-- `TYPING_SPEED_INTERVAL`: Delay between keystrokes (default: 0.01s)
-- `HOTKEY`: Global hotkey combination (currently basic support)
+### Development Notes
 
-## Usage
+- **Platform-Specific Builds**: Build on the target platform for reliable results
+- **CGO Required**: The application uses CGO for audio recording (PortAudio) and keyboard simulation
+- **Cross-Platform Libraries**: Fyne for GUI, PortAudio for audio, keybd_event for keyboard simulation
+- **Global Hotkeys**: Currently basic implementation, may need platform-specific improvements
+- **Icon Embedding**: Icon is embedded as a Go resource for proper desktop integration
+- **Modular Design**: Source code is organized into logical modules for maintainability
 
-1. **Setup**: Enter your OpenAI API key in the Settings tab
-2. **Record**: Click the microphone button to start/stop recording
-3. **Transcribe**: Audio is automatically sent to OpenAI for transcription
-4. **Type**: Transcribed text is automatically typed at cursor position
-5. **History**: View previous transcriptions in the History tab with copy buttons
+### Testing
 
-## Development Notes
+Ensure your OpenAI API key is configured before testing:
+1. Run the application with the appropriate binary for your platform
+2. Go to Settings tab and enter your API key
+3. Test recording with the microphone button
+4. Verify transcription appears in your active text field
 
-- The application uses CGO for audio recording (PortAudio) and keyboard simulation
-- Global hotkey detection is currently basic and may need platform-specific improvements
-- The GUI is built with Fyne for cross-platform compatibility
-- Icon is embedded as a Go resource for proper desktop integration
-- Build artifacts are organized in the `bin/` directory
-- Source code is organized in the `src/` directory with modular files
-- Packaging files are organized in the `packaging/` directory by platform
+### Contributing
+
+1. Follow the existing code structure and naming conventions
+2. Test on the target platform (Linux builds on Linux, Windows builds on Windows)
+3. Update documentation for any new features
+4. Ensure build commands work correctly for both platforms
