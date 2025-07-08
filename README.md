@@ -1,177 +1,228 @@
-# Voquill - Project Overview and Design Decisions
+# Voquill
 
-## 📝 Summary
+A cross-platform voice dictation tool that converts speech to text using OpenAI's Whisper API and types it directly into any application.
 
-Voquill is a cross-platform voice dictation tool designed to offer seamless voice-to-text functionality using the OpenAI Whisper API, with plans to eventually support local/offline transcription. Written in Go, Voquill prioritises portability, minimal system dependencies, and a consistent user experience on both Windows and Linux. It captures short audio recordings on demand, sends them to Whisper for transcription, and emulates keystrokes to type the result directly into any active text field. Real-time status popups and a system tray menu enhance user feedback and ease of use.
+## Quick Start (Developer)
 
----
+### Prerequisites
+- Go 1.24+ installed
+- OpenAI API key
+- System audio dependencies (see OS-specific sections below)
 
-## 📌 Key Features
+### Run from Source
+```bash
+# Clone and navigate to project
+git clone https://github.com/jackbrumley/voquill.git
+cd voquill
 
-* Cross-platform (Windows and Linux)
-* Simple install-and-run design with minimal dependencies
-* Whisper API integration for transcription
-* System tray app with menu options
-* Real-time status popups using Fyne
-* Configurable typing speed and API key
-* Auto-generated config file if missing
-* Update checker that compares version to GitHub
-* Plans for:
+# Install dependencies
+go mod tidy
 
-  * Configurable keyboard shortcut
-  * Optional support for offline Whisper models
-
----
-
-## 🛠️ Programming Language: Go (Golang)
-
-Go was chosen for its:
-
-* **Strong cross-platform capabilities**
-* **Simple dependency management** (`go.mod`, `go get`)
-* **Compiled binary output** (no interpreter needed)
-* **Concurrency and performance**
-
-This makes the application easy to distribute, deploy, and maintain with a single codebase and no runtime requirements for end users.
-
----
-
-## 🎨 GUI and System Tray Design
-
-### Tray Menu
-
-Implemented using [`systray`](https://github.com/getlantern/systray) for cross-platform tray integration. It provides:
-
-* "Edit Config" to open the config file in the default editor
-* "Start Dictation" to trigger the record-transcribe-type cycle
-* "Quit" to exit the app
-
-### Status Popups
-
-Implemented with [`fyne`](https://fyne.io/) to show lightweight, non-intrusive popup windows:
-
-* "Recording..." displayed for duration + 1 second
-* "Transcribing..." displayed while waiting for API result
-
-Popups help give users real-time feedback without requiring an active window or dialog.
-
----
-
-## 🎤 Audio Capture
-
-### Library: `portaudio`
-
-* Used via the `github.com/gordonklaus/portaudio` Go bindings
-* Captures mono, 16kHz, 16-bit audio for 5 seconds
-* Saves to a temporary `.wav` file for Whisper input
-
-### Portability Notes
-
-* **Linux:** Requires system-level `portaudio` to be installed (e.g., `sudo pacman -S portaudio`)
-* **Windows:** Bundle `portaudio.dll` with the `.exe`
-
-Alternatives like `alsa` or `pulse` were considered but lacked cross-platform support. Static linking of `portaudio` is possible but deferred for now due to complexity.
-
----
-
-## ✍️ Typing Output
-
-### Library: `robotgo`
-
-* Simulates typing the returned transcript character-by-character
-* Controlled with a user-configurable delay (e.g., 10ms per character)
-
-While alternatives such as clipboard-paste were considered, character-by-character typing offers better integration in most input contexts.
-
----
-
-## 📦 Configuration Management
-
-* Config stored in:
-
-  * `~/.config/voikey/config.ini` on Linux
-  * `%LOCALAPPDATA%\voikey\config.ini` on Windows
-
-* Auto-generated on first run with default values:
-
-  ```ini
-  WHISPER_API_KEY = your_api_key_here
-  TYPING_SPEED_INTERVAL = 0.01
-  ```
-
-* Users are prompted to edit the config if no API key is present
-
----
-
-## 🔁 Update Checker
-
-* Fetches the latest version from:
-  `https://raw.githubusercontent.com/jackbrumley/voquill/main/version.txt`
-
-* Compares to `installedVersion` constant and logs update availability
-
-* Simple, non-intrusive check at startup
-
----
-
-## 📂 Assets
-
-* Icons used for both system tray and GUI popups are stored in `assets/`:
-
-  * `icon.ico`, `icon256x256.png`, `icon1024x1024.png`
-* Tray icon is loaded and converted to PNG using Go's `image` and `png` packages
-
----
-
-## 🔑 Next Steps and Planned Features
-
-* ✅ **Status Popups** - Implemented
-* ⏳ **Configurable Global Hotkey** - Planned
-* ⏸️ **Auto-launch on startup** - Deferred
-* ⏳ **Offline Whisper support (e.g., Whisper.cpp)** - Future scope
-
----
-
-## 📁 Directory Structure
-
-```
-voquill/
-├── assets/
-│   ├── icon.ico
-│   ├── icon256x256.png
-│   └── icon1024x1024.png
-├── voikey.go
-├── go.mod
+# Run the application
+go run main.go
 ```
 
----
+On first run, the app will create a config file. Edit it with your OpenAI API key:
+- **Linux**: `~/.config/voikey/config.ini`
+- **Windows**: `%LOCALAPPDATA%\voikey\config.ini`
 
-## 🧪 Testing Requirements
+### Usage
+1. Look for the Voquill icon in your system tray
+2. Right-click the tray icon and select "Start Dictation"
+3. Speak for 5 seconds when the "Recording..." popup appears
+4. The transcribed text will be typed into the active application
 
-* Ensure Go is installed and `go.mod` initialised:
+## Build Instructions
 
-  ```bash
-  go mod init voquill
-  go mod tidy
-  ```
-* Install PortAudio:
+### Arch Linux / Manjaro
 
-  * Linux: `sudo pacman -S portaudio`
-  * Windows: bundle `portaudio.dll`
-* Edit `config.ini` and insert valid API key
-* Run with:
+#### Install Dependencies
+```bash
+# Install Go
+sudo pacman -S go
 
-  ```bash
-  go build -o voikey
-  ./voikey
-  ```
+# Install PortAudio
+sudo pacman -S portaudio
 
----
+# Install X11 development libraries (for robotgo)
+sudo pacman -S libx11 libxtst libxinerama libxrandr libxss
+```
 
-## 🌐 Repository
+#### Build
+```bash
+# Build binary
+go build -o voquill main.go
 
-GitHub Repository: [https://github.com/jackbrumley/voquill](https://github.com/jackbrumley/voquill)
+# Make executable and run
+chmod +x voquill
+./voquill
+```
 
----
+#### Create Desktop Entry (Optional)
+```bash
+# Create desktop file
+cat > ~/.local/share/applications/voquill.desktop << EOF
+[Desktop Entry]
+Name=Voquill
+Comment=Voice dictation tool
+Exec=/path/to/voquill/voquill
+Icon=/path/to/voquill/assets/icon256x256.png
+Type=Application
+Categories=Utility;
+StartupNotify=false
+EOF
 
-This document captures the design, structure, and decisions of the Voquill project for future continuation or contribution. Let me know when you’d like to resume development or begin testing!
+# Update desktop database
+update-desktop-database ~/.local/share/applications/
+```
+
+### Ubuntu / Debian
+
+#### Install Dependencies
+```bash
+# Install Go (if not already installed)
+sudo apt update
+sudo apt install golang-go
+
+# Install PortAudio
+sudo apt install libportaudio2 libportaudio-dev
+
+# Install X11 development libraries (for robotgo)
+sudo apt install libx11-dev libxtst-dev libxinerama-dev libxrandr-dev libxss-dev
+
+# Install additional dependencies for robotgo
+sudo apt install gcc libc6-dev
+```
+
+#### Build
+```bash
+# Build binary
+go build -o voquill main.go
+
+# Make executable and run
+chmod +x voquill
+./voquill
+```
+
+#### Install System-wide (Optional)
+```bash
+# Copy binary to system path
+sudo cp voquill /usr/local/bin/
+
+# Copy icon
+sudo mkdir -p /usr/local/share/pixmaps
+sudo cp assets/icon256x256.png /usr/local/share/pixmaps/voquill.png
+
+# Create desktop file
+sudo tee /usr/share/applications/voquill.desktop > /dev/null << EOF
+[Desktop Entry]
+Name=Voquill
+Comment=Voice dictation tool
+Exec=voquill
+Icon=voquill
+Type=Application
+Categories=Utility;
+StartupNotify=false
+EOF
+```
+
+### Windows
+
+#### Install Dependencies
+1. **Install Go**: Download from [golang.org](https://golang.org/dl/)
+2. **Install Git**: Download from [git-scm.com](https://git-scm.com/)
+3. **Install TDM-GCC** (for CGO compilation): Download from [tdm-gcc.tdragon.net](https://jmeubank.github.io/tdm-gcc/)
+
+#### Build
+```cmd
+REM Clone repository
+git clone https://github.com/jackbrumley/voquill.git
+cd voquill
+
+REM Install dependencies
+go mod tidy
+
+REM Build executable
+go build -o voquill.exe main.go
+```
+
+#### Create Portable Package
+```cmd
+REM Create distribution folder
+mkdir dist
+copy voquill.exe dist\
+xcopy assets dist\assets\ /E /I
+
+REM The executable is now ready to run from dist\
+```
+
+#### Build with Icon (Optional)
+```cmd
+REM Install rsrc tool for embedding icon
+go install github.com/akavel/rsrc@latest
+
+REM Generate resource file (if you have a .ico file)
+rsrc -ico assets\icon.ico -o rsrc.syso
+
+REM Build with embedded icon
+go build -o voquill.exe main.go
+
+REM Clean up
+del rsrc.syso
+```
+
+## Configuration
+
+Edit the config file with your settings:
+
+```ini
+WHISPER_API_KEY = sk-your-openai-api-key-here
+TYPING_SPEED_INTERVAL = 0.01
+```
+
+- `WHISPER_API_KEY`: Your OpenAI API key (required)
+- `TYPING_SPEED_INTERVAL`: Delay between keystrokes in seconds (0.01 = 10ms)
+
+## Troubleshooting
+
+### Linux Issues
+- **Audio not working**: Ensure your user is in the `audio` group: `sudo usermod -a -G audio $USER`
+- **Permission denied**: Make sure the binary is executable: `chmod +x voquill`
+- **Missing libraries**: Install development packages for X11 and audio
+
+### Windows Issues
+- **CGO errors**: Ensure TDM-GCC is installed and in your PATH
+- **Audio not working**: Check Windows audio permissions and microphone access
+- **Antivirus blocking**: Add exception for the executable
+
+### General Issues
+- **API errors**: Verify your OpenAI API key is valid and has credits
+- **No system tray**: Some desktop environments may not support system tray icons
+- **Typing not working**: Ensure the target application has focus and accepts text input
+
+## Features
+
+- ✅ Cross-platform (Windows, Linux)
+- ✅ System tray integration
+- ✅ OpenAI Whisper API transcription
+- ✅ Configurable typing speed
+- ✅ Real-time status popups
+- ✅ Auto-update checker
+- 🔄 Planned: Global hotkey support
+- 🔄 Planned: Offline Whisper support
+
+## License
+
+This project is open source. See the repository for license details.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test on multiple platforms
+5. Submit a pull request
+
+## Repository
+
+GitHub: [https://github.com/jackbrumley/voquill](https://github.com/jackbrumley/voquill)

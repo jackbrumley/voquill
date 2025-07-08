@@ -1,4 +1,4 @@
-// voikey.go - Full cross-platform voice-to-text app with system tray, recording, OpenAI Whisper integration, and update checker
+// voquill - Cross-platform voice-to-text app with GUI and global hotkey support
 
 package main
 
@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/getlantern/systray"
 	"github.com/go-vgo/robotgo"
 	"github.com/gordonklaus/portaudio"
 	"gopkg.in/ini.v1"
@@ -37,32 +36,56 @@ const (
 	updateCheckURL    = "https://raw.githubusercontent.com/jackbrumley/voquill/main/version.txt"
 	installedVersion  = "1.0.0"
 	sampleRate        = 16000
-	duration          = 5 * time.Second
+	recordingDuration = 5 * time.Second
 	iconPath          = "assets/icon256x256.png"
 )
 
-var (
+// Application state
+type AppState struct {
 	apiKey         string
 	typingInterval time.Duration
 	configFile     string
 	tempAudioFile  string
+	isRecording    bool
+	mainApp        fyne.App
+	mainWindow     fyne.Window
 	statusWindow   fyne.Window
-)
+	history        []TranscriptionEntry
+}
+
+// TranscriptionEntry represents a single transcription in history
+type TranscriptionEntry struct {
+	Timestamp time.Time `json:"timestamp"`
+	Text      string    `json:"text"`
+	Duration  float64   `json:"duration"`
+}
+
+var appState *AppState
 
 // getConfigPath returns the OS-specific path for the config file
 func getConfigPath() string {
 	usr, _ := user.Current()
 	base := usr.HomeDir
 	if runtime.GOOS == "windows" {
-		return filepath.Join(base, "AppData", "Local", "voikey", "config.ini")
+		return filepath.Join(base, "AppData", "Local", "voquill", "config.ini")
 	}
-	return filepath.Join(base, ".config", "voikey", "config.ini")
+	return filepath.Join(base, ".config", "voquill", "config.ini")
+}
+
+// getHistoryPath returns the OS-specific path for the history file
+func getHistoryPath() string {
+	usr, _ := user.Current()
+	base := usr.HomeDir
+	if runtime.GOOS == "windows" {
+		return filepath.Join(base, "AppData", "Local", "voquill", "history.json")
+	}
+	return filepath.Join(base, ".config", "voquill", "history.json")
 }
 
 // loadConfig loads and parses the configuration file
 func loadConfig() error {
 	cfgPath := getConfigPath()
-	configFile = cfgPath
+	appState.configFile = cfgPath
 	os.MkdirAll(filepath.Dir(cfgPath), 0755)
 
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
@@ -77,14 +100,77 @@ func loadConfig() error {
 		return err
 	}
 
-	apiKey = cfg.Section("").Key("WHISPER_API_KEY").String()
+	appState.apiKey = cfg.Section("").Key("WHISPER_API_KEY").String()
 	interval := cfg.Section("").Key("TYPING_SPEED_INTERVAL").MustFloat64(0.01)
-	typingInterval = time.Duration(interval * float64(time.Second))
+	appState.typingInterval = time.Duration(interval * float64(time.Second))
 
-	if apiKey == "your_api_key_here" {
+	if appState.apiKey == "your_api_key_here" || appState.apiKey == "" {
 		return fmt.Errorf("please edit your config file and enter a valid OpenAI API key: %s", cfgPath)
 	}
 	return nil
+}
+
+// saveConfig saves the current configuration
+func saveConfig() error {
+	cfg := ini.Empty()
+	cfg.Section("").Key("WHISPER_API_KEY").SetValue(appState.apiKey)
+	cfg.Section("").Key("TYPING_SPEED_INTERVAL").SetValue(fmt.Sprintf("%.3f", appState.typingInterval.Seconds()))
+	return cfg.SaveTo(appState.configFile)
+}
+
+// loadHistory loads transcription history from file
+func loadHistory() {
+	historyPath := getHistoryPath()
+	if _, err := os.Stat(historyPath); os.IsNotExist(err) {
+		appState.history = []TranscriptionEntry{}
+		return
+	}
+
+	data, err := os.ReadFile(historyPath)
+	if err != nil {
+		log.Printf("Error reading history: %v", err)
+		appState.history = []TranscriptionEntry{}
+		return
+	}
+
+	if err := json.Unmarshal(data, &appState.history); err != nil {
+		log.Printf("Error parsing history: %v", err)
+		appState.history = []TranscriptionEntry{}
+	}
+}
+
+// saveHistory saves transcription history to file
+func saveHistory() {
+	historyPath := getHistoryPath()
+	os.MkdirAll(filepath.Dir(historyPath), 0755)
+
+	data, err := json.MarshalIndent(appState.history, "", "  ")
+	if err != nil {
+		log.Printf("Error marshaling history: %v", err)
+		return
+	}
+
+	if err := os.WriteFile(historyPath, data, 0644); err != nil {
+		log.Printf("Error saving history: %v", err)
+	}
+}
+
+// addToHistory adds a new transcription to history
+func addToHistory(text string, duration float64) {
+	entry := TranscriptionEntry{
+		Timestamp: time.Now(),
+		Text:      text,
+		Duration:  duration,
+	}
+	
+	appState.history = append([]TranscriptionEntry{entry}, appState.history...)
+	
+	// Keep only last 100 entries
+	if len(appState.history) > 100 {
+		appState.history = appState.history[:100]
+	}
+	
+	saveHistory()
 }
 
 // recordWav records audio and saves it as a WAV file
@@ -150,7 +236,7 @@ func transcribeWhisper(filename string) (string, error) {
 	writer.Close()
 
 	req, _ := http.NewRequest("POST", whisperAPIURL, buf)
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", "Bearer "+appState.apiKey)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	resp, err := http.DefaultClient.Do(req)
@@ -170,29 +256,87 @@ func transcribeWhisper(filename string) (string, error) {
 func simulateTyping(text string) {
 	for _, char := range text {
 		robotgo.TypeStr(string(char))
-		time.Sleep(typingInterval)
+		time.Sleep(appState.typingInterval)
 	}
 }
 
-// loadIcon loads the tray icon from assets
-func loadIcon() []byte {
-	file, err := os.Open(iconPath)
+// showStatusPopup creates a temporary status popup at bottom center of screen
+func showStatusPopup(message string) {
+	if appState.statusWindow != nil {
+		appState.statusWindow.Close()
+	}
+
+	appState.statusWindow = appState.mainApp.NewWindow("Voquill Status")
+	appState.statusWindow.SetContent(container.NewVBox(
+		widget.NewLabel(message),
+	))
+	
+	appState.statusWindow.Resize(fyne.NewSize(200, 60))
+	appState.statusWindow.SetFixedSize(true)
+	
+	// Position at bottom center of screen
+	// Note: Fyne doesn't have direct screen positioning, so this will appear centered
+	appState.statusWindow.CenterOnScreen()
+	
+	appState.statusWindow.Show()
+}
+
+// hideStatusPopup closes the status popup
+func hideStatusPopup() {
+	if appState.statusWindow != nil {
+		appState.statusWindow.Close()
+		appState.statusWindow = nil
+	}
+}
+
+// recordAndTranscribe handles the complete recording and transcription process
+func recordAndTranscribe() {
+	if appState.isRecording {
+		return // Prevent multiple simultaneous recordings
+	}
+	
+	appState.isRecording = true
+	defer func() { appState.isRecording = false }()
+
+	fmt.Println("Starting recording...")
+	showStatusPopup("Recording...")
+	
+	startTime := time.Now()
+	err := recordWav(appState.tempAudioFile, recordingDuration)
 	if err != nil {
-		log.Println("Failed to open icon:", err)
-		return nil
+		fmt.Printf("Recording error: %v\n", err)
+		hideStatusPopup()
+		return
 	}
-	defer file.Close()
-	img, _, err := image.Decode(file)
+	
+	fmt.Println("Transcribing...")
+	showStatusPopup("Transcribing...")
+	
+	text, err := transcribeWhisper(appState.tempAudioFile)
 	if err != nil {
-		log.Println("Failed to decode icon image:", err)
-		return nil
+		fmt.Printf("Transcription error: %v\n", err)
+		hideStatusPopup()
+		return
 	}
-	buf := new(bytes.Buffer)
-	if err := png.Encode(buf, img); err != nil {
-		log.Println("Failed to encode PNG:", err)
-		return nil
+	
+	hideStatusPopup()
+	
+	if text != "" {
+		fmt.Printf("Typing: %s\n", text)
+		simulateTyping(text)
+		
+		duration := time.Since(startTime).Seconds()
+		addToHistory(text, duration)
 	}
-	return buf.Bytes()
+	
+	os.Remove(appState.tempAudioFile)
+}
+
+// setupGlobalHotkey sets up the global hotkey listener
+func setupGlobalHotkey() {
+	fmt.Println("Global hotkey setup temporarily disabled - use GUI button for now")
+	// TODO: Implement cross-platform global hotkey support
+	// For now, users can use the GUI button to test functionality
 }
 
 // checkForUpdates compares installed version to online version
@@ -208,84 +352,182 @@ func checkForUpdates() {
 	if err == nil && strings.TrimSpace(buf.String()) != installedVersion {
 		log.Printf("New version available: %s (current: %s)\n", buf.String(), installedVersion)
 	} else {
-		log.Printf("Voikey is up to date. (v%s)\n", installedVersion)
+		log.Printf("Voquill is up to date. (v%s)\n", installedVersion)
 	}
 }
 
-// openConfig opens the config file in the default editor
-func openConfig() {
+// openConfigFile opens the config file in the default editor
+func openConfigFile() {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.Command("notepad", configFile)
+		cmd = exec.Command("notepad", appState.configFile)
 	} else {
-		cmd = exec.Command("xdg-open", configFile)
+		cmd = exec.Command("xdg-open", appState.configFile)
 	}
 	cmd.Start()
 }
 
-// showStatus creates a temporary popup status window
-func showStatus(title, message string, delay time.Duration) {
-	go func() {
-		app := app.New()
-		statusWindow = app.NewWindow(title)
-		statusWindow.SetContent(container.NewVBox(widget.NewLabel(message)))
-		statusWindow.Resize(fyne.NewSize(300, 100))
-		statusWindow.Show()
-		time.Sleep(delay)
-		statusWindow.Close()
-	}()
-}
+// createMainGUI creates the main application window with tabs
+func createMainGUI() {
+	appState.mainApp = app.New()
+	appState.mainApp.SetIcon(loadIcon())
+	appState.mainWindow = appState.mainApp.NewWindow("Voquill - Voice Dictation")
+	appState.mainWindow.Resize(fyne.NewSize(500, 400))
 
-// recordAndTranscribe handles recording, transcription, and typing
-func recordAndTranscribe() {
-	fmt.Println("Recording audio...")
-	showStatus("Voikey", "Recording...", duration+1*time.Second)
-	recordWav(tempAudioFile, duration)
-	fmt.Println("Transcribing...")
-	showStatus("Voikey", "Transcribing...", 4*time.Second)
-	text, err := transcribeWhisper(tempAudioFile)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-	fmt.Println("Typing: ", text)
-	simulateTyping(text)
-	os.Remove(tempAudioFile)
-}
+	// Create tabs
+	tabs := container.NewAppTabs()
 
-// onReady initializes the tray menu
-func onReady() {
-	systray.SetIcon(loadIcon())
-	systray.SetTitle("Voikey")
-	systray.SetTooltip("Voikey - Voice Typing")
+	// Status Tab
+	statusLabel := widget.NewLabel("Ready for dictation")
+	hotkeyLabel := widget.NewLabel("Global Hotkey: Coming soon (Wayland-compatible)")
+	
+	recordBtn := widget.NewButton("🎤 Start Recording", func() {
+		go recordAndTranscribe()
+	})
+	recordBtn.Importance = widget.HighImportance
+	
+	statusTab := container.NewVBox(
+		widget.NewCard("Status", "", container.NewVBox(
+			statusLabel,
+			hotkeyLabel,
+		)),
+		widget.NewCard("Manual Recording", "Click to test voice dictation", container.NewVBox(
+			recordBtn,
+			widget.NewLabel("Position cursor where you want text, then click Record"),
+		)),
+	)
+	tabs.Append(container.NewTabItem("Status", statusTab))
 
-	edCfg := systray.AddMenuItem("Edit Config", "Edit Configuration File")
-	record := systray.AddMenuItem("Start Dictation", "Record & Transcribe")
-	exit := systray.AddMenuItem("Quit", "Exit Application")
-
-	go func() {
-		for {
-			select {
-			case <-edCfg.ClickedCh:
-				openConfig()
-			case <-record.ClickedCh:
-				recordAndTranscribe()
-			case <-exit.ClickedCh:
-				systray.Quit()
-				return
+	// History Tab - simplified for now
+	historyText := widget.NewRichTextFromMarkdown("No transcription history yet.")
+	historyScroll := container.NewScroll(historyText)
+	
+	updateHistoryDisplay := func() {
+		if len(appState.history) == 0 {
+			historyText.ParseMarkdown("No transcription history yet.")
+		} else {
+			var content strings.Builder
+			content.WriteString("# Transcription History\n\n")
+			for _, entry := range appState.history {
+				content.WriteString(fmt.Sprintf("**%s**: %s\n\n", 
+					entry.Timestamp.Format("15:04:05"), entry.Text))
 			}
+			historyText.ParseMarkdown(content.String())
 		}
-	}()
-	checkForUpdates()
-	fmt.Println("Voikey is running.")
+	}
+	
+	// Update display initially
+	updateHistoryDisplay()
+	
+	clearHistoryBtn := widget.NewButton("Clear History", func() {
+		appState.history = []TranscriptionEntry{}
+		saveHistory()
+		updateHistoryDisplay()
+	})
+	
+	historyTab := container.NewBorder(nil, clearHistoryBtn, nil, nil, historyScroll)
+	tabs.Append(container.NewTabItem("History", historyTab))
+
+	// Settings Tab
+	apiKeyEntry := widget.NewPasswordEntry()
+	apiKeyEntry.SetText(appState.apiKey)
+	
+	typingSpeedSlider := widget.NewSlider(0.001, 0.1)
+	typingSpeedSlider.SetValue(appState.typingInterval.Seconds())
+	typingSpeedLabel := widget.NewLabel(fmt.Sprintf("%.3fs", appState.typingInterval.Seconds()))
+	
+	typingSpeedSlider.OnChanged = func(value float64) {
+		typingSpeedLabel.SetText(fmt.Sprintf("%.3fs", value))
+	}
+	
+	saveBtn := widget.NewButton("Save Settings", func() {
+		appState.apiKey = apiKeyEntry.Text
+		appState.typingInterval = time.Duration(typingSpeedSlider.Value * float64(time.Second))
+		
+		if err := saveConfig(); err != nil {
+			fmt.Printf("Error saving config: %v\n", err)
+		} else {
+			fmt.Println("Settings saved successfully")
+		}
+	})
+	
+	openConfigBtn := widget.NewButton("Open Config File", openConfigFile)
+	
+	settingsTab := container.NewVBox(
+		widget.NewCard("API Configuration", "", container.NewVBox(
+			widget.NewLabel("OpenAI API Key:"),
+			apiKeyEntry,
+		)),
+		widget.NewCard("Typing Settings", "", container.NewVBox(
+			widget.NewLabel("Typing Speed:"),
+			typingSpeedSlider,
+			typingSpeedLabel,
+		)),
+		container.NewHBox(saveBtn, openConfigBtn),
+	)
+	tabs.Append(container.NewTabItem("Settings", settingsTab))
+
+	appState.mainWindow.SetContent(tabs)
+	
+	// Handle window close - minimize instead of quit
+	appState.mainWindow.SetCloseIntercept(func() {
+		appState.mainWindow.Hide()
+	})
+}
+
+// loadIcon loads the application icon
+func loadIcon() fyne.Resource {
+	if _, err := os.Stat(iconPath); err != nil {
+		return nil
+	}
+	
+	file, err := os.Open(iconPath)
+	if err != nil {
+		return nil
+	}
+	defer file.Close()
+	
+	img, _, err := image.Decode(file)
+	if err != nil {
+		return nil
+	}
+	
+	buf := new(bytes.Buffer)
+	if err := png.Encode(buf, img); err != nil {
+		return nil
+	}
+	
+	return fyne.NewStaticResource("icon.png", buf.Bytes())
 }
 
 // main is the entry point
 func main() {
+	// Initialize application state
+	appState = &AppState{}
+	
+	// Load configuration
 	if err := loadConfig(); err != nil {
-		fmt.Println("Error:", err)
-		return
+		fmt.Printf("Configuration error: %v\n", err)
+		fmt.Println("Please configure the application through the GUI.")
 	}
-	tempAudioFile = filepath.Join(os.TempDir(), "voikey_temp.wav")
-	systray.Run(onReady, func() {})
+	
+	// Load history
+	loadHistory()
+	
+	// Set up temp file path
+	appState.tempAudioFile = filepath.Join(os.TempDir(), "voquill_temp.wav")
+	
+	// Create main GUI
+	createMainGUI()
+	
+	// Start global hotkey listener in background
+	go setupGlobalHotkey()
+	
+	// Check for updates
+	go checkForUpdates()
+	
+	fmt.Println("Voquill is running. Use Ctrl+Shift+Alt to start dictation.")
+	
+	// Show main window and run app
+	appState.mainWindow.ShowAndRun()
 }
