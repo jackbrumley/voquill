@@ -2,11 +2,9 @@
 
 A cross-platform voice-to-text application with GUI and global hotkey support, powered by OpenAI's Whisper API.
 
----
+![Voice-to-Text Dictation](assets/icon256x256.png)
 
-## 📱 For Users
-
-### What is Voquill?
+## What is Voquill?
 
 Voquill is a **system-wide voice dictation tool** that converts your speech to text and automatically types it wherever your cursor is positioned. Unlike other dictation apps that only work in specific applications, Voquill uses **keyboard simulation** to work in **any text input field** - from email clients and word processors to web browsers, code editors, and chat applications.
 
@@ -19,7 +17,7 @@ Perfect for:
 - Accessibility and hands-free computing across all programs
 - Quick voice-to-text conversion anywhere on your system
 
-### Features
+## Features
 
 - **Voice Recording**: Click-to-record with visual feedback
 - **Real-time Transcription**: Powered by OpenAI Whisper API
@@ -28,7 +26,7 @@ Perfect for:
 - **Cross-platform**: Works on Windows, Linux, and macOS
 - **Desktop Integration**: Proper icon display in taskbar/dock
 
-### How to Use
+## How to Use
 
 1. **Download**: Get the appropriate binary for your platform from releases
 2. **Setup**: Run the application and enter your OpenAI API key in the Settings tab
@@ -37,7 +35,7 @@ Perfect for:
 5. **Type**: Transcribed text appears wherever your cursor was positioned
 6. **History**: View previous transcriptions in the History tab with copy buttons
 
-### System Requirements
+## System Requirements
 
 - **Windows**: Windows 10/11
 - **Linux**: Any modern distribution with audio support
@@ -46,7 +44,7 @@ Perfect for:
 - **Microphone**: For voice recording
 - **OpenAI API Key**: Required for transcription service
 
-### Configuration
+## Configuration
 
 The application stores settings in:
 - **Linux**: `~/.config/voquill/config.ini`
