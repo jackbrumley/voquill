@@ -33,7 +33,7 @@ type TranscriptionEntry struct {
 
 const (
 	whisperAPIURL     = "https://api.openai.com/v1/audio/transcriptions"
-	updateCheckURL    = "https://raw.githubusercontent.com/jackbrumley/voquill/main/version.txt"
+	updateCheckURL    = "https://raw.githubusercontent.com/jackbrumley/voquill/main/src/version.txt"
 	installedVersion  = "1.0.0"
 	sampleRate        = 16000
 	recordingDuration = 5 * time.Second

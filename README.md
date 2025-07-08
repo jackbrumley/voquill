@@ -37,45 +37,59 @@ cd voquill
 
 2. Install Go dependencies:
 ```bash
+cd src
 go mod tidy
+cd ..
 ```
 
 3. Build and run:
 ```bash
-cd src
-go build -o ../voquill .
-cd ..
-./voquill
+./build.sh
+./bin/voquill
 ```
 
 4. Configure your OpenAI API key in the Settings tab or edit the config file directly.
 
 ## Building for Different Operating Systems
 
-### Build for Current Platform
+### Easy Build (Recommended)
+Use the provided build script:
 ```bash
-cd src
-go build -o ../voquill .
+./build.sh
 ```
 
-### Cross-Platform Builds
+This will create binaries in the `bin/` directory for your current platform and cross-compile for other platforms if the required tools are available.
+
+### Manual Build Commands
+
+**Build for Current Platform:**
+```bash
+cd src
+go build -o ../bin/voquill .
+cd ..
+```
+
+**Cross-Platform Builds:**
 
 **For Windows (from Linux/macOS):**
 ```bash
 cd src
-CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -o ../voquill.exe .
+CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -o ../bin/voquill.exe .
+cd ..
 ```
 
 **For Linux (from other platforms):**
 ```bash
 cd src
-CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o ../voquill .
+CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o ../bin/voquill-linux .
+cd ..
 ```
 
 **For macOS (from other platforms):**
 ```bash
 cd src
-CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o ../voquill .
+CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o ../bin/voquill-macos .
+cd ..
 ```
 
 ### Platform-Specific Build Instructions
@@ -85,12 +99,14 @@ CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o ../voquill .
 # Install dependencies
 sudo pacman -S go portaudio gcc
 
+# For cross-compilation to Windows (optional)
+sudo pacman -S mingw-w64-gcc
+
 # Build
-cd src
-go build -o ../voquill .
+./build.sh
 
 # Install desktop file (optional)
-cp voquill.desktop ~/.local/share/applications/
+cp packaging/linux/voquill.desktop ~/.local/share/applications/
 update-desktop-database ~/.local/share/applications/
 ```
 
@@ -100,12 +116,14 @@ update-desktop-database ~/.local/share/applications/
 sudo apt update
 sudo apt install golang-go libportaudio2 libportaudio-dev build-essential
 
+# For cross-compilation to Windows (optional)
+sudo apt install gcc-mingw-w64
+
 # Build
-cd src
-go build -o ../voquill .
+./build.sh
 
 # Install desktop file (optional)
-cp voquill.desktop ~/.local/share/applications/
+cp packaging/linux/voquill.desktop ~/.local/share/applications/
 update-desktop-database ~/.local/share/applications/
 ```
 
@@ -114,7 +132,8 @@ update-desktop-database ~/.local/share/applications/
 # Prerequisites: Install Go, TDM-GCC/MinGW-w64, and PortAudio
 # Then build:
 cd src
-go build -o ../voquill.exe .
+go build -o ../bin/voquill.exe .
+cd ..
 ```
 
 ## Project Structure
@@ -131,12 +150,19 @@ voquill/
 │   ├── keyboard.go        # Keyboard simulation
 │   ├── gui.go             # GUI components
 │   ├── core.go            # Core application logic
-│   └── icon.go            # Embedded icon resource
-├── assets/                # Application assets
-├── voquill.desktop        # Linux desktop file
-├── go.mod                 # Go module definition
-├── go.sum                 # Go module checksums
-└── README.md              # This file
+│   ├── icon.go            # Embedded icon resource
+│   ├── go.mod             # Go module definition
+│   └── go.sum             # Go module checksums
+├── bin/                   # Compiled binaries
+│   ├── voquill           # Linux/macOS binary
+│   ├── voquill.exe       # Windows binary
+│   └── voquill-*         # Platform-specific binaries
+├── packaging/            # Packaging and deployment files
+│   └── linux/           # Linux-specific packaging
+│       └── voquill.desktop  # Desktop file for Linux
+├── assets/               # Application assets
+├── build.sh              # Build script for all platforms
+└── README.md             # This file
 ```
 
 ## Features
@@ -173,3 +199,6 @@ Required settings:
 - Global hotkey detection is currently basic and may need platform-specific improvements
 - The GUI is built with Fyne for cross-platform compatibility
 - Icon is embedded as a Go resource for proper desktop integration
+- Build artifacts are organized in the `bin/` directory
+- Source code is organized in the `src/` directory with modular files
+- Packaging files are organized in the `packaging/` directory by platform
