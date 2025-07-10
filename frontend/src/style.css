@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Force light theme for Wails app - override system dark theme */
+html, body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+#app {
+  background-color: #f8fafc !important;
+  min-height: 100vh;
+}
+
+/* WebKit specific overrides for Wails */
+:root {
+  color-scheme: light !important;
+  --webkit-color-scheme: light !important;
+}
+
+/* Force all elements to respect our color scheme */
+* {
+  color-scheme: light !important;
+}
+
+/* Override any system dark theme issues */
+* {
+  @apply border-slate-200;
+}
+
+/* Ensure text is always visible */
+body {
+  @apply text-slate-900;
+}
+
+/* Force main background */
+main {
+  background: linear-gradient(to bottom right, #f8fafc, #dbeafe) !important;
+}
