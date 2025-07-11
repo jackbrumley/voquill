@@ -39,7 +39,7 @@ func loadConfig() error {
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		file, _ := os.Create(cfgPath)
 		defer file.Close()
-		file.WriteString("WHISPER_API_KEY = your_api_key_here\nTYPING_SPEED_INTERVAL = 0.01\nHOTKEY = ctrl+shift+alt\n")
+		file.WriteString("WHISPER_API_KEY = your_api_key_here\nTYPING_SPEED_INTERVAL = 0.05\nHOTKEY = ctrl+shift+alt\n")
 		return fmt.Errorf("created new config file, please enter your OpenAI API key in: %s", cfgPath)
 	}
 
@@ -49,7 +49,15 @@ func loadConfig() error {
 	}
 
 	appState.apiKey = cfg.Section("").Key("WHISPER_API_KEY").String()
-	interval := cfg.Section("").Key("TYPING_SPEED_INTERVAL").MustFloat64(0.01)
+	interval := cfg.Section("").Key("TYPING_SPEED_INTERVAL").MustFloat64(0.05)
+	
+	// Add constraints to typing interval (minimum 0.01s, maximum 1s)
+	if interval < 0.01 {
+		interval = 0.01
+	} else if interval > 1.0 {
+		interval = 1.0
+	}
+	
 	appState.typingInterval = time.Duration(interval * float64(time.Second))
 	appState.hotkey = cfg.Section("").Key("HOTKEY").MustString("ctrl+shift+alt")
 

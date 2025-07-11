@@ -16,12 +16,7 @@ func simulateTyping(text string) {
 		return
 	}
 	
-	// For Linux, we need to add a small delay for initialization
-	if runtime.GOOS == "linux" {
-		time.Sleep(100 * time.Millisecond)
-	}
-	
-	// Type each character
+	// Type each character immediately - no startup delay
 	for _, char := range text {
 		// Convert character to key events
 		err := typeCharacter(kb, char)
