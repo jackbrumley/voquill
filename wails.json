@@ -9,5 +9,11 @@
   "author": {
     "name": "Jack Brumley",
     "email": "jackbrumley.jb@gmail.com"
+  },
+  "info": {
+    "productName": "Voquill",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2024 Jack Brumley",
+    "comments": "Voice-to-text dictation application"
   }
 }

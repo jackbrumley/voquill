@@ -387,8 +387,25 @@ func recordWavInterruptible(filename string, stopChan chan bool) error {
 		// Use macOS built-in recording
 		cmd = exec.Command("sox", "-t", "coreaudio", "default", "-r", "16000", "-c", "1", filename, "trim", "0", "30")
 	case "windows":
-		// Use Windows built-in recording via PowerShell
-		return fmt.Errorf("Windows audio recording not yet implemented")
+		// Use Windows built-in recording via PowerShell and SoX
+		if _, err := exec.LookPath("sox"); err == nil {
+			// Use SoX if available
+			cmd = exec.Command("sox", "-t", "waveaudio", "default", "-r", "16000", "-c", "1", filename, "trim", "0", "30")
+		} else {
+			// Fallback to PowerShell with Windows Media Format SDK
+			psScript := fmt.Sprintf(`
+Add-Type -AssemblyName System.Speech
+$recognizer = New-Object System.Speech.Recognition.SpeechRecognitionEngine
+$grammar = New-Object System.Speech.Recognition.DictationGrammar
+$recognizer.LoadGrammar($grammar)
+$recognizer.SetInputToDefaultAudioDevice()
+
+# Record for up to 30 seconds
+$result = $recognizer.Recognize([TimeSpan]::FromSeconds(30))
+if ($result) { $result.Text } else { "" }
+`)
+			cmd = exec.Command("powershell", "-Command", psScript)
+		}
 	default:
 		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
 	}
