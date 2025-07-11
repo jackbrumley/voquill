@@ -30,6 +30,9 @@ type AppState struct {
 	isRecording   bool
 	stopRecording chan bool
 	history       []TranscriptionEntry
+	hotkeyPressed bool
+	isTranscribing bool
+	isTyping      bool
 }
 
 // Config represents the application configuration
@@ -67,7 +70,7 @@ func (a *App) startup(ctx context.Context) {
 	appState = &AppState{
 		config: Config{
 			APIKey:         "",
-			Hotkey:         "Ctrl+Shift+R",
+			Hotkey:         "Ctrl+Shift+Alt",
 			TypingInterval: 50 * time.Millisecond,
 		},
 	}
@@ -82,6 +85,9 @@ func (a *App) startup(ctx context.Context) {
 
 	// Set up temp file path
 	appState.tempAudioFile = filepath.Join(os.TempDir(), "voquill_temp.wav")
+	
+	// Start global hotkey monitoring
+	go startHotkeyMonitoring()
 }
 
 // Greet returns a greeting for the given name
@@ -138,6 +144,62 @@ func (a *App) StopRecording() {
 	}
 }
 
+// recordAndTranscribeHotkey handles recording and transcription for hotkey events
+func recordAndTranscribeHotkey() {
+	if appState.isRecording {
+		return
+	}
+
+	appState.isRecording = true
+	appState.stopRecording = make(chan bool, 1)
+
+	defer func() {
+		appState.isRecording = false
+		appState.isTranscribing = false
+		appState.isTyping = false
+	}()
+
+	fmt.Println("Starting recording...")
+
+	startTime := time.Now()
+	err := recordWavInterruptible(appState.tempAudioFile, appState.stopRecording)
+	if err != nil {
+		fmt.Printf("Recording error: %v\n", err)
+		return
+	}
+
+	appState.isRecording = false
+	appState.isTranscribing = true
+	fmt.Println("Transcribing...")
+
+	text, err := transcribeWhisper(appState.tempAudioFile)
+	if err != nil {
+		fmt.Printf("Transcription error: %v\n", err)
+		return
+	}
+
+	appState.isTranscribing = false
+
+	if text != "" {
+		appState.isTyping = true
+		fmt.Printf("Typing: %s\n", text)
+		simulateTyping(text)
+		appState.isTyping = false
+
+		duration := time.Since(startTime).Seconds()
+		addToHistory(text, duration)
+	}
+
+	os.Remove(appState.tempAudioFile)
+}
+
+// stopRecordingHotkey stops the recording for hotkey events
+func stopRecordingHotkey() {
+	if appState.isRecording {
+		appState.stopRecording <- true
+	}
+}
+
 // GetHistory returns the transcription history as a slice of maps
 func (a *App) GetHistory() []map[string]interface{} {
 	var history []map[string]interface{}
@@ -157,6 +219,16 @@ func (a *App) GetConfig() map[string]interface{} {
 		"apiKey":         appState.config.APIKey,
 		"hotkey":         appState.config.Hotkey,
 		"typingInterval": appState.config.TypingInterval.Seconds(),
+	}
+}
+
+// GetRecordingStatus returns the current recording status
+func (a *App) GetRecordingStatus() map[string]interface{} {
+	return map[string]interface{}{
+		"isRecording":     appState.isRecording,
+		"hotkeyPressed":   appState.hotkeyPressed,
+		"isTranscribing":  appState.isTranscribing,
+		"isTyping":        appState.isTyping,
 	}
 }
 
@@ -401,3 +473,6 @@ func simulateTyping(text string) {
 		time.Sleep(appState.config.TypingInterval)
 	}
 }
+
+// startHotkeyMonitoring is implemented in platform-specific files
+// (hotkey_linux.go, hotkey_windows.go, etc.)

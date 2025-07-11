@@ -5,6 +5,8 @@ export function GetConfig():Promise<Record<string, any>>;
 
 export function GetHistory():Promise<Array<Record<string, any>>>;
 
+export function GetRecordingStatus():Promise<Record<string, any>>;
+
 export function Greet(arg1:string):Promise<string>;
 
 export function RecordAndTranscribe():Promise<string>;
