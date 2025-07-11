@@ -17,13 +17,17 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "voquill",
-		Width:  1024,
-		Height: 768,
+		Title:            "voquill",
+		Width:            320,
+		Height:           500,
+		MinWidth:         320,
+		MinHeight:        500,
+		MaxWidth:         320,
+		MaxHeight:        500,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 255, G: 255, B: 255, A: 1},
+		BackgroundColour: &options.RGBA{R: 248, G: 250, B: 252, A: 1},
 		OnStartup:        app.startup,
 		Bind: []interface{}{
 			app,
