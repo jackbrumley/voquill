@@ -202,6 +202,28 @@ func stopRecordingHotkey() {
 
 // GetHistory returns the transcription history as a slice of maps
 func (a *App) GetHistory() []map[string]interface{} {
+	// Add panic recovery to prevent app freeze
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Panic in GetHistory: %v\n", r)
+		}
+	}()
+	
+	// Ensure history is loaded and not nil
+	if appState == nil {
+		fmt.Println("AppState is nil, returning empty history")
+		return []map[string]interface{}{}
+	}
+	
+	if appState.history == nil {
+		fmt.Println("History is nil, attempting to reload")
+		loadHistory()
+		if appState.history == nil {
+			fmt.Println("Failed to load history, returning empty")
+			return []map[string]interface{}{}
+		}
+	}
+	
 	var history []map[string]interface{}
 	for _, entry := range appState.history {
 		history = append(history, map[string]interface{}{
@@ -312,8 +334,21 @@ func saveConfig() error {
 // loadHistory loads transcription history from file
 func loadHistory() {
 	historyPath := getHistoryPath()
+	
+	// Ensure the directory exists
+	os.MkdirAll(filepath.Dir(historyPath), 0755)
+	
+	// If history file doesn't exist, create an empty one
 	if _, err := os.Stat(historyPath); os.IsNotExist(err) {
 		appState.history = []TranscriptionEntry{}
+		// Create empty history file
+		emptyHistory := []TranscriptionEntry{}
+		data, _ := json.MarshalIndent(emptyHistory, "", "  ")
+		if err := os.WriteFile(historyPath, data, 0644); err != nil {
+			fmt.Printf("Error creating history file: %v\n", err)
+		} else {
+			fmt.Printf("Created new history file: %s\n", historyPath)
+		}
 		return
 	}
 
@@ -327,6 +362,10 @@ func loadHistory() {
 	if err := json.Unmarshal(data, &appState.history); err != nil {
 		fmt.Printf("Error parsing history: %v\n", err)
 		appState.history = []TranscriptionEntry{}
+		// If parsing fails, recreate the file with empty history
+		emptyHistory := []TranscriptionEntry{}
+		data, _ := json.MarshalIndent(emptyHistory, "", "  ")
+		os.WriteFile(historyPath, data, 0644)
 	}
 }
 
