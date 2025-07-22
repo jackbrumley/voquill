@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	user32                = windows.NewLazySystemDLL("user32.dll")
-	procRegisterHotKey    = user32.NewProc("RegisterHotKey")
-	procUnregisterHotKey  = user32.NewProc("UnregisterHotKey")
-	procGetMessage        = user32.NewProc("GetMessageW")
+	user32               = windows.NewLazySystemDLL("user32.dll")
+	procRegisterHotKey   = user32.NewProc("RegisterHotKey")
+	procUnregisterHotKey = user32.NewProc("UnregisterHotKey")
+	procPeekMessage      = user32.NewProc("PeekMessageW")
 )
 
 const (
@@ -36,7 +36,7 @@ type MSG struct {
 // startHotkeyMonitoring starts monitoring for global hotkeys on Windows
 func startHotkeyMonitoring() {
 	fmt.Printf("Starting global hotkey monitoring for: %s\n", appState.config.Hotkey)
-	
+
 	// Register Ctrl+Shift+R hotkey
 	go monitorWindowsHotkeys()
 }
@@ -45,57 +45,60 @@ func startHotkeyMonitoring() {
 func monitorWindowsHotkeys() {
 	// Register the hotkey (Ctrl+Shift+R)
 	ret, _, err := procRegisterHotKey.Call(
-		0,                           // hWnd (NULL for current thread)
-		1,                           // id (unique identifier)
-		MOD_CONTROL|MOD_SHIFT,       // fsModifiers
-		VK_R,                        // vk (virtual key code for 'R')
+		0,                     // hWnd (NULL for current thread)
+		1,                     // id (unique identifier)
+		MOD_CONTROL|MOD_SHIFT, // fsModifiers
+		VK_R,                  // vk (virtual key code for 'R')
 	)
-	
+
 	if ret == 0 {
 		fmt.Printf("Failed to register hotkey: %v\n", err)
 		return
 	}
-	
+
 	fmt.Println("Hotkey Ctrl+Shift+R registered successfully")
-	
-	// Message loop to listen for hotkey events
+
+	// Non-blocking message loop to listen for hotkey events
 	var msg MSG
 	for {
-		ret, _, _ := procGetMessage.Call(
+		// Use PeekMessage instead of GetMessage to avoid blocking
+		ret, _, _ := procPeekMessage.Call(
 			uintptr(unsafe.Pointer(&msg)),
 			0, // hWnd (NULL for any window)
 			0, // wMsgFilterMin
 			0, // wMsgFilterMax
+			1, // PM_REMOVE - remove message from queue
 		)
-		
-		if ret == 0 { // WM_QUIT
-			break
-		}
-		
-		if msg.Message == WM_HOTKEY {
-			if msg.WParam == 1 { // Our hotkey ID
-				if !appState.hotkeyPressed {
-					fmt.Println("Hotkey pressed - starting recording")
-					appState.hotkeyPressed = true
-					go recordAndTranscribeHotkey()
-					
-					// Wait for key release (simplified - in real implementation you'd monitor key up events)
-					go func() {
-						// Simple timeout-based approach for now
-						// In a full implementation, you'd monitor for key release events
-						for appState.isRecording {
-							time.Sleep(100 * time.Millisecond)
-						}
-						if appState.hotkeyPressed {
-							fmt.Println("Recording finished - hotkey released")
-							appState.hotkeyPressed = false
-						}
-					}()
+
+		if ret != 0 { // Message available
+			if msg.Message == WM_HOTKEY {
+				if msg.WParam == 1 { // Our hotkey ID
+					if !appState.hotkeyPressed {
+						fmt.Println("Hotkey pressed - starting recording")
+						appState.hotkeyPressed = true
+						go recordAndTranscribeHotkey()
+
+						// Wait for key release (simplified - in real implementation you'd monitor key up events)
+						go func() {
+							// Simple timeout-based approach for now
+							// In a full implementation, you'd monitor for key release events
+							for appState.isRecording {
+								time.Sleep(100 * time.Millisecond)
+							}
+							if appState.hotkeyPressed {
+								fmt.Println("Recording finished - hotkey released")
+								appState.hotkeyPressed = false
+							}
+						}()
+					}
 				}
 			}
 		}
+
+		// Small sleep to prevent CPU spinning and allow other operations
+		time.Sleep(10 * time.Millisecond)
 	}
-	
+
 	// Cleanup: unregister the hotkey
 	procUnregisterHotKey.Call(0, 1)
 }

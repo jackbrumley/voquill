@@ -14,6 +14,9 @@
   };
   let currentTab = 'status';
   let statusInterval;
+  let saveMessage = '';
+  let saveMessageType = '';
+  let saveMessageVisible = false;
 
   onMount(async () => {
     try {
@@ -71,8 +74,59 @@
     try {
       await SaveConfig(config);
       console.log("Config saved successfully");
+      showSaveMessage("Saved", "success");
     } catch (error) {
       console.error("Save config error:", error);
+      showSaveMessage("Error", "error");
+    }
+  }
+
+  function showSaveMessage(message, type) {
+    saveMessage = message;
+    saveMessageType = type;
+    saveMessageVisible = true;
+    
+    // Hide the message after 2 seconds
+    setTimeout(() => {
+      saveMessageVisible = false;
+    }, 2000);
+  }
+
+  async function handleHistoryTabClick() {
+    try {
+      console.log("History tab clicked, refreshing history...");
+      
+      // Temporarily stop status polling to prevent interference
+      if (statusInterval) {
+        clearInterval(statusInterval);
+        statusInterval = null;
+      }
+      
+      currentTab = 'history';
+      history = await GetHistory();
+      console.log("History refreshed successfully, entries:", history.length);
+      
+      // Restart status polling after a short delay
+      setTimeout(() => {
+        if (currentTab !== 'history') {
+          statusInterval = setInterval(async () => {
+            try {
+              const status = await GetRecordingStatus();
+              isRecording = status.isRecording;
+              hotkeyPressed = status.hotkeyPressed;
+              isTranscribing = status.isTranscribing;
+              isTyping = status.isTyping;
+            } catch (error) {
+              console.error("Error getting recording status:", error);
+            }
+          }, 100);
+        }
+      }, 1000);
+      
+    } catch (error) {
+      console.error("Error refreshing history:", error);
+      // Set empty history on error to prevent rendering issues
+      history = [];
     }
   }
 </script>
@@ -92,7 +146,7 @@
           </button>
           <button 
             class="nav-tab-compact {currentTab === 'history' ? 'active' : ''}" 
-            on:click="{() => currentTab = 'history'}"
+            on:click="{handleHistoryTabClick}"
           >
             <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
               <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
@@ -153,7 +207,7 @@
           </button>
         </div>
         
-        {#if history.length === 0}
+        {#if !history || history.length === 0}
           <div class="empty-state">
             <div class="empty-icon">
               <svg class="icon-medium" fill="currentColor" viewBox="0 0 24 24">
@@ -171,47 +225,42 @@
           </div>
         {:else}
           <div class="history-list">
+            <p>History entries: {history.length}</p>
             {#each history as entry, index}
-              <div class="history-item">
-                <div class="history-header">
-                  <div class="history-info">
-                    <div class="history-number">
-                      <span class="number-text">{index + 1}</span>
+              {#if entry && entry.Text}
+                <div class="history-item">
+                  <div class="history-header">
+                    <div class="history-info">
+                      <div class="history-number">
+                        <span class="number-text">{index + 1}</span>
+                      </div>
+                      <div>
+                        <p class="history-date">
+                          {entry.Timestamp ? new Date(entry.Timestamp).toLocaleDateString() : 'Unknown date'}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p class="history-date">
-                        {new Date(entry.Timestamp).toLocaleDateString()}
-                      </p>
+                    <div class="history-actions">
+                      <button 
+                        class="btn-mini"
+                        on:click="{() => navigator.clipboard.writeText(entry.Text || '')}"
+                        title="Copy"
+                      >
+                        <svg class="icon-tiny" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                        </svg>
+                      </button>
                     </div>
                   </div>
-                  <div class="history-actions">
-                    <button 
-                      class="btn-mini"
-                      on:click="{() => navigator.clipboard.writeText(entry.Text)}"
-                      title="Copy"
-                    >
-                      <svg class="icon-tiny" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                      </svg>
-                    </button>
-                    <button 
-                      class="btn-mini delete-btn"
-                      title="Delete"
-                    >
-                      <svg class="icon-tiny" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                      </svg>
-                    </button>
+                  <div class="history-text">
+                    <p class="text-content">{entry.Text}</p>
+                  </div>
+                  <div class="history-stats">
+                    <span>{entry.Text ? entry.Text.length : 0} chars</span>
+                    <span>{entry.Text ? entry.Text.split(' ').length : 0} words</span>
                   </div>
                 </div>
-                <div class="history-text">
-                  <p class="text-content">{entry.Text}</p>
-                </div>
-                <div class="history-stats">
-                  <span>{entry.Text.length} chars</span>
-                  <span>{entry.Text.split(' ').length} words</span>
-                </div>
-              </div>
+              {/if}
             {/each}
           </div>
         {/if}
@@ -272,4 +321,22 @@
       </section>
     {/if}
   </div>
+
+  <!-- Toast Notification -->
+  {#if saveMessageVisible}
+    <div class="toast toast-{saveMessageType}">
+      <div class="toast-content">
+        {#if saveMessageType === 'success'}
+          <svg class="toast-icon" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+        {:else}
+          <svg class="toast-icon" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+        {/if}
+        <span class="toast-text">{saveMessage}</span>
+      </div>
+    </div>
+  {/if}
 </main>

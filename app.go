@@ -25,14 +25,14 @@ type App struct {
 
 // Application state
 type AppState struct {
-	config        Config
-	tempAudioFile string
-	isRecording   bool
-	stopRecording chan bool
-	history       []TranscriptionEntry
-	hotkeyPressed bool
+	config         Config
+	tempAudioFile  string
+	isRecording    bool
+	stopRecording  chan bool
+	history        []TranscriptionEntry
+	hotkeyPressed  bool
 	isTranscribing bool
-	isTyping      bool
+	isTyping       bool
 }
 
 // Config represents the application configuration
@@ -85,7 +85,7 @@ func (a *App) startup(ctx context.Context) {
 
 	// Set up temp file path
 	appState.tempAudioFile = filepath.Join(os.TempDir(), "voquill_temp.wav")
-	
+
 	// Start global hotkey monitoring
 	go startHotkeyMonitoring()
 }
@@ -205,25 +205,22 @@ func (a *App) GetHistory() []map[string]interface{} {
 	// Add panic recovery to prevent app freeze
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("Panic in GetHistory: %v\n", r)
+			fmt.Printf("Error in GetHistory: %v\n", r)
 		}
 	}()
-	
+
 	// Ensure history is loaded and not nil
 	if appState == nil {
-		fmt.Println("AppState is nil, returning empty history")
 		return []map[string]interface{}{}
 	}
-	
+
+	// Always reload history to ensure we have the latest data
+	loadHistory()
+
 	if appState.history == nil {
-		fmt.Println("History is nil, attempting to reload")
-		loadHistory()
-		if appState.history == nil {
-			fmt.Println("Failed to load history, returning empty")
-			return []map[string]interface{}{}
-		}
+		return []map[string]interface{}{}
 	}
-	
+
 	var history []map[string]interface{}
 	for _, entry := range appState.history {
 		history = append(history, map[string]interface{}{
@@ -232,7 +229,16 @@ func (a *App) GetHistory() []map[string]interface{} {
 			"Duration":  entry.Duration,
 		})
 	}
+
 	return history
+}
+
+// Helper function for min
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // GetConfig returns the current configuration as a map
@@ -247,10 +253,10 @@ func (a *App) GetConfig() map[string]interface{} {
 // GetRecordingStatus returns the current recording status
 func (a *App) GetRecordingStatus() map[string]interface{} {
 	return map[string]interface{}{
-		"isRecording":     appState.isRecording,
-		"hotkeyPressed":   appState.hotkeyPressed,
-		"isTranscribing":  appState.isTranscribing,
-		"isTyping":        appState.isTyping,
+		"isRecording":    appState.isRecording,
+		"hotkeyPressed":  appState.hotkeyPressed,
+		"isTranscribing": appState.isTranscribing,
+		"isTyping":       appState.isTyping,
 	}
 }
 
@@ -323,7 +329,7 @@ func loadConfig() error {
 func saveConfig() error {
 	cfgPath := getConfigPath()
 	os.MkdirAll(filepath.Dir(cfgPath), 0755)
-	
+
 	cfg := ini.Empty()
 	cfg.Section("").Key("WHISPER_API_KEY").SetValue(appState.config.APIKey)
 	cfg.Section("").Key("TYPING_SPEED_INTERVAL").SetValue(fmt.Sprintf("%.3f", appState.config.TypingInterval.Seconds()))
@@ -334,10 +340,10 @@ func saveConfig() error {
 // loadHistory loads transcription history from file
 func loadHistory() {
 	historyPath := getHistoryPath()
-	
+
 	// Ensure the directory exists
 	os.MkdirAll(filepath.Dir(historyPath), 0755)
-	
+
 	// If history file doesn't exist, create an empty one
 	if _, err := os.Stat(historyPath); os.IsNotExist(err) {
 		appState.history = []TranscriptionEntry{}
@@ -406,9 +412,9 @@ func addToHistory(text string, duration float64) {
 // recordWavInterruptible records audio and saves it as a WAV file with stop channel
 func recordWavInterruptible(filename string, stopChan chan bool) error {
 	fmt.Println("Starting audio recording...")
-	
+
 	var cmd *exec.Cmd
-	
+
 	// Use platform-specific recording commands
 	switch runtime.GOOS {
 	case "linux":
@@ -448,18 +454,18 @@ if ($result) { $result.Text } else { "" }
 	default:
 		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
 	}
-	
+
 	// Start the recording process
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start recording: %v", err)
 	}
-	
+
 	// Wait for stop signal or process completion
 	done := make(chan error, 1)
 	go func() {
 		done <- cmd.Wait()
 	}()
-	
+
 	select {
 	case <-stopChan:
 		fmt.Println("Recording stopped by user")
@@ -479,10 +485,9 @@ if ($result) { $result.Text } else { "" }
 		}
 		<-done
 	}
-	
+
 	return nil
 }
-
 
 // transcribeWhisper sends the audio file to OpenAI and returns the text
 func transcribeWhisper(filename string) (string, error) {

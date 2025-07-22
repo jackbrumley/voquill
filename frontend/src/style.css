@@ -834,3 +834,67 @@ kbd {
   font-size: 0.75rem;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
 }
+
+/* Toast notification styles */
+.toast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(8px);
+  animation: slideInRight 0.3s ease-out, fadeOut 0.3s ease-in 1.7s forwards;
+  min-width: 6rem;
+  max-width: 12rem;
+}
+
+.toast-success {
+  background-color: rgba(34, 197, 94, 0.9);
+  color: white;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.toast-error {
+  background-color: rgba(239, 68, 68, 0.9);
+  color: white;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toast-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.toast-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
