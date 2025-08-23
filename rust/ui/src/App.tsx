@@ -181,7 +181,7 @@ function App() {
       };
       
       await invoke('save_config', { newConfig: configToSave });
-      showToast('Configuration saved and hotkey updated!', 'success');
+      showToast('Configuration saved!', 'success');
     } catch (error) {
       showToast(`Failed to save configuration: ${error}`, 'error');
     }
@@ -330,7 +330,7 @@ function App() {
                 <h4>Tips</h4>
                 <ul>
                   <li>App runs in system tray when closed</li>
-                  <li>Right-click tray icon to reopen</li>
+                  <li>Left-click tray icon to reopen</li>
                   <li>Adjust typing speed for better compatibility</li>
                   <li>Test your API key before first use</li>
                 </ul>
@@ -408,12 +408,11 @@ function App() {
         {activeTab === 'history' && (
           <div className="tab-panel">
             <div className="history-header">
-              <h3>Transcription History</h3>
               <button 
-                className="button" 
+                className="button clear-history-button" 
                 onClick={clearHistory}
               >
-                🗑️ Clear All History
+                Clear History
               </button>
             </div>
             

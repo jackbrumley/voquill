@@ -16,7 +16,7 @@ impl Default for Config {
             openai_api_key: "your_api_key_here".to_string(),
             hotkey: "ctrl+space".to_string(),
             typing_speed_interval: 0.01,
-            pixels_from_bottom: 100,
+            pixels_from_bottom: 50,
         }
     }
 }
