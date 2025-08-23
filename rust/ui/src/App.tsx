@@ -28,6 +28,7 @@ function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [isTestingApi, setIsTestingApi] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [currentStatus, setCurrentStatus] = useState<string>('Ready');
 
   // Load configuration on startup
   useEffect(() => {
@@ -37,12 +38,14 @@ function App() {
     const unlistenPressed = listen('hotkey-pressed', async () => {
       console.log('🎤 Hotkey pressed - starting recording');
       setIsRecording(true);
+      setCurrentStatus('Recording...');
       try {
         await invoke('start_recording');
       } catch (error) {
         console.error('Failed to start recording:', error);
         showToast(`Failed to start recording: ${error}`, 'error');
         setIsRecording(false);
+        setCurrentStatus('Ready');
       }
     });
     
@@ -57,9 +60,22 @@ function App() {
       setIsRecording(false);
     });
 
+    // Listen for status updates from backend
+    const unlistenStatus = listen('status-update', (event) => {
+      const status = event.payload as string;
+      console.log('📊 Status update:', status);
+      setCurrentStatus(status);
+      
+      // Reset to ready when typing is complete
+      if (status === 'Ready') {
+        setIsRecording(false);
+      }
+    });
+
     return () => {
       unlistenPressed.then(fn => fn());
       unlistenReleased.then(fn => fn());
+      unlistenStatus.then(fn => fn());
     };
   }, []);
 
@@ -149,6 +165,23 @@ function App() {
     setConfig(prev => ({ ...prev, [field]: value }));
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'Ready':
+        return '✅';
+      case 'Recording...':
+        return '🎤';
+      case 'Converting audio...':
+        return '🔄';
+      case 'Transcribing...':
+        return '🧠';
+      case 'Typing...':
+        return '⌨️';
+      default:
+        return '📊';
+    }
+  };
+
   return (
     <div className="app">
       {/* Tab Navigation */}
@@ -179,7 +212,7 @@ function App() {
           <div className="tab-panel">
             <div className="status-display">
               <div className={`status-indicator ${isRecording ? 'recording' : 'ready'}`}>
-                {isRecording ? '🎤 Recording...' : '✅ Ready'}
+                {getStatusIcon(currentStatus)} {currentStatus}
               </div>
             </div>
             

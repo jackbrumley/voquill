@@ -3,9 +3,12 @@
 
 use std::sync::{Arc, Mutex};
 use tauri::{
-    Manager, WebviewWindow, Emitter, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}, 
+    Manager, WebviewWindow, Emitter, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}, AppHandle,
 };
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+// Global app handle for emitting events
+static mut APP_HANDLE: Option<AppHandle> = None;
 
 mod audio;
 mod config;
@@ -158,6 +161,27 @@ async fn show_overlay(main_window: &WebviewWindow, message: &str) -> Result<(), 
     Ok(())
 }
 
+async fn emit_status_update(status: &str) {
+    // This is a simplified version - in a real app you'd want to store the app handle
+    // For now, we'll rely on the existing show_overlay mechanism
+    println!("📊 Status: {}", status);
+    
+    // TODO: Emit to all windows if needed
+    // For now, the status updates will be handled by the existing hotkey event system
+}
+
+async fn emit_status_to_frontend(status: &str) {
+    println!("📊 Status: {}", status);
+    
+    unsafe {
+        if let Some(app_handle) = &APP_HANDLE {
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.emit("status-update", status);
+            }
+        }
+    }
+}
+
 async fn record_and_transcribe(
     config: Arc<Mutex<Config>>,
     is_recording: Arc<Mutex<bool>>,
@@ -170,10 +194,16 @@ async fn record_and_transcribe(
     
     if audio_data.is_empty() {
         println!("No audio data recorded");
+        emit_status_to_frontend("Ready").await;
         return Ok(());
     }
     
+    // Emit status update for audio conversion (if needed)
+    emit_status_to_frontend("Converting audio...").await;
     println!("Audio recorded, starting transcription...");
+    
+    // Emit status update for transcription
+    emit_status_to_frontend("Transcribing...").await;
     
     // Transcribe audio
     let api_key = {
@@ -182,6 +212,7 @@ async fn record_and_transcribe(
     };
     
     if api_key.is_empty() || api_key == "your_api_key_here" {
+        emit_status_to_frontend("Ready").await;
         return Err("OpenAI API key not configured".into());
     }
     
@@ -189,14 +220,22 @@ async fn record_and_transcribe(
     
     if !text.trim().is_empty() {
         println!("Transcription complete, typing text: {}", text);
+        
+        // Emit status update for typing
+        emit_status_to_frontend("Typing...").await;
+        
         // Type the text using config speed
         let typing_speed = {
             let config = config.lock().unwrap();
             config.typing_speed_interval
         };
         typing::type_text_with_config(&text, typing_speed)?;
+        
+        // Emit final status update
+        emit_status_to_frontend("Ready").await;
     } else {
         println!("No text transcribed");
+        emit_status_to_frontend("Ready").await;
     }
     
     Ok(())
@@ -243,6 +282,11 @@ fn main() {
         )
         .manage(app_state)
         .setup(|app| {
+            // Store the app handle globally for status updates
+            unsafe {
+                APP_HANDLE = Some(app.handle().clone());
+            }
+            
             // Create tray menu
             let menu = create_tray_menu(app.handle())?;
             
