@@ -30,6 +30,16 @@ function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [currentStatus, setCurrentStatus] = useState<string>('Ready');
 
+  // Apply status class to body for animations (like overlay)
+  useEffect(() => {
+    const statusClass = getStatusClass(currentStatus);
+    document.body.className = statusClass;
+    
+    return () => {
+      document.body.className = '';
+    };
+  }, [currentStatus]);
+
   // Load configuration on startup
   useEffect(() => {
     loadConfig();
@@ -38,7 +48,7 @@ function App() {
     const unlistenPressed = listen('hotkey-pressed', async () => {
       console.log('🎤 Hotkey pressed - starting recording');
       setIsRecording(true);
-      setCurrentStatus('Recording...');
+      setCurrentStatus('Recording');
       try {
         await invoke('start_recording');
       } catch (error) {
@@ -169,18 +179,35 @@ function App() {
     switch (status) {
       case 'Ready':
         return '✅';
-      case 'Recording...':
+      case 'Recording':
         return '🎤';
-      case 'Converting audio...':
+      case 'Converting audio':
         return '🔄';
-      case 'Transcribing...':
+      case 'Transcribing':
         return '🧠';
-      case 'Typing...':
+      case 'Typing':
         return '⌨️';
       default:
         return '📊';
     }
   };
+
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case 'Ready':
+        return 'status-ready';
+      case 'Recording':
+        return 'status-recording';
+      case 'Converting audio':
+      case 'Transcribing':
+        return 'status-transcribing';
+      case 'Typing':
+        return 'status-typing';
+      default:
+        return '';
+    }
+  };
+
 
   return (
     <div className="app">
@@ -211,8 +238,9 @@ function App() {
         {activeTab === 'status' && (
           <div className="tab-panel">
             <div className="status-display">
-              <div className={`status-indicator ${isRecording ? 'recording' : 'ready'}`}>
-                {getStatusIcon(currentStatus)} {currentStatus}
+              <div className="status-content">
+                <span className="status-icon">{getStatusIcon(currentStatus)}</span>
+                <span className="status-text">{currentStatus}</span>
               </div>
             </div>
             

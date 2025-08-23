@@ -51,7 +51,7 @@ async fn start_recording(
     }
 
     // Show overlay window
-    show_overlay(&window, "Recording...").await?;
+    show_overlay(&window, "Recording").await?;
 
     // Start recording in background
     let is_recording_clone = is_recording.clone();
@@ -299,11 +299,11 @@ async fn record_and_transcribe(
     }
     
     // Emit status update for audio conversion (if needed)
-    emit_status_to_frontend("Converting audio...").await;
+    emit_status_to_frontend("Converting audio").await;
     println!("Audio recorded, starting transcription...");
     
     // Emit status update for transcription
-    emit_status_to_frontend("Transcribing...").await;
+    emit_status_to_frontend("Transcribing").await;
     
     // Transcribe audio
     let api_key = {
@@ -322,7 +322,7 @@ async fn record_and_transcribe(
         println!("Transcription complete, typing text: {}", text);
         
         // Emit status update for typing
-        emit_status_to_frontend("Typing...").await;
+        emit_status_to_frontend("Typing").await;
         
         // Type the text using config speed
         let typing_speed = {
@@ -369,7 +369,7 @@ fn main() {
                             
                             // Use centralized status emitter
                             tauri::async_runtime::spawn(async move {
-                                emit_status_update("Recording...").await;
+                                emit_status_update("Recording").await;
                             });
                             
                             // Emit hotkey event to main window

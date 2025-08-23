@@ -58,13 +58,13 @@ function Overlay() {
     switch (status) {
       case 'Ready':
         return '✅';
-      case 'Recording...':
+      case 'Recording':
         return '🎤';
-      case 'Converting audio...':
+      case 'Converting audio':
         return '🔄';
-      case 'Transcribing...':
+      case 'Transcribing':
         return '🧠';
-      case 'Typing...':
+      case 'Typing':
         return '⌨️';
       default:
         return '📊';
@@ -75,12 +75,12 @@ function Overlay() {
     switch (status) {
       case 'Ready':
         return 'status-ready';
-      case 'Recording...':
+      case 'Recording':
         return 'status-recording';
-      case 'Converting audio...':
-      case 'Transcribing...':
+      case 'Converting audio':
+      case 'Transcribing':
         return 'status-transcribing';
-      case 'Typing...':
+      case 'Typing':
         return 'status-typing';
       default:
         return '';
