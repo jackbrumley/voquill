@@ -3,7 +3,7 @@
 
 use std::sync::{Arc, Mutex};
 use tauri::{
-    Manager, WebviewWindow, Emitter, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}, AppHandle,
+    Manager, WebviewWindow, Emitter, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}, AppHandle, LogicalPosition, LogicalSize, Position,
 };
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
@@ -153,33 +153,138 @@ async fn test_api_key(api_key: String) -> Result<bool, String> {
     transcription::test_api_key(&api_key).await.map_err(|e| e.to_string())
 }
 
-async fn show_overlay(main_window: &WebviewWindow, message: &str) -> Result<(), String> {
-    // For now, just emit to the main window - we'll implement proper overlay later
-    main_window
-        .emit("status-update", message)
-        .map_err(|e| e.to_string())?;
+// Global status for overlay
+static mut CURRENT_STATUS: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
+#[tauri::command]
+async fn get_current_status() -> Result<String, String> {
+    unsafe {
+        if let Ok(status) = CURRENT_STATUS.lock() {
+            Ok(status.clone())
+        } else {
+            Ok("Ready".to_string())
+        }
+    }
+}
+
+fn update_global_status(status: &str) {
+    unsafe {
+        if let Ok(mut global_status) = CURRENT_STATUS.lock() {
+            *global_status = status.to_string();
+        }
+    }
+}
+
+async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
+    // Get or create the overlay window
+    let overlay_window = if let Some(window) = app_handle.get_webview_window("overlay") {
+        window
+    } else {
+        return Err("Overlay window not found".to_string());
+    };
+
+    // Position the overlay window at bottom center
+    position_overlay_window(&overlay_window, app_handle).await?;
+    
+    // Show the overlay window
+    overlay_window.show().map_err(|e| e.to_string())?;
+    println!("✅ Overlay window shown");
+    
     Ok(())
 }
 
-async fn emit_status_update(status: &str) {
-    // This is a simplified version - in a real app you'd want to store the app handle
-    // For now, we'll rely on the existing show_overlay mechanism
-    println!("📊 Status: {}", status);
-    
-    // TODO: Emit to all windows if needed
-    // For now, the status updates will be handled by the existing hotkey event system
+async fn hide_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
+    if let Some(overlay_window) = app_handle.get_webview_window("overlay") {
+        overlay_window.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
-async fn emit_status_to_frontend(status: &str) {
-    println!("📊 Status: {}", status);
+async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &AppHandle) -> Result<(), String> {
+    // Get the primary monitor
+    let monitors = overlay_window.available_monitors().map_err(|e| e.to_string())?;
+    let primary_monitor = monitors
+        .iter()
+        .find(|m| {
+            if let Some(name) = m.name() {
+                name == r"\\.\DISPLAY1"
+            } else {
+                false
+            }
+        })
+        .or_else(|| monitors.first())
+        .ok_or("No primary monitor found")?;
+    
+    let monitor_size = primary_monitor.size();
+    let monitor_position = primary_monitor.position();
+    
+    // Get config for pixels from bottom
+    let app_state = app_handle.state::<AppState>();
+    let pixels_from_bottom = {
+        let config = app_state.config.lock().unwrap();
+        config.pixels_from_bottom as i32
+    };
+    
+    // Calculate position (bottom center)
+    let window_width = 200;
+    let window_height = 60;
+    
+    let x = monitor_position.x + (monitor_size.width as i32 - window_width) / 2;
+    let y = monitor_position.y + monitor_size.height as i32 - window_height - pixels_from_bottom;
+    
+    // Set window position
+    overlay_window
+        .set_position(Position::Logical(LogicalPosition::new(x as f64, y as f64)))
+        .map_err(|e| e.to_string())?;
+    
+    // Ensure window size is correct
+    overlay_window
+        .set_size(LogicalSize::new(window_width as f64, window_height as f64))
+        .map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+// Centralized status emitter - single source of truth for all status updates
+async fn emit_status_update(status: &str) {
+    println!("📊 Status Update: {}", status);
+    
+    // Update global status
+    update_global_status(status);
     
     unsafe {
         if let Some(app_handle) = &APP_HANDLE {
-            if let Some(window) = app_handle.get_webview_window("main") {
-                let _ = window.emit("status-update", status);
+            // Emit to ALL windows with the same event
+            let windows = ["main", "overlay"];
+            for window_label in &windows {
+                if let Some(window) = app_handle.get_webview_window(window_label) {
+                    if let Err(e) = window.emit("status-update", status) {
+                        println!("❌ Failed to emit to {}: {}", window_label, e);
+                    } else {
+                        println!("✅ Emitted status-update to {}: {}", window_label, status);
+                    }
+                }
+            }
+            
+            // Handle overlay visibility based on status
+            if status == "Ready" {
+                let _ = hide_overlay_window(app_handle).await;
+            } else {
+                let _ = show_overlay_window(app_handle).await;
             }
         }
     }
+}
+
+// Legacy function for backward compatibility - now just calls the centralized emitter
+async fn emit_status_to_frontend(status: &str) {
+    emit_status_update(status).await;
+}
+
+// Legacy function for backward compatibility - now just calls the centralized emitter
+async fn show_overlay(main_window: &WebviewWindow, message: &str) -> Result<(), String> {
+    emit_status_update(message).await;
+    Ok(())
 }
 
 async fn record_and_transcribe(
@@ -266,12 +371,24 @@ fn main() {
                     match event.state {
                         tauri_plugin_global_shortcut::ShortcutState::Pressed => {
                             println!("🎤 Hotkey PRESSED - Starting recording");
+                            
+                            // Use centralized status emitter
+                            tauri::async_runtime::spawn(async move {
+                                emit_status_update("Recording...").await;
+                            });
+                            
+                            // Emit hotkey event to main window
                             if let Some(window) = app_handle.get_webview_window("main") {
                                 let _ = window.emit("hotkey-pressed", ());
                             }
                         }
                         tauri_plugin_global_shortcut::ShortcutState::Released => {
                             println!("⏹️ Hotkey RELEASED - Stopping recording");
+                            
+                            // Don't hide overlay immediately - let it stay visible during transcription/typing
+                            // The overlay will be hidden when the process completes (status becomes "Ready")
+                            
+                            // Emit to main window
                             if let Some(window) = app_handle.get_webview_window("main") {
                                 let _ = window.emit("hotkey-released", ());
                             }
@@ -285,6 +402,15 @@ fn main() {
             // Store the app handle globally for status updates
             unsafe {
                 APP_HANDLE = Some(app.handle().clone());
+            }
+            
+            // The overlay window is already defined in tauri.conf.json with the correct URL (/overlay)
+            // Just ensure it's hidden initially
+            if let Some(overlay_window) = app.get_webview_window("overlay") {
+                println!("✅ Using overlay window from config");
+                let _ = overlay_window.hide();
+            } else {
+                println!("❌ Overlay window not found in config");
             }
             
             // Create tray menu
@@ -370,7 +496,8 @@ fn main() {
             stop_recording,
             get_config,
             save_config,
-            test_api_key
+            test_api_key,
+            get_current_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

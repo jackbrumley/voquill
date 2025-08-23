@@ -19,6 +19,21 @@
         "center": true,
         "visible": false,
         "closable": true
+      },
+      {
+        "label": "overlay",
+        "title": "Voquill Status",
+        "width": 200,
+        "height": 60,
+        "resizable": false,
+        "center": false,
+        "visible": false,
+        "closable": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "transparent": true,
+        "url": "/overlay"
       }
     ],
     "security": {
@@ -33,6 +48,19 @@
             "core:window:allow-hide",
             "core:window:allow-show",
             "core:window:allow-set-focus",
+            "core:event:default"
+          ]
+        },
+        {
+          "identifier": "overlay-capability",
+          "description": "Capability for the overlay window",
+          "windows": ["overlay"],
+          "permissions": [
+            "core:default",
+            "core:window:allow-hide",
+            "core:window:allow-show",
+            "core:window:allow-set-position",
+            "core:window:allow-set-size",
             "core:event:default"
           ]
         }
