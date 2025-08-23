@@ -432,24 +432,14 @@ func recordWavInterruptible(filename string, stopChan chan bool) error {
 		// Use macOS built-in recording
 		cmd = exec.Command("sox", "-t", "coreaudio", "default", "-r", "16000", "-c", "1", filename, "trim", "0", "30")
 	case "windows":
-		// Use Windows built-in recording via PowerShell and SoX
-		if _, err := exec.LookPath("sox"); err == nil {
-			// Use SoX if available
-			cmd = exec.Command("sox", "-t", "waveaudio", "default", "-r", "16000", "-c", "1", filename, "trim", "0", "30")
+		// Try different recording tools in order of preference for Windows
+		if _, err := exec.LookPath("ffmpeg"); err == nil {
+			// Use FFmpeg (most reliable cross-platform solution)
+			cmd = exec.Command("ffmpeg", "-f", "dshow", "-i", "audio=", "-ar", "16000", "-ac", "1", "-t", "30", "-y", filename)
 		} else {
-			// Fallback to PowerShell with Windows Media Format SDK
-			psScript := fmt.Sprintf(`
-Add-Type -AssemblyName System.Speech
-$recognizer = New-Object System.Speech.Recognition.SpeechRecognitionEngine
-$grammar = New-Object System.Speech.Recognition.DictationGrammar
-$recognizer.LoadGrammar($grammar)
-$recognizer.SetInputToDefaultAudioDevice()
-
-# Record for up to 30 seconds
-$result = $recognizer.Recognize([TimeSpan]::FromSeconds(30))
-if ($result) { $result.Text } else { "" }
-`)
-			cmd = exec.Command("powershell", "-Command", psScript)
+			// Use PowerShell script for Windows built-in audio recording
+			scriptPath := filepath.Join("scripts", "record_audio_windows.ps1")
+			cmd = exec.Command("powershell", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-OutputFile", filename, "-MaxDuration", "30")
 		}
 	default:
 		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
@@ -476,7 +466,13 @@ if ($result) { $result.Text } else { "" }
 	case err := <-done:
 		fmt.Println("Recording completed")
 		if err != nil {
-			return fmt.Errorf("recording process error: %v", err)
+			// Check if the file was actually created despite the error
+			if _, fileErr := os.Stat(filename); fileErr == nil {
+				fmt.Printf("Audio file created successfully despite process error: %v\n", err)
+				// File exists, so recording was successful
+			} else {
+				return fmt.Errorf("recording process error: %v", err)
+			}
 		}
 	case <-time.After(30 * time.Second):
 		fmt.Println("Recording stopped due to timeout")
