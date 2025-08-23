@@ -16,6 +16,12 @@ interface Toast {
   type: 'success' | 'error' | 'info';
 }
 
+interface HistoryItem {
+  id: number;
+  text: string;
+  timestamp: string;
+}
+
 function App() {
   const [config, setConfig] = useState<Config>({
     openai_api_key: '',
@@ -24,11 +30,12 @@ function App() {
     pixels_from_bottom: 100,
   });
   
-  const [activeTab, setActiveTab] = useState<'status' | 'config' | 'help'>('status');
+  const [activeTab, setActiveTab] = useState<'status' | 'config' | 'history'>('status');
   const [isRecording, setIsRecording] = useState(false);
   const [isTestingApi, setIsTestingApi] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [currentStatus, setCurrentStatus] = useState<string>('Ready');
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
   // Apply status class to body for animations (like overlay)
   useEffect(() => {
@@ -226,10 +233,10 @@ function App() {
           Config
         </button>
         <button 
-          className={`tab ${activeTab === 'help' ? 'active' : ''}`}
-          onClick={() => setActiveTab('help')}
+          className={`tab ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => setActiveTab('history')}
         >
-          Help
+          History
         </button>
       </div>
 
@@ -247,6 +254,28 @@ function App() {
             <div className="record-section">
               <div className="help-text">
                 Hotkey: <strong>{config.hotkey}</strong>
+              </div>
+            </div>
+
+            <div className="help-content">
+              <h3>How to Use Voquill</h3>
+              <ol className="instructions">
+                <li>Enter your OpenAI API key in the Config tab</li>
+                <li>Save your configuration</li>
+                <li>Position cursor in any text field</li>
+                <li>Hold <strong>{config.hotkey}</strong> and speak</li>
+                <li>Release keys when done speaking</li>
+                <li>Text will be typed automatically</li>
+              </ol>
+              
+              <div className="help-section">
+                <h4>Tips</h4>
+                <ul>
+                  <li>App runs in system tray when closed</li>
+                  <li>Right-click tray icon to reopen</li>
+                  <li>Adjust typing speed for better compatibility</li>
+                  <li>Test your API key before first use</li>
+                </ul>
               </div>
             </div>
 
@@ -318,28 +347,40 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'help' && (
+        {activeTab === 'history' && (
           <div className="tab-panel">
-            <div className="help-content">
-              <h3>How to Use Voquill</h3>
-              <ol className="instructions">
-                <li>Enter your OpenAI API key in the Config tab</li>
-                <li>Save your configuration</li>
-                <li>Position cursor in any text field</li>
-                <li>Hold <strong>{config.hotkey}</strong> and speak</li>
-                <li>Release keys when done speaking</li>
-                <li>Text will be typed automatically</li>
-              </ol>
-              
-              <div className="help-section">
-                <h4>Tips</h4>
-                <ul>
-                  <li>App runs in system tray when closed</li>
-                  <li>Right-click tray icon to reopen</li>
-                  <li>Adjust typing speed for better compatibility</li>
-                  <li>Test your API key before first use</li>
-                </ul>
-              </div>
+            <div className="history-header">
+              <h3>Transcription History</h3>
+              <button 
+                className="button" 
+                onClick={() => {/* TODO: Clear history */}}
+              >
+                🗑️ Clear All History
+              </button>
+            </div>
+            
+            <div className="history-list">
+              {history.length === 0 ? (
+                <div className="empty-history">
+                  <p>No transcriptions yet. Start recording to see your history here!</p>
+                </div>
+              ) : (
+                history.map((item) => (
+                  <div key={item.id} className="history-item">
+                    <div className="history-content">
+                      <div className="history-text">{item.text}</div>
+                      <div className="history-timestamp">{item.timestamp}</div>
+                    </div>
+                    <button 
+                      className="copy-button"
+                      onClick={() => {/* TODO: Copy to clipboard */}}
+                      title="Copy to clipboard"
+                    >
+                      📋
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}

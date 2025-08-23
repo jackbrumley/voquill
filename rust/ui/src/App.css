@@ -434,3 +434,89 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:foc
 .tab-content::-webkit-scrollbar-thumb:hover {
   background: #40444b;
 }
+
+/* History Tab */
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #40444b;
+}
+
+.history-header h3 {
+  color: #ffffff;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.empty-history {
+  text-align: center;
+  padding: 40px 20px;
+  color: #8e9297;
+  font-style: italic;
+}
+
+.history-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: #2f3136;
+  border-radius: 8px;
+  border: 1px solid #40444b;
+  transition: all 0.2s ease;
+}
+
+.history-item:hover {
+  background: #36393f;
+  border-color: #5865f2;
+}
+
+.history-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-text {
+  color: #dcddde;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 6px;
+  word-wrap: break-word;
+}
+
+.history-timestamp {
+  color: #8e9297;
+  font-size: 11px;
+  font-style: italic;
+}
+
+.copy-button {
+  background: #5865f2;
+  color: white;
+  border: none;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.copy-button:hover {
+  background: #4752c4;
+  transform: translateY(-1px);
+}
+
+.copy-button:active {
+  transform: translateY(0);
+}
