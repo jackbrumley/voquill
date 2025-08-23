@@ -30,7 +30,7 @@ function App() {
     pixels_from_bottom: 100,
   });
   
-  const [activeTab, setActiveTab] = useState<'status' | 'config' | 'history'>('status');
+  const [activeTab, setActiveTab] = useState<'status' | 'history' | 'config'>('status');
   const [isRecording, setIsRecording] = useState(false);
   const [isTestingApi, setIsTestingApi] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -285,16 +285,16 @@ function App() {
           Status
         </button>
         <button 
-          className={`tab ${activeTab === 'config' ? 'active' : ''}`}
-          onClick={() => setActiveTab('config')}
-        >
-          Config
-        </button>
-        <button 
           className={`tab ${activeTab === 'history' ? 'active' : ''}`}
           onClick={() => setActiveTab('history')}
         >
           History
+        </button>
+        <button 
+          className={`tab ${activeTab === 'config' ? 'active' : ''}`}
+          onClick={() => setActiveTab('config')}
+        >
+          Config
         </button>
       </div>
 
