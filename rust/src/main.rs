@@ -238,8 +238,8 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
     };
     
     // Calculate position (bottom center)
-    let window_width = 100;
-    let window_height = 100;
+    let window_width = 120;
+    let window_height = 120;
     
     let x = monitor_position.x + (monitor_size.width as i32 - window_width) / 2;
     let y = monitor_position.y + monitor_size.height as i32 - window_height - pixels_from_bottom;

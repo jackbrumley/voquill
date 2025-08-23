@@ -12,7 +12,7 @@
 
 body {
   background: #2f3136;
-  color: #dcddde;
+  color: #ffffff;
   height: 100vh;
   overflow: hidden;
   margin: 0;
@@ -49,7 +49,7 @@ body {
 }
 
 .title-bar-title {
-  color: #dcddde;
+  color: #ffffff;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -68,7 +68,7 @@ body {
   height: 32px;
   background: transparent;
   border: none;
-  color: #dcddde;
+  color: #ffffff;
   font-size: 10px;
   font-weight: 400;
   cursor: pointer;
@@ -143,7 +143,7 @@ body {
 
 .tab:hover {
   background: #40444b;
-  color: #dcddde;
+  color: #ffffff;
 }
 
 .tab.active {
@@ -199,7 +199,7 @@ body {
 }
 
 .status-display .status-content .status-text {
-  color: #dcddde;
+  color: #ffffff;
   font-weight: 300;
   font-size: 36px;
   text-align: left;
@@ -272,6 +272,12 @@ body.status-typing .status-icon {
   transition: all 0.3s ease;
   margin-bottom: 12px;
   box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+  outline: none;
+}
+
+.record-button:focus {
+  outline: none;
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
 }
 
 .record-button:hover {
@@ -301,7 +307,7 @@ label {
   display: block;
   margin-bottom: 6px;
   font-weight: 600;
-  color: #dcddde;
+  color: #ffffff;
   font-size: 13px;
 }
 
@@ -313,7 +319,7 @@ input[type="text"], input[type="password"], input[type="number"] {
   font-size: 13px;
   transition: all 0.2s ease;
   background: #2f3136;
-  color: #dcddde;
+  color: #ffffff;
 }
 
 input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus {
@@ -333,19 +339,19 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:foc
 .help-content {
   font-size: 13px;
   line-height: 1.6;
-  color: #b9bbbe;
+  color: #ffffff;
   text-align: center;
 }
 
 .help-content h3 {
-  color: #dcddde;
+  color: #ffffff;
   margin: 8px 0 10px 0;
   font-size: 14px;
   font-weight: 600;
 }
 
 .help-content h4 {
-  color: #dcddde;
+  color: #ffffff;
   margin: 18px 0 10px 0;
   font-size: 14px;
   font-weight: 600;
@@ -359,7 +365,7 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:foc
 
 .instructions li {
   margin-bottom: 3px;
-  color: #b9bbbe;
+  color: #ffffff;
 }
 
 .help-section ul {
@@ -369,7 +375,7 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:foc
 
 .help-section li {
   margin-bottom: 2px;
-  color: #b9bbbe;
+  color: #ffffff;
 }
 
 .instructions strong {
@@ -393,6 +399,12 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:foc
   font-size: 13px;
   font-weight: 600;
   transition: all 0.2s ease;
+  box-shadow: none;
+  outline: none;
+}
+
+.button:focus {
+  outline: none;
   box-shadow: none;
 }
 
@@ -478,7 +490,7 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:foc
   animation: slideIn 0.3s ease-out;
   font-size: 12px;
   border-left: 4px solid #5865f2;
-  color: #dcddde;
+  color: #ffffff;
 }
 
 .toast.success {
@@ -562,6 +574,12 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:foc
   transition: all 0.2s ease;
   box-shadow: none;
   width: 100%;
+  outline: none;
+}
+
+.clear-history-button:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 .clear-history-button:hover:not(:disabled) {
@@ -608,7 +626,7 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:foc
 }
 
 .history-text {
-  color: #dcddde;
+  color: #ffffff;
   font-size: 13px;
   line-height: 1.4;
   margin-bottom: 6px;
@@ -631,6 +649,12 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:foc
   font-size: 12px;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  outline: none;
+}
+
+.copy-button:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 .copy-button:hover {

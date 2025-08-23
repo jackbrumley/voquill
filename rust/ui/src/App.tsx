@@ -437,14 +437,14 @@ function App() {
 
             <div className="form-actions">
               <button className="button primary" onClick={saveConfig}>
-                💾 Save Configuration
+                Save Configuration
               </button>
               <button 
                 className="button" 
                 onClick={testApiKey}
                 disabled={isTestingApi}
               >
-                {isTestingApi ? '🔄 Testing...' : '🧪 Test API Key'}
+                {isTestingApi ? 'Testing...' : 'Test API Key'}
               </button>
             </div>
           </div>

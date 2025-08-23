@@ -30,7 +30,18 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+}
+
+.icon-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #36393f 0%, #36393f 40%, rgba(54, 57, 63, 0.8) 70%, rgba(54, 57, 63, 0) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
 
 .status-text {
@@ -56,6 +67,8 @@ body {
 .status-icon {
   font-size: 48px;
   display: inline-block;
+  position: relative;
+  z-index: 1;
 }
 
 /* Status-specific styling - only icon colors and animations */
