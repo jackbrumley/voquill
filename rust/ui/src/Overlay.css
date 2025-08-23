@@ -1,14 +1,42 @@
+:root {
+  background-color: transparent;
+}
+
+html {
+  background: transparent;
+}
+
 body {
-  background: rgba(0, 0, 0, 0.75);
-  color: white;
-  font-family: system-ui, sans-serif;
+  background: transparent;
   text-align: center;
-  transition: background-color 0.3s ease;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  background: transparent;
 }
 
 .status-container {
-  font-size: 36px;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  width: 100vw;
+  background: transparent;
+}
+
+/* Override the light mode media query from index.css */
+@media (prefers-color-scheme: light) {
+  :root {
+    background-color: transparent;
+  }
+  html {
+    background: transparent;
+  }
+  body {
+    background: transparent;
+  }
 }
 
 .status-icon {
@@ -16,49 +44,17 @@ body {
   display: inline-block;
 }
 
-.status-text {
-  color: #ffffff;
-  font-weight: 600;
-}
-
-/* Status-specific styling - applied to body */
-body.status-recording {
-  background: rgba(239, 68, 68, 0.8);
-  color: #fecaca;
-}
-
+/* Status-specific styling - only icon colors and animations */
 body.status-recording .status-icon {
-  color: #ef4444;
   animation: bounce 1.5s ease-in-out infinite;
 }
 
-body.status-transcribing {
-  background: rgba(59, 130, 246, 0.8);
-  color: #bfdbfe;
-}
-
 body.status-transcribing .status-icon {
-  color: #3b82f6;
   animation: spin 2s linear infinite;
 }
 
-body.status-typing {
-  background: rgba(34, 197, 94, 0.8);
-  color: #bbf7d0;
-}
-
 body.status-typing .status-icon {
-  color: #22c55e;
   animation: bounce 1s ease-in-out infinite;
-}
-
-body.status-ready {
-  background: rgba(16, 185, 129, 0.8);
-  color: #a7f3d0;
-}
-
-body.status-ready .status-icon {
-  color: #10b981;
 }
 
 /* Animations */
