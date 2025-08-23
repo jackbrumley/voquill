@@ -233,7 +233,7 @@ function App() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'Ready':
-        return '✅';
+        return '🟢';
       case 'Recording':
         return '🎤';
       case 'Converting audio':
