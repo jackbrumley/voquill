@@ -1,27 +1,5 @@
-use tauri::{AppHandle, Manager};
-use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, GlobalShortcutExt};
+use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
 
-pub async fn setup_global_hotkey(app_handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Get the config from the app state
-    let app_state = app_handle.state::<crate::AppState>();
-    let hotkey_string = {
-        let config = app_state.config.lock().unwrap();
-        config.hotkey.clone()
-    };
-    
-    // Parse the hotkey string or use default
-    let shortcut = if hotkey_string.is_empty() {
-        Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT | Modifiers::ALT), Code::Space)
-    } else {
-        parse_hotkey_string(&hotkey_string)?
-    };
-    
-    // Register the shortcut
-    app_handle.global_shortcut().register(shortcut)?;
-    
-    log::info!("Global hotkey registered: {}", hotkey_string);
-    Ok(())
-}
 
 pub fn parse_hotkey_string(hotkey_str: &str) -> Result<Shortcut, Box<dyn std::error::Error + Send + Sync>> {
     let binding = hotkey_str.to_lowercase();

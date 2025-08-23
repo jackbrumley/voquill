@@ -1,14 +1,14 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{
     Manager, WebviewWindow, Emitter, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}, AppHandle, LogicalPosition, LogicalSize, Position,
 };
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
-// Global app handle for emitting events
-static mut APP_HANDLE: Option<AppHandle> = None;
+// Global app handle for emitting events - using OnceLock for thread safety
+static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
 
 mod audio;
 mod config;
@@ -153,23 +153,25 @@ async fn test_api_key(api_key: String) -> Result<bool, String> {
     transcription::test_api_key(&api_key).await.map_err(|e| e.to_string())
 }
 
-// Global status for overlay
-static mut CURRENT_STATUS: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+// Global status for overlay - using OnceLock for thread safety
+static CURRENT_STATUS: OnceLock<Mutex<String>> = OnceLock::new();
 
 #[tauri::command]
 async fn get_current_status() -> Result<String, String> {
-    unsafe {
-        if let Ok(status) = CURRENT_STATUS.lock() {
+    if let Some(status_mutex) = CURRENT_STATUS.get() {
+        if let Ok(status) = status_mutex.lock() {
             Ok(status.clone())
         } else {
             Ok("Ready".to_string())
         }
+    } else {
+        Ok("Ready".to_string())
     }
 }
 
 fn update_global_status(status: &str) {
-    unsafe {
-        if let Ok(mut global_status) = CURRENT_STATUS.lock() {
+    if let Some(status_mutex) = CURRENT_STATUS.get() {
+        if let Ok(mut global_status) = status_mutex.lock() {
             *global_status = status.to_string();
         }
     }
@@ -249,24 +251,22 @@ async fn emit_status_update(status: &str) {
     // Update global status
     update_global_status(status);
     
-    unsafe {
-        if let Some(app_handle) = &APP_HANDLE {
-            // Emit to ALL windows with the same event
-            let windows = ["main", "overlay"];
-            for window_label in &windows {
-                if let Some(window) = app_handle.get_webview_window(window_label) {
-                    if let Err(e) = window.emit("status-update", status) {
-                        eprintln!("Failed to emit status to {}: {}", window_label, e);
-                    }
+    if let Some(app_handle) = APP_HANDLE.get() {
+        // Emit to ALL windows with the same event
+        let windows = ["main", "overlay"];
+        for window_label in &windows {
+            if let Some(window) = app_handle.get_webview_window(window_label) {
+                if let Err(e) = window.emit("status-update", status) {
+                    eprintln!("Failed to emit status to {}: {}", window_label, e);
                 }
             }
-            
-            // Handle overlay visibility based on status
-            if status == "Ready" {
-                let _ = hide_overlay_window(app_handle).await;
-            } else {
-                let _ = show_overlay_window(app_handle).await;
-            }
+        }
+        
+        // Handle overlay visibility based on status
+        if status == "Ready" {
+            let _ = hide_overlay_window(app_handle).await;
+        } else {
+            let _ = show_overlay_window(app_handle).await;
         }
     }
 }
@@ -277,7 +277,7 @@ async fn emit_status_to_frontend(status: &str) {
 }
 
 // Legacy function for backward compatibility - now just calls the centralized emitter
-async fn show_overlay(main_window: &WebviewWindow, message: &str) -> Result<(), String> {
+async fn show_overlay(_main_window: &WebviewWindow, message: &str) -> Result<(), String> {
     emit_status_update(message).await;
     Ok(())
 }
@@ -395,9 +395,10 @@ fn main() {
         .manage(app_state)
         .setup(|app| {
             // Store the app handle globally for status updates
-            unsafe {
-                APP_HANDLE = Some(app.handle().clone());
-            }
+            let _ = APP_HANDLE.set(app.handle().clone());
+            
+            // Initialize the global status
+            let _ = CURRENT_STATUS.set(Mutex::new("Ready".to_string()));
             
             // The overlay window is already defined in tauri.conf.json with the correct URL (/overlay)
             // Just ensure it's hidden initially

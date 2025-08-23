@@ -2,9 +2,6 @@ use enigo::{Enigo, Settings, Keyboard};
 use std::thread;
 use std::time::Duration;
 
-pub fn type_text(text: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    type_text_with_speed(text, 10) // Default 10ms delay
-}
 
 pub fn type_text_with_config(text: &str, typing_speed_interval: f64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let interval_ms = (typing_speed_interval * 1000.0) as u64;
