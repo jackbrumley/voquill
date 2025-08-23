@@ -37,7 +37,7 @@ body {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: radial-gradient(circle, #36393f 0%, #36393f 40%, rgba(54, 57, 63, 0.8) 70%, rgba(54, 57, 63, 0) 100%);
+  background: radial-gradient(circle, #5ab7d6 0%, #5ab7d6 30%, #c43991 70%, rgba(196, 57, 145, 0.8) 90%, rgba(196, 57, 145, 0) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
