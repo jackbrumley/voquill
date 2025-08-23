@@ -1,8 +1,67 @@
-frontend/dist
-frontend/node_modules
+# Node.js dependencies
+**/node_modules/
+**/package-lock.json
+
+# Frontend build outputs
+**/dist/
+**/build/
+
+# Go build outputs
+**/*.exe
+**/bin/
+go/voquill
+go/build/bin/
+
+# Go module cache
+**/go.sum
+
+# Wails generated files
+**/wailsjs/
+**/app.syso
+
+# Configuration files with sensitive data
+**/config.ini
+**/.env
+**/.env.local
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+**/logs/
+
+# Temporary files
+**/tmp/
+**/temp/
+**/.tmp/
+
+# Rust build outputs (for future)
+**/target/
+**/*.pdb
+
+# Python cache and virtual environments
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/venv/
+**/env/
+**/.venv/
 
 # Old/backup directories
 old/
-
-# Configuration files with sensitive data
-config.ini
+backup/
