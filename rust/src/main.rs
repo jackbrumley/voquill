@@ -367,11 +367,10 @@ async fn record_and_transcribe(
 }
 
 fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
-    let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
-    let record = MenuItem::with_id(app, "record", "Start Recording", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     
-    Menu::with_items(app, &[&show, &record, &quit])
+    Menu::with_items(app, &[&open, &quit])
 }
 
 fn main() {
@@ -445,22 +444,27 @@ fn main() {
                     "quit" => {
                         std::process::exit(0);
                     }
-                    "show" => {
+                    "open" => {
                         if let Some(window) = app_handle.get_webview_window("main") {
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
                     }
-                    "record" => {
-                        // TODO: Trigger recording from system tray
-                    }
                     _ => {}
                 })
                 .on_tray_icon_event(move |tray, event| {
-                    if let TrayIconEvent::Click { .. } = event {
-                        if let Some(window) = tray.app_handle().get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                    if let TrayIconEvent::Click { button, .. } = event {
+                        match button {
+                            tauri::tray::MouseButton::Left => {
+                                if let Some(window) = tray.app_handle().get_webview_window("main") {
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
+                            }
+                            tauri::tray::MouseButton::Right => {
+                                // Do nothing - let the context menu appear naturally
+                            }
+                            _ => {}
                         }
                     }
                 })

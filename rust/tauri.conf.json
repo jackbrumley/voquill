@@ -53,7 +53,8 @@
             "core:window:allow-minimize",
             "core:window:allow-close",
             "core:window:allow-start-dragging",
-            "core:event:default"
+            "core:event:default",
+            "core:tray:default"
           ]
         },
         {
