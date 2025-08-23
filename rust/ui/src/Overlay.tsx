@@ -89,7 +89,10 @@ function Overlay() {
 
   return (
     <div className="status-container">
-      <span className="status-icon">{getStatusIcon(status)}</span>
+      <div className="overlay-content">
+        <span className="status-icon">{getStatusIcon(status)}</span>
+        <span className="status-text">{status}</span>
+      </div>
     </div>
   );
 }

@@ -26,6 +26,26 @@ body {
   background: transparent;
 }
 
+.overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-text {
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: 
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000,
+    0 0 3px #000;
+  text-align: center;
+}
+
 /* Override the light mode media query from index.css */
 @media (prefers-color-scheme: light) {
   :root {
