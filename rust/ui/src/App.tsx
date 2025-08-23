@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import './App.css';
 
 interface Config {
@@ -273,9 +274,53 @@ function App() {
     }
   };
 
+  const handleMinimize = async () => {
+    try {
+      const appWindow = getCurrentWindow();
+      await appWindow.minimize();
+    } catch (error) {
+      console.error('Failed to minimize window:', error);
+    }
+  };
+
+  const handleClose = async () => {
+    try {
+      const appWindow = getCurrentWindow();
+      await appWindow.close();
+    } catch (error) {
+      console.error('Failed to close window:', error);
+    }
+  };
+
+  const handleTitleBarMouseDown = async (e: React.MouseEvent) => {
+    // Only start dragging if it's a left click and not on a button
+    if (e.button === 0 && !(e.target as HTMLElement).closest('.title-bar-button')) {
+      try {
+        const appWindow = getCurrentWindow();
+        await appWindow.startDragging();
+      } catch (error) {
+        console.error('Failed to start dragging:', error);
+      }
+    }
+  };
 
   return (
     <div className="app">
+      {/* Custom Title Bar */}
+      <div className="title-bar" onMouseDown={handleTitleBarMouseDown}>
+        <div className="title-bar-title">Voquill</div>
+        <div className="title-bar-controls">
+          <button className="title-bar-button minimize" onClick={handleMinimize} title="Minimize">
+            ─
+          </button>
+          <button className="title-bar-button maximize" onClick={() => {}} title="Maximize">
+            ☐
+          </button>
+          <button className="title-bar-button close" onClick={handleClose} title="Close">
+            ✕
+          </button>
+        </div>
+      </div>
       {/* Tab Navigation */}
       <div className="tab-nav">
         <button 
