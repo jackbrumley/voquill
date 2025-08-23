@@ -200,8 +200,8 @@ body {
 
 .status-display .status-content .status-text {
   color: #dcddde;
+  font-weight: 300;
   font-size: 36px;
-  font-weight: 400;
   text-align: left;
   text-shadow: none;
   line-height: 1;
