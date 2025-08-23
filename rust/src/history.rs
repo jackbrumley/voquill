@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoryItem {
@@ -59,7 +59,8 @@ pub fn save_history(history: &History) -> Result<(), Box<dyn std::error::Error>>
 pub fn add_history_item(text: &str) -> Result<HistoryItem, Box<dyn std::error::Error>> {
     let mut history = load_history()?;
     
-    let timestamp = Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
+    // Store as ISO 8601 UTC timestamp for easy parsing in frontend
+    let timestamp = Utc::now().to_rfc3339();
     let id = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
         .as_millis() as u64;

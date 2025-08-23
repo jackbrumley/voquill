@@ -12,6 +12,7 @@ static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
 
 mod audio;
 mod config;
+mod history;
 mod hotkey;
 mod transcription;
 mod typing;
@@ -169,6 +170,16 @@ async fn get_current_status() -> Result<String, String> {
     }
 }
 
+#[tauri::command]
+async fn get_history() -> Result<history::History, String> {
+    history::load_history().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn clear_history() -> Result<(), String> {
+    history::clear_history().map_err(|e| e.to_string())
+}
+
 fn update_global_status(status: &str) {
     if let Some(status_mutex) = CURRENT_STATUS.get() {
         if let Ok(mut global_status) = status_mutex.lock() {
@@ -320,6 +331,20 @@ async fn record_and_transcribe(
     
     if !text.trim().is_empty() {
         println!("Transcription complete, typing text: {}", text);
+        
+        // Save to history
+        if let Err(e) = history::add_history_item(&text) {
+            println!("Warning: Failed to save to history: {}", e);
+        } else {
+            println!("✅ Saved transcription to history");
+            
+            // Emit history update event to frontend
+            if let Some(app_handle) = APP_HANDLE.get() {
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.emit("history-updated", ());
+                }
+            }
+        }
         
         // Emit status update for typing
         emit_status_to_frontend("Typing").await;
@@ -493,7 +518,9 @@ fn main() {
             get_config,
             save_config,
             test_api_key,
-            get_current_status
+            get_current_status,
+            get_history,
+            clear_history
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

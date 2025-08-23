@@ -47,9 +47,10 @@ function App() {
     };
   }, [currentStatus]);
 
-  // Load configuration on startup
+  // Load configuration and history on startup
   useEffect(() => {
     loadConfig();
+    loadHistory();
     
     // Listen for hotkey events
     const unlistenPressed = listen('hotkey-pressed', async () => {
@@ -89,12 +90,26 @@ function App() {
       }
     });
 
+    // Listen for history updates from backend
+    const unlistenHistory = listen('history-updated', () => {
+      console.log('📚 History updated - reloading');
+      loadHistory();
+    });
+
     return () => {
       unlistenPressed.then(fn => fn());
       unlistenReleased.then(fn => fn());
       unlistenStatus.then(fn => fn());
+      unlistenHistory.then(fn => fn());
     };
   }, []);
+
+  // Load history when switching to history tab
+  useEffect(() => {
+    if (activeTab === 'history') {
+      loadHistory();
+    }
+  }, [activeTab]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     const id = Date.now();
@@ -121,6 +136,38 @@ function App() {
       });
     } catch (error) {
       showToast('Failed to load configuration', 'error');
+    }
+  };
+
+  const loadHistory = async () => {
+    try {
+      const historyData = await invoke<{ items: HistoryItem[] }>('get_history');
+      setHistory(historyData.items);
+      console.log('📚 Loaded history:', historyData.items.length, 'items');
+    } catch (error) {
+      console.error('Failed to load history:', error);
+      showToast('Failed to load history', 'error');
+    }
+  };
+
+  const clearHistory = async () => {
+    try {
+      await invoke('clear_history');
+      setHistory([]);
+      showToast('History cleared successfully', 'success');
+    } catch (error) {
+      console.error('Failed to clear history:', error);
+      showToast('Failed to clear history', 'error');
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Copied to clipboard!', 'success');
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      showToast('Failed to copy to clipboard', 'error');
     }
   };
 
@@ -212,6 +259,17 @@ function App() {
         return 'status-typing';
       default:
         return '';
+    }
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    try {
+      // Parse the ISO 8601 UTC timestamp and convert to local time
+      const date = new Date(timestamp);
+      return date.toLocaleString();
+    } catch (error) {
+      // Fallback for any parsing errors
+      return timestamp;
     }
   };
 
@@ -353,7 +411,7 @@ function App() {
               <h3>Transcription History</h3>
               <button 
                 className="button" 
-                onClick={() => {/* TODO: Clear history */}}
+                onClick={clearHistory}
               >
                 🗑️ Clear All History
               </button>
@@ -369,11 +427,11 @@ function App() {
                   <div key={item.id} className="history-item">
                     <div className="history-content">
                       <div className="history-text">{item.text}</div>
-                      <div className="history-timestamp">{item.timestamp}</div>
+                      <div className="history-timestamp">{formatTimestamp(item.timestamp)}</div>
                     </div>
                     <button 
                       className="copy-button"
-                      onClick={() => {/* TODO: Copy to clipboard */}}
+                      onClick={() => copyToClipboard(item.text)}
                       title="Copy to clipboard"
                     >
                       📋
