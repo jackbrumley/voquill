@@ -188,7 +188,6 @@ async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
     
     // Show the overlay window
     overlay_window.show().map_err(|e| e.to_string())?;
-    println!("✅ Overlay window shown");
     
     Ok(())
 }
@@ -247,8 +246,6 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
 
 // Centralized status emitter - single source of truth for all status updates
 async fn emit_status_update(status: &str) {
-    println!("📊 Status Update: {}", status);
-    
     // Update global status
     update_global_status(status);
     
@@ -259,9 +256,7 @@ async fn emit_status_update(status: &str) {
             for window_label in &windows {
                 if let Some(window) = app_handle.get_webview_window(window_label) {
                     if let Err(e) = window.emit("status-update", status) {
-                        println!("❌ Failed to emit to {}: {}", window_label, e);
-                    } else {
-                        println!("✅ Emitted status-update to {}: {}", window_label, status);
+                        eprintln!("Failed to emit status to {}: {}", window_label, e);
                     }
                 }
             }
