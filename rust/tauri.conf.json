@@ -79,10 +79,15 @@
     "category": "DeveloperTool",
     "copyright": "",
     "shortDescription": "Voice dictation app",
-    "longDescription": "Cross-platform push-to-talk dictation app using OpenAI Whisper",
+    "longDescription": "Cross-platform push-to-talk dictation app with Whisper-powered speech recognition",
     "icon": [
       "icons/icon.svg",
-      "icons/icon.ico"
+      "icons/icon.ico",
+      "icons/icon-16x16.png",
+      "icons/icon-32x32.png",
+      "icons/icon-48x48.png",
+      "icons/icon-128x128.png",
+      "icons/icon-256x256.png"
     ],
     "targets": "all",
     "resources": [],
@@ -95,6 +100,17 @@
     "linux": {
       "deb": {
         "depends": []
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      },
+      "desktop": {
+        "name": "Voquill",
+        "genericName": "Voice Dictation",
+        "comment": "Cross-platform push-to-talk dictation app with Whisper-powered speech recognition",
+        "categories": ["Office", "AudioVideo", "Utility"],
+        "keywords": ["voice", "dictation", "transcription", "whisper", "speech-to-text"],
+        "startupNotify": true
       }
     },
     "macOS": {

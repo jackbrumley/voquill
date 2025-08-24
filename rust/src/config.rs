@@ -5,6 +5,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub openai_api_key: String,
+    pub api_url: String,
     pub hotkey: String,
     pub typing_speed_interval: f64,
     pub pixels_from_bottom: i32,
@@ -14,6 +15,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             openai_api_key: "your_api_key_here".to_string(),
+            api_url: "https://api.openai.com/v1/audio/transcriptions".to_string(),
             hotkey: "ctrl+space".to_string(),
             typing_speed_interval: 0.01,
             pixels_from_bottom: 50,
