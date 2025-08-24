@@ -4790,6 +4790,7 @@ dependencies = [
  "env_logger",
  "global-hotkey 0.5.5",
  "hound",
+ "libloading 0.8.8",
  "log",
  "reqwest 0.11.27",
  "serde",

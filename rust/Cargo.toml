@@ -28,6 +28,7 @@ anyhow = "1.0"
 log = "0.4"
 env_logger = "0.10"
 chrono = { version = "0.4", features = ["serde"] }
+libloading = "0.8"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

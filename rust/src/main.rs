@@ -480,6 +480,90 @@ fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::E
 fn main() {
     env_logger::init();
 
+    // Initialize threading for Linux GUI applications with smart Wayland/X11 detection
+    #[cfg(target_os = "linux")]
+    {
+        // Detect the current display server
+        let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok() || 
+                        std::env::var("XDG_SESSION_TYPE").map(|s| s == "wayland").unwrap_or(false);
+        
+        let is_x11 = std::env::var("DISPLAY").is_ok() || 
+                     std::env::var("XDG_SESSION_TYPE").map(|s| s == "x11").unwrap_or(false);
+        
+        println!("🖥️  Display server detection: Wayland={}, X11={}", is_wayland, is_x11);
+        
+        if is_wayland {
+            println!("🌊 Wayland detected - prioritizing Wayland backend");
+            std::env::set_var("GDK_BACKEND", "wayland,x11");
+            
+            // Initialize Wayland-compatible threading
+            unsafe {
+                if let Ok(lib) = libloading::Library::new("libgtk-3.so.0") {
+                    if let Ok(gtk_init_check) = lib.get::<unsafe extern "C" fn(*mut i32, *mut *mut *mut i8) -> i32>(b"gtk_init_check") {
+                        let mut argc = 0i32;
+                        let mut argv = std::ptr::null_mut();
+                        if gtk_init_check(&mut argc, &mut argv) != 0 {
+                            println!("✅ GTK initialized for Wayland");
+                        }
+                    }
+                }
+            }
+        } else if is_x11 {
+            println!("🪟 X11 detected - initializing X11 threading");
+            std::env::set_var("GDK_BACKEND", "x11");
+            
+            // Initialize X11 threading before any X11 operations
+            unsafe {
+                // Initialize X11 threading first
+                if let Ok(lib) = libloading::Library::new("libX11.so.6") {
+                    if let Ok(xinit_threads) = lib.get::<unsafe extern "C" fn() -> i32>(b"XInitThreads") {
+                        let result = xinit_threads();
+                        if result != 0 {
+                            println!("✅ X11 threading initialized successfully");
+                        } else {
+                            println!("⚠️  X11 threading initialization returned 0 (may already be initialized)");
+                        }
+                    }
+                }
+                
+                // Then initialize GTK
+                if let Ok(lib) = libloading::Library::new("libgtk-3.so.0") {
+                    if let Ok(gtk_init_check) = lib.get::<unsafe extern "C" fn(*mut i32, *mut *mut *mut i8) -> i32>(b"gtk_init_check") {
+                        let mut argc = 0i32;
+                        let mut argv = std::ptr::null_mut();
+                        if gtk_init_check(&mut argc, &mut argv) != 0 {
+                            println!("✅ GTK initialized for X11");
+                        }
+                    }
+                }
+            }
+        } else {
+            println!("❓ Unknown display server - using fallback initialization");
+            std::env::set_var("GDK_BACKEND", "wayland,x11");
+            
+            // Fallback: try both Wayland and X11 initialization
+            unsafe {
+                // Try X11 threading first (safer)
+                if let Ok(lib) = libloading::Library::new("libX11.so.6") {
+                    if let Ok(xinit_threads) = lib.get::<unsafe extern "C" fn() -> i32>(b"XInitThreads") {
+                        xinit_threads();
+                        println!("✅ X11 threading initialized (fallback)");
+                    }
+                }
+                
+                // Then GTK
+                if let Ok(lib) = libloading::Library::new("libgtk-3.so.0") {
+                    if let Ok(gtk_init_check) = lib.get::<unsafe extern "C" fn(*mut i32, *mut *mut *mut i8) -> i32>(b"gtk_init_check") {
+                        let mut argc = 0i32;
+                        let mut argv = std::ptr::null_mut();
+                        gtk_init_check(&mut argc, &mut argv);
+                        println!("✅ GTK initialized (fallback)");
+                    }
+                }
+            }
+        }
+    }
+
     let app_state = AppState {
         config: Arc::new(Mutex::new(config::load_config().unwrap_or_default())),
         is_recording: Arc::new(Mutex::new(false)),

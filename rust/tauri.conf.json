@@ -35,6 +35,7 @@
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "transparent": true,
+        "focusable": false,
         "url": "/overlay"
       }
     ],

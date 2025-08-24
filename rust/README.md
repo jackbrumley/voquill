@@ -86,20 +86,30 @@ nvm install node
    cd ..
    ```
 
-3. **Build the application**:
-   ```bash
-   cargo build
-   ```
-
-4. **Run in development mode**:
+3. **Run in development mode**:
    ```bash
    cargo tauri dev
    ```
 
-5. **Build for production**:
+4. **Build for production release**:
+   
+   First, build the frontend:
+   ```bash
+   cd ui
+   npm run build
+   cd ..
+   ```
+   
+   Then build the complete application:
    ```bash
    cargo tauri build
    ```
+   
+   **Binary locations:**
+   - **Linux:** `target/release/voquill` (portable executable)
+   - **Windows:** `target/release/voquill.exe` (portable executable)
+   
+   The build process creates optimized, portable binaries that can be run directly without installation. All necessary dependencies are bundled with the application.
 
 ## Troubleshooting
 
