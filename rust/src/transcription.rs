@@ -4,6 +4,7 @@ use serde_json::Value;
 pub async fn transcribe_audio(
     audio_data: &[u8],
     api_key: &str,
+    api_url: &str,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let client = reqwest::Client::new();
     
@@ -17,7 +18,7 @@ pub async fn transcribe_audio(
         .text("model", "whisper-1");
 
     let response = client
-        .post("https://api.openai.com/v1/audio/transcriptions")
+        .post(api_url)
         .header("Authorization", format!("Bearer {}", api_key))
         .multipart(form)
         .send()
@@ -25,7 +26,7 @@ pub async fn transcribe_audio(
 
     if !response.status().is_success() {
         let error_text = response.text().await?;
-        return Err(format!("OpenAI API error: {}", error_text).into());
+        return Err(format!("API error: {}", error_text).into());
     }
 
     let json: Value = response.json().await?;
@@ -37,7 +38,7 @@ pub async fn transcribe_audio(
     Ok(text)
 }
 
-pub async fn test_api_key(api_key: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn test_api_key(api_key: &str, api_url: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
     let client = reqwest::Client::new();
     
     // Create a minimal test audio file (silence)
@@ -53,7 +54,7 @@ pub async fn test_api_key(api_key: &str) -> Result<bool, Box<dyn std::error::Err
         .text("model", "whisper-1");
 
     let response = client
-        .post("https://api.openai.com/v1/audio/transcriptions")
+        .post(api_url)
         .header("Authorization", format!("Bearer {}", api_key))
         .multipart(form)
         .send()

@@ -72,9 +72,20 @@ Voquill is built with modern, performant technologies:
 
 Voquill offers simple configuration options:
 
-- **OpenAI API Key** - Required for speech transcription
+- **API Key** - Required for speech transcription
+- **API URL** - Configurable endpoint (supports OpenAI, OpenRouter, and other Whisper-compatible APIs)
 - **Custom Hotkeys** - Set your preferred push-to-talk combination (default: `Ctrl + Space`)
 - **Transcription History** - View and manage your recent voice recordings and transcriptions
+
+### Configuration File Locations
+
+Voquill stores its configuration in the following locations:
+
+- **Linux**: `~/.config/voquill/config.json`
+- **Windows**: `%APPDATA%\voquill\config.json`
+- **macOS**: `~/Library/Application Support/voquill/config.json`
+
+To reset your configuration, simply delete the config file and restart the application.
 
 ## 🤝 Contributing
 

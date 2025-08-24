@@ -36,15 +36,54 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
     let config_path = get_config_path()?;
     
     if config_path.exists() {
-        let config_str = fs::read_to_string(config_path)?;
-        let config: Config = serde_json::from_str(&config_str)?;
-        Ok(config)
+        let config_str = fs::read_to_string(&config_path)?;
+        
+        // Try to parse as current Config struct
+        match serde_json::from_str::<Config>(&config_str) {
+            Ok(config) => Ok(config),
+            Err(_) => {
+                // Config might be missing new fields, try to migrate
+                println!("Config migration needed - updating to latest format");
+                
+                // Parse as a generic JSON value to handle missing fields
+                let mut config_value: serde_json::Value = serde_json::from_str(&config_str)?;
+                
+                // Add missing api_url field if it doesn't exist
+                if !config_value.get("api_url").is_some() {
+                    config_value["api_url"] = serde_json::Value::String(
+                        "https://api.openai.com/v1/audio/transcriptions".to_string()
+                    );
+                }
+                
+                // Parse the migrated config
+                let migrated_config: Config = serde_json::from_value(config_value)?;
+                
+                // Save the migrated config
+                save_config(&migrated_config)?;
+                println!("Config migrated successfully");
+                
+                Ok(migrated_config)
+            }
+        }
     } else {
         // Create default config file
         let default_config = Config::default();
         save_config(&default_config)?;
         Ok(default_config)
     }
+}
+
+pub fn is_first_launch() -> Result<bool, Box<dyn std::error::Error>> {
+    let config_path = get_config_path()?;
+    
+    // If config file doesn't exist, it's definitely first launch
+    if !config_path.exists() {
+        return Ok(true);
+    }
+    
+    // If config exists but API key is still default, treat as first launch
+    let config = load_config()?;
+    Ok(config.openai_api_key == "your_api_key_here" || config.openai_api_key.is_empty())
 }
 
 pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {

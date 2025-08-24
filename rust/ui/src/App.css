@@ -311,7 +311,7 @@ label {
   font-size: 13px;
 }
 
-input[type="text"], input[type="password"], input[type="number"] {
+input[type="text"], input[type="password"], input[type="number"], input[type="url"] {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #40444b;
@@ -322,7 +322,7 @@ input[type="text"], input[type="password"], input[type="number"] {
   color: #ffffff;
 }
 
-input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus {
+input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus, input[type="url"]:focus {
   outline: none;
   border-color: #5865f2;
   box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2);

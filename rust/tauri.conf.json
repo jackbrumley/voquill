@@ -103,14 +103,6 @@
       },
       "appimage": {
         "bundleMediaFramework": false
-      },
-      "desktop": {
-        "name": "Voquill",
-        "genericName": "Voice Dictation",
-        "comment": "Cross-platform push-to-talk dictation app with Whisper-powered speech recognition",
-        "categories": ["Office", "AudioVideo", "Utility"],
-        "keywords": ["voice", "dictation", "transcription", "whisper", "speech-to-text"],
-        "startupNotify": true
       }
     },
     "macOS": {

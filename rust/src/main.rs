@@ -150,8 +150,8 @@ async fn re_register_hotkey(app_handle: &tauri::AppHandle, hotkey_string: &str) 
 }
 
 #[tauri::command]
-async fn test_api_key(api_key: String) -> Result<bool, String> {
-    transcription::test_api_key(&api_key).await.map_err(|e| e.to_string())
+async fn test_api_key(api_key: String, api_url: String) -> Result<bool, String> {
+    transcription::test_api_key(&api_key, &api_url).await.map_err(|e| e.to_string())
 }
 
 // Global status for overlay - using OnceLock for thread safety
@@ -397,20 +397,20 @@ async fn record_and_transcribe(
     // Emit status update for transcription
     emit_status_to_frontend("Transcribing").await;
     
-    // Get API key
-    let api_key = {
+    // Get API key and URL
+    let (api_key, api_url) = {
         let config = config.lock().unwrap();
-        config.openai_api_key.clone()
+        (config.openai_api_key.clone(), config.api_url.clone())
     };
     
     if api_key.is_empty() || api_key == "your_api_key_here" {
-        log::error!("OpenAI API key not configured");
+        log::error!("API key not configured");
         reset_status_on_exit().await;
-        return Err("OpenAI API key not configured".into());
+        return Err("API key not configured".into());
     }
     
     // Transcribe audio with proper error handling
-    let text = match transcription::transcribe_audio(&audio_data, &api_key).await {
+    let text = match transcription::transcribe_audio(&audio_data, &api_key, &api_url).await {
         Ok(text) => text,
         Err(e) => {
             log::error!("Transcription failed: {}", e);
@@ -564,6 +564,9 @@ fn main() {
         }
     }
 
+    // Check for first launch BEFORE loading config (which creates the file)
+    let is_first_launch = config::is_first_launch().unwrap_or(false);
+    
     let app_state = AppState {
         config: Arc::new(Mutex::new(config::load_config().unwrap_or_default())),
         is_recording: Arc::new(Mutex::new(false)),
@@ -605,7 +608,7 @@ fn main() {
                 .build()
         )
         .manage(app_state)
-        .setup(|app| {
+        .setup(move |app| {
             // Store the app handle globally for status updates
             let _ = APP_HANDLE.set(app.handle().clone());
             
@@ -669,6 +672,15 @@ fn main() {
                         let _ = window_clone.hide();
                     }
                 });
+            }
+
+            // Check if this is first launch and show window if needed
+            if is_first_launch {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                    println!("First launch detected - showing main window for configuration");
+                }
             }
 
             // Register the global hotkey from config

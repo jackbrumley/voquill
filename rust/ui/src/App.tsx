@@ -7,6 +7,7 @@ import './App.css';
 
 interface Config {
   openai_api_key: string;
+  api_url: string;
   hotkey: string;
   typing_speed_interval: number;
   pixels_from_bottom: number;
@@ -27,6 +28,7 @@ interface HistoryItem {
 function App() {
   const [config, setConfig] = useState<Config>({
     openai_api_key: '',
+    api_url: 'https://api.openai.com/v1/audio/transcriptions',
     hotkey: 'ctrl+space',
     typing_speed_interval: 0.01,
     pixels_from_bottom: 100,
@@ -168,6 +170,7 @@ function App() {
     try {
       const configToSave = {
         openai_api_key: config.openai_api_key || 'your_api_key_here',
+        api_url: config.api_url,
         hotkey: config.hotkey,
         typing_speed_interval: config.typing_speed_interval / 1000, // Convert to seconds
         pixels_from_bottom: config.pixels_from_bottom,
@@ -186,10 +189,18 @@ function App() {
       return;
     }
 
+    if (!config.api_url) {
+      showToast('Please enter an API URL first', 'error');
+      return;
+    }
+
     setIsTestingApi(true);
 
     try {
-      const isValid = await invoke<boolean>('test_api_key', { apiKey: config.openai_api_key });
+      const isValid = await invoke<boolean>('test_api_key', { 
+        apiKey: config.openai_api_key,
+        apiUrl: config.api_url 
+      });
       if (isValid) {
         showToast('API key is valid!', 'success');
       } else {
@@ -346,7 +357,7 @@ function App() {
         {activeTab === 'config' && (
           <div className="tab-panel">
             <div className="form-group">
-              <label htmlFor="api-key">OpenAI API Key:</label>
+              <label htmlFor="api-key">API Key:</label>
               <input
                 type="password"
                 id="api-key"
@@ -354,6 +365,20 @@ function App() {
                 value={config.openai_api_key}
                 onChange={(e) => updateConfig('openai_api_key', e.target.value)}
               />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="api-url">API URL:</label>
+              <input
+                type="url"
+                id="api-url"
+                placeholder="https://api.openai.com/v1/audio/transcriptions"
+                value={config.api_url}
+                onChange={(e) => updateConfig('api_url', e.target.value)}
+              />
+              <small className="form-help">
+                Use OpenAI, OpenRouter, or any compatible Whisper API endpoint
+              </small>
             </div>
 
             <div className="form-group">
