@@ -1,4 +1,3 @@
-import React from 'react';
 import './StatusIcon.css';
 
 interface StatusIconProps {

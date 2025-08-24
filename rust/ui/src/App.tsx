@@ -33,7 +33,6 @@ function App() {
   });
   
   const [activeTab, setActiveTab] = useState<'status' | 'history' | 'config'>('status');
-  const [isRecording, setIsRecording] = useState(false);
   const [isTestingApi, setIsTestingApi] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [currentStatus, setCurrentStatus] = useState<string>('Ready');
@@ -57,14 +56,12 @@ function App() {
     // Listen for hotkey events
     const unlistenPressed = listen('hotkey-pressed', async () => {
       console.log('🎤 Hotkey pressed - starting recording');
-      setIsRecording(true);
       setCurrentStatus('Recording');
       try {
         await invoke('start_recording');
       } catch (error) {
         console.error('Failed to start recording:', error);
         showToast(`Failed to start recording: ${error}`, 'error');
-        setIsRecording(false);
         setCurrentStatus('Ready');
       }
     });
@@ -77,7 +74,6 @@ function App() {
         console.error('Failed to stop recording:', error);
         showToast(`Failed to stop recording: ${error}`, 'error');
       }
-      setIsRecording(false);
     });
 
     // Listen for status updates from backend
@@ -85,11 +81,6 @@ function App() {
       const status = event.payload as string;
       console.log('📊 Status update:', status);
       setCurrentStatus(status);
-      
-      // Reset to ready when typing is complete
-      if (status === 'Ready') {
-        setIsRecording(false);
-      }
     });
 
     // Listen for history updates from backend
@@ -211,21 +202,6 @@ function App() {
     }
   };
 
-  const toggleRecording = async () => {
-    if (isRecording) {
-      try {
-        await invoke('stop_recording');
-      } catch (error) {
-        showToast(`Failed to stop recording: ${error}`, 'error');
-      }
-    } else {
-      try {
-        await invoke('start_recording');
-      } catch (error) {
-        showToast(`Failed to start recording: ${error}`, 'error');
-      }
-    }
-  };
 
   const updateConfig = (field: keyof Config, value: string | number) => {
     setConfig(prev => ({ ...prev, [field]: value }));
