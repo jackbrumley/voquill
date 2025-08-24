@@ -332,7 +332,7 @@ input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:foc
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 20px;
+  margin-bottom: 20px;
 }
 
 /* Help Tab */

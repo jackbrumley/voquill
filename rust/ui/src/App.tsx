@@ -356,6 +356,19 @@ function App() {
 
         {activeTab === 'config' && (
           <div className="tab-panel">
+            <div className="form-actions">
+              <button className="button primary" onClick={saveConfig}>
+                Save Configuration
+              </button>
+              <button 
+                className="button" 
+                onClick={testApiKey}
+                disabled={isTestingApi}
+              >
+                {isTestingApi ? 'Testing...' : 'Test API Key'}
+              </button>
+            </div>
+
             <div className="form-group">
               <label htmlFor="api-key">API Key:</label>
               <input
@@ -416,19 +429,6 @@ function App() {
                 value={config.pixels_from_bottom}
                 onChange={(e) => updateConfig('pixels_from_bottom', parseInt(e.target.value))}
               />
-            </div>
-
-            <div className="form-actions">
-              <button className="button primary" onClick={saveConfig}>
-                Save Configuration
-              </button>
-              <button 
-                className="button" 
-                onClick={testApiKey}
-                disabled={isTestingApi}
-              >
-                {isTestingApi ? 'Testing...' : 'Test API Key'}
-              </button>
             </div>
           </div>
         )}
