@@ -37,11 +37,25 @@ body {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: radial-gradient(circle, #5ab7d6 0%, #5ab7d6 30%, #c43991 70%, rgba(196, 57, 145, 0.8) 90%, rgba(196, 57, 145, 0) 100%);
+  background: radial-gradient(circle, #5ab7d6 0%, rgba(90, 183, 214, 1) 20%, rgba(123, 120, 163, 1) 35%, rgba(156, 90, 136, 1) 50%, rgba(196, 57, 145, 1) 65%, #c43991 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.icon-circle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, #c43991 0%, rgba(196, 57, 145, 1) 20%, rgba(156, 90, 136, 1) 35%, rgba(123, 120, 163, 1) 50%, rgba(90, 183, 214, 1) 65%, #5ab7d6 100%);
+  animation: gradientPulse 4s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .status-text {
@@ -49,6 +63,10 @@ body {
   font-size: 16px;
   font-weight: 300;
   text-align: center;
+  background: rgba(54, 57, 63, 0.9);
+  padding: 2px 6px;
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
 }
 
 /* Override the light mode media query from index.css */
@@ -85,6 +103,15 @@ body.status-typing .status-icon {
 }
 
 /* Animations */
+@keyframes gradientPulse {
+  0%, 100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 @keyframes pulse {
   0%, 100% {
     transform: scale(1);

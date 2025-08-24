@@ -293,6 +293,68 @@ async fn show_overlay(_main_window: &WebviewWindow, message: &str) -> Result<(),
     Ok(())
 }
 
+// Validate audio duration to ensure it meets minimum requirements for transcription
+fn validate_audio_duration(audio_data: &[u8]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Parse WAV header to get duration information
+    if audio_data.len() < 44 {
+        return Err("Audio file too small to contain valid WAV header".into());
+    }
+    
+    // Read WAV header fields
+    let sample_rate = u32::from_le_bytes([
+        audio_data[24], audio_data[25], audio_data[26], audio_data[27]
+    ]);
+    let channels = u16::from_le_bytes([audio_data[22], audio_data[23]]);
+    let bits_per_sample = u16::from_le_bytes([audio_data[34], audio_data[35]]);
+    
+    // Find the data chunk
+    let mut data_size = 0u32;
+    let mut pos = 36;
+    
+    while pos + 8 <= audio_data.len() {
+        let chunk_id = &audio_data[pos..pos + 4];
+        let chunk_size = u32::from_le_bytes([
+            audio_data[pos + 4], audio_data[pos + 5], 
+            audio_data[pos + 6], audio_data[pos + 7]
+        ]);
+        
+        if chunk_id == b"data" {
+            data_size = chunk_size;
+            break;
+        }
+        
+        pos += 8 + chunk_size as usize;
+        // Align to even byte boundary
+        if chunk_size % 2 == 1 {
+            pos += 1;
+        }
+    }
+    
+    if data_size == 0 {
+        return Err("No data chunk found in WAV file".into());
+    }
+    
+    // Calculate duration in seconds
+    let bytes_per_sample = (bits_per_sample / 8) as u32;
+    let bytes_per_second = sample_rate * channels as u32 * bytes_per_sample;
+    let duration_seconds = data_size as f64 / bytes_per_second as f64;
+    
+    println!("Audio duration: {:.3} seconds (sample rate: {}Hz, channels: {}, bits: {})", 
+             duration_seconds, sample_rate, channels, bits_per_sample);
+    
+    // OpenAI Whisper requires minimum 0.1 seconds
+    const MIN_DURATION: f64 = 0.1;
+    
+    if duration_seconds < MIN_DURATION {
+        return Err(format!(
+            "Audio duration {:.3}s is below minimum required {:.1}s for transcription", 
+            duration_seconds, MIN_DURATION
+        ).into());
+    }
+    
+    Ok(())
+}
+
 async fn record_and_transcribe(
     config: Arc<Mutex<Config>>,
     is_recording: Arc<Mutex<bool>>,
@@ -300,13 +362,32 @@ async fn record_and_transcribe(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("Starting audio recording...");
     
+    // Ensure we always reset status to Ready, even if errors occur
+    let reset_status_on_exit = || async {
+        emit_status_to_frontend("Ready").await;
+    };
+    
     // Record audio while the recording flag is true
-    let audio_data = audio::record_audio_while_flag(&is_recording).await?;
+    let audio_data = match audio::record_audio_while_flag(&is_recording).await {
+        Ok(data) => data,
+        Err(e) => {
+            log::error!("Audio recording failed: {}", e);
+            reset_status_on_exit().await;
+            return Err(e);
+        }
+    };
     
     if audio_data.is_empty() {
         println!("No audio data recorded");
-        emit_status_to_frontend("Ready").await;
+        reset_status_on_exit().await;
         return Ok(());
+    }
+    
+    // Validate audio duration before proceeding with transcription
+    if let Err(e) = validate_audio_duration(&audio_data) {
+        println!("Audio validation failed: {}", e);
+        reset_status_on_exit().await;
+        return Ok(()); // Not an error, just too short
     }
     
     // Emit status update for audio conversion (if needed)
@@ -316,18 +397,36 @@ async fn record_and_transcribe(
     // Emit status update for transcription
     emit_status_to_frontend("Transcribing").await;
     
-    // Transcribe audio
+    // Get API key
     let api_key = {
         let config = config.lock().unwrap();
         config.openai_api_key.clone()
     };
     
     if api_key.is_empty() || api_key == "your_api_key_here" {
-        emit_status_to_frontend("Ready").await;
+        log::error!("OpenAI API key not configured");
+        reset_status_on_exit().await;
         return Err("OpenAI API key not configured".into());
     }
     
-    let text = transcription::transcribe_audio(&audio_data, &api_key).await?;
+    // Transcribe audio with proper error handling
+    let text = match transcription::transcribe_audio(&audio_data, &api_key).await {
+        Ok(text) => text,
+        Err(e) => {
+            log::error!("Transcription failed: {}", e);
+            
+            // Check if it's the "audio too short" error specifically
+            let error_str = e.to_string();
+            if error_str.contains("audio_too_short") || error_str.contains("Audio file is too short") {
+                println!("Audio file too short for transcription (< 0.1 seconds)");
+            } else {
+                println!("Transcription error: {}", e);
+            }
+            
+            reset_status_on_exit().await;
+            return Err(e);
+        }
+    };
     
     if !text.trim().is_empty() {
         println!("Transcription complete, typing text: {}", text);
@@ -354,13 +453,18 @@ async fn record_and_transcribe(
             let config = config.lock().unwrap();
             config.typing_speed_interval
         };
-        typing::type_text_with_config(&text, typing_speed)?;
+        
+        if let Err(e) = typing::type_text_with_config(&text, typing_speed) {
+            log::error!("Typing failed: {}", e);
+            reset_status_on_exit().await;
+            return Err(e);
+        }
         
         // Emit final status update
-        emit_status_to_frontend("Ready").await;
+        reset_status_on_exit().await;
     } else {
         println!("No text transcribed");
-        emit_status_to_frontend("Ready").await;
+        reset_status_on_exit().await;
     }
     
     Ok(())
