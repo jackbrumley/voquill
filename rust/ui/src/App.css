@@ -178,33 +178,33 @@ body {
 
 /* Status Tab */
 .status-display {
-  text-align: center;
-  padding: 7px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
   background: #2f3136;
   border-radius: 12px;
   border: 1px solid #202225;
 }
 
-.status-content {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 16px;
+.app-status-icon {
+  flex-shrink: 0;
+}
+
+.status-text-app {
+  color: #ffffff;
+  font-weight: 300;
+  font-size: 36px;
+  text-align: left;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  line-height: 1;
+  flex: 1;
 }
 
 .status-icon {
   font-size: 48px;
   display: inline-block;
-}
-
-.status-display .status-content .status-text {
-  color: #ffffff;
-  font-weight: 300;
-  font-size: 36px;
-  text-align: left;
-  text-shadow: none;
-  line-height: 1;
 }
 
 /* Status-specific styling - only icon colors and animations (matching overlay) */

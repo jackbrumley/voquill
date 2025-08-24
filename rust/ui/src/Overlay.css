@@ -33,22 +33,16 @@ body {
   gap: 4px;
 }
 
-.icon-circle {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #5ab7d6 0%, #5ab7d6 30%, #c43991 70%, rgba(196, 57, 145, 0.8) 90%, rgba(196, 57, 145, 0) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
 
 .status-text {
   color: white;
   font-size: 16px;
   font-weight: 300;
   text-align: center;
+  background: rgba(54, 57, 63, 0.3);
+  padding: 2px 6px;
+  border-radius: 8px;
+  backdrop-filter: blur(12px) saturate(180%);
 }
 
 /* Override the light mode media query from index.css */
@@ -61,61 +55,5 @@ body {
   }
   body {
     background: transparent;
-  }
-}
-
-.status-icon {
-  font-size: 48px;
-  display: inline-block;
-  position: relative;
-  z-index: 1;
-}
-
-/* Status-specific styling - only icon colors and animations */
-body.status-recording .status-icon {
-  animation: bounce 1.5s ease-in-out infinite;
-}
-
-body.status-transcribing .status-icon {
-  animation: spin 2s linear infinite;
-}
-
-body.status-typing .status-icon {
-  animation: bounce 1s ease-in-out infinite;
-}
-
-/* Animations */
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.1);
-    opacity: 0.8;
-  }
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes bounce {
-  0%, 20%, 53%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40%, 43% {
-    transform: translateY(-4px);
-  }
-  70% {
-    transform: translateY(-2px);
-  }
-  90% {
-    transform: translateY(-1px);
   }
 }
