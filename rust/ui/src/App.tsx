@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import StatusIcon from './StatusIcon';
 import './App.css';
 
 interface Config {
@@ -230,23 +231,6 @@ function App() {
     setConfig(prev => ({ ...prev, [field]: value }));
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Ready':
-        return '🟢';
-      case 'Recording':
-        return '🎤';
-      case 'Converting audio':
-        return '🔄';
-      case 'Transcribing':
-        return '🧠';
-      case 'Typing':
-        return '⌨️';
-      default:
-        return '📊';
-    }
-  };
-
   const getStatusClass = (status: string) => {
     switch (status) {
       case 'Ready':
@@ -348,10 +332,8 @@ function App() {
         {activeTab === 'status' && (
           <div className="tab-panel">
             <div className="status-display">
-              <div className="status-content">
-                <span className="status-icon">{getStatusIcon(currentStatus)}</span>
-                <span className="status-text">{currentStatus}</span>
-              </div>
+              <StatusIcon status={currentStatus} className="app-status-icon" />
+              <div className="status-text-app">{currentStatus}</div>
             </div>
             
             <div className="record-section">

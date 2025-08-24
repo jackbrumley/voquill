@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import StatusIcon from './StatusIcon';
 import './Overlay.css';
 
 function Overlay() {
@@ -44,55 +45,10 @@ function Overlay() {
     setupEventListeners();
   }, []);
 
-  // Apply status class to body
-  useEffect(() => {
-    const statusClass = getStatusClass(status);
-    document.body.className = statusClass;
-    
-    return () => {
-      document.body.className = '';
-    };
-  }, [status]);
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Ready':
-        return '🟢';
-      case 'Recording':
-        return '🎤';
-      case 'Converting audio':
-        return '🔄';
-      case 'Transcribing':
-        return '🧠';
-      case 'Typing':
-        return '⌨️';
-      default:
-        return '📊';
-    }
-  };
-
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'Ready':
-        return 'status-ready';
-      case 'Recording':
-        return 'status-recording';
-      case 'Converting audio':
-      case 'Transcribing':
-        return 'status-transcribing';
-      case 'Typing':
-        return 'status-typing';
-      default:
-        return '';
-    }
-  };
-
   return (
     <div className="status-container">
       <div className="overlay-content">
-        <div className="icon-circle">
-          <span className="status-icon">{getStatusIcon(status)}</span>
-        </div>
+        <StatusIcon status={status} />
         <span className="status-text">{status}</span>
       </div>
     </div>
