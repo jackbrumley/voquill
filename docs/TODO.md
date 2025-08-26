@@ -4,3 +4,4 @@
 - Add basic error handling for network/API failures with user-friendly messages.
 - Test and verify full functionality on all three platforms before release.
 - Choose and add appropriate open source license (MIT/Apache-2.0/GPL).
+- Add option to auto start when Windows or OS starts
