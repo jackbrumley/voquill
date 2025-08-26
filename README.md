@@ -87,6 +87,14 @@ Voquill stores its configuration in the following locations:
 
 To reset your configuration, simply delete the config file and restart the application.
 
+## 📚 Documentation
+
+For detailed technical information and development guides:
+
+- **[Build Instructions](docs/BUILD.md)** - How to build Voquill from source
+- **[Architecture](docs/ARCHITECTURE.md)** - Technical specifications and design decisions
+- **[Development Setup](rust/README.md)** - Rust/Tauri specific development guide
+
 ## 🤝 Contributing
 
 We welcome contributions! Whether it's:

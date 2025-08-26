@@ -213,19 +213,16 @@ async fn hide_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
 }
 
 async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &AppHandle) -> Result<(), String> {
-    // Get the primary monitor
-    let monitors = overlay_window.available_monitors().map_err(|e| e.to_string())?;
-    let primary_monitor = monitors
-        .iter()
-        .find(|m| {
-            if let Some(name) = m.name() {
-                name == r"\\.\DISPLAY1"
-            } else {
-                false
-            }
+    // Get the primary monitor (the actual primary display configured by the user)
+    let primary_monitor = overlay_window.primary_monitor()
+        .map_err(|e| e.to_string())?
+        .or_else(|| {
+            // Fallback: get all monitors and use the first one if primary detection fails
+            overlay_window.available_monitors()
+                .ok()
+                .and_then(|monitors| monitors.first().cloned())
         })
-        .or_else(|| monitors.first())
-        .ok_or("No primary monitor found")?;
+        .ok_or("No monitors found")?;
     
     let monitor_size = primary_monitor.size();
     let monitor_position = primary_monitor.position();
@@ -238,8 +235,8 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
     };
     
     // Calculate position (bottom center)
-    let window_width = 120;
-    let window_height = 120;
+    let window_width = 140;
+    let window_height = 140;
     
     let x = monitor_position.x + (monitor_size.width as i32 - window_width) / 2;
     let y = monitor_position.y + monitor_size.height as i32 - window_height - pixels_from_bottom;
