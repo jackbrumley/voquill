@@ -1,6 +1,6 @@
 [package]
 name = "voquill"
-version = "0.1.0"
+version = "1.0.0"
 description = "Cross-platform push-to-talk dictation app"
 authors = ["Voquill Team"]
 license = "MIT"
@@ -21,7 +21,6 @@ tokio = { version = "1.0", features = ["full"] }
 reqwest = { version = "0.11", features = ["json", "multipart"] }
 cpal = "0.15"
 hound = "3.5"
-global-hotkey = "0.5"
 enigo = "0.2"
 dirs = "5.0"
 anyhow = "1.0"

@@ -592,13 +592,20 @@ fn main() {
                         tauri_plugin_global_shortcut::ShortcutState::Released => {
                             println!("⏹️ Hotkey RELEASED - Stopping recording");
                             
-                            // Don't hide overlay immediately - let it stay visible during transcription/typing
-                            // The overlay will be hidden when the process completes (status becomes "Ready")
-                            
-                            // Emit to main window
-                            if let Some(window) = app_handle.get_webview_window("main") {
-                                let _ = window.emit("hotkey-released", ());
-                            }
+                            // Add delay to allow system to properly clear keyboard state
+                            // This helps prevent "stuck spacebar" issues with wireless keyboards
+                            let app_handle_clone = app_handle.clone();
+                            tauri::async_runtime::spawn(async move {
+                                tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                                
+                                // Don't hide overlay immediately - let it stay visible during transcription/typing
+                                // The overlay will be hidden when the process completes (status becomes "Ready")
+                                
+                                // Emit to main window after delay
+                                if let Some(window) = app_handle_clone.get_webview_window("main") {
+                                    let _ = window.emit("hotkey-released", ());
+                                }
+                            });
                         }
                     }
                 })
