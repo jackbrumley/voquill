@@ -56,7 +56,7 @@ jobs:
         with:
           node-version: 'lts/*'
           cache: 'npm'
-          cache-dependency-path: './rust/ui/package-lock.json'
+          cache-dependency-path: './rust/ui/package.json'
 
       - name: Install frontend dependencies
         run: npm install
