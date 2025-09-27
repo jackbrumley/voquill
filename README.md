@@ -85,6 +85,25 @@ Platform support:
 - **Clear Speech**: Speak clearly and at normal pace for best results
 - **History**: Access previous transcriptions from the app to copy/paste again
 
+## 📸 Screenshots
+
+### See Voquill in Action
+
+![Voquill Demo](docs/screenshots/screen-recording.gif)
+
+*Watch Voquill transcribe speech directly into any application*
+
+### Application Interface
+
+<div align="center">
+
+| Status Overlay | History | Configuration |
+|:---:|:---:|:---:|
+| ![Status](docs/screenshots/screenshot-status.png) | ![History](docs/screenshots/screenshot-history.png) | ![Config](docs/screenshots/screenshot-config.png) |
+| *Unobtrusive status indicator during recording* | *View and copy previous transcriptions* | *Simple setup with API key and hotkey configuration* |
+
+</div>
+
 ## 🛠️ Technology
 
 Voquill is built with modern, performant technologies:

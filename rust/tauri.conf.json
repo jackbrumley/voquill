@@ -81,7 +81,6 @@
     "shortDescription": "Voice dictation app",
     "longDescription": "Cross-platform push-to-talk dictation app with Whisper-powered speech recognition",
     "icon": [
-      "icons/icon.svg",
       "icons/icon.ico",
       "icons/icon-16x16.png",
       "icons/icon-32x32.png",
