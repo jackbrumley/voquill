@@ -10,7 +10,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://github.com/jackbrumley/voquill)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri-24C8DB)](https://tauri.app/)
 
-*Transform your voice into text with the power of AI*
+*System-wide accurate voice dictation - speech to text in any app, anywhere*
 
 </div>
 
@@ -18,38 +18,72 @@
 
 ## ✨ Current Features
 
-🎤 **Global Push-to-Talk** - Hold a customizable key combination to record anywhere on your system  
-🧠 **OpenAI Whisper Integration** - Cloud-based speech recognition with high accuracy  
-🌐 **Cross-Platform Support** - Native support for Windows, macOS, and Linux  
-⚡ **Direct Text Injection** - Transcribed text appears instantly in any focused text field  
-📊 **Live Visual Feedback** - Unobtrusive overlay shows recording and transcription status  
-⚙️ **Simple Configuration** - Minimal UI for hotkey and audio settings  
-📝 **Transcription History** - View and manage your recent transcriptions  
+- **Global Push-to-Talk** - Hold a customizable key combination to record anywhere on your system  
+- **Direct Keyboard Simulation** - Speech becomes actual keystrokes, works in ANY application  
+- **OpenAI Whisper Integration** - Cloud-based speech recognition with high accuracy  
+- **Cross-Platform Support** - Native support for Windows, macOS, and Linux  
+- **Live Visual Feedback** - Unobtrusive overlay shows recording and transcription status  
+- **Simple Configuration** - Minimal UI for hotkey and audio settings  
+- **Transcription History** - View and copy previous transcriptions to clipboard for easy pasting
 
-## 🚧 Coming Soon
+## 🚧 For the Future
 
-🔒 **Local Privacy Mode** - Optional local processing with Whisper.cpp for complete privacy  
-🌍 **Multiple Whisper Providers** - Support for various Whisper API providers beyond OpenAI  
+-  **Local Privacy Mode** - Optional local processing with Whisper.cpp for complete privacy  
+-  **Multiple Whisper Providers** - Support for various Whisper API providers beyond OpenAI  
 
-## 🚀 Quick Start
+## 🚀 Getting Started
 
 ### Download
 
-Ready-to-use binaries are available for supported platforms:
+Ready-to-use binaries are available for all supported platforms:
 
+**[📥 Download Latest Release](https://github.com/jackbrumley/voquill/releases/latest)**
+
+- **Windows**: `.msi` installer or standalone `.exe`
+- **macOS**: `.dmg` disk image with drag-to-install
+- **Linux**: `.deb` package, `.AppImage`, or standalone binary
+
+Platform support:
 - **Windows**: Full native support with global hotkeys and text injection
 - **macOS**: Full native support using Quartz Event Services  
 - **Linux**: Supported on Wayland/GNOME & KDE with proper portal support
 
-> 📦 **Coming Soon**: GitHub Releases with pre-built binaries
+### Setup Guide
 
-### Usage
+**Before you start:** Ensure you have a working microphone set as your default audio device.
 
-1. **Launch Voquill** - The app will open with a configuration window
-2. **Add API Key** - Enter your OpenAI API key in the settings
-3. **Hold & Speak** - Press and hold `Ctrl + Space` (default) anywhere on your system while speaking
-4. **Release & Watch** - Speech is transcribed and automatically typed into the focused text field
-5. **See Status** - Visual overlay shows "Recording" → "Transcribing" → completion
+#### Step 1: Get Your OpenAI API Key
+
+1. **Create an OpenAI Account**: [Sign up](https://platform.openai.com/signup/) or [log in](https://platform.openai.com/account/api-keys) to OpenAI
+2. **Generate API Key**: In your dashboard, go to "API Keys" → "Create new secret key"
+3. **Copy & Save**: Copy this key somewhere safe - you'll need it in Step 3
+   > ⚠️ **Important**: Treat your API key like a password. Never share it publicly.
+
+#### Step 2: Add Credit to Your Account
+
+1. **Go to Billing**: In your OpenAI dashboard, click "Billing"
+2. **Add Payment Method**: Add a credit card or payment method
+3. **Add Credit**: Even $5 will provide thousands of transcriptions
+   > 💡 **Cost**: Whisper API costs about $0.006 per minute of audio (very affordable!)
+
+#### Step 3: Configure Voquill
+
+1. **Install & Launch**: Download and install Voquill for your platform
+2. **Enter API Key**: When Voquill opens, paste your OpenAI API key in the settings
+3. **Test Your Setup**: Try the default hotkey (`Ctrl + Space`) and speak a few words
+
+#### Step 4: Start Dictating
+
+1. **Position Your Cursor**: Click in any text field (email, document, browser, etc.)
+2. **Hold & Speak**: Press and hold `Ctrl + Space` while speaking clearly
+3. **Release & Wait**: Let go of the keys and watch your speech become text!
+4. **See Status**: The overlay shows "Recording" → "Transcribing" → completion
+
+### Quick Usage Tips
+
+- **Works Everywhere**: Any app with text input - email, Word, browsers, code editors, ai chats
+- **Clear Speech**: Speak clearly and at normal pace for best results
+- **History**: Access previous transcriptions from the app to copy/paste again
 
 ## 🛠️ Technology
 
@@ -73,9 +107,9 @@ Voquill is built with modern, performant technologies:
 Voquill offers simple configuration options:
 
 - **API Key** - Required for speech transcription
-- **API URL** - Configurable endpoint (supports OpenAI, OpenRouter, and other Whisper-compatible APIs)
+- **API URL** - Configurable endpoint (currently tested with OpenAI, other Whisper-compatible APIs may work)
 - **Custom Hotkeys** - Set your preferred push-to-talk combination (default: `Ctrl + Space`)
-- **Transcription History** - View and manage your recent voice recordings and transcriptions
+- **Transcription History** - View and copy previous voice recordings and transcriptions to clipboard
 
 ### Configuration File Locations
 
@@ -92,6 +126,7 @@ To reset your configuration, simply delete the config file and restart the appli
 For detailed technical information and development guides:
 
 - **[Build Instructions](docs/BUILD.md)** - How to build Voquill from source
+- **[Release Process](docs/RELEASE.md)** - How to create automated releases
 - **[Architecture](docs/ARCHITECTURE.md)** - Technical specifications and design decisions
 - **[Development Setup](rust/README.md)** - Rust/Tauri specific development guide
 
