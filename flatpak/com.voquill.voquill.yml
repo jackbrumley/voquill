@@ -45,7 +45,7 @@ modules:
       - install -Dm644 icon-32x32.png /app/share/icons/hicolor/32x32/apps/com.voquill.voquill.png
     sources:
       - type: file
-        url: https://github.com/jackbrumley/voquill/releases/download/v1.0.2/voquill-linux-x86_64
+        url: https://github.com/jackbrumley/voquill/releases/download/v1.0.3/voquill-linux-x86_64
         sha256: PLACEHOLDER_SHA256
       - type: file
         path: com.voquill.voquill.desktop

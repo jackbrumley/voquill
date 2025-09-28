@@ -68,9 +68,14 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="1.0.3" date="2025-09-28">
+      <description>
+        <p>Flatpak packaging support for immutable Linux distributions like Bazzite and Fedora Silverblue.</p>
+      </description>
+    </release>
     <release version="1.0.2" date="2025-09-27">
       <description>
-        <p>Initial Flatpak release with cross-platform voice dictation support.</p>
+        <p>Initial release with cross-platform voice dictation support.</p>
       </description>
     </release>
   </releases>
