@@ -41,12 +41,13 @@ Ready-to-use binaries are available for all supported platforms:
 
 - **Windows**: `.msi` installer or standalone `.exe`
 - **macOS**: `.dmg` disk image with drag-to-install
-- **Linux**: `.deb` package, `.AppImage`, or standalone binary
+- **Linux**: `.deb` package, `.AppImage`, `.flatpak`, or standalone binary
 
 Platform support:
 - **Windows**: Full native support with global hotkeys and text injection
 - **macOS**: Full native support using Quartz Event Services  
 - **Linux**: Supported on Wayland/GNOME & KDE with proper portal support
+- **Immutable Linux**: Flatpak package available for Bazzite, Fedora Silverblue, etc.
 
 ### Setup Guide
 

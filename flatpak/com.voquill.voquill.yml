@@ -1,0 +1,62 @@
+app-id: com.voquill.voquill
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+command: voquill
+
+finish-args:
+  # GUI access
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  
+  # Audio access for microphone
+  - --socket=pulseaudio
+  
+  # Network access for OpenAI API
+  - --share=network
+  
+  # Global hotkeys and system integration
+  - --talk-name=org.freedesktop.portal.Desktop
+  - --talk-name=org.freedesktop.portal.GlobalShortcuts
+  - --talk-name=org.freedesktop.portal.RemoteDesktop
+  
+  # File system access for configuration
+  - --filesystem=xdg-config/voquill:create
+  
+  # System integration for typing into other apps
+  - --talk-name=org.freedesktop.portal.InputCapture
+  - --env=DISPLAY
+  
+  # Wayland protocols for global shortcuts
+  - --talk-name=org.kde.kglobalaccel
+  - --talk-name=org.gnome.Shell
+
+modules:
+  - name: voquill
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 voquill-linux-x86_64 /app/bin/voquill
+      - install -Dm644 com.voquill.voquill.desktop /app/share/applications/com.voquill.voquill.desktop
+      - install -Dm644 com.voquill.voquill.metainfo.xml /app/share/metainfo/com.voquill.voquill.metainfo.xml
+      - install -Dm644 icon-128x128.png /app/share/icons/hicolor/128x128/apps/com.voquill.voquill.png
+      - install -Dm644 icon-64x64.png /app/share/icons/hicolor/64x64/apps/com.voquill.voquill.png
+      - install -Dm644 icon-32x32.png /app/share/icons/hicolor/32x32/apps/com.voquill.voquill.png
+    sources:
+      - type: file
+        url: https://github.com/jackbrumley/voquill/releases/download/v1.0.2/voquill-linux-x86_64
+        sha256: PLACEHOLDER_SHA256
+      - type: file
+        path: com.voquill.voquill.desktop
+      - type: file
+        path: com.voquill.voquill.metainfo.xml
+      - type: file
+        path: ../rust/icons/128x128.png
+        dest-filename: icon-128x128.png
+      - type: file
+        path: ../rust/icons/64x64.png
+        dest-filename: icon-64x64.png
+      - type: file
+        path: ../rust/icons/32x32.png
+        dest-filename: icon-32x32.png

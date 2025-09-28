@@ -116,8 +116,53 @@ jobs:
             rust/target/${{ matrix.target }}/release/bundle/deb/*.deb
             rust/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
 
-  create-release:
+  build-flatpak:
     needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: voquill-linux-x86_64
+          path: flatpak-build
+
+      - name: Install Flatpak
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08
+
+      - name: Calculate SHA256 and update manifest
+        run: |
+          cd flatpak-build
+          SHA256=$(sha256sum voquill-linux-x86_64 | cut -d' ' -f1)
+          cd ../flatpak
+          sed -i "s/PLACEHOLDER_SHA256/$SHA256/" com.voquill.voquill.yml
+
+      - name: Build Flatpak
+        run: |
+          cd flatpak
+          flatpak-builder --force-clean --repo=repo build-dir com.voquill.voquill.yml
+
+      - name: Export Flatpak bundle
+        run: |
+          cd flatpak
+          flatpak build-bundle repo voquill.flatpak com.voquill.voquill
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: voquill-flatpak
+          path: flatpak/voquill.flatpak
+
+  create-release:
+    needs: [release, build-flatpak]
     runs-on: ubuntu-latest
     permissions:
       contents: write
