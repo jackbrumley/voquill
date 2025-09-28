@@ -73,13 +73,28 @@ jobs:
         run: cargo tauri build ${{ matrix.args }}
         working-directory: ./rust
 
+      - name: Rename binary for release (Windows)
+        if: matrix.os == 'windows'
+        run: |
+          cp rust/target/${{ matrix.target }}/release/voquill.exe rust/target/${{ matrix.target }}/release/voquill-windows-${{ matrix.arch }}.exe
+
+      - name: Rename binary for release (macOS)
+        if: matrix.os == 'macos'
+        run: |
+          cp rust/target/${{ matrix.target }}/release/voquill rust/target/${{ matrix.target }}/release/voquill-macos-${{ matrix.arch }}
+
+      - name: Rename binary for release (Linux)
+        if: matrix.os == 'linux'
+        run: |
+          cp rust/target/${{ matrix.target }}/release/voquill rust/target/${{ matrix.target }}/release/voquill-linux-${{ matrix.arch }}
+
       - name: Upload artifacts (Windows)
         if: matrix.os == 'windows'
         uses: actions/upload-artifact@v4
         with:
           name: voquill-${{ matrix.os }}-${{ matrix.arch }}
           path: |
-            rust/target/${{ matrix.target }}/release/voquill.exe
+            rust/target/${{ matrix.target }}/release/voquill-windows-${{ matrix.arch }}.exe
             rust/target/${{ matrix.target }}/release/bundle/msi/*.msi
 
       - name: Upload artifacts (macOS)
@@ -88,7 +103,7 @@ jobs:
         with:
           name: voquill-${{ matrix.os }}-${{ matrix.arch }}
           path: |
-            rust/target/${{ matrix.target }}/release/voquill
+            rust/target/${{ matrix.target }}/release/voquill-macos-${{ matrix.arch }}
             rust/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
 
       - name: Upload artifacts (Linux)
@@ -97,7 +112,7 @@ jobs:
         with:
           name: voquill-${{ matrix.os }}-${{ matrix.arch }}
           path: |
-            rust/target/${{ matrix.target }}/release/voquill
+            rust/target/${{ matrix.target }}/release/voquill-linux-${{ matrix.arch }}
             rust/target/${{ matrix.target }}/release/bundle/deb/*.deb
             rust/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
 
