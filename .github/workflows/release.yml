@@ -138,13 +138,6 @@ jobs:
           sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           sudo flatpak install -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08
 
-      - name: Calculate SHA256 and update manifest
-        run: |
-          cd flatpak-build
-          SHA256=$(sha256sum voquill-linux-x86_64 | cut -d' ' -f1)
-          cd ../flatpak
-          sed -i "s/PLACEHOLDER_SHA256/$SHA256/" com.voquill.voquill.yml
-
       - name: Build Flatpak
         run: |
           cd flatpak

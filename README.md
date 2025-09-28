@@ -1,6 +1,6 @@
 <div align="center">
 
-![Voquill Logo](rust/icons/icon-256x256.png)
+![Voquill Logo](rust/icons/128x128.png)
 
 # Voquill
 
