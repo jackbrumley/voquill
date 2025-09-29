@@ -41,8 +41,7 @@ Ready-to-use binaries are available for all supported platforms:
 
 - **Windows**: `.msi` installer or standalone `.exe`
 - **macOS**: `.dmg` disk image with drag-to-install
-- **Linux**: `.deb` package, `.AppImage`, or standalone binary
-- **Linux (Flatpak)**: Download `voquill-bundled.flatpak` for easy installation
+- **Linux**: `.deb` package, `.AppImage`, `.flatpak`, or standalone binary
 
 Platform support:
 - **Windows**: Full native support with global hotkeys and text injection

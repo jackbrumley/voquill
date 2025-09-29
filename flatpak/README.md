@@ -70,52 +70,36 @@ The Flatpak includes these permissions for full functionality:
 - **Input Simulation**: Typing into other applications
 - **Configuration**: Access to store settings
 
-## Installation Options
+## Installation
 
-We provide two Flatpak packages in our GitHub releases:
-
-### 1. Bundled Version (`voquill-bundled.flatpak`) - Recommended
-- **Frictionless installation** - Just download and install, no prerequisites
-- **Larger file size** - Includes all required runtimes
-- **Perfect for end users** - Works on any Linux system with Flatpak
-
-```bash
-# Download voquill-bundled.flatpak from GitHub releases, then:
-flatpak install --user voquill-bundled.flatpak
-```
-
-### 2. Standard Version (`voquill-standard.flatpak`)
-- **Smaller file size** - Doesn't include runtime dependencies
-- **Requires runtime** - Must install `org.freedesktop.Platform//23.08` first
-- **Traditional Flatpak approach** - Like packages from Flathub
+To install the Flatpak from GitHub releases:
 
 ```bash
 # First install the required runtime:
 flatpak install flathub org.freedesktop.Platform//23.08
 
 # Then install the app:
-flatpak install --user voquill-standard.flatpak
+flatpak install --user voquill.flatpak
 ```
 
 ## Testing on Immutable Distros
 
 ### Bazzite
 ```bash
-# Option 1: Bundled version (recommended)
-flatpak install --user voquill-bundled.flatpak
-
-# Option 2: Standard version
+# Install required runtime first:
 flatpak install flathub org.freedesktop.Platform//23.08
-flatpak install --user voquill-standard.flatpak
+# Then install the app:
+flatpak install --user voquill.flatpak
 
-# Option 3: From Flathub (once published)
+# Or install from Flathub (once published)
 flatpak install flathub com.voquill.voquill
 ```
 
 ### Fedora Silverblue
 ```bash
 # Same commands as Bazzite
-flatpak install --user voquill-bundled.flatpak
+flatpak install flathub org.freedesktop.Platform//23.08
+flatpak install --user voquill.flatpak
 ```
 
 ## Submitting to Flathub

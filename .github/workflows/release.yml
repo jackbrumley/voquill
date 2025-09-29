@@ -143,21 +143,16 @@ jobs:
           cd flatpak
           flatpak-builder --force-clean --repo=repo build-dir com.voquill.voquill.yml
 
-      - name: Export Flatpak bundles
+      - name: Export Flatpak bundle
         run: |
           cd flatpak
-          # Create bundled version (includes runtime - frictionless installation)
-          flatpak build-bundle --runtime repo voquill-bundled.flatpak com.voquill.voquill
-          # Create standard version (smaller, requires runtime to be installed separately)
-          flatpak build-bundle repo voquill-standard.flatpak com.voquill.voquill
+          flatpak build-bundle repo voquill.flatpak com.voquill.voquill
 
-      - name: Upload Flatpak artifacts
+      - name: Upload Flatpak artifact
         uses: actions/upload-artifact@v4
         with:
           name: voquill-flatpak
-          path: |
-            flatpak/voquill-bundled.flatpak
-            flatpak/voquill-standard.flatpak
+          path: flatpak/voquill.flatpak
 
   create-release:
     needs: [release, build-flatpak]
