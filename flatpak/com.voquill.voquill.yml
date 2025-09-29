@@ -27,7 +27,6 @@ finish-args:
   
   # System integration for typing into other apps
   - --talk-name=org.freedesktop.portal.InputCapture
-  - --env=DISPLAY
   
   # Wayland protocols for global shortcuts
   - --talk-name=org.kde.kglobalaccel
