@@ -1,6 +1,6 @@
 app-id: com.voquill.voquill
 runtime: org.freedesktop.Platform
-runtime-version: '23.08'
+runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
 command: voquill
 
@@ -34,11 +34,21 @@ finish-args:
 
 modules:
   - name: libxdo
-    buildsystem: cmake-ninja
+    buildsystem: simple
+    build-commands:
+      - make
+      - make install PREFIX=/app
     sources:
       - type: archive
         url: https://github.com/jordansissel/xdotool/releases/download/v3.20211022.1/xdotool-3.20211022.1.tar.gz
         sha256: 96f0facfde6d78eacad35b91b0f46fecd0b35e474c03e00e30da3fdd345f9ada
+    modules:
+      - name: libxtst
+        buildsystem: autotools
+        sources:
+          - type: archive
+            url: https://www.x.org/releases/individual/lib/libXtst-1.2.4.tar.xz
+            sha256: 84f5f30b9254b4ffee14b2b0b693b21f6b0d4e27c7e5b9c4e22bc0e4d1b7e1f8
 
   - name: voquill
     buildsystem: simple
