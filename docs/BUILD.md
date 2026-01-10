@@ -74,8 +74,8 @@ The script will automatically check for these requirements and guide you if anyt
 ## Output
 
 The script will create:
-- **Windows**: `rust/target/release/voquill.exe` (or `debug/voquill.exe` with `--dev`)
-- **Linux/macOS**: `rust/target/release/voquill` (or `debug/voquill` with `--dev`)
+- **Windows**: `src/target/release/voquill.exe` (or `debug/voquill.exe` with `--dev`)
+- **Linux/macOS**: `src/target/release/voquill` (or `debug/voquill` with `--dev`)
 
 ## Troubleshooting
 
@@ -89,10 +89,10 @@ The script will create:
   - Install Rust from [rustup.rs](https://rustup.rs/)
 
 - **Build fails during frontend step**
-  - Try running `npm install` manually in the `rust/ui` directory first
+  - Try running `npm install` manually in the `src/ui` directory first
 
 - **Build fails during Tauri step**
-  - Make sure you have all the system dependencies installed as described in `rust/README.md`
+  - Make sure you have all the system dependencies installed as described in `src/README.md`
 
 ## Manual Build Process
 
@@ -100,7 +100,7 @@ If you prefer to run the steps manually:
 
 ```bash
 # 1. Install frontend dependencies
-cd rust/ui
+cd src/ui
 npm install
 
 # 2. Build frontend
@@ -117,7 +117,7 @@ For development, you might prefer:
 
 ```bash
 # Run in development mode (no build needed)
-cd rust
+cd src
 cargo tauri dev
 ```
 

@@ -19,15 +19,109 @@ mod typing;
 
 use config::Config;
 
+#[cfg(target_os = "linux")]
+async fn check_request_audio_portal(app_handle: &tauri::AppHandle) -> Result<(), String> {
+    use ashpd::desktop::device::{Device, DeviceProxy};
+    
+    println!("Checking Audio/Microphone portal status...");
+    
+    let proxy = DeviceProxy::new().await.map_err(|e| e.to_string())?;
+    match proxy.access_device(std::process::id(), &[Device::Microphone]).await {
+        Ok(_) => {
+            println!("✅ Audio portal access granted or already available");
+            Ok(())
+        },
+        Err(e) => {
+            let error_msg = format!("{}", e);
+            println!("⚠️ Audio portal request failed: {}", error_msg);
+            let _ = app_handle.emit("audio-error", "portal-denied");
+            Err(error_msg)
+        }
+    }
+}
+
 // Application state
 #[derive(Default)]
 pub struct AppState {
     pub config: Arc<Mutex<Config>>,
     pub is_recording: Arc<Mutex<bool>>,
     pub overlay_window: Arc<Mutex<Option<WebviewWindow>>>,
+    pub hotkey_error: Arc<Mutex<Option<String>>>,
+    pub setup_status: Arc<Mutex<Option<String>>>,
+}
+
+#[cfg(target_os = "linux")]
+async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<(), String> {
+    use std::process::Command;
+
+    println!("Checking system portals and groups...");
+
+    // 1. Check groups (Silent detection)
+    let groups_output = Command::new("groups")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .unwrap_or_default();
+    
+    let is_in_audio = groups_output.contains("audio");
+    let is_in_input = groups_output.contains("input");
+
+    if !is_in_audio || !is_in_input {
+        println!("🔧 Missing group memberships. Triggering standard Polkit request...");
+        let _ = app_handle.emit("setup-status", "configuring-system");
+        
+        let username = std::env::var("USER").unwrap_or_default();
+        let cmd = format!("usermod -aG audio,input {}", username);
+        
+        let output = Command::new("pkexec")
+            .args(&["bash", "-c", &cmd])
+            .output();
+
+        match output {
+            Ok(out) if out.status.success() => {
+                println!("✅ Groups updated. Notifying user to restart session.");
+                let _ = app_handle.emit("setup-status", "restart-required");
+            },
+            _ => {
+                println!("⚠️ Group update failed or cancelled.");
+                let _ = app_handle.emit("setup-status", "setup-failed");
+            }
+        }
+    }
+
+    Ok(())
 }
 
 // Tauri commands
+#[tauri::command]
+async fn check_hotkey_status(state: tauri::State<'_, AppState>) -> Result<Option<String>, String> {
+    let error = state.hotkey_error.lock().unwrap();
+    Ok(error.clone())
+}
+
+#[tauri::command]
+async fn manual_register_hotkey(
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    let hotkey_string = {
+        let config = state.config.lock().unwrap();
+        config.hotkey.clone()
+    };
+    
+    println!("Manual hotkey registration requested: {}", hotkey_string);
+    
+    if let Err(e) = re_register_hotkey(&app_handle, &hotkey_string).await {
+        let mut error_lock = state.hotkey_error.lock().unwrap();
+        *error_lock = Some(e.clone());
+        return Err(e);
+    } else {
+        let mut error_lock = state.hotkey_error.lock().unwrap();
+        *error_lock = None;
+    }
+    
+    Ok(())
+}
+
 #[tauri::command]
 async fn start_recording(
     state: tauri::State<'_, AppState>,
@@ -112,7 +206,12 @@ async fn save_config(
     // Re-register the hotkey with the new configuration
     if let Err(e) = re_register_hotkey(&app_handle, &new_config.hotkey).await {
         println!("Failed to re-register hotkey: {}", e);
+        let mut error_lock = state.hotkey_error.lock().unwrap();
+        *error_lock = Some(e.clone());
         return Err(format!("Config saved but failed to update hotkey: {}", e));
+    } else {
+        let mut error_lock = state.hotkey_error.lock().unwrap();
+        *error_lock = None;
     }
     
     Ok(())
@@ -368,7 +467,19 @@ async fn record_and_transcribe(
     let audio_data = match audio::record_audio_while_flag(&is_recording).await {
         Ok(data) => data,
         Err(e) => {
-            log::error!("Audio recording failed: {}", e);
+            let error_msg = e.to_string();
+            log::error!("Audio recording failed: {}", error_msg);
+            
+            if error_msg.contains("dsnoop") || error_msg.contains("Busy") || error_msg.contains("no longer available") {
+                if let Some(app_handle) = APP_HANDLE.get() {
+                    let _ = app_handle.emit("audio-error", "device-busy");
+                }
+            } else {
+                if let Some(app_handle) = APP_HANDLE.get() {
+                    let _ = app_handle.emit("audio-error", format!("failed:{}", error_msg));
+                }
+            }
+
             reset_status_on_exit().await;
             return Err(e);
         }
@@ -568,6 +679,8 @@ fn main() {
         config: Arc::new(Mutex::new(config::load_config().unwrap_or_default())),
         is_recording: Arc::new(Mutex::new(false)),
         overlay_window: Arc::new(Mutex::new(None)),
+        hotkey_error: Arc::new(Mutex::new(None)),
+        setup_status: Arc::new(Mutex::new(None)),
     };
 
     tauri::Builder::default()
@@ -688,12 +801,24 @@ fn main() {
             }
 
             // Register the global hotkey from config
+            let app_handle_for_setup = app.handle().clone();
             let app_handle = app.handle().clone();
             let app_state = app.state::<AppState>();
             let hotkey_string = {
                 let config = app_state.config.lock().unwrap();
                 config.hotkey.clone()
             };
+
+            // Run Linux permission setup in background
+            #[cfg(target_os = "linux")]
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = check_request_audio_portal(&app_handle_for_setup).await {
+                    eprintln!("Audio portal error: {}", e);
+                }
+                if let Err(e) = check_and_request_permissions(&app_handle_for_setup).await {
+                    eprintln!("Failed to request linux permissions: {}", e);
+                }
+            });
             
             println!("Attempting to register hotkey: {}", hotkey_string);
             
@@ -707,14 +832,29 @@ fn main() {
                             log::info!("Global hotkey registered: {}", hotkey_string);
                         }
                         Err(e) => {
-                            println!("❌ Failed to register global hotkey: {}", e);
-                            log::error!("Failed to register global hotkey: {}", e);
+                            let error_msg = e.to_string();
+                            println!("❌ Failed to register global hotkey: {}", error_msg);
+                            log::error!("Failed to register global hotkey: {}", error_msg);
+                            
+                            // Emit specific error for conflict
+                            if error_msg.contains("already registered") {
+                                let _ = app_handle.emit("hotkey-error", format!("conflict:{}", hotkey_string));
+                            } else {
+                                let _ = app_handle.emit("hotkey-error", format!("failed:{}", error_msg));
+                            }
+
+                            let mut error_lock = app_state.hotkey_error.lock().unwrap();
+                            *error_lock = Some(error_msg);
                         }
                     }
                 }
                 Err(e) => {
-                    println!("❌ Failed to parse hotkey string '{}': {}", hotkey_string, e);
+                    let error_msg = e.to_string();
+                    println!("❌ Failed to parse hotkey string '{}': {}", hotkey_string, error_msg);
                     log::error!("Failed to parse hotkey string: {}", hotkey_string);
+                    let _ = app_handle.emit("hotkey-error", format!("parse-failed:{}", hotkey_string));
+                    let mut error_lock = app_state.hotkey_error.lock().unwrap();
+                    *error_lock = Some(error_msg);
                 }
             }
             
@@ -728,7 +868,9 @@ fn main() {
             test_api_key,
             get_current_status,
             get_history,
-            clear_history
+            clear_history,
+            check_hotkey_status,
+            manual_register_hotkey
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

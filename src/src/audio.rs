@@ -8,9 +8,30 @@ use std::time::Duration;
 
 pub async fn record_audio_while_flag(is_recording: &Arc<Mutex<bool>>) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     let host = cpal::default_host();
-    let device = host
-        .default_input_device()
-        .ok_or("No input device available")?;
+    
+    // On Linux, try to find a shared device (PulseAudio/PipeWire) first to avoid "Device Busy" errors
+    #[cfg(target_os = "linux")]
+    let device = {
+        let devices = host.input_devices()?;
+        let mut target_device = None;
+        for dev in devices {
+            if let Ok(name) = dev.name() {
+                println!("Checking audio device: {}", name);
+                // Prioritize virtual/shared devices
+                if name.to_lowercase().contains("pulse") || name.to_lowercase().contains("pipewire") || name.to_lowercase().contains("default") {
+                    target_device = Some(dev);
+                    break;
+                }
+            }
+        }
+        target_device.or_else(|| host.default_input_device())
+    };
+
+    #[cfg(not(target_os = "linux"))]
+    let device = host.default_input_device();
+
+    let device = device.ok_or("No input device available")?;
+    println!("🎤 Using audio device: {}", device.name().unwrap_or_else(|_| "Unknown".into()));
 
     let default_config = device.default_input_config()?;
     

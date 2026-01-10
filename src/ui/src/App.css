@@ -202,6 +202,57 @@ body {
   flex: 1;
 }
 
+.hotkey-error-banner {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 10px 0 20px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  animation: slideInBanner 0.3s ease-out;
+}
+
+.error-icon {
+  font-size: 1.2rem;
+}
+
+.error-content {
+  flex: 1;
+  text-align: left;
+}
+
+.error-title {
+  font-weight: 600;
+  color: #ef4444;
+  margin-bottom: 4px;
+  font-size: 0.9rem;
+}
+
+.error-message {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.error-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@keyframes slideInBanner {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .status-icon {
   font-size: 48px;
   display: inline-block;

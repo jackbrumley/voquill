@@ -67,11 +67,11 @@ modules:
       - type: file
         path: com.voquill.voquill.metainfo.xml
       - type: file
-        path: ../rust/icons/128x128.png
+        path: ../src/icons/128x128.png
         dest-filename: icon-128x128.png
       - type: file
-        path: ../rust/icons/64x64.png
+        path: ../src/icons/64x64.png
         dest-filename: icon-64x64.png
       - type: file
-        path: ../rust/icons/32x32.png
+        path: ../src/icons/32x32.png
         dest-filename: icon-32x32.png

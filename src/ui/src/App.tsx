@@ -63,7 +63,6 @@ function App() {
         await invoke('start_recording');
       } catch (error) {
         console.error('Failed to start recording:', error);
-        showToast(`Failed to start recording: ${error}`, 'error');
         setCurrentStatus('Ready');
       }
     });
@@ -74,7 +73,43 @@ function App() {
         await invoke('stop_recording');
       } catch (error) {
         console.error('Failed to stop recording:', error);
-        showToast(`Failed to stop recording: ${error}`, 'error');
+      }
+    });
+
+    // Listen for system setup status
+    const unlistenSetup = listen('setup-status', (event) => {
+      const status = event.payload as string;
+      if (status === 'configuring-system') {
+        showToast('ℹ️ System Setup: Configuring permissions for typing and audio (Password required)...', 'info');
+      } else if (status === 'setup-success') {
+        showToast('✅ System Ready: Typing and hotkeys enabled.', 'success');
+      } else if (status === 'restart-required') {
+        showToast('⚠️ Permissions updated: Please log out and back in to enable typing and audio.', 'info');
+      } else if (status.startsWith('setup-failed')) {
+        showToast(`❌ System Setup Failed: ${status.split(':')[1] || 'Unknown error'}`, 'error');
+      }
+    });
+
+    // Listen for hotkey errors
+    const unlistenHotkeyError = listen('hotkey-error', (event) => {
+      const error = event.payload as string;
+      if (error.startsWith('conflict')) {
+        const key = error.split(':')[1] || 'shortcut';
+        showToast(`⚠️ Hotkey Conflict: '${key}' is used by another app. Please change it in Config.`, 'error');
+      } else {
+        showToast(`❌ Hotkey Error: ${error.split(':')[1] || 'Failed to register'}`, 'error');
+      }
+    });
+
+    // Listen for audio errors
+    const unlistenAudioError = listen('audio-error', (event) => {
+      const error = event.payload as string;
+      if (error === 'device-busy') {
+        showToast('❌ Microphone Busy: Another app is using the mic exclusively. Please close it and try again.', 'error');
+      } else if (error === 'portal-denied') {
+        showToast('⚠️ Microphone Access Denied: Please allow access in system settings to record.', 'error');
+      } else {
+        showToast(`❌ Microphone Error: ${error.split(':')[1] || 'Failed to access mic'}`, 'error');
       }
     });
 
@@ -94,6 +129,9 @@ function App() {
     return () => {
       unlistenPressed.then(fn => fn());
       unlistenReleased.then(fn => fn());
+      unlistenSetup.then(fn => fn());
+      unlistenHotkeyError.then(fn => fn());
+      unlistenAudioError.then(fn => fn());
       unlistenStatus.then(fn => fn());
       unlistenHistory.then(fn => fn());
     };
@@ -110,10 +148,10 @@ function App() {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
     
-    // Auto-remove toast after 3 seconds
+    // Auto-remove toast after 5 seconds
     setTimeout(() => {
       setToasts(prev => prev.filter(toast => toast.id !== id));
-    }, 3000);
+    }, 5000);
   };
 
   const removeToast = (id: number) => {

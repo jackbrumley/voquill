@@ -1,0 +1,15 @@
+[[permission]]
+identifier = "allow-app-commands"
+description = "Allow all custom app commands"
+commands.allow = [
+    "start_recording",
+    "stop_recording",
+    "get_config",
+    "save_config",
+    "test_api_key",
+    "get_current_status",
+    "get_history",
+    "clear_history",
+    "check_hotkey_status",
+    "manual_register_hotkey"
+]

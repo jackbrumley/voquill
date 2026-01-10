@@ -60,9 +60,9 @@ function checkBasicRequirements() {
     logStep('1', 'Checking basic requirements...');
     
     // Check if we're in the right directory
-    if (!fs.existsSync('rust') || !fs.existsSync('rust/ui')) {
+    if (!fs.existsSync('src') || !fs.existsSync('src/ui')) {
         logError('This script must be run from the project root directory');
-        logError('Expected structure: ./rust/ui/package.json');
+        logError('Expected structure: ./src/ui/package.json');
         process.exit(1);
     }
     
@@ -145,7 +145,7 @@ function checkLinuxDependencies() {
 function cleanBuild() {
     logStep('2', 'Cleaning previous build...');
     
-    const uiDistDir = path.join('rust', 'ui', 'dist');
+    const uiDistDir = path.join('src', 'ui', 'dist');
     
     if (fs.existsSync(uiDistDir)) {
         log(`   Removing ${uiDistDir}`);
@@ -155,7 +155,7 @@ function cleanBuild() {
     // Clean Rust target if --clean flag is used
     const args = process.argv.slice(2);
     if (args.includes('--clean') || args.includes('-c')) {
-        const targetDir = path.join('rust', 'target');
+        const targetDir = path.join('src', 'target');
         if (fs.existsSync(targetDir)) {
             log(`   Removing ${targetDir} (--clean flag)`);
             fs.rmSync(targetDir, { recursive: true, force: true });
@@ -168,7 +168,7 @@ function cleanBuild() {
 function installDependencies() {
     logStep('3', 'Installing frontend dependencies...');
     
-    const uiDir = path.join('rust', 'ui');
+    const uiDir = path.join('src', 'ui');
     runCommand('npm install', uiDir, 'Installing npm dependencies');
     
     logSuccess('Dependencies installed');
@@ -177,7 +177,7 @@ function installDependencies() {
 function buildFrontend() {
     logStep('4', 'Building frontend...');
     
-    const uiDir = path.join('rust', 'ui');
+    const uiDir = path.join('src', 'ui');
     runCommand('npm run build', uiDir, 'Building React frontend');
     
     // Verify build output
@@ -193,14 +193,14 @@ function buildFrontend() {
 function buildApp() {
     logStep('5', 'Building Tauri application...');
     
-    const rustDir = path.join('rust');
+    const srcDir = path.join('src');
     const args = process.argv.slice(2);
     const isDev = args.includes('--dev') || args.includes('-d');
     
     if (isDev) {
-        runCommand('cargo tauri build --debug', rustDir, 'Building Tauri app (debug mode)');
+        runCommand('cargo tauri build --debug', srcDir, 'Building Tauri app (debug mode)');
     } else {
-        runCommand('cargo tauri build', rustDir, 'Building Tauri app (release mode)');
+        runCommand('cargo tauri build', srcDir, 'Building Tauri app (release mode)');
     }
     
     logSuccess('Application build completed');
@@ -215,7 +215,7 @@ function showResults() {
     
     const platform = os.platform();
     const executableName = platform === 'win32' ? 'voquill.exe' : 'voquill';
-    const executablePath = path.join('rust', 'target', buildType, executableName);
+    const executablePath = path.join('src', 'target', buildType, executableName);
     
     if (fs.existsSync(executablePath)) {
         const stats = fs.statSync(executablePath);
@@ -227,9 +227,9 @@ function showResults() {
         
         log('\n🚀 To run the application:');
         if (platform === 'win32') {
-            log(`   .\\rust\\target\\${buildType}\\voquill.exe`);
+            log(`   .\\src\\target\\${buildType}\\voquill.exe`);
         } else {
-            log(`   ./rust/target/${buildType}/voquill`);
+            log(`   ./src/target/${buildType}/voquill`);
         }
     } else {
         logError(`Expected executable not found at: ${executablePath}`);

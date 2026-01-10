@@ -1,6 +1,6 @@
 <div align="center">
 
-![Voquill Logo](rust/icons/128x128.png)
+![Voquill Logo](src/icons/128x128.png)
 
 # Voquill
 
@@ -148,7 +148,7 @@ For detailed technical information and development guides:
 - **[Build Instructions](docs/BUILD.md)** - How to build Voquill from source
 - **[Release Process](docs/RELEASE.md)** - How to create automated releases
 - **[Architecture](docs/ARCHITECTURE.md)** - Technical specifications and design decisions
-- **[Development Setup](rust/README.md)** - Rust/Tauri specific development guide
+- **[Development Setup](src/README.md)** - Rust/Tauri specific development guide
 
 ## 🤝 Contributing
 
@@ -175,6 +175,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for seamless voice-to-text experiences**
 
-[Report Bug](https://github.com/jackbrumley/voquill/issues) • [Request Feature](https://github.com/jackbrumley/voquill/issues) • [Documentation](rust/README.md)
+[Report Bug](https://github.com/jackbrumley/voquill/issues) • [Request Feature](https://github.com/jackbrumley/voquill/issues) • [Documentation](src/README.md)
 
 </div>

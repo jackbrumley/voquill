@@ -4,7 +4,7 @@ When releasing a new version of Voquill, the following files need to be updated 
 
 ## Required Files to Update
 
-### 1. `rust/Cargo.toml`
+### 1. `src/Cargo.toml`
 ```toml
 [package]
 name = "voquill"
@@ -13,7 +13,7 @@ version = "X.Y.Z"  # ← Update this line
 - **Purpose**: Main Rust package version
 - **Impact**: Used by Cargo for dependency management and build metadata
 
-### 2. `rust/tauri.conf.json`
+### 2. `src/tauri.conf.json`
 ```json
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
@@ -24,7 +24,7 @@ version = "X.Y.Z"  # ← Update this line
 - **Purpose**: Tauri application configuration
 - **Impact**: Used for app bundles, installers, and update checking
 
-### 3. `rust/ui/package.json`
+### 3. `src/ui/package.json`
 ```json
 {
   "name": "ui",
@@ -86,7 +86,7 @@ sources:
 ## Notes
 
 - All five files should always have the same version number
-- The `rust/Cargo.lock` file will be automatically updated when you run the build and **should be committed** (ensures everyone uses the same dependency versions)
+- The `src/Cargo.lock` file will be automatically updated when you run the build and **should be committed** (ensures everyone uses the same dependency versions)
 - Consider updating the changelog/release notes when bumping versions
 - For pre-release versions, use suffixes like `1.0.0-beta.1` or `1.0.0-rc.1`
 

@@ -1,0 +1,40 @@
+[package]
+name = "voquill"
+version = "1.0.3"
+description = "Cross-platform push-to-talk dictation app"
+authors = ["Voquill Team"]
+license = "MIT"
+repository = "https://github.com/jackbrumley/voquill"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+tauri-build = { version = "2.5.3", features = [] }
+
+[dependencies]
+tauri = { version = "2.9.5", features = [ "tray-icon"] }
+tauri-plugin-global-shortcut = "2.2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["json", "multipart"] }
+cpal = "0.15"
+ashpd = { version = "0.9", default-features = false, features = ["tokio"] }
+zbus = "4.4"
+hound = "3.5"
+enigo = "0.2"
+dirs = "5.0"
+anyhow = "1.0"
+log = "0.4"
+env_logger = "0.10"
+chrono = { version = "0.4", features = ["serde"] }
+libloading = "0.8"
+
+[features]
+# This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]
+
+[[bin]]
+name = "voquill"
+path = "src/main.rs"
