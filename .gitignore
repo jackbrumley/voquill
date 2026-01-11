@@ -65,3 +65,6 @@ Thumbs.db
 # Old/backup directories
 old/
 backup/
+
+# Reference systems
+reference-systems/

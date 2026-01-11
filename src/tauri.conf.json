@@ -10,12 +10,15 @@
     "devUrl": "http://localhost:5173"
   },
   "app": {
-    "windows": [
+        "windows": [
       {
+        "label": "main",
         "title": "Voquill",
         "width": 350,
         "height": 600,
-        "resizable": false,
+        "resizable": true,
+        "minWidth": 300,
+        "minHeight": 400,
         "center": true,
         "visible": false,
         "closable": true,

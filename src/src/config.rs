@@ -4,21 +4,35 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    #[serde(default = "default_api_key")]
     pub openai_api_key: String,
+    #[serde(default = "default_api_url")]
     pub api_url: String,
+    #[serde(default = "default_hotkey")]
     pub hotkey: String,
+    #[serde(default = "default_typing_speed")]
     pub typing_speed_interval: f64,
+    #[serde(default = "default_pixels_from_bottom")]
     pub pixels_from_bottom: i32,
+    #[serde(default)]
+    pub audio_device: Option<String>,
 }
+
+fn default_api_key() -> String { "your_api_key_here".to_string() }
+fn default_api_url() -> String { "https://api.openai.com/v1/audio/transcriptions".to_string() }
+fn default_hotkey() -> String { "ctrl+space".to_string() }
+fn default_typing_speed() -> f64 { 0.01 }
+fn default_pixels_from_bottom() -> i32 { 50 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            openai_api_key: "your_api_key_here".to_string(),
-            api_url: "https://api.openai.com/v1/audio/transcriptions".to_string(),
-            hotkey: "ctrl+space".to_string(),
-            typing_speed_interval: 0.01,
-            pixels_from_bottom: 50,
+            openai_api_key: default_api_key(),
+            api_url: default_api_url(),
+            hotkey: default_hotkey(),
+            typing_speed_interval: default_typing_speed(),
+            pixels_from_bottom: default_pixels_from_bottom(),
+            audio_device: None,
         }
     }
 }
@@ -38,33 +52,9 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
     if config_path.exists() {
         let config_str = fs::read_to_string(&config_path)?;
         
-        // Try to parse as current Config struct
-        match serde_json::from_str::<Config>(&config_str) {
-            Ok(config) => Ok(config),
-            Err(_) => {
-                // Config might be missing new fields, try to migrate
-                println!("Config migration needed - updating to latest format");
-                
-                // Parse as a generic JSON value to handle missing fields
-                let mut config_value: serde_json::Value = serde_json::from_str(&config_str)?;
-                
-                // Add missing api_url field if it doesn't exist
-                if !config_value.get("api_url").is_some() {
-                    config_value["api_url"] = serde_json::Value::String(
-                        "https://api.openai.com/v1/audio/transcriptions".to_string()
-                    );
-                }
-                
-                // Parse the migrated config
-                let migrated_config: Config = serde_json::from_value(config_value)?;
-                
-                // Save the migrated config
-                save_config(&migrated_config)?;
-                println!("Config migrated successfully");
-                
-                Ok(migrated_config)
-            }
-        }
+        // Try to parse as current Config struct - serde(default) handles missing fields
+        let config = serde_json::from_str::<Config>(&config_str)?;
+        Ok(config)
     } else {
         // Create default config file
         let default_config = Config::default();

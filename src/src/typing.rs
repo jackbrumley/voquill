@@ -12,14 +12,20 @@ pub fn type_text_with_speed(text: &str, interval_ms: u64) -> Result<(), Box<dyn 
     let settings = Settings::default();
     let mut enigo = Enigo::new(&settings)?;
     
+    println!("⌨️  Preparing to type: '{}'", text);
+    
     // Small delay to ensure the target application is ready
     thread::sleep(Duration::from_millis(100));
     
     // Type each character with custom delay
     for ch in text.chars() {
-        enigo.text(&ch.to_string())?;
+        if let Err(e) = enigo.text(&ch.to_string()) {
+            println!("❌ Typing failed for char '{}': {}", ch, e);
+            return Err(e.into());
+        }
         thread::sleep(Duration::from_millis(interval_ms));
     }
     
+    println!("✅ Typing complete");
     Ok(())
 }

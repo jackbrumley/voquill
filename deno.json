@@ -1,0 +1,10 @@
+{
+  "tasks": {
+    "dev": "deno run -A scripts/dev.ts",
+    "build": "deno run -A scripts/build.ts",
+    "tauri": "deno run -A npm:@tauri-apps/cli"
+  },
+  "workspace": [
+    "src/ui"
+  ]
+}

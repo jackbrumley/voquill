@@ -6,51 +6,182 @@ use std::io::BufWriter;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-pub async fn record_audio_while_flag(is_recording: &Arc<Mutex<bool>>) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-    let host = cpal::default_host();
+#[cfg(target_os = "linux")]
+use pulsectl::controllers::DeviceControl;
+
+#[derive(serde::Serialize, Clone, Debug)]
+pub struct AudioDevice {
+    pub id: String,
+    pub label: String,
+}
+
+#[cfg(target_os = "linux")]
+fn get_linux_pulse_devices() -> Result<Vec<AudioDevice>, String> {
+    let mut devices = Vec::new();
     
-    // On Linux, try to find a shared device (PulseAudio/PipeWire) first to avoid "Device Busy" errors
+    let mut handler = match pulsectl::controllers::SourceController::create() {
+        Ok(h) => h,
+        Err(e) => return Err(format!("Failed to connect to PulseAudio: {}", e)),
+    };
+
+    let sources = match handler.list_devices() {
+        Ok(s) => s,
+        Err(e) => return Err(format!("Failed to list PulseAudio sources: {}", e)),
+    };
+
+    for source in sources {
+        let name = source.name.clone().unwrap_or_default();
+        let description = source.description.clone().unwrap_or_default();
+
+        let lower_name = name.to_lowercase();
+        let lower_desc = description.to_lowercase();
+        
+        if lower_name.contains(".monitor") || lower_desc.contains("monitor") || lower_name == "null" {
+            continue;
+        }
+
+        devices.push(AudioDevice {
+            id: format!("pulse:{}", name),
+            label: description,
+        });
+    }
+
+    Ok(devices)
+}
+
+pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
+    println!("🔍 get_input_devices called from frontend");
+    
     #[cfg(target_os = "linux")]
-    let device = {
-        let devices = host.input_devices()?;
-        let mut target_device = None;
-        for dev in devices {
-            if let Ok(name) = dev.name() {
-                println!("Checking audio device: {}", name);
-                // Prioritize virtual/shared devices
-                if name.to_lowercase().contains("pulse") || name.to_lowercase().contains("pipewire") || name.to_lowercase().contains("default") {
-                    target_device = Some(dev);
-                    break;
+    {
+        match get_linux_pulse_devices() {
+            Ok(devices) => {
+                println!("Final PulseAudio device list ({} devices): {:?}", devices.len(), devices);
+                return Ok(devices);
+            }
+            Err(e) => {
+                println!("⚠️ PulseAudio discovery failed, falling back to ALSA: {}", e);
+            }
+        }
+    }
+
+    let mut final_devices = Vec::new();
+    let mut seen_labels = std::collections::HashSet::new();
+    
+    let available_hosts = cpal::available_hosts();
+    for host_id in available_hosts {
+        if let Ok(host) = cpal::host_from_id(host_id) {
+            if let Ok(devices) = host.input_devices() {
+                for dev in devices {
+                    let device_id = match dev.id() {
+                        Ok(id) => id.1,
+                        Err(_) => continue,
+                    };
+
+                    if !device_id.starts_with("default:") && device_id != "pulse" && device_id != "default" {
+                        continue;
+                    }
+
+                    let label = match dev.description() {
+                        Ok(desc) => desc.name().to_string(),
+                        Err(_) => device_id.clone(),
+                    };
+
+                    let clean_label = label
+                        .split(", USB Audio").next().unwrap_or(&label)
+                        .split(", ALC").next().unwrap_or(&label)
+                        .trim()
+                        .to_string();
+
+                    if !seen_labels.contains(&clean_label) {
+                        final_devices.push(AudioDevice {
+                            id: device_id.clone(),
+                            label: clean_label.clone(),
+                        });
+                        seen_labels.insert(clean_label);
+                    }
                 }
             }
         }
-        target_device.or_else(|| host.default_input_device())
+    }
+
+    final_devices.sort_by(|a, b| a.label.cmp(&b.label));
+    Ok(final_devices)
+}
+
+pub async fn record_audio_while_flag(
+    is_recording: &Arc<Mutex<bool>>,
+    preferred_device_id: Option<String>
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let host = cpal::default_host();
+    
+    let device = if let Some(target_id) = preferred_device_id {
+        if target_id.starts_with("pulse:") {
+            let pulse_source_name = &target_id[6..];
+            println!("🎤 Initializing recording for PulseAudio source: {}", pulse_source_name);
+            
+            #[cfg(target_os = "linux")]
+            {
+                std::env::set_var("PULSE_SOURCE", pulse_source_name);
+                println!("🔧 Set PULSE_SOURCE={} for ALSA-to-Pulse routing", pulse_source_name);
+            }
+            
+            let devices = host.input_devices()?;
+            devices.into_iter().find(|d| {
+                d.id().map(|id| id.1 == "pulse").unwrap_or(false)
+            }).ok_or("Could not find 'pulse' ALSA device for routed recording")?
+        } else {
+            println!("🎤 Initializing recording for device ID: {}", target_id);
+            let devices = host.input_devices()?;
+            let mut found = None;
+            for dev in devices {
+                if let Ok(id) = dev.id() {
+                    if id.1 == target_id {
+                        found = Some(dev);
+                        break;
+                    }
+                }
+            }
+            found.ok_or_else(|| format!("Selected device '{}' not found", target_id))?
+        }
+    } else {
+        #[cfg(target_os = "linux")]
+        {
+            let devices = host.input_devices()?;
+            let mut target_device = None;
+            for dev in devices {
+                if let Ok(id) = dev.id() {
+                    let name = id.1;
+                    if name == "pulse" || name.starts_with("default") {
+                        target_device = Some(dev);
+                        break;
+                    }
+                }
+            }
+            target_device.or_else(|| host.default_input_device()).ok_or("No input device available")?
+        }
+        
+        #[cfg(not(target_os = "linux"))]
+        host.default_input_device().ok_or("No input device available")?
     };
 
-    #[cfg(not(target_os = "linux"))]
-    let device = host.default_input_device();
-
-    let device = device.ok_or("No input device available")?;
-    println!("🎤 Using audio device: {}", device.name().unwrap_or_else(|_| "Unknown".into()));
+    let final_device_name = match device.description() {
+        Ok(desc) => desc.name().to_string(),
+        Err(_) => device.id().map(|id| id.1).unwrap_or_else(|_| "Unknown".into()),
+    };
+    println!("⏺️  STARTING RECORDING using device: {}", final_device_name);
 
     let default_config = device.default_input_config()?;
-    
-    // Use device's native settings for recording - this is guaranteed to work
     let config = StreamConfig {
         channels: default_config.channels(),
         sample_rate: default_config.sample_rate(),
         buffer_size: cpal::BufferSize::Default,
     };
     
-    log::info!("Recording with device native settings: {}Hz, {} channels", 
-               config.sample_rate.0,
-               config.channels);
-    
-    // Create temporary file for recording
     let temp_path = std::env::temp_dir().join("voquill_recording.wav");
     let spec = WavSpec {
         channels: config.channels,
-        sample_rate: config.sample_rate.0,
+        sample_rate: config.sample_rate,
         bits_per_sample: 16,
         sample_format: hound::SampleFormat::Int,
     };
@@ -63,7 +194,6 @@ pub async fn record_audio_while_flag(is_recording: &Arc<Mutex<bool>>) -> Result<
         log::error!("Audio stream error: {}", err);
     };
 
-    // Build stream based on the device's default sample format
     let stream = match default_config.sample_format() {
         SampleFormat::F32 => device.build_input_stream(
             &config,
@@ -94,7 +224,6 @@ pub async fn record_audio_while_flag(is_recording: &Arc<Mutex<bool>>) -> Result<
 
     stream.play()?;
 
-    // Record while the flag is true
     while {
         let recording = is_recording.lock().unwrap();
         *recording
@@ -104,21 +233,15 @@ pub async fn record_audio_while_flag(is_recording: &Arc<Mutex<bool>>) -> Result<
 
     drop(stream);
 
-    // Finalize the WAV file
     if let Ok(mut guard) = writer.lock() {
         if let Some(writer) = guard.take() {
             writer.finalize()?;
         }
     }
 
-    // Read the recorded file
     let audio_data = std::fs::read(&temp_path)?;
-    
-    // Clean up temporary file
     let _ = std::fs::remove_file(&temp_path);
-
-    // Convert audio to optimal format for Whisper (16kHz mono)
-    let optimized_audio = convert_audio_for_whisper(&audio_data, config.sample_rate.0, config.channels)?;
+    let optimized_audio = convert_audio_for_whisper(&audio_data, config.sample_rate, config.channels)?;
     
     Ok(optimized_audio)
 }
@@ -128,7 +251,6 @@ fn write_input_data_f32(input: &[f32], writer: &Arc<Mutex<Option<WavWriter<BufWr
     if let Ok(mut guard) = writer.try_lock() {
         if let Some(writer) = guard.as_mut() {
             for &sample in input.iter() {
-                // Convert f32 to i16 for WAV file
                 let sample_i16 = (sample * i16::MAX as f32) as i16;
                 let _ = writer.write_sample(sample_i16);
             }
@@ -150,7 +272,6 @@ fn write_input_data_u16(input: &[u16], writer: &Arc<Mutex<Option<WavWriter<BufWr
     if let Ok(mut guard) = writer.try_lock() {
         if let Some(writer) = guard.as_mut() {
             for &sample in input.iter() {
-                // Convert u16 to i16 for WAV file
                 let sample_i16 = (sample as i32 - 32768) as i16;
                 let _ = writer.write_sample(sample_i16);
             }
@@ -163,16 +284,10 @@ fn convert_audio_for_whisper(
     original_sample_rate: u32, 
     original_channels: u16
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-    // If already optimal format, return as-is
     if original_sample_rate == 16000 && original_channels == 1 {
-        log::info!("Audio already in optimal format (16kHz mono), no conversion needed");
         return Ok(audio_data.to_vec());
     }
     
-    log::info!("Converting audio from {}Hz {} channels to 16kHz mono for optimal Whisper performance", 
-               original_sample_rate, original_channels);
-    
-    // Parse the original WAV file
     let mut cursor = std::io::Cursor::new(audio_data);
     let mut reader = hound::WavReader::new(&mut cursor)?;
     
@@ -180,9 +295,7 @@ fn convert_audio_for_whisper(
     let samples: Result<Vec<i16>, _> = reader.samples::<i16>().collect();
     let samples = samples?;
     
-    // Convert to mono if stereo
     let mono_samples = if spec.channels == 2 {
-        // Convert stereo to mono by averaging left and right channels
         samples.chunks(2)
             .map(|chunk| {
                 if chunk.len() == 2 {
@@ -196,14 +309,12 @@ fn convert_audio_for_whisper(
         samples
     };
     
-    // Resample to 16kHz if needed
     let resampled_samples = if spec.sample_rate != 16000 {
         resample_audio(&mono_samples, spec.sample_rate, 16000)
     } else {
         mono_samples
     };
     
-    // Create new WAV file with optimal settings
     let optimized_spec = WavSpec {
         channels: 1,
         sample_rate: 16000,
@@ -219,13 +330,6 @@ fn convert_audio_for_whisper(
         }
         writer.finalize()?;
     }
-    
-    let original_size = audio_data.len();
-    let optimized_size = output_buffer.len();
-    let reduction_percent = ((original_size as f64 - optimized_size as f64) / original_size as f64) * 100.0;
-    
-    log::info!("Audio conversion complete: {} bytes -> {} bytes ({:.1}% reduction)", 
-               original_size, optimized_size, reduction_percent);
     
     Ok(output_buffer)
 }

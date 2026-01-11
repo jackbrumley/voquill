@@ -21,21 +21,30 @@ use config::Config;
 
 #[cfg(target_os = "linux")]
 async fn check_request_audio_portal(app_handle: &tauri::AppHandle) -> Result<(), String> {
-    use ashpd::desktop::device::{Device, DeviceProxy};
+    use ashpd::desktop::camera::Camera;
     
-    println!("Checking Audio/Microphone portal status...");
+    println!("Checking Audio/Microphone portal status (via Camera portal)...");
     
-    let proxy = DeviceProxy::new().await.map_err(|e| e.to_string())?;
-    match proxy.access_device(std::process::id(), &[Device::Microphone]).await {
-        Ok(_) => {
-            println!("✅ Audio portal access granted or already available");
-            Ok(())
+    match Camera::new().await {
+        Ok(proxy) => {
+            match proxy.request_access().await {
+                Ok(_request) => {
+                    println!("✅ Audio/Camera portal request sent");
+                    Ok(())
+                },
+                Err(e) => {
+                    let error_msg = format!("{}", e);
+                    println!("⚠️ Audio/Camera portal request failed: {}", error_msg);
+                    if !error_msg.contains("not found") {
+                        let _ = app_handle.emit("audio-error", "portal-denied");
+                    }
+                    Ok(()) 
+                }
+            }
         },
         Err(e) => {
-            let error_msg = format!("{}", e);
-            println!("⚠️ Audio portal request failed: {}", error_msg);
-            let _ = app_handle.emit("audio-error", "portal-denied");
-            Err(error_msg)
+            println!("⚠️ Audio/Camera portal not available ({}). PulseAudio policy will manage access.", e);
+            Ok(())
         }
     }
 }
@@ -48,6 +57,7 @@ pub struct AppState {
     pub overlay_window: Arc<Mutex<Option<WebviewWindow>>>,
     pub hotkey_error: Arc<Mutex<Option<String>>>,
     pub setup_status: Arc<Mutex<Option<String>>>,
+    pub hotkey_watch_codes: Arc<Mutex<Vec<u16>>>,
 }
 
 #[cfg(target_os = "linux")]
@@ -57,10 +67,13 @@ async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<
     println!("Checking system portals and groups...");
 
     // 1. Check groups (Silent detection)
-    let groups_output = Command::new("groups")
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-        .unwrap_or_default();
+    let groups_output = match Command::new("groups").output() {
+        Ok(o) => String::from_utf8_lossy(&o.stdout).into_owned(),
+        Err(e) => {
+            println!("⚠️ Failed to run 'groups' command: {}", e);
+            return Ok(()); // Continue anyway
+        }
+    };
     
     let is_in_audio = groups_output.contains("audio");
     let is_in_input = groups_output.contains("input");
@@ -70,6 +83,11 @@ async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<
         let _ = app_handle.emit("setup-status", "configuring-system");
         
         let username = std::env::var("USER").unwrap_or_default();
+        if username.is_empty() {
+             println!("⚠️ Could not determine username, skipping group update.");
+             return Ok(());
+        }
+
         let cmd = format!("usermod -aG audio,input {}", username);
         
         let output = Command::new("pkexec")
@@ -82,7 +100,7 @@ async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<
                 let _ = app_handle.emit("setup-status", "restart-required");
             },
             _ => {
-                println!("⚠️ Group update failed or cancelled.");
+                println!("⚠️ Group update failed or cancelled. Proceeding with existing permissions.");
                 let _ = app_handle.emit("setup-status", "setup-failed");
             }
         }
@@ -123,42 +141,34 @@ async fn manual_register_hotkey(
 }
 
 #[tauri::command]
+async fn get_audio_devices() -> Result<Vec<audio::AudioDevice>, String> {
+    println!("📡 Tauri Command: get_audio_devices invoked");
+    audio::get_input_devices()
+}
+
+#[tauri::command]
 async fn start_recording(
     state: tauri::State<'_, AppState>,
-    window: WebviewWindow,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let is_recording = state.is_recording.clone();
+    let mut recording_flag = state.is_recording.lock().unwrap();
+    if *recording_flag {
+        return Err("Already recording".to_string());
+    }
+    
+    *recording_flag = true;
+    println!("🎤 start_recording command - Flag set to true immediately");
+
+    let is_recording_clone = state.is_recording.clone();
     let config = state.config.clone();
     let overlay_window = state.overlay_window.clone();
-
-    // Check if already recording
-    {
-        let recording = is_recording.lock().unwrap();
-        if *recording {
-            return Err("Already recording".to_string());
-        }
-    }
-
-    // Set recording state
-    {
-        let mut recording = is_recording.lock().unwrap();
-        *recording = true;
-    }
-
-    // Show overlay window
-    show_overlay(&window, "Recording").await?;
+    let app_handle_clone = app_handle.clone();
 
     // Start recording in background
-    let is_recording_clone = is_recording.clone();
     tokio::spawn(async move {
-        let result = record_and_transcribe(config, is_recording_clone, overlay_window).await;
+        emit_status_update("Recording").await;
+        let result = record_and_transcribe(config, is_recording_clone, overlay_window, app_handle_clone).await;
         
-        // Reset recording state
-        {
-            let mut recording = is_recording.lock().unwrap();
-            *recording = false;
-        }
-
         if let Err(e) = result {
             log::error!("Recording/transcription error: {}", e);
         }
@@ -192,6 +202,14 @@ async fn save_config(
         let mut config = state.config.lock().unwrap();
         *config = new_config.clone();
         println!("Updated in-memory config");
+        
+        // Update Linux watch codes
+        #[cfg(target_os = "linux")]
+        {
+            let mut watch_codes = state.hotkey_watch_codes.lock().unwrap();
+            *watch_codes = hotkey::get_linux_key_codes(&new_config.hotkey);
+            println!("🔧 Updated hotkey watch codes: {:?}", *watch_codes);
+        }
     }
     
     // Save config to file first
@@ -301,6 +319,14 @@ async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
     // Show the overlay window
     overlay_window.show().map_err(|e| e.to_string())?;
     
+    // Wayland fix: Reposition shortly after showing to bypass compositor restrictions
+    let overlay_window_clone = overlay_window.clone();
+    let app_handle_clone = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+        let _ = position_overlay_window(&overlay_window_clone, &app_handle_clone).await;
+    });
+    
     Ok(())
 }
 
@@ -312,11 +338,10 @@ async fn hide_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
 }
 
 async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &AppHandle) -> Result<(), String> {
-    // Get the primary monitor (the actual primary display configured by the user)
+    // Get the primary monitor
     let primary_monitor = overlay_window.primary_monitor()
         .map_err(|e| e.to_string())?
         .or_else(|| {
-            // Fallback: get all monitors and use the first one if primary detection fails
             overlay_window.available_monitors()
                 .ok()
                 .and_then(|monitors| monitors.first().cloned())
@@ -353,13 +378,11 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
     Ok(())
 }
 
-// Centralized status emitter - single source of truth for all status updates
+// Centralized status emitter
 async fn emit_status_update(status: &str) {
-    // Update global status
     update_global_status(status);
     
     if let Some(app_handle) = APP_HANDLE.get() {
-        // Emit to ALL windows with the same event
         let windows = ["main", "overlay"];
         for window_label in &windows {
             if let Some(window) = app_handle.get_webview_window(window_label) {
@@ -369,7 +392,6 @@ async fn emit_status_update(status: &str) {
             }
         }
         
-        // Handle overlay visibility based on status
         if status == "Ready" {
             let _ = hide_overlay_window(app_handle).await;
         } else {
@@ -378,32 +400,21 @@ async fn emit_status_update(status: &str) {
     }
 }
 
-// Legacy function for backward compatibility - now just calls the centralized emitter
 async fn emit_status_to_frontend(status: &str) {
     emit_status_update(status).await;
 }
 
-// Legacy function for backward compatibility - now just calls the centralized emitter
-async fn show_overlay(_main_window: &WebviewWindow, message: &str) -> Result<(), String> {
-    emit_status_update(message).await;
-    Ok(())
-}
-
-// Validate audio duration to ensure it meets minimum requirements for transcription
 fn validate_audio_duration(audio_data: &[u8]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Parse WAV header to get duration information
     if audio_data.len() < 44 {
         return Err("Audio file too small to contain valid WAV header".into());
     }
     
-    // Read WAV header fields
     let sample_rate = u32::from_le_bytes([
         audio_data[24], audio_data[25], audio_data[26], audio_data[27]
     ]);
     let channels = u16::from_le_bytes([audio_data[22], audio_data[23]]);
     let bits_per_sample = u16::from_le_bytes([audio_data[34], audio_data[35]]);
     
-    // Find the data chunk
     let mut data_size = 0u32;
     let mut pos = 36;
     
@@ -420,7 +431,6 @@ fn validate_audio_duration(audio_data: &[u8]) -> Result<(), Box<dyn std::error::
         }
         
         pos += 8 + chunk_size as usize;
-        // Align to even byte boundary
         if chunk_size % 2 == 1 {
             pos += 1;
         }
@@ -430,7 +440,6 @@ fn validate_audio_duration(audio_data: &[u8]) -> Result<(), Box<dyn std::error::
         return Err("No data chunk found in WAV file".into());
     }
     
-    // Calculate duration in seconds
     let bytes_per_sample = (bits_per_sample / 8) as u32;
     let bytes_per_second = sample_rate * channels as u32 * bytes_per_sample;
     let duration_seconds = data_size as f64 / bytes_per_second as f64;
@@ -438,9 +447,7 @@ fn validate_audio_duration(audio_data: &[u8]) -> Result<(), Box<dyn std::error::
     println!("Audio duration: {:.3} seconds (sample rate: {}Hz, channels: {}, bits: {})", 
              duration_seconds, sample_rate, channels, bits_per_sample);
     
-    // OpenAI Whisper requires minimum 0.1 seconds
     const MIN_DURATION: f64 = 0.1;
-    
     if duration_seconds < MIN_DURATION {
         return Err(format!(
             "Audio duration {:.3}s is below minimum required {:.1}s for transcription", 
@@ -455,29 +462,31 @@ async fn record_and_transcribe(
     config: Arc<Mutex<Config>>,
     is_recording: Arc<Mutex<bool>>,
     _overlay_window: Arc<Mutex<Option<WebviewWindow>>>,
+    app_handle: AppHandle,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("Starting audio recording...");
     
-    // Ensure we always reset status to Ready, even if errors occur
     let reset_status_on_exit = || async {
         emit_status_to_frontend("Ready").await;
     };
     
-    // Record audio while the recording flag is true
-    let audio_data = match audio::record_audio_while_flag(&is_recording).await {
+    let preferred_device = {
+        let config = config.lock().unwrap();
+        let device = config.audio_device.clone();
+        println!("🔧 Configured recording device: {}", device.as_deref().unwrap_or("System Default (Pulse)"));
+        device
+    };
+
+    let audio_data = match audio::record_audio_while_flag(&is_recording, preferred_device).await {
         Ok(data) => data,
         Err(e) => {
             let error_msg = e.to_string();
             log::error!("Audio recording failed: {}", error_msg);
             
             if error_msg.contains("dsnoop") || error_msg.contains("Busy") || error_msg.contains("no longer available") {
-                if let Some(app_handle) = APP_HANDLE.get() {
-                    let _ = app_handle.emit("audio-error", "device-busy");
-                }
+                let _ = app_handle.emit("audio-error", "device-busy");
             } else {
-                if let Some(app_handle) = APP_HANDLE.get() {
-                    let _ = app_handle.emit("audio-error", format!("failed:{}", error_msg));
-                }
+                let _ = app_handle.emit("audio-error", format!("failed:{}", error_msg));
             }
 
             reset_status_on_exit().await;
@@ -491,21 +500,17 @@ async fn record_and_transcribe(
         return Ok(());
     }
     
-    // Validate audio duration before proceeding with transcription
     if let Err(e) = validate_audio_duration(&audio_data) {
         println!("Audio validation failed: {}", e);
         reset_status_on_exit().await;
-        return Ok(()); // Not an error, just too short
+        return Ok(());
     }
     
-    // Emit status update for audio conversion (if needed)
     emit_status_to_frontend("Converting audio").await;
     println!("Audio recorded, starting transcription...");
     
-    // Emit status update for transcription
     emit_status_to_frontend("Transcribing").await;
     
-    // Get API key and URL
     let (api_key, api_url) = {
         let config = config.lock().unwrap();
         (config.openai_api_key.clone(), config.api_url.clone())
@@ -517,20 +522,16 @@ async fn record_and_transcribe(
         return Err("API key not configured".into());
     }
     
-    // Transcribe audio with proper error handling
     let text = match transcription::transcribe_audio(&audio_data, &api_key, &api_url).await {
         Ok(text) => text,
         Err(e) => {
             log::error!("Transcription failed: {}", e);
-            
-            // Check if it's the "audio too short" error specifically
             let error_str = e.to_string();
             if error_str.contains("audio_too_short") || error_str.contains("Audio file is too short") {
                 println!("Audio file too short for transcription (< 0.1 seconds)");
             } else {
                 println!("Transcription error: {}", e);
             }
-            
             reset_status_on_exit().await;
             return Err(e);
         }
@@ -539,13 +540,10 @@ async fn record_and_transcribe(
     if !text.trim().is_empty() {
         println!("Transcription complete, typing text: {}", text);
         
-        // Save to history
         if let Err(e) = history::add_history_item(&text) {
             println!("Warning: Failed to save to history: {}", e);
         } else {
             println!("✅ Saved transcription to history");
-            
-            // Emit history update event to frontend
             if let Some(app_handle) = APP_HANDLE.get() {
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.emit("history-updated", ());
@@ -553,10 +551,8 @@ async fn record_and_transcribe(
             }
         }
         
-        // Emit status update for typing
         emit_status_to_frontend("Typing").await;
         
-        // Type the text using config speed
         let typing_speed = {
             let config = config.lock().unwrap();
             config.typing_speed_interval
@@ -568,7 +564,6 @@ async fn record_and_transcribe(
             return Err(e);
         }
         
-        // Emit final status update
         reset_status_on_exit().await;
     } else {
         println!("No text transcribed");
@@ -581,20 +576,99 @@ async fn record_and_transcribe(
 fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
     let open = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    
     Menu::with_items(app, &[&open, &quit])
+}
+
+#[cfg(target_os = "linux")]
+fn start_linux_input_observer(app_state: Arc<AppState>) {
+    use std::fs;
+    use std::time::Duration;
+    
+    let is_recording = app_state.is_recording.clone();
+    let watch_codes = {
+        let codes = app_state.hotkey_watch_codes.lock().unwrap();
+        codes.clone()
+    };
+
+    if watch_codes.is_empty() {
+        return;
+    }
+
+    std::thread::spawn(move || {
+        println!("🚀 Linux Input Observer started. Watching for raw key codes: {:?}", watch_codes);
+        
+        let mut devices = Vec::new();
+        if let Ok(entries) = fs::read_dir("/dev/input") {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if name.starts_with("event") {
+                        if let Ok(device) = evdev::Device::open(&path) {
+                            let has_keys = device.supported_keys().map(|k| k.iter().count() > 20).unwrap_or(false);
+                            if has_keys {
+                                devices.push(device);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        if devices.is_empty() {
+            println!("⚠️ No keyboard devices found in /dev/input! Release detection will rely on OS events.");
+            return;
+        }
+
+        println!("🔍 Monitoring {} hardware input devices for release events", devices.len());
+
+        loop {
+            {
+                if !*is_recording.lock().unwrap() {
+                    break;
+                }
+            }
+
+            for device in &mut devices {
+                match device.fetch_events() {
+                    Ok(events) => {
+                        for event in events {
+                            if event.event_type() == evdev::EventType::KEY {
+                                let code = event.code();
+                                let value = event.value();
+                                
+                                // OMNI-LOGGING: Log every key event from physical hardware
+                                if value == 1 {
+                                    println!("⌨️  HARDWARE: Key {} PRESSED", code);
+                                } else if value == 0 {
+                                    println!("⌨️  HARDWARE: Key {} RELEASED", code);
+                                    
+                                    // ANY-KEY STOP: If any key in the combo is released, stop recording
+                                    if watch_codes.contains(&code) {
+                                        println!("⏹️  Combo integrity broken (Key {} released). Finalizing recording.", code);
+                                        let mut recording = is_recording.lock().unwrap();
+                                        *recording = false;
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    Err(_) => continue,
+                }
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        println!("🏁 Linux Input Observer stopped");
+    });
 }
 
 fn main() {
     env_logger::init();
 
-    // Initialize threading for Linux GUI applications with smart Wayland/X11 detection
     #[cfg(target_os = "linux")]
     {
-        // Detect the current display server
         let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok() || 
                         std::env::var("XDG_SESSION_TYPE").map(|s| s == "wayland").unwrap_or(false);
-        
         let is_x11 = std::env::var("DISPLAY").is_ok() || 
                      std::env::var("XDG_SESSION_TYPE").map(|s| s == "x11").unwrap_or(false);
         
@@ -603,8 +677,6 @@ fn main() {
         if is_wayland {
             println!("🌊 Wayland detected - prioritizing Wayland backend");
             std::env::set_var("GDK_BACKEND", "wayland,x11");
-            
-            // Initialize Wayland-compatible threading
             unsafe {
                 if let Ok(lib) = libloading::Library::new("libgtk-3.so.0") {
                     if let Ok(gtk_init_check) = lib.get::<unsafe extern "C" fn(*mut i32, *mut *mut *mut i8) -> i32>(b"gtk_init_check") {
@@ -619,22 +691,14 @@ fn main() {
         } else if is_x11 {
             println!("🪟 X11 detected - initializing X11 threading");
             std::env::set_var("GDK_BACKEND", "x11");
-            
-            // Initialize X11 threading before any X11 operations
             unsafe {
-                // Initialize X11 threading first
                 if let Ok(lib) = libloading::Library::new("libX11.so.6") {
                     if let Ok(xinit_threads) = lib.get::<unsafe extern "C" fn() -> i32>(b"XInitThreads") {
-                        let result = xinit_threads();
-                        if result != 0 {
+                        if xinit_threads() != 0 {
                             println!("✅ X11 threading initialized successfully");
-                        } else {
-                            println!("⚠️  X11 threading initialization returned 0 (may already be initialized)");
                         }
                     }
                 }
-                
-                // Then initialize GTK
                 if let Ok(lib) = libloading::Library::new("libgtk-3.so.0") {
                     if let Ok(gtk_init_check) = lib.get::<unsafe extern "C" fn(*mut i32, *mut *mut *mut i8) -> i32>(b"gtk_init_check") {
                         let mut argc = 0i32;
@@ -645,34 +709,9 @@ fn main() {
                     }
                 }
             }
-        } else {
-            println!("❓ Unknown display server - using fallback initialization");
-            std::env::set_var("GDK_BACKEND", "wayland,x11");
-            
-            // Fallback: try both Wayland and X11 initialization
-            unsafe {
-                // Try X11 threading first (safer)
-                if let Ok(lib) = libloading::Library::new("libX11.so.6") {
-                    if let Ok(xinit_threads) = lib.get::<unsafe extern "C" fn() -> i32>(b"XInitThreads") {
-                        xinit_threads();
-                        println!("✅ X11 threading initialized (fallback)");
-                    }
-                }
-                
-                // Then GTK
-                if let Ok(lib) = libloading::Library::new("libgtk-3.so.0") {
-                    if let Ok(gtk_init_check) = lib.get::<unsafe extern "C" fn(*mut i32, *mut *mut *mut i8) -> i32>(b"gtk_init_check") {
-                        let mut argc = 0i32;
-                        let mut argv = std::ptr::null_mut();
-                        gtk_init_check(&mut argc, &mut argv);
-                        println!("✅ GTK initialized (fallback)");
-                    }
-                }
-            }
         }
     }
 
-    // Check for first launch BEFORE loading config (which creates the file)
     let is_first_launch = config::is_first_launch().unwrap_or(false);
     
     let app_state = AppState {
@@ -681,44 +720,78 @@ fn main() {
         overlay_window: Arc::new(Mutex::new(None)),
         hotkey_error: Arc::new(Mutex::new(None)),
         setup_status: Arc::new(Mutex::new(None)),
+        hotkey_watch_codes: Arc::new(Mutex::new(Vec::new())),
     };
+    
+    {
+        let config = app_state.config.lock().unwrap();
+        let mut watch_codes = app_state.hotkey_watch_codes.lock().unwrap();
+        #[cfg(target_os = "linux")]
+        {
+            *watch_codes = hotkey::get_linux_key_codes(&config.hotkey);
+            println!("🔧 Initial hotkey watch codes: {:?}", *watch_codes);
+        }
+    }
 
     tauri::Builder::default()
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app_handle, shortcut, event| {
-                    println!("🔥 Hotkey event received! Shortcut: {:?}, State: {:?}", shortcut, event.state);
+                    let app_state = app_handle.state::<AppState>();
+                    let app_state_arc = Arc::new(AppState {
+                        config: app_state.config.clone(),
+                        is_recording: app_state.is_recording.clone(),
+                        overlay_window: app_state.overlay_window.clone(),
+                        hotkey_error: app_state.hotkey_error.clone(),
+                        setup_status: app_state.setup_status.clone(),
+                        hotkey_watch_codes: app_state.hotkey_watch_codes.clone(),
+                    });
+                    
+                    println!("🔥 Shortcut Identity Event: {:?}, State: {:?}", shortcut, event.state);
+                    
                     match event.state {
                         tauri_plugin_global_shortcut::ShortcutState::Pressed => {
-                            println!("🎤 Hotkey PRESSED - Starting recording");
-                            
-                            // Use centralized status emitter
-                            tauri::async_runtime::spawn(async move {
-                                emit_status_update("Recording").await;
-                            });
-                            
-                            // Emit hotkey event to main window
-                            if let Some(window) = app_handle.get_webview_window("main") {
-                                let _ = window.emit("hotkey-pressed", ());
+                            let mut recording_flag = app_state.is_recording.lock().unwrap();
+                            if !*recording_flag {
+                                *recording_flag = true;
+                                println!("🎤 Hotkey PRESSED - Flag set to true immediately");
+                                
+                                #[cfg(target_os = "linux")]
+                                start_linux_input_observer(app_state_arc.clone());
+
+                                let app_handle_clone = app_handle.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    let state = app_handle_clone.state::<AppState>();
+                                    let config = state.config.clone();
+                                    let overlay_window = state.overlay_window.clone();
+                                    let is_recording = state.is_recording.clone();
+                                    
+                                    emit_status_update("Recording").await;
+                                    let result = record_and_transcribe(config, is_recording, overlay_window, app_handle_clone).await;
+                                    if let Err(e) = result {
+                                        log::error!("Recording/transcription error: {}", e);
+                                    }
+                                });
+                                
+                                if let Some(window) = app_handle.get_webview_window("main") {
+                                    let _ = window.emit("hotkey-pressed", ());
+                                }
                             }
                         }
                         tauri_plugin_global_shortcut::ShortcutState::Released => {
-                            println!("⏹️ Hotkey RELEASED - Stopping recording");
-                            
-                            // Add delay to allow system to properly clear keyboard state
-                            // This helps prevent "stuck spacebar" issues with wireless keyboards
-                            let app_handle_clone = app_handle.clone();
-                            tauri::async_runtime::spawn(async move {
-                                tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                            let mut recording_flag = app_state.is_recording.lock().unwrap();
+                            if *recording_flag {
+                                *recording_flag = false;
+                                println!("⏹️  Shortcut Identity Event: RELEASED - Flag set to false immediately");
                                 
-                                // Don't hide overlay immediately - let it stay visible during transcription/typing
-                                // The overlay will be hidden when the process completes (status becomes "Ready")
-                                
-                                // Emit to main window after delay
-                                if let Some(window) = app_handle_clone.get_webview_window("main") {
-                                    let _ = window.emit("hotkey-released", ());
-                                }
-                            });
+                                let app_handle_emit = app_handle.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                                    if let Some(window) = app_handle_emit.get_webview_window("main") {
+                                        let _ = window.emit("hotkey-released", ());
+                                    }
+                                });
+                            }
                         }
                     }
                 })
@@ -726,32 +799,21 @@ fn main() {
         )
         .manage(app_state)
         .setup(move |app| {
-            // Store the app handle globally for status updates
             let _ = APP_HANDLE.set(app.handle().clone());
-            
-            // Initialize the global status
             let _ = CURRENT_STATUS.set(Mutex::new("Ready".to_string()));
             
-            // The overlay window is already defined in tauri.conf.json with the correct URL (/overlay)
-            // Just ensure it's hidden initially
             if let Some(overlay_window) = app.get_webview_window("overlay") {
                 println!("✅ Using overlay window from config");
                 let _ = overlay_window.hide();
-            } else {
-                println!("❌ Overlay window not found in config");
             }
             
-            // Create tray menu
+            let _ = audio::get_input_devices();
             let menu = create_tray_menu(app.handle())?;
-            
-            // Create tray icon
             let _tray = TrayIconBuilder::with_id("main-tray")
                 .menu(&menu)
                 .icon(app.default_window_icon().unwrap().clone())
                 .on_menu_event(|app_handle, event| match event.id.as_ref() {
-                    "quit" => {
-                        std::process::exit(0);
-                    }
+                    "quit" => { std::process::exit(0); }
                     "open" => {
                         if let Some(window) = app_handle.get_webview_window("main") {
                             let _ = window.show();
@@ -762,99 +824,53 @@ fn main() {
                 })
                 .on_tray_icon_event(move |tray, event| {
                     if let TrayIconEvent::Click { button, .. } = event {
-                        match button {
-                            tauri::tray::MouseButton::Left => {
-                                if let Some(window) = tray.app_handle().get_webview_window("main") {
-                                    let _ = window.show();
-                                    let _ = window.set_focus();
-                                }
+                        if let tauri::tray::MouseButton::Left = button {
+                            if let Some(window) = tray.app_handle().get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
                             }
-                            tauri::tray::MouseButton::Right => {
-                                // Do nothing - let the context menu appear naturally
-                            }
-                            _ => {}
                         }
                     }
                 })
                 .build(app)?;
 
-            // Handle window close event to hide instead of exit
             if let Some(window) = app.get_webview_window("main") {
                 let window_clone = window.clone();
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        // Prevent the window from closing
                         api.prevent_close();
-                        // Hide the window instead
                         let _ = window_clone.hide();
                     }
                 });
             }
 
-            // Check if this is first launch and show window if needed
             if is_first_launch {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
-                    println!("First launch detected - showing main window for configuration");
                 }
             }
 
-            // Register the global hotkey from config
-            let app_handle_for_setup = app.handle().clone();
-            let app_handle = app.handle().clone();
-            let app_state = app.state::<AppState>();
-            let hotkey_string = {
-                let config = app_state.config.lock().unwrap();
-                config.hotkey.clone()
-            };
-
-            // Run Linux permission setup in background
+            let app_handle_setup = app.handle().clone();
             #[cfg(target_os = "linux")]
             tauri::async_runtime::spawn(async move {
-                if let Err(e) = check_request_audio_portal(&app_handle_for_setup).await {
-                    eprintln!("Audio portal error: {}", e);
-                }
-                if let Err(e) = check_and_request_permissions(&app_handle_for_setup).await {
-                    eprintln!("Failed to request linux permissions: {}", e);
-                }
+                let _ = check_request_audio_portal(&app_handle_setup).await;
+                let _ = check_and_request_permissions(&app_handle_setup).await;
             });
             
-            println!("Attempting to register hotkey: {}", hotkey_string);
+            let hotkey_string = {
+                let state = app.state::<AppState>();
+                let config = state.config.lock().unwrap();
+                config.hotkey.clone()
+            };
             
-            // Parse and register the hotkey
             match hotkey::parse_hotkey_string(&hotkey_string) {
                 Ok(shortcut) => {
-                    println!("Parsed hotkey successfully: {:?}", shortcut);
-                    match app_handle.global_shortcut().register(shortcut) {
-                        Ok(()) => {
-                            println!("✅ Global hotkey registered successfully: {}", hotkey_string);
-                            log::info!("Global hotkey registered: {}", hotkey_string);
-                        }
-                        Err(e) => {
-                            let error_msg = e.to_string();
-                            println!("❌ Failed to register global hotkey: {}", error_msg);
-                            log::error!("Failed to register global hotkey: {}", error_msg);
-                            
-                            // Emit specific error for conflict
-                            if error_msg.contains("already registered") {
-                                let _ = app_handle.emit("hotkey-error", format!("conflict:{}", hotkey_string));
-                            } else {
-                                let _ = app_handle.emit("hotkey-error", format!("failed:{}", error_msg));
-                            }
-
-                            let mut error_lock = app_state.hotkey_error.lock().unwrap();
-                            *error_lock = Some(error_msg);
-                        }
-                    }
+                    let _ = app.handle().global_shortcut().register(shortcut);
+                    println!("✅ Global hotkey registered: {}", hotkey_string);
                 }
                 Err(e) => {
-                    let error_msg = e.to_string();
-                    println!("❌ Failed to parse hotkey string '{}': {}", hotkey_string, error_msg);
-                    log::error!("Failed to parse hotkey string: {}", hotkey_string);
-                    let _ = app_handle.emit("hotkey-error", format!("parse-failed:{}", hotkey_string));
-                    let mut error_lock = app_state.hotkey_error.lock().unwrap();
-                    *error_lock = Some(error_msg);
+                    eprintln!("❌ Failed to parse hotkey: {}", e);
                 }
             }
             
@@ -870,7 +886,8 @@ fn main() {
             get_history,
             clear_history,
             check_hotkey_status,
-            manual_register_hotkey
+            manual_register_hotkey,
+            get_audio_devices
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

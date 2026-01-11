@@ -11,6 +11,7 @@ interface Config {
   hotkey: string;
   typing_speed_interval: number;
   pixels_from_bottom: number;
+  audio_device: string | null;
 }
 
 interface Toast {
@@ -25,6 +26,11 @@ interface HistoryItem {
   timestamp: string;
 }
 
+interface AudioDevice {
+  id: string;
+  label: string;
+}
+
 function App() {
   const [config, setConfig] = useState<Config>({
     openai_api_key: '',
@@ -32,6 +38,7 @@ function App() {
     hotkey: 'ctrl+space',
     typing_speed_interval: 0.01,
     pixels_from_bottom: 100,
+    audio_device: null,
   });
   
   const [activeTab, setActiveTab] = useState<'status' | 'history' | 'config'>('status');
@@ -39,6 +46,7 @@ function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [currentStatus, setCurrentStatus] = useState<string>('Ready');
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [availableMics, setAvailableMics] = useState<AudioDevice[]>([]);
 
   // Apply status class to body for animations (like overlay)
   useEffect(() => {
@@ -50,34 +58,24 @@ function App() {
     };
   }, [currentStatus]);
 
-  // Load configuration and history on startup
+  // Load configuration, history, and mics on startup
   useEffect(() => {
     loadConfig();
     loadHistory();
+    loadMics();
     
     // Listen for hotkey events
     const unlistenPressed = listen('hotkey-pressed', async () => {
-      console.log('🎤 Hotkey pressed - starting recording');
+      console.log('🎤 Hotkey pressed - backend handling start');
       setCurrentStatus('Recording');
-      try {
-        await invoke('start_recording');
-      } catch (error) {
-        console.error('Failed to start recording:', error);
-        setCurrentStatus('Ready');
-      }
     });
     
     const unlistenReleased = listen('hotkey-released', async () => {
-      console.log('⏹️ Hotkey released - stopping recording');
-      try {
-        await invoke('stop_recording');
-      } catch (error) {
-        console.error('Failed to stop recording:', error);
-      }
+      console.log('⏹️ Hotkey released - backend handling stop');
     });
 
     // Listen for system setup status
-    const unlistenSetup = listen('setup-status', (event) => {
+    const unlistenSetup = listen('setup-status', (event: any) => {
       const status = event.payload as string;
       if (status === 'configuring-system') {
         showToast('ℹ️ System Setup: Configuring permissions for typing and audio (Password required)...', 'info');
@@ -91,7 +89,7 @@ function App() {
     });
 
     // Listen for hotkey errors
-    const unlistenHotkeyError = listen('hotkey-error', (event) => {
+    const unlistenHotkeyError = listen('hotkey-error', (event: any) => {
       const error = event.payload as string;
       if (error.startsWith('conflict')) {
         const key = error.split(':')[1] || 'shortcut';
@@ -102,7 +100,7 @@ function App() {
     });
 
     // Listen for audio errors
-    const unlistenAudioError = listen('audio-error', (event) => {
+    const unlistenAudioError = listen('audio-error', (event: any) => {
       const error = event.payload as string;
       if (error === 'device-busy') {
         showToast('❌ Microphone Busy: Another app is using the mic exclusively. Please close it and try again.', 'error');
@@ -114,7 +112,7 @@ function App() {
     });
 
     // Listen for status updates from backend
-    const unlistenStatus = listen('status-update', (event) => {
+    const unlistenStatus = listen('status-update', (event: any) => {
       const status = event.payload as string;
       console.log('📊 Status update:', status);
       setCurrentStatus(status);
@@ -127,13 +125,13 @@ function App() {
     });
 
     return () => {
-      unlistenPressed.then(fn => fn());
-      unlistenReleased.then(fn => fn());
-      unlistenSetup.then(fn => fn());
-      unlistenHotkeyError.then(fn => fn());
-      unlistenAudioError.then(fn => fn());
-      unlistenStatus.then(fn => fn());
-      unlistenHistory.then(fn => fn());
+      unlistenPressed.then((fn: any) => fn());
+      unlistenReleased.then((fn: any) => fn());
+      unlistenSetup.then((fn: any) => fn());
+      unlistenHotkeyError.then((fn: any) => fn());
+      unlistenAudioError.then((fn: any) => fn());
+      unlistenStatus.then((fn: any) => fn());
+      unlistenHistory.then((fn: any) => fn());
     };
   }, []);
 
@@ -146,18 +144,25 @@ function App() {
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, message, type }]);
+    setToasts((prev: Toast[]) => [...prev, { id, message, type }]);
     
-    // Auto-remove toast after 5 seconds
     setTimeout(() => {
-      setToasts(prev => prev.filter(toast => toast.id !== id));
+      setToasts((prev: Toast[]) => prev.filter((toast: Toast) => toast.id !== id));
     }, 5000);
   };
 
   const removeToast = (id: number) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
+    setToasts((prev: Toast[]) => prev.filter((toast: Toast) => toast.id !== id));
   };
 
+  const loadMics = async () => {
+    try {
+      const mics = await invoke<AudioDevice[]>('get_audio_devices');
+      setAvailableMics(mics);
+    } catch (error) {
+      console.error('Failed to load microphones:', error);
+    }
+  };
 
   const loadConfig = async () => {
     try {
@@ -176,10 +181,8 @@ function App() {
     try {
       const historyData = await invoke<{ items: HistoryItem[] }>('get_history');
       setHistory(historyData.items);
-      console.log('📚 Loaded history:', historyData.items.length, 'items');
     } catch (error) {
       console.error('Failed to load history:', error);
-      showToast('Failed to load history', 'error');
     }
   };
 
@@ -189,7 +192,6 @@ function App() {
       setHistory([]);
       showToast('History cleared successfully', 'success');
     } catch (error) {
-      console.error('Failed to clear history:', error);
       showToast('Failed to clear history', 'error');
     }
   };
@@ -199,7 +201,6 @@ function App() {
       await navigator.clipboard.writeText(text);
       showToast('Copied to clipboard!', 'success');
     } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
       showToast('Failed to copy to clipboard', 'error');
     }
   };
@@ -210,8 +211,9 @@ function App() {
         openai_api_key: config.openai_api_key || 'your_api_key_here',
         api_url: config.api_url,
         hotkey: config.hotkey,
-        typing_speed_interval: config.typing_speed_interval / 1000, // Convert to seconds
+        typing_speed_interval: config.typing_speed_interval / 1000,
         pixels_from_bottom: config.pixels_from_bottom,
+        audio_device: config.audio_device,
       };
       
       await invoke('save_config', { newConfig: configToSave });
@@ -226,14 +228,7 @@ function App() {
       showToast('Please enter an API key first', 'error');
       return;
     }
-
-    if (!config.api_url) {
-      showToast('Please enter an API URL first', 'error');
-      return;
-    }
-
     setIsTestingApi(true);
-
     try {
       const isValid = await invoke<boolean>('test_api_key', { 
         apiKey: config.openai_api_key,
@@ -251,108 +246,63 @@ function App() {
     }
   };
 
-
-  const updateConfig = (field: keyof Config, value: string | number) => {
-    setConfig(prev => ({ ...prev, [field]: value }));
+  const updateConfig = (field: keyof Config, value: any) => {
+    if (field === 'audio_device') {
+      const deviceLabel = availableMics.find((m: AudioDevice) => m.id === value)?.label || 'System Default';
+      console.log(`🎤 Audio device changed to: ${deviceLabel} (ID: ${value})`);
+    }
+    setConfig((prev: Config) => ({ ...prev, [field]: value }));
   };
 
   const getStatusClass = (status: string) => {
     switch (status) {
-      case 'Ready':
-        return 'status-ready';
-      case 'Recording':
-        return 'status-recording';
+      case 'Ready': return 'status-ready';
+      case 'Recording': return 'status-recording';
       case 'Converting audio':
-      case 'Transcribing':
-        return 'status-transcribing';
-      case 'Typing':
-        return 'status-typing';
-      default:
-        return '';
+      case 'Transcribing': return 'status-transcribing';
+      case 'Typing': return 'status-typing';
+      default: return '';
     }
   };
 
   const formatTimestamp = (timestamp: string) => {
     try {
-      // Parse the ISO 8601 UTC timestamp and convert to local time
-      const date = new Date(timestamp);
-      return date.toLocaleString();
+      return new Date(timestamp).toLocaleString();
     } catch (error) {
-      // Fallback for any parsing errors
       return timestamp;
     }
   };
 
   const handleMinimize = async () => {
-    try {
-      const appWindow = getCurrentWindow();
-      await appWindow.minimize();
-    } catch (error) {
-      console.error('Failed to minimize window:', error);
-    }
+    await getCurrentWindow().minimize();
   };
 
   const handleClose = async () => {
-    try {
-      const appWindow = getCurrentWindow();
-      await appWindow.close();
-    } catch (error) {
-      console.error('Failed to close window:', error);
-    }
+    await getCurrentWindow().close();
   };
 
   const handleTitleBarMouseDown = async (e: React.MouseEvent) => {
-    // Only start dragging if it's a left click and not on a button
     if (e.button === 0 && !(e.target as HTMLElement).closest('.title-bar-button')) {
-      try {
-        const appWindow = getCurrentWindow();
-        await appWindow.startDragging();
-      } catch (error) {
-        console.error('Failed to start dragging:', error);
-      }
+      await getCurrentWindow().startDragging();
     }
   };
 
   return (
     <div className="app">
-      {/* Custom Title Bar */}
       <div className="title-bar" onMouseDown={handleTitleBarMouseDown}>
         <div className="title-bar-title">Voquill</div>
         <div className="title-bar-controls">
-          <button className="title-bar-button minimize" onClick={handleMinimize} title="Minimize">
-            ─
-          </button>
-          <button className="title-bar-button maximize" onClick={() => {}} title="Maximize">
-            ☐
-          </button>
-          <button className="title-bar-button close" onClick={handleClose} title="Close">
-            ✕
-          </button>
+          <button className="title-bar-button minimize" onClick={handleMinimize}>─</button>
+          <button className="title-bar-button close" onClick={handleClose}>✕</button>
         </div>
       </div>
-      {/* Tab Navigation */}
+
       <div className="tab-nav">
-        <button 
-          className={`tab ${activeTab === 'status' ? 'active' : ''}`}
-          onClick={() => setActiveTab('status')}
-        >
-          Status
-        </button>
-        <button 
-          className={`tab ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          History
-        </button>
-        <button 
-          className={`tab ${activeTab === 'config' ? 'active' : ''}`}
-          onClick={() => setActiveTab('config')}
-        >
-          Config
-        </button>
+        <button className={`tab ${activeTab === 'status' ? 'active' : ''}`} onClick={() => setActiveTab('status')}>Status</button>
+        <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>History</button>
+        <button className={`tab ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}>Config</button>
       </div>
 
-      {/* Tab Content */}
       <div className="tab-content">
         {activeTab === 'status' && (
           <div className="tab-panel">
@@ -360,113 +310,67 @@ function App() {
               <StatusIcon status={currentStatus} className="app-status-icon" />
               <div className="status-text-app">{currentStatus}</div>
             </div>
-            
             <div className="record-section">
-              <div className="help-text">
-                Hotkey: <strong>{config.hotkey}</strong>
-              </div>
+              <div className="help-text">Hotkey: <strong>{config.hotkey}</strong></div>
             </div>
-
             <div className="help-content">
               <h3>How to Use Voquill</h3>
               <ol className="instructions">
                 <li>Enter your OpenAI API key in the Config tab</li>
-                <li>Save your configuration</li>
                 <li>Position cursor in any text field</li>
                 <li>Hold <strong>{config.hotkey}</strong> and speak</li>
-                <li>Release keys when done speaking</li>
-                <li>Text will be typed automatically</li>
+                <li>Release keys to transcribe and type</li>
               </ol>
-              
-              <div className="help-section">
-                <h4>Tips</h4>
-                <ul>
-                  <li>App runs in system tray when closed</li>
-                  <li>Left-click tray icon to reopen</li>
-                  <li>Adjust typing speed for better compatibility</li>
-                  <li>Test your API key before first use</li>
-                </ul>
-              </div>
             </div>
-
           </div>
         )}
 
         {activeTab === 'config' && (
           <div className="tab-panel">
             <div className="form-actions">
-              <button className="button primary" onClick={saveConfig}>
-                Save Configuration
-              </button>
-              <button 
-                className="button" 
-                onClick={testApiKey}
-                disabled={isTestingApi}
-              >
-                {isTestingApi ? 'Testing...' : 'Test API Key'}
-              </button>
+              <button className="button primary" onClick={saveConfig}>Save Configuration</button>
+              <button className="button" onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? 'Testing...' : 'Test API Key'}</button>
             </div>
 
             <div className="form-group">
-              <label htmlFor="api-key">API Key:</label>
-              <input
-                type="password"
-                id="api-key"
-                placeholder="sk-..."
-                value={config.openai_api_key}
-                onChange={(e) => updateConfig('openai_api_key', e.target.value)}
-              />
+              <label>API Key:</label>
+              <input type="password" value={config.openai_api_key} onChange={(e) => updateConfig('openai_api_key', e.target.value)} />
             </div>
 
             <div className="form-group">
-              <label htmlFor="api-url">API URL:</label>
-              <input
-                type="url"
-                id="api-url"
-                placeholder="https://api.openai.com/v1/audio/transcriptions"
-                value={config.api_url}
-                onChange={(e) => updateConfig('api_url', e.target.value)}
-              />
-              <small className="form-help">
-                Use OpenAI, OpenRouter, or any compatible Whisper API endpoint
-              </small>
+              <label>API URL:</label>
+              <input type="url" value={config.api_url} onChange={(e) => updateConfig('api_url', e.target.value)} />
             </div>
 
             <div className="form-group">
-              <label htmlFor="hotkey">Global Hotkey:</label>
-              <input
-                type="text"
-                id="hotkey"
-                placeholder="ctrl+space"
-                value={config.hotkey}
-                onChange={(e) => updateConfig('hotkey', e.target.value)}
-              />
+              <label>Global Hotkey:</label>
+              <input type="text" value={config.hotkey} onChange={(e) => updateConfig('hotkey', e.target.value)} />
             </div>
 
             <div className="form-group">
-              <label htmlFor="typing-speed">Typing Speed (ms):</label>
-              <input
-                type="number"
-                id="typing-speed"
-                min="1"
-                max="1000"
-                step="1"
-                value={config.typing_speed_interval}
-                onChange={(e) => updateConfig('typing_speed_interval', parseInt(e.target.value))}
-              />
+              <label>Microphone:</label>
+              <div className="select-wrapper">
+                <select value={config.audio_device || ''} onChange={(e) => updateConfig('audio_device', e.target.value || null)}>
+                  {availableMics.map(mic => <option key={mic.id} value={mic.id}>{mic.label}</option>)}
+                </select>
+                <button className="button small icon-button" onClick={loadMics} title="Refresh Devices">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
+                    <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <div className="form-group">
-              <label htmlFor="popup-position">Popup Position (px from bottom):</label>
-              <input
-                type="number"
-                id="popup-position"
-                min="50"
-                max="500"
-                step="10"
-                value={config.pixels_from_bottom}
-                onChange={(e) => updateConfig('pixels_from_bottom', parseInt(e.target.value))}
-              />
+              <label>Typing Speed (ms):</label>
+              <input type="number" value={config.typing_speed_interval} onChange={(e) => updateConfig('typing_speed_interval', parseInt(e.target.value))} />
+            </div>
+
+            <div className="form-group">
+              <label>Popup Position (px from bottom):</label>
+              <input type="number" value={config.pixels_from_bottom} onChange={(e) => updateConfig('pixels_from_bottom', parseInt(e.target.value))} />
             </div>
           </div>
         )}
@@ -474,49 +378,26 @@ function App() {
         {activeTab === 'history' && (
           <div className="tab-panel">
             <div className="history-header">
-              <button 
-                className="button clear-history-button" 
-                onClick={clearHistory}
-              >
-                Clear History
-              </button>
+              <button className="button clear-history-button" onClick={clearHistory}>Clear History</button>
             </div>
-            
             <div className="history-list">
-              {history.length === 0 ? (
-                <div className="empty-history">
-                  <p>No transcriptions yet. Start recording to see your history here!</p>
-                </div>
-              ) : (
+              {history.length === 0 ? <div className="empty-history"><p>No transcriptions yet.</p></div> : 
                 history.map((item) => (
                   <div key={item.id} className="history-item">
-                    <div className="history-content">
-                      <div className="history-text">{item.text}</div>
-                      <div className="history-timestamp">{formatTimestamp(item.timestamp)}</div>
-                    </div>
-                    <button 
-                      className="copy-button"
-                      onClick={() => copyToClipboard(item.text)}
-                      title="Copy to clipboard"
-                    >
-                      📋
-                    </button>
+                    <div className="history-text">{item.text}</div>
+                    <div className="history-timestamp">{formatTimestamp(item.timestamp)}</div>
+                    <button className="copy-button" onClick={() => copyToClipboard(item.text)}>📋</button>
                   </div>
                 ))
-              )}
+              }
             </div>
           </div>
         )}
       </div>
 
-      {/* Toast Notifications */}
       <div className="toast-container">
         {toasts.map(toast => (
-          <div 
-            key={toast.id} 
-            className={`toast ${toast.type}`}
-            onClick={() => removeToast(toast.id)}
-          >
+          <div key={toast.id} className={`toast ${toast.type}`} onClick={() => removeToast(toast.id)}>
             <span>{toast.message}</span>
             <button className="toast-close">✕</button>
           </div>

@@ -1,0 +1,12 @@
+{
+  "name": "voquill-root",
+  "private": true,
+  "scripts": {
+    "dev": "deno task dev",
+    "build": "deno task build",
+    "tauri": "deno task tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.6"
+  }
+}

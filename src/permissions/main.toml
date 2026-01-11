@@ -11,5 +11,6 @@ commands.allow = [
     "get_history",
     "clear_history",
     "check_hotkey_status",
-    "manual_register_hotkey"
+    "manual_register_hotkey",
+    "get_audio_devices"
 ]
