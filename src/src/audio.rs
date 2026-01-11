@@ -109,60 +109,66 @@ pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
     Ok(final_devices)
 }
 
-pub async fn record_audio_while_flag(
-    is_recording: &Arc<Mutex<bool>>,
-    preferred_device_id: Option<String>
-) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> {
     let host = cpal::default_host();
     
-    let device = if let Some(target_id) = preferred_device_id {
-        if target_id.starts_with("pulse:") {
-            let pulse_source_name = &target_id[6..];
-            println!("🎤 Initializing recording for PulseAudio source: {}", pulse_source_name);
-            
+    if let Some(id) = target_id {
+        if id.starts_with("pulse:") {
+            let pulse_source_name = &id[6..];
             #[cfg(target_os = "linux")]
             {
                 std::env::set_var("PULSE_SOURCE", pulse_source_name);
-                println!("🔧 Set PULSE_SOURCE={} for ALSA-to-Pulse routing", pulse_source_name);
+                println!("🔧 Selected PulseAudio source via env: {}", pulse_source_name);
             }
             
-            let devices = host.input_devices()?;
+            let devices = host.input_devices().map_err(|e| e.to_string())?;
             devices.into_iter().find(|d| {
                 d.id().map(|id| id.1 == "pulse").unwrap_or(false)
-            }).ok_or("Could not find 'pulse' ALSA device for routed recording")?
+            }).ok_or_else(|| "Could not find 'pulse' ALSA device".to_string())
         } else {
-            println!("🎤 Initializing recording for device ID: {}", target_id);
-            let devices = host.input_devices()?;
-            let mut found = None;
+            let devices = host.input_devices().map_err(|e| e.to_string())?;
             for dev in devices {
-                if let Ok(id) = dev.id() {
-                    if id.1 == target_id {
-                        found = Some(dev);
-                        break;
+                if let Ok(dev_id) = dev.id() {
+                    if dev_id.1 == id {
+                        return Ok(dev);
                     }
                 }
             }
-            found.ok_or_else(|| format!("Selected device '{}' not found", target_id))?
+            Err(format!("Device '{}' not found", id))
         }
     } else {
         #[cfg(target_os = "linux")]
         {
-            let devices = host.input_devices()?;
-            let mut target_device = None;
+            let devices = host.input_devices().map_err(|e| e.to_string())?;
             for dev in devices {
                 if let Ok(id) = dev.id() {
                     let name = id.1;
                     if name == "pulse" || name.starts_with("default") {
-                        target_device = Some(dev);
-                        break;
+                        return Ok(dev);
                     }
                 }
             }
-            target_device.or_else(|| host.default_input_device()).ok_or("No input device available")?
         }
-        
-        #[cfg(not(target_os = "linux"))]
-        host.default_input_device().ok_or("No input device available")?
+        host.default_input_device().ok_or_else(|| "No input device available".to_string())
+    }
+}
+
+pub async fn record_audio_while_flag(
+    is_recording: &Arc<Mutex<bool>>,
+    cached_device: Arc<Mutex<Option<cpal::Device>>>,
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    // Try to get device from cache, or lookup if empty
+    let device = {
+        let guard = cached_device.lock().unwrap();
+        if let Some(dev) = guard.as_ref() {
+            dev.clone()
+        } else {
+            drop(guard);
+            let dev = lookup_device(None)?;
+            let mut guard = cached_device.lock().unwrap();
+            *guard = Some(dev.clone());
+            dev
+        }
     };
 
     let final_device_name = match device.description() {

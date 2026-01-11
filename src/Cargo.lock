@@ -5010,6 +5010,7 @@ dependencies = [
  "env_logger",
  "evdev",
  "hound",
+ "libc",
  "libloading 0.8.9",
  "log",
  "pulsectl-rs",

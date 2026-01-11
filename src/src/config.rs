@@ -20,7 +20,7 @@ pub struct Config {
 
 fn default_api_key() -> String { "your_api_key_here".to_string() }
 fn default_api_url() -> String { "https://api.openai.com/v1/audio/transcriptions".to_string() }
-fn default_hotkey() -> String { "ctrl+space".to_string() }
+fn default_hotkey() -> String { "alt+space".to_string() }
 fn default_typing_speed() -> f64 { 0.01 }
 fn default_pixels_from_bottom() -> i32 { 50 }
 

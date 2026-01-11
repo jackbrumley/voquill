@@ -22,6 +22,7 @@ reqwest = { version = "0.11", features = ["json", "multipart"] }
 cpal = "0.17"
 pulsectl-rs = "0.3"
 evdev = "0.12"
+libc = "0.2"
 ashpd = { version = "0.9", default-features = false, features = ["tokio"] }
 zbus = "4.4"
 hound = "3.5"
