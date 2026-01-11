@@ -14,7 +14,7 @@ pub struct Config {
     pub typing_speed_interval: f64,
     #[serde(default = "default_pixels_from_bottom")]
     pub pixels_from_bottom: i32,
-    #[serde(default)]
+    #[serde(default = "default_audio_device")]
     pub audio_device: Option<String>,
 }
 
@@ -23,6 +23,7 @@ fn default_api_url() -> String { "https://api.openai.com/v1/audio/transcriptions
 fn default_hotkey() -> String { "alt+space".to_string() }
 fn default_typing_speed() -> f64 { 0.01 }
 fn default_pixels_from_bottom() -> i32 { 50 }
+fn default_audio_device() -> Option<String> { Some("default".to_string()) }
 
 impl Default for Config {
     fn default() -> Self {
@@ -32,7 +33,7 @@ impl Default for Config {
             hotkey: default_hotkey(),
             typing_speed_interval: default_typing_speed(),
             pixels_from_bottom: default_pixels_from_bottom(),
-            audio_device: None,
+            audio_device: default_audio_device(),
         }
     }
 }

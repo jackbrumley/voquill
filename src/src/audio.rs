@@ -52,12 +52,14 @@ fn get_linux_pulse_devices() -> Result<Vec<AudioDevice>, String> {
 pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
     println!("🔍 get_input_devices called from frontend");
     
+    let mut final_devices = Vec::new();
+
     #[cfg(target_os = "linux")]
     {
         match get_linux_pulse_devices() {
             Ok(devices) => {
-                println!("Final PulseAudio device list ({} devices): {:?}", devices.len(), devices);
-                return Ok(devices);
+                println!("PulseAudio discovery found {} devices", devices.len());
+                final_devices = devices;
             }
             Err(e) => {
                 println!("⚠️ PulseAudio discovery failed, falling back to ALSA: {}", e);
@@ -65,40 +67,40 @@ pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
         }
     }
 
-    let mut final_devices = Vec::new();
-    let mut seen_labels = std::collections::HashSet::new();
-    
-    let available_hosts = cpal::available_hosts();
-    for host_id in available_hosts {
-        if let Ok(host) = cpal::host_from_id(host_id) {
-            if let Ok(devices) = host.input_devices() {
-                for dev in devices {
-                    let device_id = match dev.id() {
-                        Ok(id) => id.1,
-                        Err(_) => continue,
-                    };
+    if final_devices.is_empty() {
+        let mut seen_labels = std::collections::HashSet::new();
+        let available_hosts = cpal::available_hosts();
+        for host_id in available_hosts {
+            if let Ok(host) = cpal::host_from_id(host_id) {
+                if let Ok(devices) = host.input_devices() {
+                    for dev in devices {
+                        let device_id = match dev.id() {
+                            Ok(id) => id.1,
+                            Err(_) => continue,
+                        };
 
-                    if !device_id.starts_with("default:") && device_id != "pulse" && device_id != "default" {
-                        continue;
-                    }
+                        if !device_id.starts_with("default:") && device_id != "pulse" && device_id != "default" {
+                            continue;
+                        }
 
-                    let label = match dev.description() {
-                        Ok(desc) => desc.name().to_string(),
-                        Err(_) => device_id.clone(),
-                    };
+                        let label = match dev.description() {
+                            Ok(desc) => desc.name().to_string(),
+                            Err(_) => device_id.clone(),
+                        };
 
-                    let clean_label = label
-                        .split(", USB Audio").next().unwrap_or(&label)
-                        .split(", ALC").next().unwrap_or(&label)
-                        .trim()
-                        .to_string();
+                        let clean_label = label
+                            .split(", USB Audio").next().unwrap_or(&label)
+                            .split(", ALC").next().unwrap_or(&label)
+                            .trim()
+                            .to_string();
 
-                    if !seen_labels.contains(&clean_label) {
-                        final_devices.push(AudioDevice {
-                            id: device_id.clone(),
-                            label: clean_label.clone(),
-                        });
-                        seen_labels.insert(clean_label);
+                        if !seen_labels.contains(&clean_label) {
+                            final_devices.push(AudioDevice {
+                                id: device_id.clone(),
+                                label: clean_label.clone(),
+                            });
+                            seen_labels.insert(clean_label);
+                        }
                     }
                 }
             }
@@ -106,12 +108,22 @@ pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
     }
 
     final_devices.sort_by(|a, b| a.label.cmp(&b.label));
+    
+    // Prepend "System Default" so it's always the first option and selectable
+    final_devices.insert(0, AudioDevice {
+        id: "default".to_string(),
+        label: "System Default".to_string(),
+    });
+    
     Ok(final_devices)
 }
 
 pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> {
     let host = cpal::default_host();
     
+    // Normalize "default" ID to None to trigger system fallback logic
+    let target_id = target_id.filter(|id| id != "default");
+
     if let Some(id) = target_id {
         if id.starts_with("pulse:") {
             let pulse_source_name = &id[6..];
@@ -137,6 +149,14 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
             Err(format!("Device '{}' not found", id))
         }
     } else {
+        // If no specific device (or "default" selected), ensure PULSE_SOURCE is cleared on Linux
+        // to follow system default (e.g. set via KDE)
+        #[cfg(target_os = "linux")]
+        {
+            std::env::remove_var("PULSE_SOURCE");
+            println!("🔧 Cleared PULSE_SOURCE to follow system default");
+        }
+
         #[cfg(target_os = "linux")]
         {
             let devices = host.input_devices().map_err(|e| e.to_string())?;

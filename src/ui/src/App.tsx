@@ -38,7 +38,7 @@ function App() {
     hotkey: 'ctrl+space',
     typing_speed_interval: 0.01,
     pixels_from_bottom: 100,
-    audio_device: null,
+    audio_device: 'default',
   });
   
   const [activeTab, setActiveTab] = useState<'status' | 'history' | 'config'>('status');
@@ -171,6 +171,7 @@ function App() {
         ...loadedConfig,
         openai_api_key: loadedConfig.openai_api_key === 'your_api_key_here' ? '' : loadedConfig.openai_api_key,
         typing_speed_interval: loadedConfig.typing_speed_interval * 1000, // Convert to ms
+        audio_device: loadedConfig.audio_device || 'default',
       });
     } catch (error) {
       showToast('Failed to load configuration', 'error');
@@ -350,7 +351,7 @@ function App() {
             <div className="form-group">
               <label>Microphone:</label>
               <div className="select-wrapper">
-                <select value={config.audio_device || ''} onChange={(e) => updateConfig('audio_device', e.target.value || null)}>
+                <select value={config.audio_device || 'default'} onChange={(e) => updateConfig('audio_device', e.target.value)}>
                   {availableMics.map(mic => <option key={mic.id} value={mic.id}>{mic.label}</option>)}
                 </select>
                 <button className="button small icon-button" onClick={loadMics} title="Refresh Devices">
