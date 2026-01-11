@@ -39,6 +39,7 @@
         "skipTaskbar": true,
         "transparent": true,
         "focusable": false,
+        "acceptFirstMouse": false,
         "url": "/overlay"
       }
     ],

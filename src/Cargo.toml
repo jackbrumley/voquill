@@ -27,6 +27,7 @@ ashpd = { version = "0.9", default-features = false, features = ["tokio"] }
 zbus = "4.4"
 hound = "3.5"
 enigo = "0.2"
+nix = "0.27"
 dirs = "5.0"
 anyhow = "1.0"
 log = "0.4"

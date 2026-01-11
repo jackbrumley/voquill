@@ -54,11 +54,11 @@ async fn check_request_audio_portal(app_handle: &tauri::AppHandle) -> Result<(),
 pub struct AppState {
     pub config: Arc<Mutex<Config>>,
     pub is_recording: Arc<Mutex<bool>>,
-    pub overlay_window: Arc<Mutex<Option<WebviewWindow>>>,
     pub hotkey_error: Arc<Mutex<Option<String>>>,
     pub setup_status: Arc<Mutex<Option<String>>>,
     pub hardware_hotkey: Arc<Mutex<HardwareHotkey>>,
     pub cached_device: Arc<Mutex<Option<cpal::Device>>>,
+    pub virtual_keyboard: Arc<Mutex<Option<evdev::uinput::VirtualDevice>>>,
 }
 
 impl Default for AppState {
@@ -66,11 +66,11 @@ impl Default for AppState {
         Self {
             config: Arc::new(Mutex::new(Config::default())),
             is_recording: Arc::new(Mutex::new(false)),
-            overlay_window: Arc::new(Mutex::new(None)),
             hotkey_error: Arc::new(Mutex::new(None)),
             setup_status: Arc::new(Mutex::new(None)),
             hardware_hotkey: Arc::new(Mutex::new(HardwareHotkey::default())),
             cached_device: Arc::new(Mutex::new(None)),
+            virtual_keyboard: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -78,9 +78,15 @@ impl Default for AppState {
 #[cfg(target_os = "linux")]
 async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<(), String> {
     use std::process::Command;
+    use std::fs;
 
     println!("Checking system portals and groups...");
 
+    // Check uinput access directly
+    let has_uinput_access = fs::OpenOptions::new().write(true).open("/dev/uinput").is_ok();
+    println!("📂 /dev/uinput access: {}", if has_uinput_access { "Writable ✅" } else { "DENIED ❌" });
+    
+    // 2. Check group memberships
     let groups_output = match Command::new("groups").output() {
         Ok(o) => String::from_utf8_lossy(&o.stdout).into_owned(),
         Err(e) => {
@@ -88,21 +94,27 @@ async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<
             return Ok(());
         }
     };
+    println!("👤 User groups: {}", groups_output.trim());
     
     let is_in_audio = groups_output.contains("audio");
     let is_in_input = groups_output.contains("input");
+    let is_in_uinput = groups_output.contains("uinput");
 
-    if !is_in_audio || !is_in_input {
-        println!("🔧 Missing group memberships. Triggering standard Polkit request...");
+    if !has_uinput_access || !is_in_audio || !is_in_input {
+        println!("🔧 Missing permissions or group memberships. Triggering Polkit request...");
         let _ = app_handle.emit("setup-status", "configuring-system");
         
         let username = std::env::var("USER").unwrap_or_default();
         if username.is_empty() {
-             println!("⚠️ Could not determine username, skipping group update.");
+             println!("⚠️ Could not determine username, skipping setup.");
              return Ok(());
         }
 
-        let cmd = format!("usermod -aG audio,input {}", username);
+        // Determine correct group for uinput
+        let uinput_group = if is_in_uinput || groups_output.contains("uinput") { "uinput" } else { "input" };
+        
+        let cmd = format!("usermod -aG audio,input,{} {}", uinput_group, username);
+        println!("🔧 Executing: pkexec {}", cmd);
         
         let output = Command::new("pkexec")
             .args(&["bash", "-c", &cmd])
@@ -110,11 +122,11 @@ async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<
 
         match output {
             Ok(out) if out.status.success() => {
-                println!("✅ Groups updated. Notifying user to restart session.");
+                println!("✅ Permissions updated. Notifying user to restart session.");
                 let _ = app_handle.emit("setup-status", "restart-required");
             },
             _ => {
-                println!("⚠️ Group update failed or cancelled. Proceeding with existing permissions.");
+                println!("⚠️ Permission update failed or cancelled.");
                 let _ = app_handle.emit("setup-status", "setup-failed");
             }
         }
@@ -175,16 +187,16 @@ async fn start_recording(
 
     let is_recording_clone = state.is_recording.clone();
     let config = state.config.clone();
-    let overlay_window = state.overlay_window.clone();
     let app_handle_clone = app_handle.clone();
     let cached_device = state.cached_device.clone();
+    let virtual_keyboard = state.virtual_keyboard.clone();
 
     tokio::spawn(async move {
         emit_status_update("Recording").await;
-        let result = record_and_transcribe(config, is_recording_clone, overlay_window, app_handle_clone, cached_device).await;
+        let result = record_and_transcribe(config, is_recording_clone, app_handle_clone, cached_device, virtual_keyboard).await;
         
         if let Err(e) = result {
-            log::error!("Recording/transcription error: {}", e);
+            println!("❌ Global Recording error: {}", e);
         }
     });
 
@@ -248,10 +260,8 @@ async fn save_config(
 }
 
 async fn re_register_hotkey(_app_handle: &tauri::AppHandle, _hotkey_string: &str) -> Result<(), String> {
-    // On Linux, we use the Hardware Engine, so we don't register standard shortcuts
     #[cfg(target_os = "linux")]
     {
-        println!("Linux: Standard hotkey registration skipped (using Hardware Engine)");
         return Ok(());
     }
 
@@ -301,18 +311,25 @@ async fn clear_history() -> Result<(), String> {
     history::clear_history().map_err(|e| e.to_string())
 }
 
-fn update_global_status(status: &str) {
-    if let Some(status_mutex) = CURRENT_STATUS.get() {
-        if let Ok(mut global_status) = status_mutex.lock() {
-            *global_status = status.to_string();
-        }
-    }
-}
-
 async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
     let overlay_window = app_handle.get_webview_window("overlay").ok_or("Overlay window not found")?;
+    
+    // Check if already visible to avoid redundant GTK calls that can cause panics in tao
+    if overlay_window.is_visible().unwrap_or(false) {
+        return Ok(());
+    }
+
     position_overlay_window(&overlay_window, app_handle).await?;
+    
+    // CRITICAL: Show the window FIRST, then set click-through and non-focusable.
+    // On Wayland/Linux, setting these before the window is realized can cause event loop panics.
     overlay_window.show().map_err(|e| e.to_string())?;
+    
+    // Explicitly ensure the window doesn't take focus and remains click-through
+    let _ = overlay_window.set_focusable(false);
+    let _ = overlay_window.set_ignore_cursor_events(true);
+    
+    println!("👻 Overlay realized and set to Ghost Mode (Non-focusable + Click-through)");
     
     let overlay_window_clone = overlay_window.clone();
     let app_handle_clone = app_handle.clone();
@@ -359,7 +376,20 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
 
 // Centralized status emitter
 async fn emit_status_update(status: &str) {
-    update_global_status(status);
+    let mut changed = false;
+    if let Some(status_mutex) = CURRENT_STATUS.get() {
+        if let Ok(mut global_status) = status_mutex.lock() {
+            if *global_status != status {
+                *global_status = status.to_string();
+                changed = true;
+            }
+        }
+    }
+    
+    // If status hasn't changed, don't trigger redundant window operations or events
+    if !changed {
+        return;
+    }
     
     if let Some(app_handle) = APP_HANDLE.get() {
         let windows = ["main", "overlay"];
@@ -410,9 +440,9 @@ fn validate_audio_duration(audio_data: &[u8]) -> Result<(), Box<dyn std::error::
 async fn record_and_transcribe(
     config: Arc<Mutex<Config>>,
     is_recording: Arc<Mutex<bool>>,
-    _overlay_window: Arc<Mutex<Option<WebviewWindow>>>,
     app_handle: AppHandle,
     cached_device: Arc<Mutex<Option<cpal::Device>>>,
+    virtual_keyboard: Arc<Mutex<Option<evdev::uinput::VirtualDevice>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let reset_status_on_exit = || async { emit_status_to_frontend("Ready").await; };
     
@@ -425,7 +455,11 @@ async fn record_and_transcribe(
     };
     
     if audio_data.is_empty() { reset_status_on_exit().await; return Ok(()); }
-    if let Err(_e) = validate_audio_duration(&audio_data) { reset_status_on_exit().await; return Ok(()); }
+    if let Err(e) = validate_audio_duration(&audio_data) { 
+        println!("⚠️ Audio validation failed: {}", e);
+        reset_status_on_exit().await; 
+        return Ok(()); 
+    }
     
     emit_status_to_frontend("Transcribing").await;
     let (api_key, api_url) = {
@@ -433,9 +467,17 @@ async fn record_and_transcribe(
         (config.openai_api_key.clone(), config.api_url.clone())
     };
     
+    println!("📡 Sending {} bytes to transcription API...", audio_data.len());
     let text = match transcription::transcribe_audio(&audio_data, &api_key, &api_url).await {
-        Ok(text) => text,
-        Err(e) => { reset_status_on_exit().await; return Err(e); }
+        Ok(text) => {
+            println!("📝 Transcription received: \"{}\"", text);
+            text
+        },
+        Err(e) => { 
+            println!("❌ Transcription API failed: {}", e);
+            reset_status_on_exit().await; 
+            return Err(e); 
+        }
     };
     
     if !text.trim().is_empty() {
@@ -446,7 +488,16 @@ async fn record_and_transcribe(
         
         emit_status_to_frontend("Typing").await;
         let typing_speed = { config.lock().unwrap().typing_speed_interval };
-        let _ = typing::type_text_with_config(&text, typing_speed);
+        
+        // Give the OS a moment to ensure focus is on the target app
+        tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+        
+        println!("⌨️  Forwarding text to hardware typing engine...");
+        if let Err(e) = typing::type_text_hardware(&text, typing_speed, virtual_keyboard) {
+            println!("❌ TYPING ENGINE ERROR: {}", e);
+        }
+    } else {
+        println!("ℹ️ Transcription was empty, skipping typing.");
     }
     
     reset_status_on_exit().await;
@@ -481,6 +532,8 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                         if let Ok(device) = evdev::Device::open(&path) {
                             let has_keys = device.supported_keys().map(|k| k.iter().count() > 20).unwrap_or(false);
                             if has_keys {
+                                let dev_name = device.name().unwrap_or("Unknown").to_string();
+                                println!("🔍 Monitoring hardware: {} ({})", dev_name, path.display());
                                 devices.push(device);
                             }
                         }
@@ -505,6 +558,7 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                 for i in 0..poll_fds.len() {
                     if poll_fds[i].revents & POLLIN != 0 {
                         let dev = &mut devices[i];
+                        let dev_name = dev.name().unwrap_or("Unknown").to_string();
                         if let Ok(events) = dev.fetch_events() {
                             for event in events {
                                 if event.event_type() == evdev::EventType::KEY {
@@ -513,6 +567,7 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                                     let h_hotkey = hardware_hotkey_flag.lock().unwrap().clone();
 
                                     if value == 1 { // Pressed
+                                        println!("⌨️  [{}] Key {} PRESSED", dev_name, code);
                                         pressed_keys.insert(code);
                                         
                                         // CHECK FOR START: All combo keys must be in pressed_keys
@@ -531,10 +586,10 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                                                     let s = h_clone.state::<AppState>();
                                                     let config = s.config.clone();
                                                     let is_recording = s.is_recording.clone();
-                                                    let overlay_window = s.overlay_window.clone();
                                                     let cached_device = s.cached_device.clone();
+                                                    let virtual_keyboard = s.virtual_keyboard.clone();
                                                     
-                                                    let _ = record_and_transcribe(config, is_recording, overlay_window, h_clone, cached_device).await;
+                                                    let _ = record_and_transcribe(config, is_recording, h_clone, cached_device, virtual_keyboard).await;
                                                 });
                                                 
                                                 if let Some(w) = app_handle.get_webview_window("main") {
@@ -543,6 +598,7 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                                             }
                                         }
                                     } else if value == 0 { // Released
+                                        println!("⌨️  [{}] Key {} RELEASED", dev_name, code);
                                         pressed_keys.remove(&code);
                                         
                                         // CHECK FOR STOP: If we ARE recording and ANY combo key is released
@@ -574,20 +630,6 @@ fn start_linux_input_engine(app_handle: AppHandle) {
 fn main() {
     env_logger::init();
 
-    #[cfg(target_os = "linux")]
-    {
-        std::env::set_var("GDK_BACKEND", "wayland,x11");
-        unsafe {
-            if let Ok(lib) = libloading::Library::new("libgtk-3.so.0") {
-                if let Ok(gtk_init_check) = lib.get::<unsafe extern "C" fn(*mut i32, *mut *mut *mut i8) -> i32>(b"gtk_init_check") {
-                    let mut argc = 0i32;
-                    let mut argv = std::ptr::null_mut();
-                    let _ = gtk_init_check(&mut argc, &mut argv);
-                }
-            }
-        }
-    }
-
     let is_first_launch = config::is_first_launch().unwrap_or(false);
     let initial_config = config::load_config().unwrap_or_default();
     
@@ -597,7 +639,6 @@ fn main() {
         ..Default::default()
     };
 
-    // Pre-warm the audio device cache
     {
         let mut cached_device = app_state.cached_device.lock().unwrap();
         *cached_device = audio::lookup_device(initial_config.audio_device.clone()).ok();
@@ -616,6 +657,48 @@ fn main() {
             
             #[cfg(target_os = "linux")]
             start_linux_input_engine(app.handle().clone());
+
+            // Hardware-Level Virtual Keyboard Initialization
+            #[cfg(target_os = "linux")]
+            {
+                let state = app.state::<AppState>();
+                let virtual_keyboard = state.virtual_keyboard.clone();
+                std::thread::spawn(move || {
+                    use evdev::uinput::VirtualDeviceBuilder;
+                    use evdev::{AttributeSet, Key, InputId, BusType};
+                    println!("🔄 Starting virtual hardware keyboard initialization...");
+                    
+                    let mut keys = AttributeSet::<Key>::new();
+                    // Add standard alphanumeric keys and symbols
+                    for i in 0..564 {
+                        keys.insert(Key::new(i as u16));
+                    }
+
+                    let input_id = InputId::new(BusType::BUS_USB, 0x6666, 0x8888, 0x0111);
+
+                    match VirtualDeviceBuilder::new()
+                        .unwrap()
+                        .name("Voquill Virtual Keyboard")
+                        .input_id(input_id)
+                        .with_keys(&keys)
+                        .unwrap()
+                        .build() 
+                    {
+                        Ok(mut device) => {
+                            if let Ok(path) = device.get_syspath() {
+                                println!("✅ Virtual hardware keyboard initialized at: {}", path.display());
+                            } else {
+                                println!("✅ Virtual hardware keyboard initialized");
+                            }
+                            let mut lock = virtual_keyboard.lock().unwrap();
+                            *lock = Some(device);
+                        },
+                        Err(e) => {
+                            println!("❌ Virtual keyboard initialization failed: {}", e);
+                        }
+                    }
+                });
+            }
 
             let menu = create_tray_menu(app.handle())?;
             let _tray = TrayIconBuilder::with_id("main-tray")
