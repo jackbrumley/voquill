@@ -329,6 +329,9 @@ async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
     let _ = overlay_window.set_focusable(false);
     let _ = overlay_window.set_ignore_cursor_events(true);
     
+    #[cfg(target_os = "linux")]
+    apply_linux_unfocusable_hints(&overlay_window);
+    
     println!("👻 Overlay realized and set to Ghost Mode (Non-focusable + Click-through)");
     
     let overlay_window_clone = overlay_window.clone();
@@ -372,6 +375,17 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
     overlay_window.set_size(LogicalSize::new(window_width as f64, window_height as f64)).map_err(|e| e.to_string())?;
     
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn apply_linux_unfocusable_hints(window: &WebviewWindow) {
+    use gtk::prelude::*;
+    if let Ok(gtk_window) = window.gtk_window() {
+        gtk_window.set_accept_focus(false);
+        gtk_window.set_focus_on_map(false);
+        gtk_window.set_type_hint(gdk::WindowTypeHint::Notification);
+        gtk_window.set_keep_above(true);
+    }
 }
 
 // Centralized status emitter
@@ -652,7 +666,11 @@ fn main() {
             let _ = APP_HANDLE.set(app.handle().clone());
             let _ = CURRENT_STATUS.set(Mutex::new("Ready".to_string()));
             
-            if let Some(w) = app.get_webview_window("overlay") { let _ = w.hide(); }
+            if let Some(w) = app.get_webview_window("overlay") { 
+                let _ = w.hide(); 
+                #[cfg(target_os = "linux")]
+                apply_linux_unfocusable_hints(&w);
+            }
             let _ = audio::get_input_devices();
             
             #[cfg(target_os = "linux")]
