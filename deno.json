@@ -15,14 +15,14 @@
   },
 
   "imports": {
-    "preact": "npm:preact@^10.25.1",
-    "preact/": "npm:preact@^10.25.1/",
-    "preact/hooks": "npm:preact@^10.25.1/hooks",
-    "preact/jsx-runtime": "npm:preact@^10.25.1/jsx-runtime",
-    "@tauri-apps/api": "npm:@tauri-apps/api@^2.2.0",
-    "@tauri-apps/plugin-shell": "npm:@tauri-apps/plugin-shell@^2.2.0",
-    "@preact/preset-vite": "npm:@preact/preset-vite@^2.9.3",
-    "vite": "npm:vite@^6.0.3"
+    "preact": "npm:preact@^10.28.2",
+    "preact/": "npm:preact@^10.28.2/",
+    "preact/hooks": "npm:preact@^10.28.2/hooks",
+    "preact/jsx-runtime": "npm:preact@^10.28.2/jsx-runtime",
+    "@tauri-apps/api": "npm:@tauri-apps/api@^2",
+    "@tauri-apps/plugin-shell": "npm:@tauri-apps/plugin-shell@^2",
+    "@preact/preset-vite": "npm:@preact/preset-vite@^2.10.2",
+    "vite": "npm:vite@^6.4.1"
   },
   "nodeModulesDir": "auto"
 }
