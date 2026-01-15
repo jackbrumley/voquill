@@ -61,6 +61,7 @@ pub struct AppState {
     pub virtual_keyboard: Arc<Mutex<Option<evdev::uinput::VirtualDevice>>>,
     pub playback_stream: Arc<Mutex<Option<cpal::Stream>>>,
     pub mic_test_samples: Arc<Mutex<Vec<i16>>>,
+    pub audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
 }
 
 impl Default for AppState {
@@ -75,6 +76,7 @@ impl Default for AppState {
             virtual_keyboard: Arc::new(Mutex::new(None)),
             playback_stream: Arc::new(Mutex::new(None)),
             mic_test_samples: Arc::new(Mutex::new(Vec::new())),
+            audio_engine: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -192,12 +194,28 @@ async fn start_recording(
     let is_recording_clone = state.is_recording.clone();
     let config = state.config.clone();
     let app_handle_clone = app_handle.clone();
-    let cached_device = state.cached_device.clone();
+    let audio_engine = state.audio_engine.clone();
     let virtual_keyboard = state.virtual_keyboard.clone();
+
+    // Ensure engine is initialized
+    {
+        let mut engine_guard = audio_engine.lock().unwrap();
+        if engine_guard.is_none() {
+            println!("🔧 Audio engine not found, attempting to initialize...");
+            let cached_device = state.cached_device.lock().unwrap().clone();
+            if let Some(dev) = cached_device {
+                let sensitivity = config.lock().unwrap().input_sensitivity;
+                if let Ok(new_eng) = audio::PersistentAudioEngine::new(&dev, sensitivity) {
+                    *engine_guard = Some(new_eng);
+                    println!("✅ Audio engine initialized on demand");
+                }
+            }
+        }
+    }
 
     tokio::spawn(async move {
         emit_status_update("Recording").await;
-        let result = record_and_transcribe(config, is_recording_clone, app_handle_clone, cached_device, virtual_keyboard).await;
+        let result = record_and_transcribe(config, is_recording_clone, app_handle_clone, audio_engine, virtual_keyboard).await;
         
         if let Err(e) = result {
             println!("❌ Global Recording error: {}", e);
@@ -231,16 +249,28 @@ async fn start_mic_test(state: tauri::State<'_, AppState>, app_handle: tauri::Ap
     
     let is_recording_clone = state.is_recording.clone();
     let mic_test_samples_clone = state.mic_test_samples.clone();
-    let cached_device = state.cached_device.clone();
+    let audio_engine = state.audio_engine.clone();
     let app_handle_clone = app_handle.clone();
-    let sensitivity = {
-        let config = state.config.lock().unwrap();
-        config.input_sensitivity
-    };
     
+    // Ensure engine is initialized
+    {
+        let mut engine_guard = audio_engine.lock().unwrap();
+        if engine_guard.is_none() {
+            println!("🔧 Audio engine not found for mic test, attempting to initialize...");
+            let cached_device = state.cached_device.lock().unwrap().clone();
+            if let Some(dev) = cached_device {
+                let sensitivity = state.config.lock().unwrap().input_sensitivity;
+                if let Ok(new_eng) = audio::PersistentAudioEngine::new(&dev, sensitivity) {
+                    *engine_guard = Some(new_eng);
+                    println!("✅ Audio engine initialized on demand");
+                }
+            }
+        }
+    }
+
     tokio::spawn(async move {
         println!("🎤 Mic test thread started");
-        let result = audio::record_mic_test(&is_recording_clone, cached_device, sensitivity, move |volume| {
+        let result = audio::record_mic_test(&is_recording_clone, audio_engine, move |volume| {
             let _ = app_handle_clone.emit("mic-test-volume", volume);
         }).await;
         match result {
@@ -376,8 +406,12 @@ async fn save_config(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    let mut restart_engine = false;
     {
         let mut config = state.config.lock().unwrap();
+        if config.audio_device != new_config.audio_device || config.input_sensitivity != new_config.input_sensitivity {
+            restart_engine = true;
+        }
         *config = new_config.clone();
         
         // Update Hardware Hotkey for Linux
@@ -392,6 +426,20 @@ async fn save_config(
         let mut cached_device = state.cached_device.lock().unwrap();
         *cached_device = audio::lookup_device(new_config.audio_device.clone()).ok();
         println!("🔧 Pre-warmed audio device cache");
+    }
+
+    if restart_engine {
+        println!("🔧 Audio config changed, restarting persistent engine...");
+        let cached_device = state.cached_device.lock().unwrap().clone();
+        let sensitivity = new_config.input_sensitivity;
+        let mut engine_guard = state.audio_engine.lock().unwrap();
+        *engine_guard = None; // Drop old stream
+        if let Some(dev) = cached_device {
+            if let Ok(new_eng) = audio::PersistentAudioEngine::new(&dev, sensitivity) {
+                *engine_guard = Some(new_eng);
+                println!("✅ Persistent engine restarted");
+            }
+        }
     }
     
     if let Err(e) = config::save_config(&new_config) {
@@ -484,6 +532,8 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
             if let Ok(gtk_window) = window_clone.gtk_window() {
                 // Resolution: Use fully qualified syntax and the correct method name 'set_layer_shell_margin'
                 // to resolve the conflict with WidgetExt::set_margin
+                gtk_window.init_layer_shell();
+                gtk_window.set_anchor(gtk_layer_shell::Edge::Bottom, true);
                 LayerShell::set_layer_shell_margin(&gtk_window, gtk_layer_shell::Edge::Bottom, pixels_from_bottom_logical);
             }
         });
@@ -654,17 +704,12 @@ async fn record_and_transcribe(
     config: Arc<Mutex<Config>>,
     is_recording: Arc<Mutex<bool>>,
     app_handle: AppHandle,
-    cached_device: Arc<Mutex<Option<cpal::Device>>>,
+    audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
     virtual_keyboard: Arc<Mutex<Option<evdev::uinput::VirtualDevice>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let reset_status_on_exit = || async { emit_status_to_frontend("Ready").await; };
     
-    let sensitivity = {
-        let config_lock = config.lock().unwrap();
-        config_lock.input_sensitivity
-    };
-
-    let audio_data = match audio::record_audio_while_flag(&is_recording, cached_device, sensitivity).await {
+    let audio_data = match audio::record_audio_while_flag(&is_recording, audio_engine).await {
         Ok(data) => data,
         Err(e) => {
             reset_status_on_exit().await;
@@ -817,10 +862,10 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                                                     let s = h_clone.state::<AppState>();
                                                     let config = s.config.clone();
                                                     let is_recording = s.is_recording.clone();
-                                                    let cached_device = s.cached_device.clone();
+                                                    let audio_engine = s.audio_engine.clone();
                                                     let virtual_keyboard = s.virtual_keyboard.clone();
                                                     
-                                                    let _ = record_and_transcribe(config, is_recording, h_clone, cached_device, virtual_keyboard).await;
+                                                    let _ = record_and_transcribe(config, is_recording, h_clone, audio_engine, virtual_keyboard).await;
                                                 });
                                                 
                                                 if let Some(w) = app_handle.get_webview_window("main") {
@@ -871,7 +916,16 @@ fn main() {
 
     {
         let mut cached_device = app_state.cached_device.lock().unwrap();
-        *cached_device = audio::lookup_device(initial_config.audio_device.clone()).ok();
+        let dev = audio::lookup_device(initial_config.audio_device.clone()).ok();
+        *cached_device = dev.clone();
+        
+        if let Some(d) = dev {
+            if let Ok(engine) = audio::PersistentAudioEngine::new(&d, initial_config.input_sensitivity) {
+                let mut engine_guard = app_state.audio_engine.lock().unwrap();
+                *engine_guard = Some(engine);
+                println!("✅ Persistent audio engine initialized");
+            }
+        }
         println!("🔧 Initial pre-warm of audio device cache complete");
     }
 

@@ -3,6 +3,8 @@ use cpal::{SampleFormat, StreamConfig};
 use hound::{WavSpec, WavWriter};
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
+use ringbuf::traits::*;
+use ringbuf::{HeapRb, CachingCons};
 
 #[cfg(target_os = "linux")]
 use pulsectl::controllers::DeviceControl;
@@ -11,6 +13,89 @@ use pulsectl::controllers::DeviceControl;
 pub struct AudioDevice {
     pub id: String,
     pub label: String,
+}
+
+pub struct PersistentAudioEngine {
+    pub stream: cpal::Stream,
+    pub pre_roll_consumer: Arc<Mutex<CachingCons<Arc<HeapRb<f32>>>>>,
+    pub recording_tx: Arc<Mutex<Option<mpsc::Sender<f32>>>>,
+    pub sample_rate: u32,
+}
+
+impl PersistentAudioEngine {
+    pub fn new(device: &cpal::Device, sensitivity: f32) -> Result<Self, String> {
+        let config = device.default_input_config().map_err(|e| e.to_string())?;
+        let sample_rate = config.sample_rate();
+        let channels = config.channels();
+        
+        let stream_config = StreamConfig {
+            channels,
+            sample_rate: config.sample_rate(),
+            buffer_size: cpal::BufferSize::Default,
+        };
+
+        // 200ms pre-roll buffer
+        let pre_roll_size = (sample_rate as f32 * 0.2) as usize;
+        let pre_roll_rb = HeapRb::<f32>::new(pre_roll_size);
+        let (mut pre_roll_prod, pre_roll_cons) = pre_roll_rb.split();
+
+        let recording_tx = Arc::new(Mutex::new(None::<mpsc::Sender<f32>>));
+        let recording_tx_clone = recording_tx.clone();
+
+        // DC Offset Filter state
+        let mut dc_offset_state = 0.0f32;
+        let alpha = 0.995f32; // Time constant for high-pass filter
+
+        let err_fn = |err| println!("❌ Audio stream error: {}", err);
+        
+        let mut callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
+            for frame in data.chunks(channels as usize) {
+                // Average channels for mono
+                let sum: f32 = frame.iter().sum();
+                let sample_raw = sum / channels as f32;
+
+                // 1. High-Pass Filter (DC Offset Removal)
+                let filtered = sample_raw - dc_offset_state;
+                dc_offset_state = filtered + alpha * dc_offset_state;
+                let mut sample = filtered;
+
+                // 2. Sensitivity / Gain
+                sample *= sensitivity;
+
+                // Push to pre-roll (non-blocking)
+                let _ = pre_roll_prod.try_push(sample);
+
+                // Push to active recording if any
+                if let Ok(guard) = recording_tx_clone.try_lock() {
+                    if let Some(tx) = guard.as_ref() {
+                        let _ = tx.send(sample);
+                    }
+                }
+            }
+        };
+
+        let stream = match config.sample_format() {
+            SampleFormat::F32 => {
+                device.build_input_stream(&stream_config, callback, err_fn, None)
+            }
+            SampleFormat::I16 => {
+                device.build_input_stream(&stream_config, move |data: &[i16], info| {
+                    let f32_data: Vec<f32> = data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
+                    callback(&f32_data, info);
+                }, err_fn, None)
+            }
+            _ => return Err("Unsupported sample format".into()),
+        }.map_err(|e| e.to_string())?;
+
+        stream.play().map_err(|e| e.to_string())?;
+
+        Ok(Self {
+            stream,
+            pre_roll_consumer: Arc::new(Mutex::new(pre_roll_cons)),
+            recording_tx,
+            sample_rate,
+        })
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -93,7 +178,7 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
     } else {
         #[cfg(target_os = "linux")]
         {
-            std::env::remove_var("PULSE_SOURCE");
+            // std::env::remove_var("PULSE_SOURCE"); // Don't remove if we might be using it
             if let Ok(devices) = host.input_devices() {
                 for dev in devices {
                     if let Ok(id) = dev.id() {
@@ -117,142 +202,131 @@ fn soft_clip(x: f32) -> f32 {
     }
 }
 
-fn process_sample(sample: f32, sensitivity: f32) -> i16 {
-    let amplified = sample * sensitivity;
-    let clipped = soft_clip(amplified);
+fn process_sample(sample: f32) -> i16 {
+    let clipped = soft_clip(sample);
     let with_headroom = clipped * 0.95;
     (with_headroom * i16::MAX as f32).clamp(i16::MIN as f32, i16::MAX as f32) as i16
 }
 
 pub async fn record_audio_while_flag(
     is_recording: &Arc<Mutex<bool>>,
-    cached_device: Arc<Mutex<Option<cpal::Device>>>,
-    sensitivity: f32,
+    engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-    let device = {
-        let mut guard = cached_device.lock().unwrap();
-        if let Some(dev) = guard.as_ref() { dev.clone() }
-        else {
-            let dev = lookup_device(None)?;
-            *guard = Some(dev.clone());
-            dev
-        }
-    };
-
-    let default_config = device.default_input_config()?;
-    let stream_config = StreamConfig {
-        channels: default_config.channels(),
-        sample_rate: default_config.sample_rate(),
-        buffer_size: cpal::BufferSize::Default,
-    };
+    let (tx, rx) = mpsc::channel::<f32>();
+    let sample_rate;
     
-    let temp_path = std::env::temp_dir().join("voquill_recording.wav");
-    let spec = WavSpec {
-        channels: stream_config.channels,
-        sample_rate: stream_config.sample_rate,
-        bits_per_sample: 16,
-        sample_format: hound::SampleFormat::Int,
-    };
-
-    let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(100);
-    let writer = WavWriter::create(&temp_path, spec)?;
-    let mut writer = Some(writer);
-
-    let writer_thread = std::thread::spawn(move || {
-        let mut w = writer.take().unwrap();
-        while let Ok(data) = rx.recv() {
-            for sample in data {
-                w.write_sample(process_sample(sample, sensitivity)).unwrap();
+    // Setup recording and capture pre-roll
+    let mut initial_samples = Vec::new();
+    {
+        let mut guard = engine.lock().unwrap();
+        let eng = guard.as_mut().ok_or("Audio engine not initialized")?;
+        sample_rate = eng.sample_rate;
+        
+        // 1. Grab pre-roll data
+        if let Ok(mut cons) = eng.pre_roll_consumer.lock() {
+            while let Some(s) = cons.try_pop() {
+                initial_samples.push(s);
             }
         }
-        let _ = w.finalize();
+        
+        // 2. Set live channel
+        let mut rec_tx = eng.recording_tx.lock().unwrap();
+        *rec_tx = Some(tx);
+    }
+
+    let (data_tx, data_rx) = mpsc::channel::<Vec<u8>>();
+
+    // Collector thread
+    std::thread::spawn(move || {
+        let mut samples = initial_samples;
+        while let Ok(sample) = rx.recv() {
+            samples.push(sample);
+        }
+        
+        // Convert to WAV format for Whisper
+        let mut out = Vec::new();
+        let spec = WavSpec {
+            channels: 1,
+            sample_rate,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        
+        if let Ok(mut writer) = WavWriter::new(std::io::Cursor::new(&mut out), spec) {
+            for s in samples {
+                let _ = writer.write_sample(process_sample(s));
+            }
+            let _ = writer.finalize();
+        }
+        
+        let _ = data_tx.send(out);
     });
 
-    let err_fn = |err| println!("❌ Audio stream error: {}", err);
-    let tx_clone = tx.clone();
-    let stream = match default_config.sample_format() {
-        SampleFormat::F32 => device.build_input_stream(&stream_config, move |data: &[f32], _| { let _ = tx_clone.try_send(data.to_vec()); }, err_fn, None)?,
-        SampleFormat::I16 => device.build_input_stream(&stream_config, move |data: &[i16], _| {
-            let f32_data: Vec<f32> = data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
-            let _ = tx_clone.try_send(f32_data);
-        }, err_fn, None)?,
-        _ => return Err("Unsupported sample format".into()),
-    };
+    // Wait for flag to flip
+    while *is_recording.lock().unwrap() {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
 
-    stream.play()?;
-    while *is_recording.lock().unwrap() { std::thread::sleep(Duration::from_millis(10)); }
-    drop(stream);
-    drop(tx);
-    let _ = writer_thread.join();
+    // Stop recording
+    {
+        let guard = engine.lock().unwrap();
+        if let Some(eng) = guard.as_ref() {
+            let mut rec_tx = eng.recording_tx.lock().unwrap();
+            *rec_tx = None;
+        }
+    }
 
-    let audio_data = std::fs::read(&temp_path)?;
-    let _ = std::fs::remove_file(&temp_path);
-    Ok(convert_audio_for_whisper(&audio_data, stream_config.sample_rate, stream_config.channels)?)
+    let final_wav = data_rx.recv()?;
+    
+    // Finally, ensure it is 16kHz for whisper
+    Ok(convert_audio_for_whisper(&final_wav, sample_rate, 1)?)
 }
 
 pub async fn record_mic_test<F>(
     is_recording: &Arc<Mutex<bool>>,
-    cached_device: Arc<Mutex<Option<cpal::Device>>>,
-    sensitivity: f32,
+    engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
     on_volume: F,
 ) -> Result<Vec<i16>, Box<dyn std::error::Error + Send + Sync>> 
 where F: Fn(f32) + Send + 'static
 {
-    let device = {
-        let mut guard = cached_device.lock().unwrap();
-        if let Some(dev) = guard.as_ref() { dev.clone() }
-        else {
-            let dev = lookup_device(None)?;
-            *guard = Some(dev.clone());
-            dev
-        }
-    };
-
-    let default_config = device.default_input_config()?;
-    let stream_config = StreamConfig {
-        channels: default_config.channels(),
-        sample_rate: default_config.sample_rate(),
-        buffer_size: cpal::BufferSize::Default,
-    };
+    let (tx, rx) = mpsc::channel::<f32>();
+    let sample_rate;
     
-    let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(100);
-    let collector_thread = std::thread::spawn(move || {
-        let mut all_samples = Vec::new();
-        while let Ok(data) = rx.recv() {
-            let mut peak: f32 = 0.0;
-            for sample in data {
-                let amplified = sample * sensitivity;
-                let abs_sample = amplified.abs();
-                if abs_sample > peak { peak = abs_sample; }
-                all_samples.push(process_sample(sample, sensitivity));
-            }
-            on_volume(peak);
+    {
+        let mut guard = engine.lock().unwrap();
+        let eng = guard.as_mut().ok_or("Audio engine not initialized")?;
+        sample_rate = eng.sample_rate;
+        let mut rec_tx = eng.recording_tx.lock().unwrap();
+        *rec_tx = Some(tx);
+    }
+
+    let (data_tx, data_rx) = mpsc::channel::<Vec<i16>>();
+
+    std::thread::spawn(move || {
+        let mut samples = Vec::new();
+        while let Ok(sample) = rx.recv() {
+            let abs_sample = sample.abs();
+            on_volume(abs_sample);
+            samples.push(process_sample(sample));
         }
-        all_samples
+        let _ = data_tx.send(samples);
     });
 
-    let err_fn = |err| println!("🎤 record_mic_test: Audio stream error: {}", err);
-    let tx_clone = tx.clone();
-    let stream = match default_config.sample_format() {
-        SampleFormat::F32 => device.build_input_stream(&stream_config, move |data: &[f32], _| { let _ = tx_clone.try_send(data.to_vec()); }, err_fn, None)?,
-        SampleFormat::I16 => device.build_input_stream(&stream_config, move |data: &[i16], _| {
-            let f32_data: Vec<f32> = data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
-            let _ = tx_clone.try_send(f32_data);
-        }, err_fn, None)?,
-        _ => return Err("Unsupported sample format".into()),
-    };
-
-    stream.play()?;
-    while *is_recording.lock().unwrap() { std::thread::sleep(Duration::from_millis(10)); }
-    drop(stream);
-    drop(tx);
-
-    let mut final_samples = collector_thread.join().unwrap();
-    if stream_config.channels == 2 {
-        final_samples = final_samples.chunks(2).map(|chunk| if chunk.len() == 2 { ((chunk[0] as i32 + chunk[1] as i32) / 2) as i16 } else { chunk[0] }).collect();
+    while *is_recording.lock().unwrap() {
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    if stream_config.sample_rate != 16000 {
-        final_samples = resample_audio(&final_samples, stream_config.sample_rate, 16000);
+
+    {
+        let guard = engine.lock().unwrap();
+        if let Some(eng) = guard.as_ref() {
+            let mut rec_tx = eng.recording_tx.lock().unwrap();
+            *rec_tx = None;
+        }
+    }
+
+    let mut final_samples = data_rx.recv()?;
+    if sample_rate != 16000 {
+        final_samples = resample_audio(&final_samples, sample_rate, 16000);
     }
     normalize_audio(&mut final_samples);
     Ok(final_samples)
