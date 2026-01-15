@@ -68,30 +68,25 @@ async function main() {
   
   await checkLinuxDependencies();
 
-  const srcDir = join(Deno.cwd(), "src");
-  const uiDir = join(srcDir, "ui");
+  const tauriDir = join(Deno.cwd(), "src-tauri");
 
-  // 1. Install Dependencies
-  logStep("1", "Installing frontend dependencies...");
-  await runCommand(["npm", "install"], uiDir);
+  // Dependencies are managed by Deno via deno.json imports
+  logStep("1", "Dependencies managed by Deno...");
+  log(`${colors.green}✅ Using Deno's automatic dependency management${colors.reset}`);
 
-  // 2. Build Frontend
-  logStep("2", "Building frontend...");
-  await runCommand(["npm", "run", "build"], uiDir);
-
-  // 3. Build Tauri App
-  logStep("3", "Building Tauri application...");
+  // 2. Build Tauri App (which will run beforeBuildCommand to build frontend)
+  logStep("2", "Building Tauri application...");
   
   // Check for debug flag
   const args = Deno.args;
   const isDev = args.includes("--dev") || args.includes("-d");
   
-  const tauriArgs = ["cargo", "tauri", "build"];
+  const tauriArgs = ["deno", "task", "tauri", "build"];
   if (isDev) {
     tauriArgs.push("--debug");
   }
   
-  await runCommand(tauriArgs, srcDir);
+  await runCommand(tauriArgs);
   
   log(`\n${colors.green}✅ Build completed successfully!${colors.reset}`);
 }

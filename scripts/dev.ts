@@ -70,26 +70,26 @@ async function main() {
   // 1. Check requirements
   await checkLinuxDependencies();
   logStep("1", "Checking environment...");
+  const tauriDir = join(Deno.cwd(), "src-tauri");
   const srcDir = join(Deno.cwd(), "src");
-  const uiDir = join(srcDir, "ui");
   
-  if (!(await exists(uiDir))) {
-    console.error(`${colors.red}❌ Could not find src/ui directory${colors.reset}`);
+  if (!(await exists(tauriDir))) {
+    console.error(`${colors.red}❌ Could not find src-tauri directory${colors.reset}`);
     Deno.exit(1);
   }
 
-  // 2. Install Dependencies (using npm for React compatibility)
-  logStep("2", "Installing frontend dependencies...");
-  // We still use npm install because the vite plugins expect node_modules structure
-  if (!(await exists(join(uiDir, "node_modules")))) {
-    await runCommand(["npm", "install"], uiDir);
-  } else {
-    log(`${colors.green}✅ Dependencies already installed${colors.reset}`);
+  if (!(await exists(srcDir))) {
+    console.error(`${colors.red}❌ Could not find src directory${colors.reset}`);
+    Deno.exit(1);
   }
+
+  // 2. Deno will auto-manage dependencies via nodeModulesDir: auto
+  logStep("2", "Dependencies managed by Deno...");
+  log(`${colors.green}✅ Using Deno's automatic dependency management${colors.reset}`);
 
   // 3. Run Dev Server
   logStep("3", "Starting Tauri dev server...");
-  await runCommand(["cargo", "tauri", "dev"], srcDir);
+  await runCommand(["deno", "task", "tauri", "dev"]);
 }
 
 if (import.meta.main) {

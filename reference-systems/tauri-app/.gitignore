@@ -7,19 +7,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Dependencies and build outputs
 node_modules
-deno.lock
 dist
 dist-ssr
 *.local
-
-# Rust
-target
-src-tauri/target
-
-# App Data
-src-tauri/debug
 
 # Editor directories and files
 .vscode/*
@@ -31,6 +22,3 @@ src-tauri/debug
 *.njsproj
 *.sln
 *.sw?
-
-# Archives
-.archive

@@ -1,10 +1,28 @@
 {
   "tasks": {
-    "dev": "deno run -A scripts/dev.ts",
-    "build": "deno run -A scripts/build.ts",
-    "tauri": "deno run -A npm:@tauri-apps/cli"
+    "dev": "vite",
+    "build": "deno task check && vite build",
+    "preview": "vite preview",
+    "tauri": "deno run -A npm:@tauri-apps/cli",
+    "check": "deno check src/**/*.ts src/**/*.tsx",
+    "start": "deno run -A scripts/dev.ts"
   },
-  "workspace": [
-    "src/ui"
-  ]
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "lib": ["esnext", "dom", "dom.iterable", "dom.asynciterable", "deno.ns"],
+    "strict": true
+  },
+
+  "imports": {
+    "preact": "npm:preact@^10.25.1",
+    "preact/": "npm:preact@^10.25.1/",
+    "preact/hooks": "npm:preact@^10.25.1/hooks",
+    "preact/jsx-runtime": "npm:preact@^10.25.1/jsx-runtime",
+    "@tauri-apps/api": "npm:@tauri-apps/api@^2.2.0",
+    "@tauri-apps/plugin-shell": "npm:@tauri-apps/plugin-shell@^2.2.0",
+    "@preact/preset-vite": "npm:@preact/preset-vite@^2.9.3",
+    "vite": "npm:vite@^6.0.3"
+  },
+  "nodeModulesDir": "auto"
 }
