@@ -35,6 +35,7 @@ log = "0.4"
 env_logger = "0.10"
 chrono = { version = "0.4", features = ["serde"] }
 libloading = "0.8"
+gtk-layer-shell = { version = "0.8.2", features = ["v0_6"] }
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

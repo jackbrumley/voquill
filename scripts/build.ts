@@ -45,21 +45,27 @@ async function checkLinuxDependencies() {
 
   logStep("0", "Checking Linux dependencies...");
   
-  // Check for libpulse-dev
-  const command = new Deno.Command("dpkg", {
-    args: ["-s", "libpulse-dev"],
-    stdout: "null",
-    stderr: "null",
-  });
+  const dependencies = [
+    { name: "libpulse-dev", apt: "libpulse-dev" },
+    { name: "libgtk-layer-shell-dev", apt: "libgtk-layer-shell-dev" },
+  ];
 
-  const { success } = await command.output();
-  
-  if (!success) {
-    console.error(`${colors.red}❌ Missing dependency: libpulse-dev${colors.reset}`);
-    console.log(`${colors.yellow}Please install it with: ${colors.bright}sudo apt install libpulse-dev${colors.reset}`);
-    Deno.exit(1);
-  } else {
-    log(`${colors.green}✅ libpulse-dev is installed${colors.reset}`);
+  for (const dep of dependencies) {
+    const command = new Deno.Command("dpkg", {
+      args: ["-s", dep.name],
+      stdout: "null",
+      stderr: "null",
+    });
+
+    const { success } = await command.output();
+    
+    if (!success) {
+      console.error(`${colors.red}❌ Missing dependency: ${dep.name}${colors.reset}`);
+      console.log(`${colors.yellow}Please install it with: ${colors.bright}sudo apt install ${dep.apt}${colors.reset}`);
+      Deno.exit(1);
+    } else {
+      log(`${colors.green}✅ ${dep.name} is installed${colors.reset}`);
+    }
   }
 }
 

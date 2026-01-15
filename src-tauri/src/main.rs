@@ -4,7 +4,7 @@
 use std::sync::{Arc, Mutex, OnceLock};
 use std::collections::HashSet;
 use tauri::{
-    Manager, WebviewWindow, Emitter, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}, AppHandle, Position,
+    Manager, WebviewWindow, Emitter, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}, AppHandle,
 };
 
 // Global app handle for emitting events - using OnceLock for thread safety
@@ -468,55 +468,91 @@ async fn hide_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
 }
 
 async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &AppHandle) -> Result<(), String> {
-    // Standardized: Always use the OS-reported Primary Monitor for the status overlay.
-    let monitor = overlay_window.primary_monitor()
-        .map_err(|e| e.to_string())?
-        .or_else(|| overlay_window.available_monitors().ok().and_then(|m| m.first().cloned()))
-        .ok_or("No monitors found")?;
-    
-    let monitor_size = monitor.size();
-    let monitor_position = monitor.position();
-    let scale_factor = monitor.scale_factor();
-    
     let app_state = app_handle.state::<AppState>();
     let pixels_from_bottom_logical = {
         let config = app_state.config.lock().unwrap();
         config.pixels_from_bottom as i32
     };
     
-    // Physical Pixel calculations for high-DPI and Wayland accuracy
-    let pixels_from_bottom_physical = (pixels_from_bottom_logical as f64 * scale_factor) as i32;
-    let window_width_logical = 140.0;
-    let window_height_logical = 140.0;
+    #[cfg(target_os = "linux")]
+    {
+        use gtk_layer_shell::LayerShell;
+        let window_clone = overlay_window.clone();
+        
+        // Dispatch to main thread for GTK operations
+        let _ = gtk::glib::MainContext::default().invoke(move || {
+            if let Ok(gtk_window) = window_clone.gtk_window() {
+                // Resolution: Use fully qualified syntax and the correct method name 'set_layer_shell_margin'
+                // to resolve the conflict with WidgetExt::set_margin
+                LayerShell::set_layer_shell_margin(&gtk_window, gtk_layer_shell::Edge::Bottom, pixels_from_bottom_logical);
+            }
+        });
+        
+        return Ok(());
+    }
     
-    let window_width_physical = (window_width_logical * scale_factor) as i32;
-    let window_height_physical = (window_height_logical * scale_factor) as i32;
-    
-    let x = monitor_position.x + (monitor_size.width as i32 - window_width_physical) / 2;
-    let y = monitor_position.y + monitor_size.height as i32 - window_height_physical - pixels_from_bottom_physical;
-    
-    println!("📍 Positioning overlay at Physical: {}, {} (Monitor: {:?}x{:?} at {:?}, Scale: {})", 
-        x, y, monitor_size.width, monitor_size.height, monitor_position, scale_factor);
-    
-    overlay_window.set_position(Position::Physical(tauri::PhysicalPosition::new(x, y))).map_err(|e| e.to_string())?;
-    overlay_window.set_size(tauri::LogicalSize::new(window_width_logical, window_height_logical)).map_err(|e| e.to_string())?;
-    
-    Ok(())
+    #[cfg(not(target_os = "linux"))]
+    {
+        use tauri::Position;
+        // Standardized: Always use the OS-reported Primary Monitor for the status overlay.
+        let monitor = overlay_window.primary_monitor()
+            .map_err(|e| e.to_string())?
+            .or_else(|| overlay_window.available_monitors().ok().and_then(|m| m.first().cloned()))
+            .ok_or("No monitors found")?;
+        
+        let monitor_size = monitor.size();
+        let monitor_position = monitor.position();
+        let scale_factor = monitor.scale_factor();
+        
+        // Physical Pixel calculations for high-DPI accuracy
+        let pixels_from_bottom_physical = (pixels_from_bottom_logical as f64 * scale_factor) as i32;
+        let window_width_logical = 140.0;
+        let window_height_logical = 140.0;
+        
+        let window_width_physical = (window_width_logical * scale_factor) as i32;
+        let window_height_physical = (window_height_logical * scale_factor) as i32;
+        
+        let x = monitor_position.x + (monitor_size.width as i32 - window_width_physical) / 2;
+        let y = monitor_position.y + monitor_size.height as i32 - window_height_physical - pixels_from_bottom_physical;
+        
+        println!("📍 Positioning overlay at Physical: {}, {} (Monitor: {:?}x{:?} at {:?}, Scale: {})", 
+            x, y, monitor_size.width, monitor_size.height, monitor_position, scale_factor);
+        
+        overlay_window.set_position(Position::Physical(tauri::PhysicalPosition::new(x, y))).map_err(|e| e.to_string())?;
+        overlay_window.set_size(tauri::LogicalSize::new(window_width_logical, window_height_logical)).map_err(|e| e.to_string())?;
+        
+        Ok(())
+    }
 }
 
 #[cfg(target_os = "linux")]
 fn apply_linux_unfocusable_hints(window: &WebviewWindow) {
     use gtk::prelude::*;
+    use gtk_layer_shell::LayerShell;
+
     if let Ok(gtk_window) = window.gtk_window() {
-        println!("🛠️  Applying stable focus-blocking hints to overlay...");
-        gtk_window.set_accept_focus(false);
-        gtk_window.set_focus_on_map(false);
-        gtk_window.set_can_focus(false);
+        println!("🛠️  Initializing Wayland Layer Shell for overlay...");
+
+        gtk_window.init_layer_shell();
+        gtk_window.set_layer(gtk_layer_shell::Layer::Overlay);
+        gtk_window.set_anchor(gtk_layer_shell::Edge::Bottom, true);
+        
+        // Use set_keyboard_mode (requires v0_6 feature)
+        gtk_window.set_keyboard_mode(gtk_layer_shell::KeyboardMode::None);
+
+        // Set initial margin from config
+        let app_handle = window.app_handle();
+        let app_state = app_handle.state::<AppState>();
+        let pixels_from_bottom_logical = {
+            let config = app_state.config.lock().unwrap();
+            config.pixels_from_bottom as i32
+        };
+        LayerShell::set_layer_shell_margin(&gtk_window, gtk_layer_shell::Edge::Bottom, pixels_from_bottom_logical);
+
+        // Standard GTK properties
+        gtk_window.set_decorated(false);
         gtk_window.set_skip_taskbar_hint(true);
         gtk_window.set_skip_pager_hint(true);
-        gtk_window.set_type_hint(gdk::WindowTypeHint::Utility);
-        gtk_window.set_keep_above(true);
-        gtk_window.set_decorated(false);
     }
 }
 
@@ -536,14 +572,17 @@ async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
     overlay_window.show().map_err(|e| e.to_string())?;
     
     // Ghost Mode: Ensure it never takes focus or blocks clicks
-    // Delay slightly to ensure the window is mapped before applying "Ghost" attributes
-    let overlay_clone = overlay_window.clone();
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-        println!("👻 Applying Ghost Mode attributes...");
-        let _ = overlay_clone.set_focusable(false);
-        let _ = overlay_clone.set_ignore_cursor_events(true);
-    });
+    // Only applied on non-linux platforms to avoid crashes with Layer Shell
+    #[cfg(not(target_os = "linux"))]
+    {
+        let overlay_clone = overlay_window.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+            println!("👻 Applying Ghost Mode attributes...");
+            let _ = overlay_clone.set_focusable(false);
+            let _ = overlay_clone.set_ignore_cursor_events(true);
+        });
+    }
     
     println!("✅ Overlay visibility commanded");
     Ok(())
