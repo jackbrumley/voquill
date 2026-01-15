@@ -5,7 +5,8 @@ import Overlay from './Overlay.tsx'
 
 const Main = () => {
   const path = window.location.pathname
-  if (path === '/overlay') {
+  console.log('🚀 Current path:', path);
+  if (path === '/overlay' || path.includes('overlay')) {
     return <Overlay />
   }
   return <App />

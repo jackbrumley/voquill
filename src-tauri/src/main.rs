@@ -467,18 +467,18 @@ async fn hide_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-async fn position_overlay_window(overlay_window: &WebviewWindow, _app_handle: &AppHandle) -> Result<(), String> {
+async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &AppHandle) -> Result<(), String> {
     // Standardized: Always use the OS-reported Primary Monitor for the status overlay.
-    // This provides the most consistent and reliable positioning across all desktop environments.
     let monitor = overlay_window.primary_monitor()
         .map_err(|e| e.to_string())?
-        .ok_or("Primary monitor not found")?;
+        .or_else(|| overlay_window.available_monitors().ok().and_then(|m| m.first().cloned()))
+        .ok_or("No monitors found")?;
     
     let monitor_size = monitor.size();
     let monitor_position = monitor.position();
     let scale_factor = monitor.scale_factor();
     
-    let app_state = _app_handle.state::<AppState>();
+    let app_state = app_handle.state::<AppState>();
     let pixels_from_bottom_logical = {
         let config = app_state.config.lock().unwrap();
         config.pixels_from_bottom as i32
@@ -495,7 +495,7 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, _app_handle: &A
     let x = monitor_position.x + (monitor_size.width as i32 - window_width_physical) / 2;
     let y = monitor_position.y + monitor_size.height as i32 - window_height_physical - pixels_from_bottom_physical;
     
-    println!("📍 Positioning overlay at Physical: {}, {} (Primary Monitor: {:?}x{:?} at {:?}, Scale: {})", 
+    println!("📍 Positioning overlay at Physical: {}, {} (Monitor: {:?}x{:?} at {:?}, Scale: {})", 
         x, y, monitor_size.width, monitor_size.height, monitor_position, scale_factor);
     
     overlay_window.set_position(Position::Physical(tauri::PhysicalPosition::new(x, y))).map_err(|e| e.to_string())?;
@@ -521,22 +521,31 @@ fn apply_linux_unfocusable_hints(window: &WebviewWindow) {
 }
 
 async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
+    println!("🔍 show_overlay_window called");
     let overlay_window = app_handle.get_webview_window("overlay").ok_or("Overlay window not found")?;
     
     if overlay_window.is_visible().unwrap_or(false) {
+        println!("🔍 Overlay already visible");
         return Ok(());
     }
 
+    println!("🔍 Positioning and showing overlay...");
     position_overlay_window(&overlay_window, app_handle).await?;
     
     // Use Tauri native show() to maintain reference count stability
     overlay_window.show().map_err(|e| e.to_string())?;
     
     // Ghost Mode: Ensure it never takes focus or blocks clicks
-    let _ = overlay_window.set_focusable(false);
-    let _ = overlay_window.set_ignore_cursor_events(true);
+    // Delay slightly to ensure the window is mapped before applying "Ghost" attributes
+    let overlay_clone = overlay_window.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        println!("👻 Applying Ghost Mode attributes...");
+        let _ = overlay_clone.set_focusable(false);
+        let _ = overlay_clone.set_ignore_cursor_events(true);
+    });
     
-    println!("👻 Overlay shown");
+    println!("✅ Overlay visibility commanded");
     Ok(())
 }
 
@@ -835,9 +844,12 @@ fn main() {
             let _ = CURRENT_STATUS.set(Mutex::new("Ready".to_string()));
             
             if let Some(w) = app.get_webview_window("overlay") { 
+                println!("🔍 Overlay window found in setup");
                 let _ = w.hide(); 
                 #[cfg(target_os = "linux")]
                 apply_linux_unfocusable_hints(&w);
+            } else {
+                println!("❌ Overlay window NOT FOUND in setup!");
             }
             let _ = audio::get_input_devices();
             
