@@ -123,6 +123,7 @@ Any agent working on this repo should prioritize the following cleanups:
 - **Platform Parity:** When adding a feature, ensure it is considered for Windows, macOS, and Linux (Wayland). If a platform requires specific logic, isolate it in a platform-specific module.
 - **Documentation:** Proactively update `AGENTS.md` or other docs if you introduce a new architectural pattern or a major dependency.
 - **Self-Verification:** Always run `cargo check` and `deno task check` before declaring a task complete.
+- **Git Commits:** Do not perform git commits without explicit user approval. Always ask for confirmation before running `git commit`.
 
 ---
 

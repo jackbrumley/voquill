@@ -1,11 +1,14 @@
 {
   "tasks": {
-    "dev": "vite",
-    "build": "deno task check && vite build",
+    "dev": "deno run -A scripts/dev.ts",
+    "dev:ui": "vite",
+    "build": "deno run -A scripts/build.ts",
+    "build:ui": "deno task check && vite build",
+    "package": "deno task build",
     "preview": "vite preview",
     "tauri": "deno run -A npm:@tauri-apps/cli",
     "check": "deno check src/**/*.ts src/**/*.tsx",
-    "start": "deno run -A scripts/dev.ts"
+    "start": "deno task dev"
   },
   "compilerOptions": {
     "jsx": "react-jsx",

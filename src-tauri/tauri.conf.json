@@ -4,8 +4,8 @@
   "version": "1.0.3",
   "identifier": "com.voquill.voquill",
   "build": {
-    "beforeBuildCommand": "deno task build",
-    "beforeDevCommand": "deno task dev",
+    "beforeBuildCommand": "deno task build:ui",
+    "beforeDevCommand": "deno task dev:ui",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420"
   },
