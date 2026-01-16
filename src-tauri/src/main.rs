@@ -54,6 +54,7 @@ async fn check_request_audio_portal(app_handle: &tauri::AppHandle) -> Result<(),
 pub struct AppState {
     pub config: Arc<Mutex<Config>>,
     pub is_recording: Arc<Mutex<bool>>,
+    pub is_mic_test_active: Arc<Mutex<bool>>,
     pub hotkey_error: Arc<Mutex<Option<String>>>,
     pub setup_status: Arc<Mutex<Option<String>>>,
     pub hardware_hotkey: Arc<Mutex<HardwareHotkey>>,
@@ -69,6 +70,7 @@ impl Default for AppState {
         Self {
             config: Arc::new(Mutex::new(Config::default())),
             is_recording: Arc::new(Mutex::new(false)),
+            is_mic_test_active: Arc::new(Mutex::new(false)),
             hotkey_error: Arc::new(Mutex::new(None)),
             setup_status: Arc::new(Mutex::new(None)),
             hardware_hotkey: Arc::new(Mutex::new(HardwareHotkey::default())),
@@ -236,18 +238,18 @@ async fn stop_recording(state: tauri::State<'_, AppState>) -> Result<(), String>
 #[tauri::command]
 async fn start_mic_test(state: tauri::State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<(), String> {
     println!("📡 Tauri Command: start_mic_test invoked");
-    let mut recording = state.is_recording.lock().unwrap();
-    if *recording {
-        println!("⚠️  start_mic_test: Already recording");
-        return Err("Already recording".to_string());
+    let mut mic_test_flag = state.is_mic_test_active.lock().unwrap();
+    if *mic_test_flag {
+        println!("⚠️  start_mic_test: Already active");
+        return Err("Mic test already active".to_string());
     }
-    *recording = true;
+    *mic_test_flag = true;
     
     // Clear previous samples
     let mut samples = state.mic_test_samples.lock().unwrap();
     samples.clear();
     
-    let is_recording_clone = state.is_recording.clone();
+    let is_mic_test_clone = state.is_mic_test_active.clone();
     let mic_test_samples_clone = state.mic_test_samples.clone();
     let audio_engine = state.audio_engine.clone();
     let app_handle_clone = app_handle.clone();
@@ -270,7 +272,7 @@ async fn start_mic_test(state: tauri::State<'_, AppState>, app_handle: tauri::Ap
 
     tokio::spawn(async move {
         println!("🎤 Mic test thread started");
-        let result = audio::record_mic_test(&is_recording_clone, audio_engine, move |volume| {
+        let result = audio::record_mic_test(&is_mic_test_clone, audio_engine, move |volume| {
             let _ = app_handle_clone.emit("mic-test-volume", volume);
         }).await;
         match result {
@@ -290,46 +292,11 @@ async fn start_mic_test(state: tauri::State<'_, AppState>, app_handle: tauri::Ap
 }
 
 #[tauri::command]
-async fn stop_mic_test(state: tauri::State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<(), String> {
+async fn stop_mic_test(state: tauri::State<'_, AppState>) -> Result<(), String> {
     println!("📡 Tauri Command: stop_mic_test invoked");
-    {
-        let mut recording = state.is_recording.lock().unwrap();
-        *recording = false;
-        println!("⏹️  Mic test recording stopped");
-    }
-    
-    // Wait a bit for the recording thread to finish and populate samples
-    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-    
-    let samples = {
-        let samples_guard = state.mic_test_samples.lock().unwrap();
-        samples_guard.clone()
-    };
-    
-    println!("🔊 Preparing playback for {} samples", samples.len());
-    if samples.is_empty() {
-        println!("⚠️  stop_mic_test: No audio captured");
-        return Err("No audio captured".to_string());
-    }
-    
-    let app_handle_clone = app_handle.clone();
-    let playback_stream = audio::play_audio(samples, 16000, move || {
-        println!("🎵 Mic test playback finished");
-        let _ = app_handle_clone.emit("mic-test-playback-finished", ());
-    }).map_err(|e: Box<dyn std::error::Error + Send + Sync>| {
-        println!("❌ Playback stream initialization failed: {}", e);
-        e.to_string()
-    })?;
-    
-    {
-        let mut stream_guard = state.playback_stream.lock().unwrap();
-        *stream_guard = Some(playback_stream);
-        println!("✅ Playback stream active");
-    }
-    
-    // Notify frontend that playback has started
-    let _ = app_handle.emit("mic-test-playback-started", ());
-    
+    let mut mic_test_flag = state.is_mic_test_active.lock().unwrap();
+    *mic_test_flag = false;
+    println!("⏹️  Mic test flag set to false");
     Ok(())
 }
 
@@ -741,8 +708,6 @@ async fn record_and_transcribe(
         let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
         let debug_path = debug_dir.join(format!("recording_{}.wav", timestamp));
         
-        // We have the audio data as Vec<u8> (optimized for whisper, which is 16kHz mono WAV)
-        // Let's write it to the debug folder
         if let Err(e) = std::fs::write(&debug_path, &audio_data) {
             println!("❌ Failed to save debug recording: {}", e);
         } else {
