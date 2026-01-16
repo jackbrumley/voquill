@@ -54,20 +54,29 @@ function App() {
   const [micTestStatus, setMicTestStatus] = useState<'idle' | 'recording' | 'playing'>('idle');
   const [micVolume, setMicVolume] = useState<number>(0);
 
+  const logUI = (msg: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`[${timestamp}] ${msg}`);
+    invoke('log_ui_event', { message: msg }).catch(() => {});
+  };
+
   useEffect(() => {
     loadConfig();
     loadMics();
     loadHistory();
 
     const unlistenPressed = listen('hotkey-pressed', () => {
+      logUI('📥 Event received: hotkey-pressed');
       setCurrentStatus('Recording');
     });
 
     const unlistenReleased = listen('hotkey-released', () => {
+      logUI('📥 Event received: hotkey-released');
       setCurrentStatus('Transcribing');
     });
 
     const unlistenSetup = listen<string>('setup-status', (event) => {
+      logUI(`📥 Event received: setup-status (${event.payload})`);
       if (event.payload === 'configuring-system') {
         showToast('Configuring system permissions...', 'info');
       } else if (event.payload === 'restart-required') {
@@ -78,10 +87,12 @@ function App() {
     });
 
     const unlistenHotkeyError = listen<string>('hotkey-error', (event) => {
+      logUI(`📥 Event received: hotkey-error (${event.payload})`);
       showToast(`Hotkey Error: ${event.payload}`, 'error');
     });
 
     const unlistenAudioError = listen<string>('audio-error', (event) => {
+      logUI(`📥 Event received: audio-error (${event.payload})`);
       if (event.payload === 'portal-denied') {
         showToast('Microphone access denied via system portal.', 'error');
       } else {
@@ -90,19 +101,23 @@ function App() {
     });
 
     const unlistenStatus = listen<string>('status-update', (event) => {
+      logUI(`📥 Event received: status-update (${event.payload})`);
       setCurrentStatus(event.payload);
     });
 
     const unlistenHistory = listen('history-updated', () => {
+      logUI('📥 Event received: history-updated');
       loadHistory();
     });
     
     // Listen for mic test playback events
     const unlistenMicTestStarted = listen('mic-test-playback-started', () => {
+      logUI('📥 Event received: mic-test-playback-started');
       setMicTestStatus('playing');
     });
 
     const unlistenMicTestFinished = listen('mic-test-playback-finished', () => {
+      logUI('📥 Event received: mic-test-playback-finished');
       setMicTestStatus('idle');
       setMicVolume(0);
     });
@@ -156,6 +171,7 @@ function App() {
   };
 
   const clearHistory = async () => {
+    logUI('🖱️ Button clicked: Clear History');
     try {
       await invoke('clear_history');
       setHistory([]);
@@ -170,6 +186,7 @@ function App() {
   };
 
   const saveConfig = async () => {
+    logUI('🖱️ Button clicked: Save Configuration');
     try {
       const configToSave = {
         openai_api_key: config.openai_api_key || 'your_api_key_here',
@@ -190,54 +207,50 @@ function App() {
   };
 
   const startMicTest = async () => {
-    console.log('🔘 Mic Test: Start requested');
+    logUI('🖱️ Button clicked: Check Microphone (Start)');
     try {
       setMicTestStatus('recording');
       await invoke('start_mic_test');
-      console.log('✅ Mic Test: Started recording');
     } catch (error) {
-      console.error('❌ Mic Test: Start failed:', error);
+      logUI(`❌ start_mic_test failed: ${error}`);
       setMicTestStatus('idle');
       showToast(`Failed to start mic test: ${error}`, 'error');
     }
   };
 
   const stopMicTest = async () => {
-    console.log('🔘 Mic Test: Stop requested');
+    logUI('🖱️ Button clicked: Stop & Play Back');
     try {
       await invoke('stop_mic_test');
-      console.log('✅ Mic Test: Stopped recording, preparing playback');
-      // Status will be updated to 'playing' via event listener
     } catch (error) {
-      console.error('❌ Mic Test: Stop failed:', error);
+      logUI(`❌ stop_mic_test failed: ${error}`);
       setMicTestStatus('idle');
       showToast(`Failed to stop mic test: ${error}`, 'error');
     }
   };
 
   const stopMicPlayback = async () => {
-    console.log('🔘 Mic Test: Stop playback requested');
+    logUI('🖱️ Button clicked: Stop Playback');
     try {
       await invoke('stop_mic_playback');
       setMicTestStatus('idle');
-      console.log('✅ Mic Test: Playback stopped');
     } catch (error) {
-      console.error('❌ Mic Test: Stop playback failed:', error);
+      logUI(`❌ stop_mic_playback failed: ${error}`);
       showToast(`Failed to stop playback: ${error}`, 'error');
     }
   };
 
   const openDebugFolder = async () => {
-    console.log('🔘 Debug: Open folder requested');
+    logUI('🖱️ Button clicked: Open Debug Folder');
     try {
       await invoke('open_debug_folder');
     } catch (error) {
-      console.error('❌ Debug: Open folder failed:', error);
       showToast(`Failed to open debug folder: ${error}`, 'error');
     }
   };
 
   const testApiKey = async () => {
+    logUI('🖱️ Button clicked: Test Key');
     setIsTestingApi(true);
     try {
       const isValid = await invoke<boolean>('test_api_key', { 

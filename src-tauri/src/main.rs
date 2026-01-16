@@ -20,22 +20,29 @@ mod typing;
 use config::Config;
 use hotkey::HardwareHotkey;
 
+// Logging macro with timestamps
+macro_rules! log_info {
+    ($($arg:tt)*) => {
+        println!("[{}] {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"), format!($($arg)*));
+    };
+}
+
 #[cfg(target_os = "linux")]
 async fn check_request_audio_portal(app_handle: &tauri::AppHandle) -> Result<(), String> {
     use ashpd::desktop::camera::Camera;
     
-    println!("Checking Audio/Microphone portal status (via Camera portal)...");
+    log_info!("Checking Audio/Microphone portal status (via Camera portal)...");
     
     match Camera::new().await {
         Ok(proxy) => {
             match proxy.request_access().await {
                 Ok(_request) => {
-                    println!("✅ Audio/Camera portal request sent");
+                    log_info!("✅ Audio/Camera portal request sent");
                     Ok(())
                 },
                 Err(e) => {
                     let error_msg = format!("{}", e);
-                    println!("⚠️ Audio/Camera portal request failed: {}", error_msg);
+                    log_info!("⚠️ Audio/Camera portal request failed: {}", error_msg);
                     if !error_msg.contains("not found") {
                         let _ = app_handle.emit("audio-error", "portal-denied");
                     }
@@ -44,7 +51,7 @@ async fn check_request_audio_portal(app_handle: &tauri::AppHandle) -> Result<(),
             }
         },
         Err(e) => {
-            println!("⚠️ Audio/Camera portal not available ({}). PulseAudio policy will manage access.", e);
+            log_info!("⚠️ Audio/Camera portal not available ({}). PulseAudio policy will manage access.", e);
             Ok(())
         }
     }
@@ -88,33 +95,33 @@ async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<
     use std::process::Command;
     use std::fs;
 
-    println!("Checking system portals and groups...");
+    log_info!("Checking system portals and groups...");
 
     // Check uinput access directly
     let has_uinput_access = fs::OpenOptions::new().write(true).open("/dev/uinput").is_ok();
-    println!("📂 /dev/uinput access: {}", if has_uinput_access { "Writable ✅" } else { "DENIED ❌" });
+    log_info!("📂 /dev/uinput access: {}", if has_uinput_access { "Writable ✅" } else { "DENIED ❌" });
     
     // 2. Check group memberships
     let groups_output = match Command::new("groups").output() {
         Ok(o) => String::from_utf8_lossy(&o.stdout).into_owned(),
         Err(e) => {
-            println!("⚠️ Failed to run 'groups' command: {}", e);
+            log_info!("⚠️ Failed to run 'groups' command: {}", e);
             return Ok(());
         }
     };
-    println!("👤 User groups: {}", groups_output.trim());
+    log_info!("👤 User groups: {}", groups_output.trim());
     
     let is_in_audio = groups_output.contains("audio");
     let is_in_input = groups_output.contains("input");
     let is_in_uinput = groups_output.contains("uinput");
 
     if !has_uinput_access || !is_in_audio || !is_in_input {
-        println!("🔧 Missing permissions or group memberships. Triggering Polkit request...");
+        log_info!("🔧 Missing permissions or group memberships. Triggering Polkit request...");
         let _ = app_handle.emit("setup-status", "configuring-system");
         
         let username = std::env::var("USER").unwrap_or_default();
         if username.is_empty() {
-             println!("⚠️ Could not determine username, skipping setup.");
+             log_info!("⚠️ Could not determine username, skipping setup.");
              return Ok(());
         }
 
@@ -122,7 +129,7 @@ async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<
         let uinput_group = if is_in_uinput || groups_output.contains("uinput") { "uinput" } else { "input" };
         
         let cmd = format!("usermod -aG audio,input,{} {}", uinput_group, username);
-        println!("🔧 Executing: pkexec {}", cmd);
+        log_info!("🔧 Executing: pkexec {}", cmd);
         
         let output = Command::new("pkexec")
             .args(&["bash", "-c", &cmd])
@@ -130,11 +137,11 @@ async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<
 
         match output {
             Ok(out) if out.status.success() => {
-                println!("✅ Permissions updated. Notifying user to restart session.");
+                log_info!("✅ Permissions updated. Notifying user to restart session.");
                 let _ = app_handle.emit("setup-status", "restart-required");
             },
             _ => {
-                println!("⚠️ Permission update failed or cancelled.");
+                log_info!("⚠️ Permission update failed or cancelled.");
                 let _ = app_handle.emit("setup-status", "setup-failed");
             }
         }
@@ -144,6 +151,11 @@ async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<
 }
 
 // Tauri commands
+#[tauri::command]
+async fn log_ui_event(message: String) {
+    log_info!("[UI] {}", message);
+}
+
 #[tauri::command]
 async fn check_hotkey_status(state: tauri::State<'_, AppState>) -> Result<Option<String>, String> {
     let error = state.hotkey_error.lock().unwrap();
@@ -160,7 +172,7 @@ async fn manual_register_hotkey(
         config.hotkey.clone()
     };
     
-    println!("Manual hotkey registration requested: {}", hotkey_string);
+    log_info!("Manual hotkey registration requested: {}", hotkey_string);
     
     if let Err(e) = re_register_hotkey(&app_handle, &hotkey_string).await {
         let mut error_lock = state.hotkey_error.lock().unwrap();
@@ -176,7 +188,7 @@ async fn manual_register_hotkey(
 
 #[tauri::command]
 async fn get_audio_devices() -> Result<Vec<audio::AudioDevice>, String> {
-    println!("📡 Tauri Command: get_audio_devices invoked");
+    log_info!("📡 Tauri Command: get_audio_devices invoked");
     audio::get_input_devices()
 }
 
@@ -191,7 +203,7 @@ async fn start_recording(
     }
     
     *recording_flag = true;
-    println!("🎤 start_recording command - Flag set to true immediately");
+    log_info!("🎤 start_recording command - Flag set to true immediately");
 
     let is_recording_clone = state.is_recording.clone();
     let config = state.config.clone();
@@ -203,13 +215,13 @@ async fn start_recording(
     {
         let mut engine_guard = audio_engine.lock().unwrap();
         if engine_guard.is_none() {
-            println!("🔧 Audio engine not found, attempting to initialize...");
+            log_info!("🔧 Audio engine not found, attempting to initialize...");
             let cached_device = state.cached_device.lock().unwrap().clone();
             if let Some(dev) = cached_device {
                 let sensitivity = config.lock().unwrap().input_sensitivity;
                 if let Ok(new_eng) = audio::PersistentAudioEngine::new(&dev, sensitivity) {
                     *engine_guard = Some(new_eng);
-                    println!("✅ Audio engine initialized on demand");
+                    log_info!("✅ Audio engine initialized on demand");
                 }
             }
         }
@@ -220,7 +232,7 @@ async fn start_recording(
         let result = record_and_transcribe(config, is_recording_clone, app_handle_clone, audio_engine, virtual_keyboard).await;
         
         if let Err(e) = result {
-            println!("❌ Global Recording error: {}", e);
+            log_info!("❌ Global Recording error: {}", e);
         }
     });
 
@@ -231,16 +243,16 @@ async fn start_recording(
 async fn stop_recording(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let mut recording = state.is_recording.lock().unwrap();
     *recording = false;
-    println!("⏹️  stop_recording command - Flag set to false");
+    log_info!("⏹️  stop_recording command - Flag set to false");
     Ok(())
 }
 
 #[tauri::command]
 async fn start_mic_test(state: tauri::State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<(), String> {
-    println!("📡 Tauri Command: start_mic_test invoked");
+    log_info!("📡 Tauri Command: start_mic_test invoked");
     let mut mic_test_flag = state.is_mic_test_active.lock().unwrap();
     if *mic_test_flag {
-        println!("⚠️  start_mic_test: Already active");
+        log_info!("⚠️  start_mic_test: Already active");
         return Err("Mic test already active".to_string());
     }
     *mic_test_flag = true;
@@ -252,38 +264,68 @@ async fn start_mic_test(state: tauri::State<'_, AppState>, app_handle: tauri::Ap
     let is_mic_test_clone = state.is_mic_test_active.clone();
     let mic_test_samples_clone = state.mic_test_samples.clone();
     let audio_engine = state.audio_engine.clone();
+    let playback_stream_state = state.playback_stream.clone();
     let app_handle_clone = app_handle.clone();
     
     // Ensure engine is initialized
     {
         let mut engine_guard = audio_engine.lock().unwrap();
         if engine_guard.is_none() {
-            println!("🔧 Audio engine not found for mic test, attempting to initialize...");
+            log_info!("🔧 Audio engine not found for mic test, attempting to initialize...");
             let cached_device = state.cached_device.lock().unwrap().clone();
             if let Some(dev) = cached_device {
                 let sensitivity = state.config.lock().unwrap().input_sensitivity;
                 if let Ok(new_eng) = audio::PersistentAudioEngine::new(&dev, sensitivity) {
                     *engine_guard = Some(new_eng);
-                    println!("✅ Audio engine initialized on demand");
+                    log_info!("✅ Audio engine initialized on demand");
                 }
             }
         }
     }
 
     tokio::spawn(async move {
-        println!("🎤 Mic test thread started");
-        let result = audio::record_mic_test(&is_mic_test_clone, audio_engine, move |volume| {
-            let _ = app_handle_clone.emit("mic-test-volume", volume);
+        log_info!("🎤 Mic test thread started");
+        let result = audio::record_mic_test(&is_mic_test_clone, audio_engine, {
+            let app = app_handle_clone.clone();
+            move |volume| {
+                let _ = app.emit("mic-test-volume", volume);
+            }
         }).await;
+
         match result {
             Ok(captured_samples) => {
-                println!("✅ Mic test captured {} samples", captured_samples.len());
+                log_info!("✅ Mic test captured {} samples", captured_samples.len());
+                if captured_samples.is_empty() {
+                    log_info!("⚠️  No audio captured, resetting UI...");
+                    let _ = app_handle_clone.emit("mic-test-playback-finished", ());
+                    return;
+                }
+
+                // Restore Playback Logic
+                log_info!("🔊 Initializing playback...");
+                let app = app_handle_clone.clone();
+                match audio::play_audio(captured_samples.clone(), 16000, move || {
+                    log_info!("🎵 Mic test playback finished");
+                    let _ = app.emit("mic-test-playback-finished", ());
+                }) {
+                    Ok(stream) => {
+                        let mut stream_guard = playback_stream_state.lock().unwrap();
+                        *stream_guard = Some(stream);
+                        log_info!("✅ Playback stream active");
+                        let _ = app_handle_clone.emit("mic-test-playback-started", ());
+                    }
+                    Err(e) => {
+                        log_info!("❌ Playback stream initialization failed: {}", e);
+                        let _ = app_handle_clone.emit("mic-test-playback-finished", ());
+                    }
+                }
+                
                 let mut samples = mic_test_samples_clone.lock().unwrap();
                 *samples = captured_samples;
             }
             Err(e) => {
-                println!("❌ Mic test recording error: {}", e);
-                log::error!("Mic test recording error: {}", e);
+                log_info!("❌ Mic test recording error: {}", e);
+                let _ = app_handle_clone.emit("mic-test-playback-finished", ());
             }
         }
     });
@@ -293,67 +335,67 @@ async fn start_mic_test(state: tauri::State<'_, AppState>, app_handle: tauri::Ap
 
 #[tauri::command]
 async fn stop_mic_test(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    println!("📡 Tauri Command: stop_mic_test invoked");
+    log_info!("📡 Tauri Command: stop_mic_test invoked");
     let mut mic_test_flag = state.is_mic_test_active.lock().unwrap();
     *mic_test_flag = false;
-    println!("⏹️  Mic test flag set to false");
+    log_info!("⏹️  Mic test flag set to false");
     Ok(())
 }
 
 #[tauri::command]
 async fn stop_mic_playback(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    println!("📡 Tauri Command: stop_mic_playback invoked");
+    log_info!("📡 Tauri Command: stop_mic_playback invoked");
     let mut stream_guard = state.playback_stream.lock().unwrap();
     *stream_guard = None; // Dropping the stream stops playback
-    println!("⏹️  Playback stopped by user");
+    log_info!("⏹️  Playback stopped by user");
     Ok(())
 }
 
 #[tauri::command]
 async fn open_debug_folder() -> Result<(), String> {
-    println!("📡 Tauri Command: open_debug_folder invoked");
+    log_info!("📡 Tauri Command: open_debug_folder invoked");
     let path = dirs::config_dir()
         .ok_or("Could not find config directory")?
         .join("voquill")
         .join("debug");
     
-    println!("📂 Target debug path: {:?}", path);
+    log_info!("📂 Target debug path: {:?}", path);
     
     if !path.exists() {
-        println!("📂 Creating debug directory...");
+        log_info!("📂 Creating debug directory...");
         std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
     }
     
     #[cfg(target_os = "linux")]
     {
-        println!("🚀 Executing: xdg-open {:?}", path);
+        log_info!("🚀 Executing: xdg-open {:?}", path);
         std::process::Command::new("xdg-open")
             .arg(&path)
             .spawn()
             .map_err(|e| {
-                println!("❌ Failed to execute xdg-open: {}", e);
+                log_info!("❌ Failed to execute xdg-open: {}", e);
                 e.to_string()
             })?;
     }
     #[cfg(target_os = "windows")]
     {
-        println!("🚀 Executing: explorer {:?}", path);
+        log_info!("🚀 Executing: explorer {:?}", path);
         std::process::Command::new("explorer")
             .arg(&path)
             .spawn()
             .map_err(|e| {
-                println!("❌ Failed to execute explorer: {}", e);
+                log_info!("❌ Failed to execute explorer: {}", e);
                 e.to_string()
             })?;
     }
     #[cfg(target_os = "macos")]
     {
-        println!("🚀 Executing: open {:?}", path);
+        log_info!("🚀 Executing: open {:?}", path);
         std::process::Command::new("open")
             .arg(&path)
             .spawn()
             .map_err(|e| {
-                println!("❌ Failed to execute open: {}", e);
+                log_info!("❌ Failed to execute open: {}", e);
                 e.to_string()
             })?;
     }
@@ -386,17 +428,17 @@ async fn save_config(
         {
             let mut hardware_hotkey = state.hardware_hotkey.lock().unwrap();
             *hardware_hotkey = hotkey::parse_hardware_hotkey(&new_config.hotkey);
-            println!("🔧 Updated hardware hotkey: {:?}", *hardware_hotkey);
+            log_info!("🔧 Updated hardware hotkey: {:?}", *hardware_hotkey);
         }
 
         // Pre-warm the audio device cache
         let mut cached_device = state.cached_device.lock().unwrap();
         *cached_device = audio::lookup_device(new_config.audio_device.clone()).ok();
-        println!("🔧 Pre-warmed audio device cache");
+        log_info!("🔧 Pre-warmed audio device cache");
     }
 
     if restart_engine {
-        println!("🔧 Audio config changed, restarting persistent engine...");
+        log_info!("🔧 Audio config changed, restarting persistent engine...");
         let cached_device = state.cached_device.lock().unwrap().clone();
         let sensitivity = new_config.input_sensitivity;
         let mut engine_guard = state.audio_engine.lock().unwrap();
@@ -404,7 +446,7 @@ async fn save_config(
         if let Some(dev) = cached_device {
             if let Ok(new_eng) = audio::PersistentAudioEngine::new(&dev, sensitivity) {
                 *engine_guard = Some(new_eng);
-                println!("✅ Persistent engine restarted");
+                log_info!("✅ Persistent engine restarted");
             }
         }
     }
@@ -435,12 +477,12 @@ async fn re_register_hotkey(_app_handle: &tauri::AppHandle, _hotkey_string: &str
     #[cfg(not(target_os = "linux"))]
     {
         use tauri_plugin_global_shortcut::GlobalShortcutExt;
-        println!("Re-registering hotkey: {}", _hotkey_string);
+        log_info!("Re-registering hotkey: {}", _hotkey_string);
         let _ = _app_handle.global_shortcut().unregister_all();
         match hotkey::parse_hotkey_string(_hotkey_string) {
             Ok(shortcut) => {
                 _app_handle.global_shortcut().register(shortcut).map_err(|e| e.to_string())?;
-                println!("✅ Global hotkey registered: {}", _hotkey_string);
+                log_info!("✅ Global hotkey registered: {}", _hotkey_string);
                 Ok(())
             }
             Err(e) => Err(e.to_string())
@@ -532,7 +574,7 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
         let x = monitor_position.x + (monitor_size.width as i32 - window_width_physical) / 2;
         let y = monitor_position.y + monitor_size.height as i32 - window_height_physical - pixels_from_bottom_physical;
         
-        println!("📍 Positioning overlay at Physical: {}, {} (Monitor: {:?}x{:?} at {:?}, Scale: {})", 
+        log_info!("📍 Positioning overlay at Physical: {}, {} (Monitor: {:?}x{:?} at {:?}, Scale: {})", 
             x, y, monitor_size.width, monitor_size.height, monitor_position, scale_factor);
         
         overlay_window.set_position(Position::Physical(tauri::PhysicalPosition::new(x, y))).map_err(|e| e.to_string())?;
@@ -548,7 +590,7 @@ fn apply_linux_unfocusable_hints(window: &WebviewWindow) {
     use gtk_layer_shell::LayerShell;
 
     if let Ok(gtk_window) = window.gtk_window() {
-        println!("🛠️  Initializing Wayland Layer Shell for overlay...");
+        log_info!("🛠️  Initializing Wayland Layer Shell for overlay...");
 
         gtk_window.init_layer_shell();
         gtk_window.set_layer(gtk_layer_shell::Layer::Overlay);
@@ -574,15 +616,15 @@ fn apply_linux_unfocusable_hints(window: &WebviewWindow) {
 }
 
 async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
-    println!("🔍 show_overlay_window called");
+    log_info!("🔍 show_overlay_window called");
     let overlay_window = app_handle.get_webview_window("overlay").ok_or("Overlay window not found")?;
     
     if overlay_window.is_visible().unwrap_or(false) {
-        println!("🔍 Overlay already visible");
+        log_info!("🔍 Overlay already visible");
         return Ok(());
     }
 
-    println!("🔍 Positioning and showing overlay...");
+    log_info!("🔍 Positioning and showing overlay...");
     position_overlay_window(&overlay_window, app_handle).await?;
     
     // Use Tauri native show() to maintain reference count stability
@@ -595,13 +637,13 @@ async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
         let overlay_clone = overlay_window.clone();
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-            println!("👻 Applying Ghost Mode attributes...");
+            log_info!("👻 Applying Ghost Mode attributes...");
             let _ = overlay_clone.set_focusable(false);
             let _ = overlay_clone.set_ignore_cursor_events(true);
         });
     }
     
-    println!("✅ Overlay visibility commanded");
+    log_info!("✅ Overlay visibility commanded");
     Ok(())
 }
 
@@ -662,7 +704,7 @@ fn validate_audio_duration(audio_data: &[u8]) -> Result<(), Box<dyn std::error::
     let bytes_per_second = sample_rate * channels as u32 * bytes_per_sample;
     let duration_seconds = data_size as f64 / bytes_per_second as f64;
     
-    println!("Audio duration: {:.3}s", duration_seconds);
+    log_info!("Audio duration: {:.3}s", duration_seconds);
     if duration_seconds < 0.1 { return Err("Audio too short".into()); }
     Ok(())
 }
@@ -686,7 +728,7 @@ async fn record_and_transcribe(
     
     if audio_data.is_empty() { reset_status_on_exit().await; return Ok(()); }
     if let Err(e) = validate_audio_duration(&audio_data) { 
-        println!("⚠️ Audio validation failed: {}", e);
+        log_info!("⚠️ Audio validation failed: {}", e);
         reset_status_on_exit().await; 
         return Ok(()); 
     }
@@ -709,20 +751,20 @@ async fn record_and_transcribe(
         let debug_path = debug_dir.join(format!("recording_{}.wav", timestamp));
         
         if let Err(e) = std::fs::write(&debug_path, &audio_data) {
-            println!("❌ Failed to save debug recording: {}", e);
+            log_info!("❌ Failed to save debug recording: {}", e);
         } else {
-            println!("🛡️ Debug recording saved to: {:?}", debug_path);
+            log_info!("🛡️ Debug recording saved to: {:?}", debug_path);
         }
     }
     
-    println!("📡 Sending {} bytes to transcription API...", audio_data.len());
+    log_info!("📡 Sending {} bytes to transcription API...", audio_data.len());
     let text = match transcription::transcribe_audio(&audio_data, &api_key, &api_url).await {
         Ok(text) => {
-            println!("📝 Transcription received: \"{}\"", text);
+            log_info!("📝 Transcription received: \"{}\"", text);
             text
         },
         Err(e) => { 
-            println!("❌ Transcription API failed: {}", e);
+            log_info!("❌ Transcription API failed: {}", e);
             reset_status_on_exit().await; 
             return Err(e); 
         }
@@ -740,12 +782,12 @@ async fn record_and_transcribe(
         // Give the OS a moment to ensure the overlay is hidden and focus is restored to the target app
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
         
-        println!("⌨️  Forwarding text to hardware typing engine...");
+        log_info!("⌨️  Forwarding text to hardware typing engine...");
         if let Err(e) = typing::type_text_hardware(&text, typing_speed, virtual_keyboard) {
-            println!("❌ TYPING ENGINE ERROR: {}", e);
+            log_info!("❌ TYPING ENGINE ERROR: {}", e);
         }
     } else {
-        println!("ℹ️ Transcription was empty, skipping typing.");
+        log_info!("ℹ️ Transcription was empty, skipping typing.");
     }
     
     reset_status_on_exit().await;
@@ -763,7 +805,7 @@ fn start_linux_input_engine(app_handle: AppHandle) {
     let hardware_hotkey_flag = state.hardware_hotkey.clone();
 
     std::thread::spawn(move || {
-        println!("🚀 Linux Hardware Input Engine started.");
+        log_info!("🚀 Linux Hardware Input Engine started.");
         
         let mut devices = Vec::new();
         if let Ok(entries) = fs::read_dir("/dev/input") {
@@ -775,7 +817,7 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                             let has_keys = device.supported_keys().map(|k| k.iter().count() > 20).unwrap_or(false);
                             if has_keys {
                                 let dev_name = device.name().unwrap_or("Unknown").to_string();
-                                println!("🔍 Monitoring hardware: {} ({})", dev_name, path.display());
+                                log_info!("🔍 Monitoring hardware: {} ({})", dev_name, path.display());
                                 devices.push(device);
                             }
                         }
@@ -785,7 +827,7 @@ fn start_linux_input_engine(app_handle: AppHandle) {
         }
         
         if devices.is_empty() {
-            println!("⚠️ No keyboards found! Input engine disabled.");
+            log_info!("⚠️ No keyboards found! Input engine disabled.");
             return;
         }
 
@@ -809,7 +851,7 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                                     let h_hotkey = hardware_hotkey_flag.lock().unwrap().clone();
 
                                     if value == 1 { // Pressed
-                                        println!("⌨️  [{}] Key {} PRESSED", dev_name, code);
+                                        log_info!("⌨️  [{}] Key {} PRESSED", dev_name, code);
                                         pressed_keys.insert(code);
                                         
                                         let all_pressed = !h_hotkey.all_codes.is_empty() && 
@@ -819,7 +861,7 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                                             let mut recording = is_recording_flag.lock().unwrap();
                                             if !*recording {
                                                 *recording = true;
-                                                println!("🎤 ENGINE: Combination Met! Starting recording.");
+                                                log_info!("🎤 ENGINE: Combination Met! Starting recording.");
                                                 
                                                 let h_clone = app_handle.clone();
                                                 tauri::async_runtime::spawn(async move {
@@ -839,14 +881,14 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                                             }
                                         }
                                     } else if value == 0 { // Released
-                                        println!("⌨️  [{}] Key {} RELEASED", dev_name, code);
+                                        log_info!("⌨️  [{}] Key {} RELEASED", dev_name, code);
                                         pressed_keys.remove(&code);
                                         
                                         let is_combo_key = h_hotkey.all_codes.contains(&code);
                                         let mut recording = is_recording_flag.lock().unwrap();
                                         if *recording && is_combo_key {
                                             *recording = false;
-                                            println!("⏹️  ENGINE: Key Released! Finalizing.");
+                                            log_info!("⏹️  ENGINE: Key Released! Finalizing.");
                                             
                                             let h_clone = app_handle.clone();
                                             tauri::async_runtime::spawn(async move {
@@ -888,10 +930,10 @@ fn main() {
             if let Ok(engine) = audio::PersistentAudioEngine::new(&d, initial_config.input_sensitivity) {
                 let mut engine_guard = app_state.audio_engine.lock().unwrap();
                 *engine_guard = Some(engine);
-                println!("✅ Persistent audio engine initialized");
+                log_info!("✅ Persistent audio engine initialized");
             }
         }
-        println!("🔧 Initial pre-warm of audio device cache complete");
+        log_info!("🔧 Initial pre-warm of audio device cache complete");
     }
 
     tauri::Builder::default()
@@ -902,12 +944,12 @@ fn main() {
             let _ = CURRENT_STATUS.set(Mutex::new("Ready".to_string()));
             
             if let Some(w) = app.get_webview_window("overlay") { 
-                println!("🔍 Overlay window found in setup");
+                log_info!("🔍 Overlay window found in setup");
                 let _ = w.hide(); 
                 #[cfg(target_os = "linux")]
                 apply_linux_unfocusable_hints(&w);
             } else {
-                println!("❌ Overlay window NOT FOUND in setup!");
+                log_info!("❌ Overlay window NOT FOUND in setup!");
             }
             let _ = audio::get_input_devices();
             
@@ -921,7 +963,7 @@ fn main() {
                 std::thread::spawn(move || {
                     use evdev::uinput::VirtualDeviceBuilder;
                     use evdev::{AttributeSet, Key, InputId, BusType};
-                    println!("🔄 Starting virtual hardware keyboard initialization...");
+                    log_info!("🔄 Starting virtual hardware keyboard initialization...");
                     
                     let mut keys = AttributeSet::<Key>::new();
                     for i in 0..564 {
@@ -940,15 +982,15 @@ fn main() {
                     {
                         Ok(mut device) => {
                             if let Ok(path) = device.get_syspath() {
-                                println!("✅ Virtual hardware keyboard initialized at: {}", path.display());
+                                log_info!("✅ Virtual hardware keyboard initialized at: {}", path.display());
                             } else {
-                                println!("✅ Virtual hardware keyboard initialized");
+                                log_info!("✅ Virtual hardware keyboard initialized");
                             }
                             let mut lock = virtual_keyboard.lock().unwrap();
                             *lock = Some(device);
                         },
                         Err(e) => {
-                            println!("❌ Virtual keyboard initialization failed: {}", e);
+                            log_info!("❌ Virtual keyboard initialization failed: {}", e);
                         }
                     }
                 });
@@ -993,7 +1035,8 @@ fn main() {
             start_recording, stop_recording, get_config, save_config,
             test_api_key, get_current_status, get_history, clear_history,
             check_hotkey_status, manual_register_hotkey, get_audio_devices,
-            start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder
+            start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder,
+            log_ui_event
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
