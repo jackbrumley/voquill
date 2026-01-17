@@ -10,6 +10,8 @@ import { Button } from './components/Button.tsx';
 import { ConfigField } from './components/ConfigField.tsx';
 import { Switch } from './components/Switch.tsx';
 import { CollapsibleSection } from './components/CollapsibleSection.tsx';
+import { ModeSwitcher } from './components/ModeSwitcher.tsx';
+import { ActionFooter } from './components/ActionFooter.tsx';
 import './App.css';
 
 interface Config {
@@ -78,7 +80,6 @@ function App() {
     });
   };
 
-  // Inject design tokens into CSS variables
   useEffect(() => {
     const cssVars = tokensToCssVars(tokens);
     const root = document.documentElement;
@@ -93,57 +94,36 @@ function App() {
     loadHistory();
 
     const unlistenPressed = listen('hotkey-pressed', () => {
-      logUI('📥 Event received: hotkey-pressed');
       setCurrentStatus('Recording');
     });
 
     const unlistenReleased = listen('hotkey-released', () => {
-      logUI('📥 Event received: hotkey-released');
       setCurrentStatus('Transcribing');
     });
 
     const unlistenSetup = listen<string>('setup-status', (event) => {
-      logUI(`📥 Event received: setup-status (${event.payload})`);
       if (event.payload === 'configuring-system') {
         showToast('Configuring system permissions...', 'info');
       } else if (event.payload === 'restart-required') {
-        showToast('Permissions updated! Please restart your session (logout/login).', 'success');
+        showToast('Permissions updated! Please restart your session.', 'success');
       } else if (event.payload === 'setup-failed') {
-        showToast('System configuration failed. Please check logs.', 'error');
-      }
-    });
-
-    const unlistenHotkeyError = listen<string>('hotkey-error', (event) => {
-      logUI(`📥 Event received: hotkey-error (${event.payload})`);
-      showToast(`Hotkey Error: ${event.payload}`, 'error');
-    });
-
-    const unlistenAudioError = listen<string>('audio-error', (event) => {
-      logUI(`📥 Event received: audio-error (${event.payload})`);
-      if (event.payload === 'portal-denied') {
-        showToast('Microphone access denied via system portal.', 'error');
-      } else {
-        showToast(`Audio Error: ${event.payload}`, 'error');
+        showToast('System configuration failed.', 'error');
       }
     });
 
     const unlistenStatus = listen<string>('status-update', (event) => {
-      logUI(`📥 Event received: status-update (${event.payload})`);
       setCurrentStatus(event.payload);
     });
 
     const unlistenHistory = listen('history-updated', () => {
-      logUI('📥 Event received: history-updated');
       loadHistory();
     });
     
     const unlistenMicTestStarted = listen('mic-test-playback-started', () => {
-      logUI('📥 Event received: mic-test-playback-started');
       setMicTestStatus('playing');
     });
 
     const unlistenMicTestFinished = listen('mic-test-playback-finished', () => {
-      logUI('📥 Event received: mic-test-playback-finished');
       setMicTestStatus('idle');
       setMicVolume(0);
     });
@@ -156,8 +136,6 @@ function App() {
       unlistenPressed.then((fn: any) => fn());
       unlistenReleased.then((fn: any) => fn());
       unlistenSetup.then((fn: any) => fn());
-      unlistenHotkeyError.then((fn: any) => fn());
-      unlistenAudioError.then((fn: any) => fn());
       unlistenStatus.then((fn: any) => fn());
       unlistenHistory.then((fn: any) => fn());
       unlistenMicTestStarted.then((fn: any) => fn());
@@ -179,7 +157,6 @@ function App() {
   };
 
   const loadMics = async () => {
-    logUI('🖱️ Button clicked: Refresh Devices');
     try {
       const devices = await invoke<AudioDevice[]>('get_audio_devices');
       setAvailableMics(devices);
@@ -259,7 +236,6 @@ function App() {
       setMicTestStatus('recording');
       await invoke('start_mic_test');
     } catch (error) {
-      logUI(`❌ start_mic_test failed: ${error}`);
       setMicTestStatus('idle');
       showToast(`Failed to start mic test: ${error}`, 'error');
     }
@@ -271,7 +247,6 @@ function App() {
     try {
       await invoke('stop_mic_test');
     } catch (error) {
-      logUI(`❌ stop_mic_test failed: ${error}`);
       setMicTestStatus('idle');
       showToast(`Failed to stop mic test: ${error}`, 'error');
     }
@@ -283,7 +258,6 @@ function App() {
       await invoke('stop_mic_playback');
       setMicTestStatus('idle');
     } catch (error) {
-      logUI(`❌ stop_mic_playback failed: ${error}`);
       showToast(`Failed to stop playback: ${error}`, 'error');
     }
   };
@@ -326,12 +300,10 @@ function App() {
   };
 
   const handleClose = async () => {
-    logUI('🖱️ Window Control: Close (Hide)');
     await getCurrentWindow().hide();
   };
 
   const handleMinimize = async () => {
-    logUI('🖱️ Window Control: Minimize');
     await getCurrentWindow().minimize();
   };
 
@@ -352,9 +324,9 @@ function App() {
       </div>
 
       <div className="tab-nav">
-        <button className={`tab ${activeTab === 'status' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Tab switched: Status'); setActiveTab('status'); }}>Status</button>
-        <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Tab switched: History'); setActiveTab('history'); }}>History</button>
-        <button className={`tab ${activeTab === 'config' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Tab switched: Config'); setActiveTab('config'); }}>Config</button>
+        <button className={`tab ${activeTab === 'status' ? 'active' : ''}`} onClick={() => setActiveTab('status')}>Status</button>
+        <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>History</button>
+        <button className={`tab ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}>Config</button>
       </div>
 
       <div className="tab-content">
@@ -364,28 +336,7 @@ function App() {
               <div className="status-display">
                 <StatusIcon status={currentStatus} large />
                 <div className="status-text-app" key={`text-${currentStatus}`}>{currentStatus}</div>
-                
-                <div className="mode-switcher-container">
-                  <div className={`mode-switcher mode-${config.output_method.toLowerCase()}`}>
-                    <div className="mode-switcher-slider"></div>
-                    <button 
-                      className={config.output_method === 'Typewriter' ? 'active' : ''} 
-                      onClick={() => toggleOutputMethod('Typewriter')}
-                      title="Typewriter Mode: Simulates key presses"
-                    >
-                      <span className="mode-icon">⌨️</span>
-                      <span>Typewriter</span>
-                    </button>
-                    <button 
-                      className={config.output_method === 'Clipboard' ? 'active' : ''} 
-                      onClick={() => toggleOutputMethod('Clipboard')}
-                      title="Clipboard Mode: Fast copy-paste"
-                    >
-                      <span className="mode-icon">📋</span>
-                      <span>Clipboard</span>
-                    </button>
-                  </div>
-                </div>
+                <ModeSwitcher method={config.output_method} onToggle={toggleOutputMethod} />
               </div>
               
               <Card className="help-content">
@@ -404,15 +355,8 @@ function App() {
         {activeTab === 'config' && (
           <div className="tab-panel config-panel" key="config">
             <div className="tab-panel-content">
-              <CollapsibleSection 
-                title="Connection" 
-                isOpen={activeConfigSection === 'connection'} 
-                onToggle={() => setActiveConfigSection(activeConfigSection === 'connection' ? null : 'connection')}
-              >
-                <ConfigField 
-                  label="API Key" 
-                  description="Used to authenticate with the transcription service (OpenAI)."
-                >
+              <CollapsibleSection title="Connection" isOpen={activeConfigSection === 'connection'} onToggle={() => setActiveConfigSection(activeConfigSection === 'connection' ? null : 'connection')}>
+                <ConfigField label="API Key" description="Used to authenticate with the transcription service (OpenAI).">
                   <div className="input-with-button" style={{ display: 'flex', gap: '8px' }}>
                     <input type="text" value={config.openai_api_key} onChange={(e: any) => updateConfig('openai_api_key', e.target.value)} placeholder="sk-..." />
                     <Button onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? '...' : 'Test'}</Button>
@@ -424,82 +368,39 @@ function App() {
                 </ConfigField>
               </CollapsibleSection>
 
-              <CollapsibleSection 
-                title="Audio" 
-                isOpen={activeConfigSection === 'audio'} 
-                onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}
-              >
-                <ConfigField 
-                  label="Microphone" 
-                  description="Choose the input device for recording your voice."
-                >
+              <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
+                <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
                   <div className="select-wrapper">
                     <select value={config.audio_device || 'default'} onChange={(e: any) => updateConfig('audio_device', e.target.value)}>
                       {availableMics.map((mic: any) => <option key={mic.id} value={mic.id}>{mic.label}</option>)}
                     </select>
                     <Button variant="ghost" className="icon-button" onClick={loadMics} title="Refresh Devices">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                        <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
-                        <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
                       </svg>
                     </Button>
                   </div>
                 </ConfigField>
                   
-                <ConfigField 
-                  label={`Mic Sensitivity (${Math.round(config.input_sensitivity * 100)}%)`}
-                  description="Adjust the gain levels. Higher values pick up quieter sounds."
-                >
-                  <input 
-                    type="range" min="0.1" max="2.0" step="0.05" 
-                    value={config.input_sensitivity} 
-                    onChange={(e: any) => updateConfig('input_sensitivity', parseFloat(e.target.value))}
-                    className="slider"
-                  />
+                <ConfigField label={`Mic Sensitivity (${Math.round(config.input_sensitivity * 100)}%)`} description="Adjust the gain levels. Higher values pick up quieter sounds.">
+                  <input type="range" min="0.1" max="2.0" step="0.05" value={config.input_sensitivity} onChange={(e: any) => updateConfig('input_sensitivity', parseFloat(e.target.value))} className="slider" />
                 </ConfigField>
 
                 <div className="mic-test-row">
-                  <Button 
-                    className="mic-test-button"
-                    disabled={micTestStatus === 'processing'}
-                    variant={micTestStatus !== 'idle' ? 'primary' : 'secondary'}
-                    onClick={() => {
-                      if (micTestStatus === 'idle') startMicTest();
-                      else if (micTestStatus === 'recording') stopMicTest();
-                      else if (micTestStatus === 'playing') stopMicPlayback();
-                    }}
-                  >
-                    {micTestStatus === 'idle' ? 'Check Microphone' : 
-                    micTestStatus === 'recording' ? 'Stop & Play Back' :
-                    micTestStatus === 'playing' ? 'Stop Playback' :
-                    'Processing...'}
+                  <Button className="mic-test-button" disabled={micTestStatus === 'processing'} variant={micTestStatus !== 'idle' ? 'primary' : 'secondary'} onClick={() => { if (micTestStatus === 'idle') startMicTest(); else if (micTestStatus === 'recording') stopMicTest(); else if (micTestStatus === 'playing') stopMicPlayback(); }}>
+                    {micTestStatus === 'idle' ? 'Check Microphone' : micTestStatus === 'recording' ? 'Stop & Play Back' : micTestStatus === 'playing' ? 'Stop Playback' : 'Processing...'}
                   </Button>
-                  {micTestStatus === 'recording' ? (
+                  {micTestStatus === 'recording' && (
                     <div className="volume-meter-container">
-                      <div 
-                        className={`volume-meter-bar ${micVolume > 0.9 ? 'clipping' : micVolume > 0.7 ? 'warning' : ''}`} 
-                        style={{ width: `${Math.min(micVolume * 100, 100)}%` }}
-                      ></div>
+                      <div className={`volume-meter-bar ${micVolume > 0.9 ? 'clipping' : micVolume > 0.7 ? 'warning' : ''}`} style={{ width: `${Math.min(micVolume * 100, 100)}%` }}></div>
                     </div>
-                  ) : null}
+                  )}
                 </div>
               </CollapsibleSection>
 
-              <CollapsibleSection 
-                title="Typing" 
-                isOpen={activeConfigSection === 'typing'} 
-                onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}
-              >
-                <ConfigField 
-                  label="Always Copy to Clipboard" 
-                  description="Automatically copies the transcription to your clipboard even when in Typewriter mode."
-                >
-                  <Switch 
-                    checked={config.copy_on_typewriter} 
-                    onChange={(checked) => updateConfig('copy_on_typewriter', checked)} 
-                    label="Enabled"
-                  />
+              <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>
+                <ConfigField label="Always Copy to Clipboard" description="Automatically copies the transcription to your clipboard even when in Typewriter mode.">
+                  <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} label="Enabled" />
                 </ConfigField>
 
                 <ConfigField label="Global Hotkey" description="Hold these keys to record, release to transcribe.">
@@ -515,46 +416,24 @@ function App() {
                 </ConfigField>
               </CollapsibleSection>
 
-              <CollapsibleSection 
-                title="Advanced" 
-                isOpen={activeConfigSection === 'advanced'} 
-                onToggle={() => setActiveConfigSection(activeConfigSection === 'advanced' ? null : 'advanced')}
-              >
+              <CollapsibleSection title="Advanced" isOpen={activeConfigSection === 'advanced'} onToggle={() => setActiveConfigSection(activeConfigSection === 'advanced' ? null : 'advanced')}>
                 <ConfigField label="Popup Position (px)" description="Vertical offset for the status overlay from the screen bottom.">
                   <input type="number" value={config.pixels_from_bottom} onChange={(e: any) => updateConfig('pixels_from_bottom', parseInt(e.target.value))} />
                 </ConfigField>
 
-                <ConfigField 
-                  label="Debug Mode" 
-                  description="Master switch for advanced diagnostic settings."
-                >
-                  <Switch 
-                    checked={config.debug_mode} 
-                    onChange={(checked) => updateConfig('debug_mode', checked)} 
-                    label="Enable Debug Settings"
-                  />
+                <ConfigField label="Debug Mode" description="Master switch for advanced diagnostic settings.">
+                  <Switch checked={config.debug_mode} onChange={(checked) => updateConfig('debug_mode', checked)} label="Enable Debug Settings" />
                 </ConfigField>
 
-                {config.debug_mode ? (
-                  <ConfigField 
-                    label="Recording Logs" 
-                    description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues."
-                  >
+                {config.debug_mode && (
+                  <ConfigField label="Recording Logs" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Switch 
-                        checked={config.enable_recording_logs} 
-                        onChange={(checked) => updateConfig('enable_recording_logs', checked)} 
-                        label="Enable Recording Logs"
-                      />
+                      <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} label="Enable Recording Logs" />
                       <Button size="sm" variant="ghost" onClick={openDebugFolder}>Open Folder</Button>
                     </div>
                   </ConfigField>
-                ) : null}
+                )}
               </CollapsibleSection>
-            </div>
-
-            <div className="form-actions-bottom">
-              <Button variant="primary" className="sticky-footer-button" onClick={saveConfig}>Save Configuration</Button>
             </div>
           </div>
         )}
@@ -569,8 +448,7 @@ function App() {
                       <div className="history-text">{item.text}</div>
                       <Button variant="ghost" size="sm" className="copy-button" onClick={() => copyToClipboard(item.text)} title="Copy to clipboard">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                         </svg>
                       </Button>
                       <div className="history-timestamp">{new Date(item.timestamp).toLocaleString()}</div>
@@ -579,12 +457,21 @@ function App() {
                 }
               </div>
             </div>
-            <div className="form-actions-bottom">
-              <Button variant="danger" className="sticky-footer-button" onClick={clearHistory}>Clear History</Button>
-            </div>
           </div>
         )}
       </div>
+
+      {activeTab === 'config' && (
+        <ActionFooter>
+          <Button variant="primary" className="sticky-footer-button" onClick={saveConfig}>Save Configuration</Button>
+        </ActionFooter>
+      )}
+
+      {activeTab === 'history' && (
+        <ActionFooter>
+          <Button variant="danger" className="sticky-footer-button" onClick={clearHistory}>Clear History</Button>
+        </ActionFooter>
+      )}
 
       <div className="toast-container">
         {toasts.map(toast => (

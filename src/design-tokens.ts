@@ -19,6 +19,9 @@ export const tokens = {
     accentHover: '#4752c4',
     success: '#10b981',
     error: '#ef4444',
+    glassBg: 'rgba(47, 49, 54, 0.6)',
+    glassBgHeavy: 'rgba(54, 57, 63, 0.95)',
+    glassBlur: '16px',
   },
   
   spacing: {
