@@ -23,6 +23,8 @@ interface Config {
   debug_mode: boolean;
   enable_recording_logs: boolean;
   input_sensitivity: number;
+  output_method: 'Typewriter' | 'Clipboard';
+  copy_on_typewriter: boolean;
 }
 
 interface Toast {
@@ -54,6 +56,8 @@ function App() {
     debug_mode: false,
     enable_recording_logs: false,
     input_sensitivity: 1.0,
+    output_method: 'Typewriter',
+    copy_on_typewriter: false,
   });
   
   const [activeTab, setActiveTab] = useState<'status' | 'history' | 'config'>('status');
@@ -233,6 +237,22 @@ function App() {
     }
   };
 
+  const toggleOutputMethod = async (method: 'Typewriter' | 'Clipboard') => {
+    logUI(`🖱️ Output Method changed to: ${method}`);
+    const newConfig = { ...config, output_method: method };
+    setConfig(newConfig);
+    try {
+      const configToSave = {
+        ...newConfig,
+        typing_speed_interval: newConfig.typing_speed_interval / 1000,
+        openai_api_key: newConfig.openai_api_key || 'your_api_key_here',
+      };
+      await invoke('save_config', { newConfig: configToSave });
+    } catch (error) {
+      console.error('Failed to save config on mode toggle:', error);
+    }
+  };
+
   const startMicTest = async () => {
     logUI('🖱️ Button clicked: Check Microphone (Start)');
     try {
@@ -343,6 +363,28 @@ function App() {
             <div className="status-display">
               <StatusIcon status={currentStatus} large />
               <div className="status-text-app" key={`text-${currentStatus}`}>{currentStatus}</div>
+              
+              <div className="mode-switcher-container">
+                <div className={`mode-switcher mode-${config.output_method.toLowerCase()}`}>
+                  <div className="mode-switcher-slider"></div>
+                  <button 
+                    className={config.output_method === 'Typewriter' ? 'active' : ''} 
+                    onClick={() => toggleOutputMethod('Typewriter')}
+                    title="Typewriter Mode: Simulates key presses"
+                  >
+                    <span className="mode-icon">⌨️</span>
+                    <span>Typewriter</span>
+                  </button>
+                  <button 
+                    className={config.output_method === 'Clipboard' ? 'active' : ''} 
+                    onClick={() => toggleOutputMethod('Clipboard')}
+                    title="Clipboard Mode: Fast copy-paste"
+                  >
+                    <span className="mode-icon">📋</span>
+                    <span>Clipboard</span>
+                  </button>
+                </div>
+              </div>
             </div>
             
             <Card className="help-content">
@@ -446,6 +488,17 @@ function App() {
               isOpen={activeConfigSection === 'typing'} 
               onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}
             >
+              <ConfigField 
+                label="Copy to Clipboard" 
+                description="Automatically copies the transcription to your clipboard even in Typewriter mode."
+              >
+                <Switch 
+                  checked={config.copy_on_typewriter} 
+                  onChange={(checked) => updateConfig('copy_on_typewriter', checked)} 
+                  label="Always Copy Text"
+                />
+              </ConfigField>
+
               <ConfigField label="Global Hotkey" description="Hold these keys to record, release to transcribe.">
                 <input type="text" value={config.hotkey} onChange={(e: any) => updateConfig('hotkey', e.target.value)} />
               </ConfigField>
