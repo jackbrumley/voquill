@@ -278,12 +278,29 @@ select {
   transition: var(--transitions-normal);
 }
 
+.status-icon-container {
+  animation: status-enter 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
 .status-text-app {
   color: var(--colors-text-primary);
   font-weight: 500;
   font-size: 34px;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  /* Animation for state changes */
+  animation: status-enter 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes status-enter {
+  from { 
+    opacity: 0; 
+    transform: translateY(4px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
 }
 
 /* Animations */
