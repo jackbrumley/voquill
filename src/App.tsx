@@ -444,6 +444,8 @@ function App() {
               <input type="number" value={config.pixels_from_bottom} onChange={(e: any) => updateConfig('pixels_from_bottom', parseInt(e.target.value))} />
             </ConfigField>
 
+            <hr className="config-divider" />
+
             <ConfigField 
               label="Debug Mode" 
               description="Master switch for advanced diagnostic settings."
