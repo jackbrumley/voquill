@@ -270,19 +270,20 @@ select {
 /* Status Specifics */
 .status-display {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-md);
   padding: var(--spacing-xl) var(--spacing-md);
   transition: var(--transitions-normal);
 }
 
 .status-text-app {
   color: var(--colors-text-primary);
-  font-weight: 500;
-  font-size: var(--typography-size-huge);
-  line-height: 1.1;
+  font-weight: 300;
+  font-size: 36px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 /* Animations */
