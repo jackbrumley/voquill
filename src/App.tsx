@@ -8,6 +8,7 @@ import { tokens, tokensToCssVars } from './design-tokens.ts';
 import { Card } from './components/Card.tsx';
 import { Button } from './components/Button.tsx';
 import { ConfigField } from './components/ConfigField.tsx';
+import { Switch } from './components/Switch.tsx';
 import './App.css';
 
 interface Config {
@@ -419,19 +420,6 @@ function App() {
               ) : null}
             </Card>
 
-            <Card className="debug-section">
-              <div className="debug-toggle">
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={config.debug_mode} onChange={(e: any) => updateConfig('debug_mode', e.target.checked)} />
-                  Enable Debug Mode
-                </label>
-                <Button size="sm" variant="ghost" onClick={openDebugFolder}>Open Folder</Button>
-              </div>
-              <p className="debug-help-text">
-                Saves dictation recordings to disk to help troubleshoot audio quality.
-              </p>
-            </Card>
-
             <hr className="config-divider" />
 
             <ConfigField label="API URL" description="The endpoint that processes audio (OpenAI or Local Whisper).">
@@ -452,6 +440,22 @@ function App() {
 
             <ConfigField label="Popup Position (px)" description="Vertical offset for the status overlay from the screen bottom.">
               <input type="number" value={config.pixels_from_bottom} onChange={(e: any) => updateConfig('pixels_from_bottom', parseInt(e.target.value))} />
+            </ConfigField>
+
+            <ConfigField 
+              label="Debug Mode" 
+              description="Advanced diagnostic settings and recording logs."
+            >
+              <Switch 
+                checked={config.debug_mode} 
+                onChange={(checked) => updateConfig('debug_mode', checked)} 
+                label="Enable Recording Logs"
+              />
+              {config.debug_mode ? (
+                <div style={{ marginTop: 'var(--spacing-sm)', display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button size="sm" variant="ghost" onClick={openDebugFolder}>Open Recordings Folder</Button>
+                </div>
+              ) : null}
             </ConfigField>
 
             <div className="form-actions-bottom">

@@ -12,10 +12,10 @@ export const ConfigField = ({ label, description, children, className = '' }: Co
   return (
     <div className={`config-field ${className}`}>
       <label className="field-label">{label}</label>
+      {description && <p className="field-description">{description}</p>}
       <div className="field-content">
         {children}
       </div>
-      {description && <p className="field-description">{description}</p>}
     </div>
   );
 };
