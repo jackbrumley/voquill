@@ -95,6 +95,13 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* Special Case: Config Panel uses a tight accordion with no gaps */
+.tab-panel.config-panel {
+  padding-top: 0;
+  gap: 0;
 }
 
 /* Components: Card */
@@ -475,7 +482,7 @@ input:checked + .switch-slider:before {
   transform: translateX(18px);
 }
 
-/* Collapsible Section */
+/* Collapsible Section (Accordion) */
 .collapsible-section {
   display: flex;
   flex-direction: column;
@@ -532,14 +539,6 @@ input:checked + .switch-slider:before {
   gap: var(--spacing-sm);
 }
 
-.tab-panel.config-panel {
-  padding-top: 0;
-}
-
-.clear-history-button {
-  width: 100%;
-}
-
 /* Form Actions Pinned to Bottom */
 .form-actions-bottom {
   margin-top: auto; /* Push to bottom of flex container */
@@ -553,6 +552,10 @@ input:checked + .switch-slider:before {
   z-index: 10;
   position: sticky;
   bottom: calc(-1 * var(--spacing-md));
+}
+
+.clear-history-button {
+  width: 100%;
 }
 
 /* Toasts */
