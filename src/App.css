@@ -562,7 +562,6 @@ body.status-typing .status-icon { animation: bounce 1s ease-in-out infinite; }
 }
 
 input:checked + .switch-slider { background-color: var(--colors-success); }
-input:focus + .switch-slider { box-shadow: 0 0 1px var(--colors-success); }
 input:checked + .switch-slider:before { transform: translateX(18px); }
 
 /* Collapsible Section (Accordion) */
