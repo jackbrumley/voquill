@@ -280,9 +280,10 @@ select {
 
 .status-text-app {
   color: var(--colors-text-primary);
-  font-weight: 300;
-  font-size: 36px;
-  letter-spacing: -0.02em;
+  font-family: var(--typography-font-mono);
+  font-weight: 400;
+  font-size: 28px;
+  letter-spacing: 0.05em;
   line-height: 1.2;
 }
 
