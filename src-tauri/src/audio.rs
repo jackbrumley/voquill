@@ -42,7 +42,7 @@ impl PersistentAudioEngine {
 
         let err_fn = |err| println!("❌ Audio stream error: {}", err);
         
-        let mut callback = {
+        let callback = {
             let recording_tx = recording_tx_clone.clone();
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
                 for &sample_raw in data {
@@ -242,8 +242,21 @@ where F: Fn(f32) + Send + 'static
     let (data_tx, data_rx) = mpsc::channel::<Vec<i16>>();
     std::thread::spawn(move || {
         let mut samples = Vec::new();
+        let mut peak = 0.0f32;
+        let mut count = 0;
+        let throttle_window = 800; // ~50ms at 16kHz
+
         while let Ok(s) = rx.recv() {
-            on_volume(s.abs());
+            let abs_s = s.abs();
+            if abs_s > peak { peak = abs_s; }
+            count += 1;
+
+            if count >= throttle_window {
+                on_volume(peak);
+                peak = 0.0;
+                count = 0;
+            }
+            
             samples.push(process_sample(s));
         }
         let _ = data_tx.send(samples);

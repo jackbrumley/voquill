@@ -16,5 +16,6 @@ commands.allow = [
     "start_mic_test",
     "stop_mic_test",
     "stop_mic_playback",
-    "open_debug_folder"
+    "open_debug_folder",
+    "log_ui_event"
 ]

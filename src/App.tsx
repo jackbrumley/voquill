@@ -51,13 +51,15 @@ function App() {
   const [currentStatus, setCurrentStatus] = useState<string>('Ready');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [availableMics, setAvailableMics] = useState<AudioDevice[]>([]);
-  const [micTestStatus, setMicTestStatus] = useState<'idle' | 'recording' | 'playing'>('idle');
+  const [micTestStatus, setMicTestStatus] = useState<'idle' | 'recording' | 'playing' | 'processing'>('idle');
   const [micVolume, setMicVolume] = useState<number>(0);
 
   const logUI = (msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
     console.log(`[${timestamp}] ${msg}`);
-    invoke('log_ui_event', { message: msg }).catch(() => {});
+    invoke('log_ui_event', { message: msg }).catch((err) => {
+      console.error(`Failed to send log to backend: ${err}`);
+    });
   };
 
   useEffect(() => {
@@ -153,6 +155,7 @@ function App() {
   };
 
   const loadMics = async () => {
+    logUI('🖱️ Button clicked: Refresh Devices');
     try {
       const devices = await invoke<AudioDevice[]>('get_audio_devices');
       setAvailableMics(devices);
@@ -220,6 +223,7 @@ function App() {
 
   const stopMicTest = async () => {
     logUI('🖱️ Button clicked: Stop & Play Back');
+    setMicTestStatus('processing');
     try {
       await invoke('stop_mic_test');
     } catch (error) {
@@ -278,10 +282,12 @@ function App() {
   };
 
   const handleClose = async () => {
+    logUI('🖱️ Window Control: Close (Hide)');
     await getCurrentWindow().hide();
   };
 
   const handleMinimize = async () => {
+    logUI('🖱️ Window Control: Minimize');
     await getCurrentWindow().minimize();
   };
 
@@ -302,9 +308,9 @@ function App() {
       </div>
 
       <div className="tab-nav">
-        <button className={`tab ${activeTab === 'status' ? 'active' : ''}`} onClick={() => setActiveTab('status')}>Status</button>
-        <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>History</button>
-        <button className={`tab ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}>Config</button>
+        <button className={`tab ${activeTab === 'status' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Tab switched: Status'); setActiveTab('status'); }}>Status</button>
+        <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Tab switched: History'); setActiveTab('history'); }}>History</button>
+        <button className={`tab ${activeTab === 'config' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Tab switched: Config'); setActiveTab('config'); }}>Config</button>
       </div>
 
       <div className="tab-content">
@@ -372,8 +378,9 @@ function App() {
 
               <div className="mic-test-row">
                 <div className="mic-test-controls">
-                  <button 
+                    <button 
                     className={`button mic-test-button ${micTestStatus !== 'idle' ? 'active' : ''}`} 
+                    disabled={micTestStatus === 'processing'}
                     onClick={() => {
                       if (micTestStatus === 'idle') startMicTest();
                       else if (micTestStatus === 'recording') stopMicTest();
@@ -383,6 +390,7 @@ function App() {
                     {micTestStatus === 'idle' && 'Check Microphone'}
                     {micTestStatus === 'recording' && 'Stop & Play Back'}
                     {micTestStatus === 'playing' && 'Stop Playback'}
+                    {micTestStatus === 'processing' && 'Processing...'}
                   </button>
                   {micTestStatus === 'recording' && (
                     <div className="volume-meter-container">

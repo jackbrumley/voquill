@@ -663,6 +663,8 @@ async fn emit_status_update(status: &str) {
         return;
     }
     
+    log_info!("🔄 App Status Change: {}", status);
+    
     if let Some(app_handle) = APP_HANDLE.get() {
         let windows = ["main", "overlay"];
         for window_label in &windows {
