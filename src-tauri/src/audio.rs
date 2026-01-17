@@ -127,90 +127,66 @@ pub struct PersistentAudioEngine {
     pub pre_roll_consumer: Arc<Mutex<CachingCons<Arc<HeapRb<f32>>>>>,
     pub recording_tx: Arc<Mutex<Option<mpsc::SyncSender<f32>>>>,
     pub sample_rate: u32,
+    pub channels: u16,
 }
 
 impl PersistentAudioEngine {
     pub fn new(device: &cpal::Device, sensitivity: f32) -> Result<Self, String> {
-        let stream_config = StreamConfig {
-            channels: 1,
-            sample_rate: 16000,
-            buffer_size: cpal::BufferSize::Default,
-        };
+        let config = device.default_input_config().map_err(|e| format!("Failed to get default input config: {}", e))?;
+        let sample_rate = u32::from(config.sample_rate());
+        let channels = config.channels();
+        
+        crate::log_info!("🎤 Audio Engine: Opening native stream ({}Hz, {} channels)", sample_rate, channels);
 
-        let pre_roll_size = (16000.0 * 0.2) as usize;
+        let pre_roll_size = (sample_rate as f32 * 0.2) as usize;
         let pre_roll_rb = HeapRb::<f32>::new(pre_roll_size);
         let (mut pre_roll_prod, pre_roll_cons) = pre_roll_rb.split();
 
         let recording_tx = Arc::new(Mutex::new(None::<mpsc::SyncSender<f32>>));
         let recording_tx_clone = recording_tx.clone();
 
-        let mut dc_offset_state = 0.0f32;
-        let alpha = 0.995f32; 
-
         let err_fn = |err| crate::log_info!("❌ Audio stream error: {}", err);
         
-        let (stream, actual_sample_rate) = match device.build_input_stream(
-            &stream_config, 
-            {
-                let recording_tx = recording_tx_clone.clone();
-                move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                    for &sample_raw in data {
-                        let filtered = sample_raw - dc_offset_state;
-                        dc_offset_state = filtered + alpha * dc_offset_state;
-                        let sample = filtered * sensitivity;
-                        let _ = pre_roll_prod.try_push(sample);
-                        if let Ok(guard) = recording_tx.try_lock() {
-                            if let Some(tx) = guard.as_ref() { let _ = tx.try_send(sample); }
-                        }
+        let stream_config: cpal::StreamConfig = config.clone().into();
+        let channels_usize = channels as usize;
+
+        let mut audio_callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
+            for frame in data.chunks(channels_usize) {
+                // Sum all channels to mono. 
+                // Note: We don't divide by channel count here to preserve volume from single-channel mics 
+                // reporting as stereo. Clipping is handled by the soft-clipper later for Whisper, 
+                // but for raw testing we want the full energy.
+                let sample_raw: f32 = frame.iter().sum();
+
+                // Apply manual sensitivity/volume
+                let sample = sample_raw * sensitivity;
+
+                let _ = pre_roll_prod.try_push(sample);
+                if let Ok(guard) = recording_tx_clone.try_lock() {
+                    if let Some(tx) = guard.as_ref() {
+                        let _ = tx.try_send(sample);
                     }
                 }
-            }, 
-            err_fn, 
-            None
-        ) {
-            Ok(s) => (s, 16000),
-            Err(e) => {
-                crate::log_info!("⚠️  16kHz Mono request failed ({}), falling back to default...", e);
-                let config = device.default_input_config().map_err(|e| e.to_string())?;
-                let channels = config.channels() as usize;
-                let sample_rate = u32::from(config.sample_rate());
-                
-                let mut fallback_callback = {
-                    let recording_tx = recording_tx_clone.clone();
-                    let mut dc_offset_state = 0.0f32;
-                    let alpha = 0.995f32;
-                    move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                        for frame in data.chunks(channels) {
-                            let sample_raw = frame[0];
-                            let filtered = sample_raw - dc_offset_state;
-                            dc_offset_state = filtered + alpha * dc_offset_state;
-                            let sample = filtered * sensitivity;
-                            if let Ok(guard) = recording_tx.try_lock() {
-                                if let Some(tx) = guard.as_ref() { let _ = tx.try_send(sample); }
-                            }
-                        }
-                    }
-                };
-
-                let s = match config.sample_format() {
-                    SampleFormat::F32 => device.build_input_stream(&config.into(), fallback_callback, err_fn, None),
-                    SampleFormat::I16 => device.build_input_stream(&config.into(), move |data: &[i16], info| {
-                        let f32_data: Vec<f32> = data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
-                        fallback_callback(&f32_data, info);
-                    }, err_fn, None),
-                    _ => return Err("Unsupported format".into()),
-                }.map_err(|e| e.to_string())?;
-                (s, sample_rate)
             }
         };
 
-        stream.play().map_err(|e| e.to_string())?;
+        let stream = match config.sample_format() {
+            SampleFormat::F32 => device.build_input_stream(&stream_config, audio_callback, err_fn, None),
+            SampleFormat::I16 => device.build_input_stream(&stream_config, move |data: &[i16], info| {
+                let f32_data: Vec<f32> = data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
+                audio_callback(&f32_data, info);
+            }, err_fn, None),
+            _ => return Err("Unsupported sample format".into()),
+        }.map_err(|e| format!("Failed to build input stream: {}", e))?;
+
+        stream.play().map_err(|e| format!("Failed to start stream: {}", e))?;
 
         Ok(Self {
             stream,
             pre_roll_consumer: Arc::new(Mutex::new(pre_roll_cons)),
-            recording_tx: recording_tx_clone,
-            sample_rate: actual_sample_rate,
+            recording_tx,
+            sample_rate,
+            channels,
         })
     }
 }
@@ -336,7 +312,7 @@ pub async fn record_mic_test<F>(
     is_mic_test: &Arc<Mutex<bool>>,
     engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
     on_volume: F,
-) -> Result<Vec<i16>, Box<dyn std::error::Error + Send + Sync>> 
+) -> Result<Vec<f32>, Box<dyn std::error::Error + Send + Sync>> 
 where F: Fn(f32) + Send + 'static
 {
     let (tx, rx) = mpsc::sync_channel::<f32>(65536);
@@ -348,7 +324,7 @@ where F: Fn(f32) + Send + 'static
         *eng.recording_tx.lock().unwrap() = Some(tx);
     }
 
-    let (data_tx, data_rx) = mpsc::channel::<Vec<i16>>();
+    let (data_tx, data_rx) = mpsc::channel::<Vec<f32>>();
     std::thread::spawn(move || {
         let mut samples = Vec::new();
         let mut peak = 0.0f32;
@@ -363,20 +339,21 @@ where F: Fn(f32) + Send + 'static
                 peak = 0.0;
                 count = 0;
             }
-            samples.push(process_sample(s));
+            samples.push(s);
         }
         let _ = data_tx.send(samples);
     });
 
     while *is_mic_test.lock().unwrap() { tokio::time::sleep(Duration::from_millis(10)).await; }
     if let Some(eng) = engine.lock().unwrap().as_ref() { *eng.recording_tx.lock().unwrap() = None; }
-    let mut final_samples = data_rx.recv()?;
-    if sample_rate != 16000 { final_samples = resample_audio(&final_samples, sample_rate, 16000); }
-    normalize_audio(&mut final_samples);
+    let final_samples = data_rx.recv()?;
+    
+    crate::log_info!("✅ Mic test: Finished with {} samples at {}Hz", final_samples.len(), sample_rate);
+    
     Ok(final_samples)
 }
 
-pub fn play_audio<F>(samples: Vec<i16>, sample_rate: u32, on_done: F) -> Result<cpal::Stream, Box<dyn std::error::Error + Send + Sync>> 
+pub fn play_audio<F>(samples: Vec<f32>, sample_rate: u32, on_done: F) -> Result<cpal::Stream, Box<dyn std::error::Error + Send + Sync>> 
 where F: FnOnce() + Send + 'static
 {
     let host = cpal::default_host();
@@ -397,37 +374,42 @@ where F: FnOnce() + Send + 'static
 
     let config = device.default_output_config()?;
     let stream_config: StreamConfig = config.clone().into();
-    let resampled = Arc::new(resample_audio(&samples, sample_rate, stream_config.sample_rate));
+    let resampled = Arc::new(resample_audio_f32(&samples, sample_rate, stream_config.sample_rate));
     let chans = stream_config.channels as usize;
-    let resampled_clone1 = resampled.clone();
-    let mut idx1 = 0;
-    let mut done1 = Some(on_done);
-    let callback = move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-        for frame in data.chunks_mut(chans) {
-            if idx1 < resampled_clone1.len() {
-                let s = resampled_clone1[idx1] as f32 / i16::MAX as f32;
-                for out in frame.iter_mut() { *out = s; }
-                idx1 += 1;
-            } else {
-                for out in frame.iter_mut() { *out = 0.0; }
-                if let Some(cb) = done1.take() { cb(); }
-            }
-        }
-    };
-
+    
     let err_fn = |err| crate::log_info!("🔊 Playback error: {}", err);
+    let mut done = Some(on_done);
+    
     let stream = match config.sample_format() {
-        SampleFormat::F32 => device.build_output_stream(&stream_config, callback, err_fn, None)?,
+        SampleFormat::F32 => {
+            let resampled_clone = resampled.clone();
+            let mut idx = 0;
+            device.build_output_stream(&stream_config, move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                for frame in data.chunks_mut(chans) {
+                    if idx < resampled_clone.len() {
+                        let s = resampled_clone[idx];
+                        for out in frame.iter_mut() { *out = s; }
+                        idx += 1;
+                    } else {
+                        for out in frame.iter_mut() { *out = 0.0; }
+                        if let Some(cb) = done.take() { cb(); }
+                    }
+                }
+            }, err_fn, None)?
+        },
         SampleFormat::I16 => {
-            let resampled_clone2 = resampled.clone();
-            let mut idx2 = 0;
+            let resampled_clone = resampled.clone();
+            let mut idx = 0;
             device.build_output_stream(&stream_config, move |data: &mut [i16], _| {
                 for frame in data.chunks_mut(chans) {
-                    if idx2 < resampled_clone2.len() {
-                        let s = resampled_clone2[idx2];
+                    if idx < resampled_clone.len() {
+                        let s = (resampled_clone[idx] * i16::MAX as f32) as i16;
                         for out in frame.iter_mut() { *out = s; }
-                        idx2 += 1;
-                    } else { for out in frame.iter_mut() { *out = 0; } }
+                        idx += 1;
+                    } else {
+                        for out in frame.iter_mut() { *out = 0; }
+                        if let Some(cb) = done.take() { cb(); }
+                    }
                 }
             }, err_fn, None)?
         },
@@ -452,16 +434,19 @@ fn convert_audio_for_whisper(data: &[u8], rate: u32, _chans: u16) -> Result<Vec<
     Ok(out)
 }
 
-pub fn normalize_audio(samples: &mut [i16]) {
-    let max = samples.iter().map(|&s| (s as i32).abs()).max().unwrap_or(0);
-    if max > 0 && max < (i16::MAX as i32 / 2) {
-        let gain = (i16::MAX as f32 * 0.9) / max as f32;
-        for s in samples.iter_mut() { *s = ((*s as f32 * gain) as i32).clamp(i16::MIN as i32, i16::MAX as i32) as i16; }
-    }
-}
-
 pub fn resample_audio(samples: &[i16], from: u32, to: u32) -> Vec<i16> {
     if from == to { return samples.to_vec(); }
+    
+    if from > to && from % to == 0 {
+        let ratio = (from / to) as usize;
+        let mut out = Vec::with_capacity(samples.len() / ratio);
+        for chunk in samples.chunks_exact(ratio) {
+            let sum: i32 = chunk.iter().map(|&s| s as i32).sum();
+            out.push((sum / ratio as i32) as i16);
+        }
+        return out;
+    }
+
     let ratio = from as f64 / to as f64;
     let len = (samples.len() as f64 / ratio) as usize;
     let mut out = Vec::with_capacity(len);
@@ -473,14 +458,36 @@ pub fn resample_audio(samples: &[i16], from: u32, to: u32) -> Vec<i16> {
             let s1 = samples[idx] as f64;
             let s2 = samples[idx+1] as f64;
             out.push((s1 + (s2 - s1) * frac) as i16);
-        } else if idx < samples.len() { out.push(samples[idx]); }
+        } else if idx < samples.len() {
+            out.push(samples[idx]);
+        }
+    }
+    out
+}
+
+pub fn resample_audio_f32(samples: &[f32], from: u32, to: u32) -> Vec<f32> {
+    if from == to { return samples.to_vec(); }
+    let ratio = from as f64 / to as f64;
+    let len = (samples.len() as f64 / ratio) as usize;
+    let mut out = Vec::with_capacity(len);
+    for i in 0..len {
+        let pos = i as f64 * ratio;
+        let idx = pos as usize;
+        let frac = pos - idx as f64;
+        if idx + 1 < samples.len() {
+            let s1 = samples[idx] as f64;
+            let s2 = samples[idx+1] as f64;
+            out.push((s1 + (s2 - s1) * frac) as f32);
+        } else if idx < samples.len() {
+            out.push(samples[idx]);
+        }
     }
     out
 }
 
 fn process_sample(s: f32) -> i16 {
     let clipped = soft_clip(s);
-    (clipped * 0.95 * i16::MAX as f32).clamp(i16::MIN as f32, i16::MAX as f32) as i16
+    (clipped * i16::MAX as f32).clamp(i16::MIN as f32, i16::MAX as f32) as i16
 }
 
 fn soft_clip(x: f32) -> f32 {

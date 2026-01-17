@@ -77,7 +77,7 @@ pub struct AppState {
     pub cached_device: Arc<Mutex<Option<cpal::Device>>>,
     pub virtual_keyboard: Arc<Mutex<Option<VirtualKeyboardHandle>>>,
     pub playback_stream: Arc<Mutex<Option<cpal::Stream>>>,
-    pub mic_test_samples: Arc<Mutex<Vec<i16>>>,
+    pub mic_test_samples: Arc<Mutex<Vec<f32>>>,
     pub audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
 }
 
@@ -294,7 +294,14 @@ async fn start_mic_test(state: tauri::State<'_, AppState>, app_handle: tauri::Ap
 
     tokio::spawn(async move {
         log_info!("🎤 Mic test thread started");
+        
+        let sample_rate = {
+            let guard = audio_engine.lock().unwrap();
+            guard.as_ref().map(|e| e.sample_rate).unwrap_or(16000)
+        };
+
         let result = audio::record_mic_test(&is_mic_test_clone, audio_engine, {
+
             let app = app_handle_clone.clone();
             move |volume| {
                 let _ = app.emit("mic-test-volume", volume);
@@ -311,12 +318,13 @@ async fn start_mic_test(state: tauri::State<'_, AppState>, app_handle: tauri::Ap
                 }
 
                 // Restore Playback Logic
-                log_info!("🔊 Initializing playback...");
+                log_info!("🔊 Initializing playback at {}Hz...", sample_rate);
                 let app = app_handle_clone.clone();
-                match audio::play_audio(captured_samples.clone(), 16000, move || {
+                match audio::play_audio(captured_samples.clone(), sample_rate, move || {
                     log_info!("🎵 Mic test playback finished");
                     let _ = app.emit("mic-test-playback-finished", ());
                 }) {
+
                     Ok(stream) => {
                         let mut stream_guard = playback_stream_state.lock().unwrap();
                         *stream_guard = Some(stream);
