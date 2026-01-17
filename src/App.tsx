@@ -364,13 +364,6 @@ function App() {
               <StatusIcon status={currentStatus} large />
               <div className="status-text-app" key={`text-${currentStatus}`}>{currentStatus}</div>
               
-              <div className="mode-badge-container">
-                <div className="status-mode-badge">
-                  <span className="mode-badge-icon">{config.output_method === 'Typewriter' ? '⌨️' : '📋'}</span>
-                  <span>{config.output_method} Mode</span>
-                </div>
-              </div>
-              
               <div className="mode-switcher-container">
                 <div className={`mode-switcher mode-${config.output_method.toLowerCase()}`}>
                   <div className="mode-switcher-slider"></div>
