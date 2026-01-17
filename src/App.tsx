@@ -340,10 +340,10 @@ function App() {
       <div className="tab-content">
         {activeTab === 'status' && (
           <div className="tab-panel">
-            <Card className="status-display">
+            <div className="status-display">
               <StatusIcon status={currentStatus} />
               <div className="status-text-app">{currentStatus}</div>
-            </Card>
+            </div>
             
             <Card className="help-content">
               <h3>How to Use Voquill</h3>
