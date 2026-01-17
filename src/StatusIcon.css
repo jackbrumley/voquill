@@ -53,6 +53,18 @@
   z-index: 1;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  /* Animation for state changes - keeps circle static, fades icon only */
+  animation: status-enter 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Large variant for main application window */
+.status-icon-container.large .icon-circle {
+  width: 160px;
+  height: 160px;
+}
+
+.status-icon-container.large .status-icon {
+  font-size: 96px;
 }
 
 /* Status-specific styling - only icon colors and animations */

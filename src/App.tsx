@@ -341,7 +341,7 @@ function App() {
         {activeTab === 'status' && (
           <div className="tab-panel">
             <div className="status-display">
-              <StatusIcon status={currentStatus} key={`icon-${currentStatus}`} />
+              <StatusIcon status={currentStatus} large />
               <div className="status-text-app" key={`text-${currentStatus}`}>{currentStatus}</div>
             </div>
             

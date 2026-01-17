@@ -4,9 +4,10 @@ import './StatusIcon.css';
 interface StatusIconProps {
   status: string;
   className?: string;
+  large?: boolean;
 }
 
-function StatusIcon({ status, className = '' }: StatusIconProps) {
+function StatusIcon({ status, className = '', large = false }: StatusIconProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'Ready':
@@ -41,9 +42,9 @@ function StatusIcon({ status, className = '' }: StatusIconProps) {
   };
 
   return (
-    <div className={`status-icon-container ${className}`}>
+    <div className={`status-icon-container ${className} ${large ? 'large' : ''}`}>
       <div className={`icon-circle ${getStatusClass(status)}`}>
-        <span className="status-icon">{getStatusIcon(status)}</span>
+        <span className="status-icon" key={status}>{getStatusIcon(status)}</span>
       </div>
     </div>
   );
