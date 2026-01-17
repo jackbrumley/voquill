@@ -47,7 +47,7 @@ fn default_debug_mode() -> bool { false }
 fn default_enable_recording_logs() -> bool { false }
 fn default_input_sensitivity() -> f32 { 1.0 }
 fn default_output_method() -> OutputMethod { OutputMethod::Typewriter }
-fn default_copy_on_typewriter() -> bool { true }
+fn default_copy_on_typewriter() -> bool { false }
 
 impl Default for Config {
     fn default() -> Self {

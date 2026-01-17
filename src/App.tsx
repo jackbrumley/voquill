@@ -57,7 +57,7 @@ function App() {
     enable_recording_logs: false,
     input_sensitivity: 1.0,
     output_method: 'Typewriter',
-    copy_on_typewriter: true,
+    copy_on_typewriter: false,
   });
   
   const [activeTab, setActiveTab] = useState<'status' | 'history' | 'config'>('status');
