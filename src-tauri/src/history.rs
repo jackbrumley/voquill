@@ -10,17 +10,9 @@ pub struct HistoryItem {
     pub timestamp: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct History {
     pub items: Vec<HistoryItem>,
-}
-
-impl Default for History {
-    fn default() -> Self {
-        Self {
-            items: Vec::new(),
-        }
-    }
 }
 
 fn get_history_file_path() -> Result<PathBuf, Box<dyn std::error::Error>> {

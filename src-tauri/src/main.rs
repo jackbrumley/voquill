@@ -133,7 +133,7 @@ async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<
         log_info!("🔧 Executing: pkexec {}", cmd);
         
         let output = Command::new("pkexec")
-            .args(&["bash", "-c", &cmd])
+            .args(["bash", "-c", &cmd])
             .output();
 
         match output {
@@ -472,7 +472,7 @@ async fn save_config(
 async fn re_register_hotkey(_app_handle: &tauri::AppHandle, _hotkey_string: &str) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(target_os = "linux"))]
@@ -529,7 +529,7 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
     let app_state = app_handle.state::<AppState>();
     let pixels_from_bottom_logical = {
         let config = app_state.config.lock().unwrap();
-        config.pixels_from_bottom as i32
+        config.pixels_from_bottom
     };
     
     #[cfg(target_os = "linux")]
@@ -538,7 +538,7 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
         let window_clone = overlay_window.clone();
         
         // Dispatch to main thread for GTK operations
-        let _ = gtk::glib::MainContext::default().invoke(move || {
+        gtk::glib::MainContext::default().invoke(move || {
             if let Ok(gtk_window) = window_clone.gtk_window() {
                 // Resolution: Use fully qualified syntax and the correct method name 'set_layer_shell_margin'
                 // to resolve the conflict with WidgetExt::set_margin
@@ -547,7 +547,7 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
             }
         });
         
-        return Ok(());
+        Ok(())
     }
     
     #[cfg(not(target_os = "linux"))]
@@ -604,7 +604,7 @@ fn apply_linux_unfocusable_hints(window: &WebviewWindow) {
         let app_state = app_handle.state::<AppState>();
         let pixels_from_bottom_logical = {
             let config = app_state.config.lock().unwrap();
-            config.pixels_from_bottom as i32
+            config.pixels_from_bottom
         };
         LayerShell::set_layer_shell_margin(&gtk_window, gtk_layer_shell::Edge::Bottom, pixels_from_bottom_logical);
 
@@ -991,18 +991,18 @@ fn main() {
                 let state = app.state::<AppState>();
                 let virtual_keyboard = state.virtual_keyboard.clone();
                 std::thread::spawn(move || {
-                    use evdev::uinput::VirtualDeviceBuilder;
-                    use evdev::{AttributeSet, Key, InputId, BusType};
+                    use evdev::uinput::VirtualDevice;
+                    use evdev::{AttributeSet, KeyCode, InputId, BusType};
                     log_info!("🔄 Starting virtual hardware keyboard initialization...");
                     
-                    let mut keys = AttributeSet::<Key>::new();
+                    let mut keys = AttributeSet::<KeyCode>::new();
                     for i in 0..564 {
-                        keys.insert(Key::new(i as u16));
+                        keys.insert(KeyCode::new(i as u16));
                     }
 
                     let input_id = InputId::new(BusType::BUS_USB, 0x6666, 0x8888, 0x0111);
 
-                    match VirtualDeviceBuilder::new()
+                    match VirtualDevice::builder()
                         .unwrap()
                         .name("Voquill Virtual Keyboard")
                         .input_id(input_id)

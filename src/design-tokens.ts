@@ -36,10 +36,10 @@ export const tokens = {
   },
   
   shadows: {
-    sm: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    md: '0 4px 12px rgba(0, 0, 0, 0.2)',
-    lg: '0 8px 24px rgba(0, 0, 0, 0.3)',
-    accent: '0 4px 12px rgba(88, 101, 242, 0.3)',
+    sm: '0 2px 8px rgba(0, 0, 0, 0.2)',
+    md: '0 6px 16px rgba(0, 0, 0, 0.3)',
+    lg: '0 12px 32px rgba(0, 0, 0, 0.4)',
+    accent: '0 4px 12px rgba(88, 101, 242, 0.4)',
   },
   
   transitions: {

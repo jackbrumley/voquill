@@ -154,9 +154,9 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
     let target = target_id.filter(|id| id != "default");
 
     if let Some(name) = target {
-        if name.starts_with("pulse:") {
+        if let Some(stripped) = name.strip_prefix("pulse:") {
             #[cfg(target_os = "linux")]
-            { std::env::set_var("PULSE_SOURCE", &name[6..]); }
+            { std::env::set_var("PULSE_SOURCE", stripped); }
             host.input_devices().map_err(|e| e.to_string())?.into_iter().find(|d| d.id().map(|id| id.1 == "pulse").unwrap_or(false)).ok_or_else(|| "Pulse ALSA device not found".to_string())
         } else {
             host.input_devices().map_err(|e| e.to_string())?.into_iter().find(|d| d.id().map(|id| id.1 == name).unwrap_or(false)).ok_or_else(|| format!("Device '{}' not found", name))
@@ -227,7 +227,7 @@ pub async fn record_audio_while_flag(
     log_info!("🎤 record_audio_while_flag: Waiting for processed data...");
     let final_wav = data_rx.recv()?;
     log_info!("🎤 record_audio_while_flag: Data received, converting for Whisper");
-    Ok(convert_audio_for_whisper(&final_wav, sample_rate, 1)?)
+    convert_audio_for_whisper(&final_wav, sample_rate, 1)
 }
 
 pub async fn record_mic_test<F>(
