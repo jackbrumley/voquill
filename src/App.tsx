@@ -51,7 +51,7 @@ function App() {
     openai_api_key: '',
     api_url: 'https://api.openai.com/v1/audio/transcriptions',
     hotkey: 'ctrl+space',
-    typing_speed_interval: 0.001,
+    typing_speed_interval: 1,
     key_press_duration_ms: 2,
     pixels_from_bottom: 100,
     audio_device: 'default',
@@ -73,6 +73,7 @@ function App() {
   const [activeConfigSection, setActiveConfigSection] = useState<string | null>('connection');
 
   const logUI = (msg: string) => {
+    if (!config.debug_mode && !msg.includes('Button clicked')) return;
     const timestamp = new Date().toLocaleTimeString();
     console.log(`[${timestamp}] ${msg}`);
     invoke('log_ui_event', { message: msg }).catch((err) => {
@@ -194,40 +195,39 @@ function App() {
     }
   };
 
-  const updateConfig = (key: keyof Config, value: any) => {
-    setConfig(prev => ({ ...prev, [key]: value }));
+  const persistConfig = async (configToPersist: Config) => {
+    try {
+      const configToSave = {
+        ...configToPersist,
+        typing_speed_interval: configToPersist.typing_speed_interval / 1000,
+        openai_api_key: configToPersist.openai_api_key || 'your_api_key_here',
+      };
+      await invoke('save_config', { newConfig: configToSave });
+    } catch (error) {
+      console.error('Failed to auto-save configuration:', error);
+      showToast(`Failed to save: ${error}`, 'error');
+    }
+  };
+
+  const updateConfig = (key: keyof Config, value: any, shouldPersist = false) => {
+    setConfig(prev => {
+      const newConfig = { ...prev, [key]: value };
+      if (shouldPersist) {
+        persistConfig(newConfig);
+      }
+      return newConfig;
+    });
   };
 
   const saveConfig = async () => {
     logUI('🖱️ Button clicked: Save Configuration');
-    try {
-      const configToSave = {
-        ...config,
-        typing_speed_interval: config.typing_speed_interval / 1000,
-        openai_api_key: config.openai_api_key || 'your_api_key_here',
-      };
-      
-      await invoke('save_config', { newConfig: configToSave });
-      showToast('Configuration saved!', 'success');
-    } catch (error) {
-      showToast(`Failed to save configuration: ${error}`, 'error');
-    }
+    await persistConfig(config);
+    showToast('Configuration saved!', 'success');
   };
 
   const toggleOutputMethod = async (method: 'Typewriter' | 'Clipboard') => {
     logUI(`🖱️ Output Method changed to: ${method}`);
-    const newConfig = { ...config, output_method: method };
-    setConfig(newConfig);
-    try {
-      const configToSave = {
-        ...newConfig,
-        typing_speed_interval: newConfig.typing_speed_interval / 1000,
-        openai_api_key: newConfig.openai_api_key || 'your_api_key_here',
-      };
-      await invoke('save_config', { newConfig: configToSave });
-    } catch (error) {
-      console.error('Failed to save config on mode toggle:', error);
-    }
+    updateConfig('output_method', method, true);
   };
 
   const startMicTest = async () => {
@@ -371,7 +371,7 @@ function App() {
               <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
                 <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
                   <div className="select-wrapper">
-                    <select value={config.audio_device || 'default'} onChange={(e: any) => updateConfig('audio_device', e.target.value)}>
+                    <select value={config.audio_device || 'default'} onChange={(e: any) => updateConfig('audio_device', e.target.value, true)}>
                       {availableMics.map((mic: any) => <option key={mic.id} value={mic.id}>{mic.label}</option>)}
                     </select>
                     <Button variant="ghost" className="icon-button" onClick={loadMics} title="Refresh Devices">
@@ -400,7 +400,7 @@ function App() {
 
               <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>
                 <ConfigField label="Always Copy to Clipboard" description="Automatically copies the transcription to your clipboard even when in Typewriter mode.">
-                  <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} label="Enabled" />
+                  <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked, true)} label="Enabled" />
                 </ConfigField>
 
                 <ConfigField label="Global Hotkey" description="Hold these keys to record, release to transcribe.">
@@ -422,13 +422,13 @@ function App() {
                 </ConfigField>
 
                 <ConfigField label="Debug Mode" description="Master switch for advanced diagnostic settings.">
-                  <Switch checked={config.debug_mode} onChange={(checked) => updateConfig('debug_mode', checked)} label="Enable Debug Settings" />
+                  <Switch checked={config.debug_mode} onChange={(checked) => updateConfig('debug_mode', checked, true)} label="Enable Debug Settings" />
                 </ConfigField>
 
                 {config.debug_mode && (
                   <ConfigField label="Recording Logs" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} label="Enable Recording Logs" />
+                      <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked, true)} label="Enable Recording Logs" />
                       <Button size="sm" variant="ghost" onClick={openDebugFolder}>Open Folder</Button>
                     </div>
                   </ConfigField>

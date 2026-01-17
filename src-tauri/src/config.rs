@@ -38,10 +38,10 @@ pub struct Config {
 
 fn default_api_key() -> String { "your_api_key_here".to_string() }
 fn default_api_url() -> String { "https://api.openai.com/v1/audio/transcriptions".to_string() }
-fn default_hotkey() -> String { "alt+space".to_string() }
+fn default_hotkey() -> String { "ctrl+space".to_string() }
 fn default_typing_speed() -> f64 { 0.001 }
 fn default_key_press_duration() -> u64 { 2 }
-fn default_pixels_from_bottom() -> i32 { 50 }
+fn default_pixels_from_bottom() -> i32 { 100 }
 fn default_audio_device() -> Option<String> { Some("default".to_string()) }
 fn default_debug_mode() -> bool { false }
 fn default_enable_recording_logs() -> bool { false }
