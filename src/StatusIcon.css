@@ -2,6 +2,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  --jump-height: -18px;
+}
+
+.status-icon-container.large {
+  --jump-height: -35px;
 }
 
 .icon-circle {
@@ -89,14 +94,23 @@
 }
 
 @keyframes dotJump {
-  0%, 20%, 50%, 80%, 100% {
+  0%, 15%, 70%, 100% {
     transform: translateY(0) scale(1, 1);
   }
-  40% {
-    transform: translateY(-15px) scale(0.9, 1.1);
+  20% {
+    transform: translateY(0) scale(1.25, 0.75); /* Squash before jump */
+  }
+  35% {
+    transform: translateY(var(--jump-height)) scale(0.9, 1.1); /* Peak high */
   }
   45% {
-    transform: translateY(0) scale(1.1, 0.9);
+    transform: translateY(0) scale(1.2, 0.8); /* Hit ground squash */
+  }
+  55% {
+    transform: translateY(calc(var(--jump-height) / 3)) scale(0.95, 1.05); /* Secondary bounce */
+  }
+  62% {
+    transform: translateY(0) scale(1.05, 0.95); /* Final touch squash */
   }
 }
 
