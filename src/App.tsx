@@ -1,8 +1,13 @@
+
 import { useState, useEffect } from 'preact/hooks';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import StatusIcon from './StatusIcon.tsx';
+import { tokens, tokensToCssVars } from './design-tokens.ts';
+import { Card } from './components/Card.tsx';
+import { Button } from './components/Button.tsx';
+import { ConfigField } from './components/ConfigField.tsx';
 import './App.css';
 
 interface Config {
@@ -64,6 +69,15 @@ function App() {
     });
   };
 
+  // Inject design tokens into CSS variables
+  useEffect(() => {
+    const cssVars = tokensToCssVars(tokens);
+    const root = document.documentElement;
+    Object.entries(cssVars).forEach(([key, value]) => {
+      root.style.setProperty(key, value);
+    });
+  }, []);
+
   useEffect(() => {
     loadConfig();
     loadMics();
@@ -114,7 +128,6 @@ function App() {
       loadHistory();
     });
     
-    // Listen for mic test playback events
     const unlistenMicTestStarted = listen('mic-test-playback-started', () => {
       logUI('📥 Event received: mic-test-playback-started');
       setMicTestStatus('playing');
@@ -203,15 +216,9 @@ function App() {
     logUI('🖱️ Button clicked: Save Configuration');
     try {
       const configToSave = {
-        openai_api_key: config.openai_api_key || 'your_api_key_here',
-        api_url: config.api_url,
-        hotkey: config.hotkey,
+        ...config,
         typing_speed_interval: config.typing_speed_interval / 1000,
-        key_press_duration_ms: config.key_press_duration_ms,
-        pixels_from_bottom: config.pixels_from_bottom,
-        audio_device: config.audio_device,
-        debug_mode: config.debug_mode,
-        input_sensitivity: config.input_sensitivity,
+        openai_api_key: config.openai_api_key || 'your_api_key_here',
       };
       
       await invoke('save_config', { newConfig: configToSave });
@@ -314,8 +321,8 @@ function App() {
       <div className="title-bar" onMouseDown={handleTitleBarMouseDown}>
         <div className="title-bar-title">Voquill</div>
         <div className="title-bar-controls">
-          <button className="title-bar-button minimize" onClick={handleMinimize}>─</button>
-          <button className="title-bar-button close" onClick={handleClose}>✕</button>
+          <Button variant="icon" className="title-bar-button" onClick={handleMinimize}>─</Button>
+          <Button variant="icon" className="title-bar-button close" onClick={handleClose}>✕</Button>
         </div>
       </div>
 
@@ -332,139 +339,123 @@ function App() {
               <StatusIcon status={currentStatus} />
               <div className="status-text-app">{currentStatus}</div>
             </div>
-            <div className="record-section">
-              <div className="help-text">Hotkey: <strong>{config.hotkey}</strong></div>
-            </div>
-            <div className="help-content">
+            
+            <Card variant="primary" className="help-content">
               <h3>How to Use Voquill</h3>
               <ol className="instructions">
-                <li>Enter your OpenAI API key in the Config tab</li>
-                <li>Position cursor in any text field</li>
-                <li>Hold <strong>{config.hotkey}</strong> and speak</li>
-                <li>Release keys to transcribe and type</li>
+                <li>Enter your <strong>OpenAI API key</strong> in Config.</li>
+                <li>Position cursor in any text field.</li>
+                <li>Hold <strong>{config.hotkey}</strong> and speak.</li>
+                <li>Release keys to transcribe and type.</li>
               </ol>
-            </div>
+            </Card>
           </div>
         )}
 
         {activeTab === 'config' && (
           <div className="tab-panel">
-            <div className="form-group">
-              <label>API Key:</label>
-              <div className="input-with-button">
+            <ConfigField 
+              label="API Key" 
+              description="Used to authenticate with the transcription service (OpenAI)."
+            >
+              <div className="input-with-button" style={{ display: 'flex', gap: '8px' }}>
                 <input type="password" value={config.openai_api_key} onChange={(e: any) => updateConfig('openai_api_key', e.target.value)} placeholder="sk-..." />
-                <button className="button" onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? 'Testing...' : 'Test Key'}</button>
+                <Button onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? '...' : 'Test'}</Button>
               </div>
-            </div>
+            </ConfigField>
 
-            <div className="form-group">
-              <label>Microphone:</label>
+            <ConfigField 
+              label="Microphone" 
+              description="Choose the input device for recording your voice."
+            >
               <div className="select-wrapper">
                 <select value={config.audio_device || 'default'} onChange={(e: any) => updateConfig('audio_device', e.target.value)}>
                   {availableMics.map((mic: any) => <option key={mic.id} value={mic.id}>{mic.label}</option>)}
                 </select>
-                <button className="button small icon-button" onClick={loadMics} title="Refresh Devices">
+                <Button variant="ghost" className="icon-button" onClick={loadMics} title="Refresh Devices">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                     <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
                     <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
                     <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
                   </svg>
-                </button>
+                </Button>
               </div>
+            </ConfigField>
               
-              <div className="form-group sensitivity-section">
-                <div className="label-with-value">
-                  <label>Mic Sensitivity:</label>
-                  <span className="value-badge">{Math.round(config.input_sensitivity * 100)}%</span>
-                </div>
-                <input 
-                  type="range" 
-                  min="0.1" 
-                  max="2.0" 
-                  step="0.05" 
-                  value={config.input_sensitivity} 
-                  onChange={(e: any) => updateConfig('input_sensitivity', parseFloat(e.target.value))}
-                  className="slider"
-                />
-              </div>
+            <ConfigField 
+              label={`Mic Sensitivity (${Math.round(config.input_sensitivity * 100)}%)`}
+              description="Adjust the gain levels. Higher values pick up quieter sounds."
+            >
+              <input 
+                type="range" min="0.1" max="2.0" step="0.05" 
+                value={config.input_sensitivity} 
+                onChange={(e: any) => updateConfig('input_sensitivity', parseFloat(e.target.value))}
+                className="slider"
+              />
+            </ConfigField>
 
-              <div className="mic-test-row">
-                <div className="mic-test-controls">
-                    <button 
-                    className={`button mic-test-button ${micTestStatus !== 'idle' ? 'active' : ''}`} 
-                    disabled={micTestStatus === 'processing'}
-                    onClick={() => {
-                      if (micTestStatus === 'idle') startMicTest();
-                      else if (micTestStatus === 'recording') stopMicTest();
-                      else if (micTestStatus === 'playing') stopMicPlayback();
-                    }}
-                  >
-                    {micTestStatus === 'idle' && 'Check Microphone'}
-                    {micTestStatus === 'recording' && 'Stop & Play Back'}
-                    {micTestStatus === 'playing' && 'Stop Playback'}
-                    {micTestStatus === 'processing' && 'Processing...'}
-                  </button>
-                  {micTestStatus === 'recording' && (
-                    <div className="volume-meter-container">
-                      <div 
-                        className={`volume-meter-bar ${micVolume > 0.9 ? 'clipping' : micVolume > 0.7 ? 'warning' : ''}`} 
-                        style={{ width: `${Math.min(micVolume * 100, 100)}%` }}
-                      ></div>
-                    </div>
-                  )}
+            <Card className="mic-test-row">
+              <Button 
+                className={`mic-test-button ${micTestStatus !== 'idle' ? 'active' : ''}`} 
+                disabled={micTestStatus === 'processing'}
+                onClick={() => {
+                  if (micTestStatus === 'idle') startMicTest();
+                  else if (micTestStatus === 'recording') stopMicTest();
+                  else if (micTestStatus === 'playing') stopMicPlayback();
+                }}
+              >
+                {micTestStatus === 'idle' ? 'Check Microphone' : 
+                 micTestStatus === 'recording' ? 'Stop & Play Back' :
+                 micTestStatus === 'playing' ? 'Stop Playback' :
+                 'Processing...'}
+              </Button>
+              {micTestStatus === 'recording' ? (
+                <div className="volume-meter-container">
+                  <div 
+                    className={`volume-meter-bar ${micVolume > 0.9 ? 'clipping' : micVolume > 0.7 ? 'warning' : ''}`} 
+                    style={{ width: `${Math.min(micVolume * 100, 100)}%` }}
+                  ></div>
                 </div>
-              </div>
-            </div>
+              ) : null}
+            </Card>
 
-            <div className="form-group debug-section">
+            <Card className="debug-section">
               <div className="debug-toggle">
                 <label className="checkbox-label">
-                  <input 
-                    type="checkbox" 
-                    checked={config.debug_mode} 
-                    onChange={(e: any) => updateConfig('debug_mode', e.target.checked)} 
-                  />
+                  <input type="checkbox" checked={config.debug_mode} onChange={(e: any) => updateConfig('debug_mode', e.target.checked)} />
                   Enable Debug Mode
                 </label>
-                <button className="button small" onClick={openDebugFolder}>Open Debug Folder</button>
+                <Button size="sm" variant="ghost" onClick={openDebugFolder}>Open Folder</Button>
               </div>
               <p className="debug-help-text">
-                When enabled, Voquill saves your dictation recordings to disk to help troubleshoot audio quality. 
-                Files are stored in your app data folder.
+                Saves dictation recordings to disk to help troubleshoot audio quality.
               </p>
-            </div>
+            </Card>
 
             <hr className="config-divider" />
 
-            <div className="form-group">
-              <label>API URL:</label>
+            <ConfigField label="API URL" description="The endpoint that processes audio (OpenAI or Local Whisper).">
               <input type="url" value={config.api_url} onChange={(e: any) => updateConfig('api_url', e.target.value)} />
-            </div>
+            </ConfigField>
 
-            <div className="form-group">
-              <label>Global Hotkey:</label>
+            <ConfigField label="Global Hotkey" description="Hold these keys to record, release to transcribe.">
               <input type="text" value={config.hotkey} onChange={(e: any) => updateConfig('hotkey', e.target.value)} />
-            </div>
+            </ConfigField>
 
-            <div className="form-group">
-              <label>Typing Speed (ms):</label>
+            <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
               <input type="number" value={config.typing_speed_interval} onChange={(e: any) => updateConfig('typing_speed_interval', parseInt(e.target.value))} />
-              <p className="debug-help-text">Delay between characters. Lower values are faster (1ms recommended).</p>
-            </div>
+            </ConfigField>
 
-            <div className="form-group">
-              <label>Key Press Duration (ms):</label>
+            <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
               <input type="number" value={config.key_press_duration_ms} onChange={(e: any) => updateConfig('key_press_duration_ms', parseInt(e.target.value))} />
-              <p className="debug-help-text">How long each key is held down. Increase if characters are skipped.</p>
-            </div>
+            </ConfigField>
 
-            <div className="form-group">
-              <label>Popup Position (px from bottom):</label>
+            <ConfigField label="Popup Position (px)" description="Vertical offset for the status overlay from the screen bottom.">
               <input type="number" value={config.pixels_from_bottom} onChange={(e: any) => updateConfig('pixels_from_bottom', parseInt(e.target.value))} />
-            </div>
+            </ConfigField>
 
             <div className="form-actions-bottom">
-              <button className="button primary save-button" onClick={saveConfig}>Save Configuration</button>
+              <Button variant="primary" className="save-button" onClick={saveConfig}>Save Configuration</Button>
             </div>
           </div>
         )}
@@ -472,21 +463,21 @@ function App() {
         {activeTab === 'history' && (
           <div className="tab-panel">
             <div className="history-header">
-              <button className="button clear-history-button" onClick={clearHistory}>Clear History</button>
+              <Button variant="danger" size="sm" onClick={clearHistory}>Clear History</Button>
             </div>
             <div className="history-list">
-              {history.length === 0 ? <div className="empty-history"><p>No transcriptions yet.</p></div> :
+              {history.length === 0 ? <Card className="empty-history"><p>No transcriptions yet.</p></Card> :
                 history.map((item) => (
-                  <div key={item.id} className="history-item">
+                  <Card key={item.id} className="history-item">
                     <div className="history-text">{item.text}</div>
-                    <button className="copy-button" onClick={() => copyToClipboard(item.text)} title="Copy to clipboard">
+                    <Button variant="ghost" size="sm" className="copy-button" onClick={() => copyToClipboard(item.text)} title="Copy to clipboard">
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                       </svg>
-                    </button>
+                    </Button>
                     <div className="history-timestamp">{new Date(item.timestamp).toLocaleString()}</div>
-                  </div>
+                  </Card>
                 ))
               }
             </div>
@@ -496,7 +487,7 @@ function App() {
 
       <div className="toast-container">
         {toasts.map(toast => (
-          <div key={toast.id} className={`toast ${toast.type}`}>
+          <div key={toast.id} className={`toast ${toast.type}`} onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}>
             {toast.message}
           </div>
         ))}
