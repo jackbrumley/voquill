@@ -262,11 +262,7 @@ select {
   flex-direction: row;
   align-items: center;
   gap: var(--spacing-lg);
-  padding: var(--spacing-lg);
-  background: var(--colors-bg-secondary);
-  border-radius: var(--radii-panel);
-  border: 1px solid var(--colors-bg-tertiary);
-  box-shadow: var(--shadows-md);
+  padding: var(--spacing-sm) var(--spacing-md);
 }
 
 .status-text-app {
@@ -294,6 +290,45 @@ body.status-typing .status-icon { animation: bounce 1s ease-in-out infinite; }
   40%, 43% { transform: translateY(-4px); } 
   70% { transform: translateY(-2px); } 
   90% { transform: translateY(-1px); } 
+}
+
+/* Help Section */
+.help-content {
+  font-size: var(--typography-size-sm);
+  line-height: 1.6;
+  color: var(--colors-text-primary);
+  padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.help-content h3 {
+  margin: 0 0 var(--spacing-lg) 0;
+  font-size: var(--typography-size-lg);
+  font-weight: 700;
+  text-align: center;
+  color: var(--colors-text-primary);
+}
+
+.instructions {
+  padding-left: var(--spacing-xl);
+  margin: 0;
+  text-align: left;
+}
+
+.instructions li {
+  margin-bottom: var(--spacing-sm);
+  padding-left: var(--spacing-sm);
+  color: var(--colors-text-secondary);
+}
+
+.instructions li strong {
+  color: var(--colors-text-primary);
+}
+
+.instructions li::marker {
+  color: var(--colors-accent-primary);
+  font-weight: 800;
+  font-family: var(--typography-font-mono);
+  font-size: var(--typography-size-md);
 }
 
 /* History List */

@@ -338,12 +338,12 @@ function App() {
       <div className="tab-content">
         {activeTab === 'status' && (
           <div className="tab-panel">
-            <div className="status-display">
+            <Card className="status-display">
               <StatusIcon status={currentStatus} />
               <div className="status-text-app">{currentStatus}</div>
-            </div>
+            </Card>
             
-            <Card variant="primary" className="help-content">
+            <Card className="help-content">
               <h3>How to Use Voquill</h3>
               <ol className="instructions">
                 <li>Enter your <strong>OpenAI API key</strong> in Config.</li>
