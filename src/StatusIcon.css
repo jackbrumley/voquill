@@ -67,6 +67,47 @@
   font-size: 96px;
 }
 
+/* Ready Dots Animation */
+.ready-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.ready-dots span {
+  width: 8px;
+  height: 8px;
+  background-color: white;
+  border-radius: 50%;
+  opacity: 0.3;
+  animation: dotWave 1.4s infinite ease-in-out;
+}
+
+.ready-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ready-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Scaling for Large variant */
+.status-icon-container.large .ready-dots {
+  gap: 12px;
+}
+
+.status-icon-container.large .ready-dots span {
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes dotWave {
+  0%, 100% { 
+    opacity: 0.3; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 1; 
+    transform: scale(1.2);
+  }
+}
+
 /* Status-specific styling - only icon colors and animations */
 .status-ready .status-icon {
   /* Ready state - no additional animation */

@@ -279,7 +279,7 @@ select {
 }
 
 .status-icon-container {
-  animation: status-enter 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  /* Container stays static to prevent flashing of the background circle */
 }
 
 .status-text-app {

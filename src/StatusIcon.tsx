@@ -44,7 +44,15 @@ function StatusIcon({ status, className = '', large = false }: StatusIconProps) 
   return (
     <div className={`status-icon-container ${className} ${large ? 'large' : ''}`}>
       <div className={`icon-circle ${getStatusClass(status)}`}>
-        <span className="status-icon" key={status}>{getStatusIcon(status)}</span>
+        {status === 'Ready' ? (
+          <div className="ready-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        ) : (
+          <span className="status-icon" key={status}>{getStatusIcon(status)}</span>
+        )}
       </div>
     </div>
   );
