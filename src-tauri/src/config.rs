@@ -3,6 +3,12 @@ use std::fs;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum OutputMethod {
+    Typewriter,
+    Clipboard,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default = "default_api_key")]
     pub openai_api_key: String,
@@ -24,6 +30,10 @@ pub struct Config {
     pub enable_recording_logs: bool,
     #[serde(default = "default_input_sensitivity")]
     pub input_sensitivity: f32,
+    #[serde(default = "default_output_method")]
+    pub output_method: OutputMethod,
+    #[serde(default = "default_copy_on_typewriter")]
+    pub copy_on_typewriter: bool,
 }
 
 fn default_api_key() -> String { "your_api_key_here".to_string() }
@@ -36,6 +46,8 @@ fn default_audio_device() -> Option<String> { Some("default".to_string()) }
 fn default_debug_mode() -> bool { false }
 fn default_enable_recording_logs() -> bool { false }
 fn default_input_sensitivity() -> f32 { 1.0 }
+fn default_output_method() -> OutputMethod { OutputMethod::Typewriter }
+fn default_copy_on_typewriter() -> bool { false }
 
 impl Default for Config {
     fn default() -> Self {
@@ -50,6 +62,8 @@ impl Default for Config {
             debug_mode: default_debug_mode(),
             enable_recording_logs: default_enable_recording_logs(),
             input_sensitivity: default_input_sensitivity(),
+            output_method: default_output_method(),
+            copy_on_typewriter: default_copy_on_typewriter(),
         }
     }
 }

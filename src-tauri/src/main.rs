@@ -783,17 +783,35 @@ async fn record_and_transcribe(
         }
         
         emit_status_to_frontend("Typing").await;
-        let (typing_speed, hold_duration) = { 
+        let (typing_speed, hold_duration, output_method, copy_on_typewriter) = { 
             let config_guard = config.lock().unwrap();
-            (config_guard.typing_speed_interval, config_guard.key_press_duration_ms) 
+            (
+                config_guard.typing_speed_interval, 
+                config_guard.key_press_duration_ms,
+                config_guard.output_method.clone(),
+                config_guard.copy_on_typewriter
+            ) 
         };
         
         // Give the OS a moment to ensure the overlay is hidden and focus is restored to the target app
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
         
-        println!("⌨️  Forwarding text to hardware typing engine...");
-        if let Err(e) = typing::type_text_hardware(&text, typing_speed, hold_duration, virtual_keyboard) {
-            println!("❌ TYPING ENGINE ERROR: {}", e);
+        match output_method {
+            config::OutputMethod::Typewriter => {
+                if copy_on_typewriter {
+                    let _ = typing::copy_to_clipboard(&text);
+                }
+                println!("⌨️  Forwarding text to hardware typing engine...");
+                if let Err(e) = typing::type_text_hardware(&text, typing_speed, hold_duration, virtual_keyboard) {
+                    println!("❌ TYPING ENGINE ERROR: {}", e);
+                }
+            },
+            config::OutputMethod::Clipboard => {
+                println!("📋 Forwarding text to hardware paste engine...");
+                if let Err(e) = typing::paste_text_hardware(&text, hold_duration, virtual_keyboard) {
+                    println!("❌ PASTE ENGINE ERROR: {}", e);
+                }
+            }
         }
     } else {
         log_info!("ℹ️ Transcription was empty, skipping typing.");

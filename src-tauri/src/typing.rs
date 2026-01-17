@@ -2,6 +2,7 @@ use evdev::{uinput::VirtualDevice, Key, InputEvent, EventType};
 use std::thread;
 use std::time::Duration;
 use std::sync::{Arc, Mutex};
+use arboard::Clipboard;
 
 fn char_to_keys(ch: char) -> (Vec<Key>, bool) {
     match ch {
@@ -84,15 +85,9 @@ fn char_to_keys(ch: char) -> (Vec<Key>, bool) {
         '\\' => (vec![Key::KEY_BACKSLASH], false),
         '-' => (vec![Key::KEY_MINUS], false),
         '=' => (vec![Key::KEY_EQUAL], false),
-        '`' => (vec![Key::KEY_GRAVE], false),
-        '\'' => (vec![Key::KEY_APOSTROPHE], false),
-        '\n' => (vec![Key::KEY_ENTER], false),
-        '\t' => (vec![Key::KEY_TAB], false),
-
-        // Shifted Symbols
+        '#' => (vec![Key::KEY_3], true), // Fixed duplicated mapping
         '!' => (vec![Key::KEY_1], true),
         '@' => (vec![Key::KEY_2], true),
-        '#' => (vec![Key::KEY_3], true),
         '$' => (vec![Key::KEY_4], true),
         '%' => (vec![Key::KEY_5], true),
         '^' => (vec![Key::KEY_6], true),
@@ -111,6 +106,10 @@ fn char_to_keys(ch: char) -> (Vec<Key>, bool) {
         '>' => (vec![Key::KEY_DOT], true),
         '?' => (vec![Key::KEY_SLASH], true),
         '~' => (vec![Key::KEY_GRAVE], true),
+        '`' => (vec![Key::KEY_GRAVE], false),
+        '\'' => (vec![Key::KEY_APOSTROPHE], false),
+        '\n' => (vec![Key::KEY_ENTER], false),
+        '\t' => (vec![Key::KEY_TAB], false),
 
         // Typographic Smart Characters & Common Replacements
         '“' | '”' => (vec![Key::KEY_APOSTROPHE], true),  // Smart Double Quotes -> "
@@ -140,7 +139,6 @@ pub fn type_text_hardware(
     println!("⌨️  [Hardware Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)", text, interval_ms, key_press_duration_ms);
     
     // Hold each key for a specified duration to simulate physical reality
-    // Most systems ignore keys held for less than 15-20ms
     let hold_duration = Duration::from_millis(key_press_duration_ms);
 
     for ch in text.chars() {
@@ -156,8 +154,6 @@ pub fn type_text_hardware(
             device.emit(&[InputEvent::new(EventType::KEY, key.0, 1)])?;
         }
 
-        // Wait for hold duration (key down)
-        // If we don't wait here, the OS might see the keyup event in the same polling cycle
         thread::sleep(hold_duration);
 
         // 3. Release actual keys
@@ -170,10 +166,6 @@ pub fn type_text_hardware(
             device.emit(&[InputEvent::new(EventType::KEY, Key::KEY_LEFTSHIFT.0, 0)])?;
         }
         
-        // Ensure the OS processes the release before the next press
-        // Synchronizing is critical for reliable typing
-        // Note: emit() for specific events might already flush, but explicit sync is safer if available
-        // If the library doesn't expose sync(), emit with SYN_REPORT is the standard way.
         device.emit(&[InputEvent::new(EventType::SYNCHRONIZATION, 0, 0)])?;
 
         // Interval between characters
@@ -183,5 +175,53 @@ pub fn type_text_hardware(
     }
     
     println!("✅ Hardware typing complete");
+    Ok(())
+}
+
+pub fn copy_to_clipboard(text: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let mut clipboard = Clipboard::new()?;
+    clipboard.set_text(text.to_string())?;
+    Ok(())
+}
+
+pub fn paste_text_hardware(
+    text: &str,
+    key_press_duration_ms: u64,
+    virtual_keyboard: Arc<Mutex<Option<VirtualDevice>>>
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    println!("📋 [Hardware Engine] Pasting via clipboard: '{}' (Hold: {}ms)", text, key_press_duration_ms);
+    
+    // 1. Set clipboard content
+    copy_to_clipboard(text)?;
+
+    let mut keyboard_lock = virtual_keyboard.lock().unwrap();
+    if keyboard_lock.is_none() {
+        return Err("Virtual hardware keyboard not initialized".into());
+    }
+    
+    let device = keyboard_lock.as_mut().unwrap();
+    let hold_duration = Duration::from_millis(key_press_duration_ms);
+
+    // 2. Emit Ctrl+V (or Cmd+V for Mac)
+    // For Linux/Windows, we use Control + V
+    // Note: On Linux, some apps might use Shift+Insert, but Ctrl+V is universal for text fields.
+    
+    // Press Control
+    device.emit(&[InputEvent::new(EventType::KEY, Key::KEY_LEFTCTRL.0, 1)])?;
+    
+    // Press V
+    device.emit(&[InputEvent::new(EventType::KEY, Key::KEY_V.0, 1)])?;
+    
+    thread::sleep(hold_duration);
+    
+    // Release V
+    device.emit(&[InputEvent::new(EventType::KEY, Key::KEY_V.0, 0)])?;
+    
+    // Release Control
+    device.emit(&[InputEvent::new(EventType::KEY, Key::KEY_LEFTCTRL.0, 0)])?;
+    
+    device.emit(&[InputEvent::new(EventType::SYNCHRONIZATION, 0, 0)])?;
+
+    println!("✅ Hardware paste complete");
     Ok(())
 }
