@@ -2,6 +2,7 @@
 
 import { exists } from "jsr:@std/fs";
 import { join } from "jsr:@std/path";
+import { verifyDependencies } from "./deps.ts";
 
 // Colors for console output
 const colors = {
@@ -41,45 +42,11 @@ async function runCommand(cmd: string[], cwd: string = Deno.cwd()) {
   }
 }
 
-async function checkLinuxDependencies() {
-  if (Deno.build.os !== "linux") return;
-
-  logStep("0", "Checking Linux dependencies...");
-  
-  const dependencies = [
-    { name: "libpulse-dev", apt: "libpulse-dev" },
-    { name: "libgtk-layer-shell-dev", apt: "libgtk-layer-shell-dev" },
-    { name: "wl-clipboard", apt: "wl-clipboard" },
-    { name: "cmake", apt: "cmake" },
-    { name: "pkg-config", apt: "pkg-config" },
-    { name: "libclang-dev", apt: "libclang-dev" },
-    { name: "build-essential", apt: "build-essential" },
-  ];
-
-  for (const dep of dependencies) {
-    const command = new Deno.Command("dpkg", {
-      args: ["-s", dep.name],
-      stdout: "null",
-      stderr: "null",
-    });
-
-    const { success } = await command.output();
-    
-    if (!success) {
-      console.error(`${colors.red}❌ Missing dependency: ${dep.name}${colors.reset}`);
-      console.log(`${colors.yellow}Please install it with: ${colors.bright}sudo apt install ${dep.apt}${colors.reset}`);
-      Deno.exit(1);
-    } else {
-      log(`${colors.green}✅ ${dep.name} is installed${colors.reset}`);
-    }
-  }
-}
-
 async function main() {
   log(`${colors.bright}${colors.magenta}🚀 Voquill Development Server (Deno)${colors.reset}`);
   
   // 1. Check requirements
-  await checkLinuxDependencies();
+  await verifyDependencies(true);
   logStep("1", "Checking environment...");
   const tauriDir = join(Deno.cwd(), "src-tauri");
   const srcDir = join(Deno.cwd(), "src");

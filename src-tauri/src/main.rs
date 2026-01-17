@@ -10,6 +10,7 @@ macro_rules! log_info {
 }
 
 use std::sync::{Arc, Mutex, OnceLock};
+#[cfg(target_os = "linux")]
 use std::collections::HashSet;
 use tauri::{
     Manager, WebviewWindow, Emitter, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}, AppHandle,
@@ -61,6 +62,11 @@ async fn check_request_audio_portal(app_handle: &tauri::AppHandle) -> Result<(),
 }
 
 // Application state
+#[cfg(target_os = "linux")]
+pub type VirtualKeyboardHandle = evdev::uinput::VirtualDevice;
+#[cfg(not(target_os = "linux"))]
+pub type VirtualKeyboardHandle = ();
+
 pub struct AppState {
     pub config: Arc<Mutex<Config>>,
     pub is_recording: Arc<Mutex<bool>>,
@@ -69,7 +75,7 @@ pub struct AppState {
     pub setup_status: Arc<Mutex<Option<String>>>,
     pub hardware_hotkey: Arc<Mutex<HardwareHotkey>>,
     pub cached_device: Arc<Mutex<Option<cpal::Device>>>,
-    pub virtual_keyboard: Arc<Mutex<Option<evdev::uinput::VirtualDevice>>>,
+    pub virtual_keyboard: Arc<Mutex<Option<VirtualKeyboardHandle>>>,
     pub playback_stream: Arc<Mutex<Option<cpal::Stream>>>,
     pub mic_test_samples: Arc<Mutex<Vec<i16>>>,
     pub audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
@@ -740,7 +746,7 @@ async fn record_and_transcribe(
     is_recording: Arc<Mutex<bool>>,
     app_handle: AppHandle,
     audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
-    virtual_keyboard: Arc<Mutex<Option<evdev::uinput::VirtualDevice>>>,
+    virtual_keyboard: Arc<Mutex<Option<VirtualKeyboardHandle>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let reset_status_on_exit = || async { emit_status_to_frontend("Ready").await; };
     
@@ -1041,7 +1047,23 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new()
+            .with_handler(|app, _shortcut, event| {
+                if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                    let app_handle = app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let state = app_handle.state::<AppState>();
+                        let _ = start_recording(state, app_handle.clone()).await;
+                    });
+                } else {
+                    let app_handle = app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let state = app_handle.state::<AppState>();
+                        let _ = stop_recording(state).await;
+                    });
+                }
+            })
+            .build())
         .manage(app_state)
         .setup(move |app| {
             let _ = APP_HANDLE.set(app.handle().clone());
@@ -1149,12 +1171,21 @@ fn main() {
                 let _ = w.show();
             }
 
-            let h = app.handle().clone();
-            #[cfg(target_os = "linux")]
+            // Initial hotkey registration
+            let hotkey_string = initial_config.hotkey.clone();
+            let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                let _ = check_request_audio_portal(&h).await;
-                let _ = check_and_request_permissions(&h).await;
+                let _ = re_register_hotkey(&app_handle, &hotkey_string).await;
             });
+
+            #[cfg(target_os = "linux")]
+            {
+                let h = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = check_request_audio_portal(&h).await;
+                    let _ = check_and_request_permissions(&h).await;
+                });
+            }
             
             Ok(())
         })

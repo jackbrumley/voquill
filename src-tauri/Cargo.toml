@@ -21,29 +21,43 @@ serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 reqwest = { version = "0.13.1", features = ["json", "multipart"] }
 cpal = "0.17"
-pulsectl-rs = "0.3"
-evdev = "0.13.2"
-libc = "0.2"
-ashpd = { version = "0.12.1", default-features = false, features = ["tokio"] }
-zbus = "5.13.1"
 hound = "3.5"
-nix = "0.30.1"
-gtk = "0.18"
-gdk = "0.18"
 dirs = "6.0.0"
 anyhow = "1.0"
 log = "0.4"
 env_logger = "0.11.8"
 chrono = { version = "0.4", features = ["serde"] }
 libloading = "0.9.0"
-gtk-layer-shell = { version = "0.8.2", features = ["v0_6"] }
 ringbuf = "0.4.7"
-arboard = { version = "3.6.1", features = ["wayland-data-control"] }
+arboard = "3.6.1"
 whisper-rs = "0.15.1"
 tokio-util = { version = "0.7", features = ["io"] }
 futures-util = "0.3"
 sha2 = "0.10"
 async-trait = "0.1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+pulsectl-rs = "0.3"
+evdev = "0.13.2"
+ashpd = { version = "0.12.1", default-features = false, features = ["tokio"] }
+zbus = "5.13.1"
+nix = "0.30.1"
+gtk = "0.18"
+gdk = "0.18"
+gtk-layer-shell = { version = "0.8.2", features = ["v0_6"] }
+arboard = { version = "3.6.1", features = ["wayland-data-control"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_UI_Input_KeyboardAndMouse", 
+    "Win32_Foundation",
+    "Win32_Media_Audio",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Variant",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_Devices_Properties"
+] }
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

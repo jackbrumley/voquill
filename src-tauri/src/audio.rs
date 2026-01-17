@@ -9,10 +9,86 @@ use ringbuf::{HeapRb, CachingCons};
 #[cfg(target_os = "linux")]
 use pulsectl::controllers::DeviceControl;
 
+#[cfg(target_os = "windows")]
+use windows::Win32::Media::Audio::*;
+#[cfg(target_os = "windows")]
+use windows::Win32::System::Com::*;
+#[cfg(target_os = "windows")]
+use windows::Win32::System::Com::StructuredStorage::*;
+#[cfg(target_os = "windows")]
+use windows::Win32::UI::Shell::PropertiesSystem::*;
+#[cfg(target_os = "windows")]
+use windows::core::PROPVARIANT;
+
 #[derive(serde::Serialize, Clone, Debug)]
 pub struct AudioDevice {
     pub id: String,
     pub label: String,
+}
+
+#[cfg(target_os = "windows")]
+const PKEY_DEVICE_FRIENDLY_NAME: PROPERTYKEY = PROPERTYKEY {
+    fmtid: windows::core::GUID::from_u128(0xa45c2502_df90_44d4_9700_05884a8c14c3),
+    pid: 14,
+};
+
+#[cfg(target_os = "windows")]
+const PKEY_DEVICE_DESC: PROPERTYKEY = PROPERTYKEY {
+    fmtid: windows::core::GUID::from_u128(0xa45c2502_df90_44d4_9700_05884a8c14c3),
+    pid: 2,
+};
+
+#[cfg(target_os = "windows")]
+unsafe fn pv_to_string(pv: &PROPVARIANT) -> String {
+    if let Ok(psz_out) = PropVariantToStringAlloc(pv) {
+        let s = psz_out.to_string().unwrap_or_default();
+        let _ = windows::Win32::System::Com::CoTaskMemFree(Some(psz_out.as_ptr() as *const _));
+        return s;
+    }
+    String::new()
+}
+
+#[cfg(target_os = "windows")]
+fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
+    let mut devices = Vec::new();
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        let enumerator: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
+            .map_err(|e| format!("Failed to create MMDeviceEnumerator: {}", e))?;
+        
+        let collection = enumerator.EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE)
+            .map_err(|e| format!("Failed to enum audio endpoints: {}", e))?;
+        
+        let count = collection.GetCount()
+            .map_err(|e| format!("Failed to get device count: {}", e))?;
+        
+        for i in 0..count {
+            if let Ok(device) = collection.Item(i) {
+                let id = device.GetId().map(|p| p.to_string().unwrap_or_default()).unwrap_or_default();
+                
+                if let Ok(props) = device.OpenPropertyStore(STGM_READ) {
+                    let friendly_name = props.GetValue(&PKEY_DEVICE_FRIENDLY_NAME)
+                        .map(|pv| pv_to_string(&pv))
+                        .unwrap_or_default();
+                    
+                    let device_desc = props.GetValue(&PKEY_DEVICE_DESC)
+                        .map(|pv| pv_to_string(&pv))
+                        .unwrap_or_default();
+
+                    if friendly_name.is_empty() { continue; }
+
+                    let label = if !device_desc.is_empty() && device_desc != friendly_name {
+                        format!("{} - {}", friendly_name, device_desc)
+                    } else {
+                        friendly_name.clone()
+                    };
+
+                    devices.push(AudioDevice { id, label });
+                }
+            }
+        }
+    }
+    Ok(devices)
 }
 
 pub struct PersistentAudioEngine {
@@ -40,58 +116,60 @@ impl PersistentAudioEngine {
         let mut dc_offset_state = 0.0f32;
         let alpha = 0.995f32; 
 
-        let err_fn = |err| log_info!("❌ Audio stream error: {}", err);
+        let err_fn = |err| crate::log_info!("❌ Audio stream error: {}", err);
         
-        let callback = {
-            let recording_tx = recording_tx_clone.clone();
-            move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                for &sample_raw in data {
-                    let filtered = sample_raw - dc_offset_state;
-                    dc_offset_state = filtered + alpha * dc_offset_state;
-                    let sample = filtered * sensitivity;
-
-                    let _ = pre_roll_prod.try_push(sample);
-
-                    if let Ok(guard) = recording_tx.try_lock() {
-                        if let Some(tx) = guard.as_ref() {
-                            let _ = tx.try_send(sample);
+        let (stream, actual_sample_rate) = match device.build_input_stream(
+            &stream_config, 
+            {
+                let recording_tx = recording_tx_clone.clone();
+                move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                    for &sample_raw in data {
+                        let filtered = sample_raw - dc_offset_state;
+                        dc_offset_state = filtered + alpha * dc_offset_state;
+                        let sample = filtered * sensitivity;
+                        let _ = pre_roll_prod.try_push(sample);
+                        if let Ok(guard) = recording_tx.try_lock() {
+                            if let Some(tx) = guard.as_ref() { let _ = tx.try_send(sample); }
                         }
                     }
                 }
-            }
-        };
-
-        let stream = match device.build_input_stream(&stream_config, callback, err_fn, None) {
-            Ok(s) => s,
+            }, 
+            err_fn, 
+            None
+        ) {
+            Ok(s) => (s, 16000),
             Err(e) => {
-                log_info!("⚠️  16kHz Mono request failed ({}), falling back to default...", e);
+                crate::log_info!("⚠️  16kHz Mono request failed ({}), falling back to default...", e);
                 let config = device.default_input_config().map_err(|e| e.to_string())?;
+                let channels = config.channels() as usize;
+                let sample_rate = u32::from(config.sample_rate());
+                
                 let mut fallback_callback = {
                     let recording_tx = recording_tx_clone.clone();
                     let mut dc_offset_state = 0.0f32;
                     let alpha = 0.995f32;
                     move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                        for &sample_raw in data {
+                        for frame in data.chunks(channels) {
+                            let sample_raw = frame[0];
                             let filtered = sample_raw - dc_offset_state;
                             dc_offset_state = filtered + alpha * dc_offset_state;
                             let sample = filtered * sensitivity;
                             if let Ok(guard) = recording_tx.try_lock() {
-                                if let Some(tx) = guard.as_ref() {
-                                    let _ = tx.try_send(sample);
-                                }
+                                if let Some(tx) = guard.as_ref() { let _ = tx.try_send(sample); }
                             }
                         }
                     }
                 };
 
-                match config.sample_format() {
+                let s = match config.sample_format() {
                     SampleFormat::F32 => device.build_input_stream(&config.into(), fallback_callback, err_fn, None),
                     SampleFormat::I16 => device.build_input_stream(&config.into(), move |data: &[i16], info| {
                         let f32_data: Vec<f32> = data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
                         fallback_callback(&f32_data, info);
                     }, err_fn, None),
                     _ => return Err("Unsupported format".into()),
-                }.map_err(|e| e.to_string())?
+                }.map_err(|e| e.to_string())?;
+                (s, sample_rate)
             }
         };
 
@@ -101,7 +179,7 @@ impl PersistentAudioEngine {
             stream,
             pre_roll_consumer: Arc::new(Mutex::new(pre_roll_cons)),
             recording_tx: recording_tx_clone,
-            sample_rate: 16000,
+            sample_rate: actual_sample_rate,
         })
     }
 }
@@ -127,17 +205,29 @@ pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
     let mut final_devices = Vec::new();
     #[cfg(target_os = "linux")]
     { if let Ok(devices) = get_linux_pulse_devices() { final_devices = devices; } }
+    
+    #[cfg(target_os = "windows")]
+    { if let Ok(devices) = get_windows_audio_devices() { final_devices = devices; } }
 
     if final_devices.is_empty() {
-        let mut seen = std::collections::HashSet::new();
+        let mut seen_labels = std::collections::HashMap::new();
         for host_id in cpal::available_hosts() {
             if let Ok(host) = cpal::host_from_id(host_id) {
                 if let Ok(devices) = host.input_devices() {
                     for dev in devices {
                         let id = match dev.id() { Ok(id) => id.1, Err(_) => continue };
+                        #[cfg(target_os = "linux")]
                         if !id.starts_with("default:") && id != "pulse" && id != "default" { continue; }
-                        let label = match dev.description() { Ok(desc) => desc.name().to_string(), Err(_) => id.clone() };
-                        if seen.insert(label.clone()) { final_devices.push(AudioDevice { id, label }); }
+                        
+                        let mut label = match dev.description() { 
+                            Ok(desc) => desc.name().to_string(), 
+                            Err(_) => id.clone() 
+                        };
+
+                        let count = seen_labels.entry(label.clone()).or_insert(0);
+                        *count += 1;
+                        if *count > 1 { label = format!("{} ({})", label, *count); }
+                        final_devices.push(AudioDevice { id, label });
                     }
                 }
             }
@@ -154,9 +244,9 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
     let target = target_id.filter(|id| id != "default");
 
     if let Some(name) = target {
-        if let Some(stripped) = name.strip_prefix("pulse:") {
+        if let Some(_stripped) = name.strip_prefix("pulse:") {
             #[cfg(target_os = "linux")]
-            { std::env::set_var("PULSE_SOURCE", stripped); }
+            { std::env::set_var("PULSE_SOURCE", _stripped); }
             host.input_devices().map_err(|e| e.to_string())?.into_iter().find(|d| d.id().map(|id| id.1 == "pulse").unwrap_or(false)).ok_or_else(|| "Pulse ALSA device not found".to_string())
         } else {
             host.input_devices().map_err(|e| e.to_string())?.into_iter().find(|d| d.id().map(|id| id.1 == name).unwrap_or(false)).ok_or_else(|| format!("Device '{}' not found", name))
@@ -180,53 +270,34 @@ pub async fn record_audio_while_flag(
     is_recording: &Arc<Mutex<bool>>,
     engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-    log_info!("🎤 record_audio_while_flag: Initializing sync channel");
     let (tx, rx) = mpsc::sync_channel::<f32>(65536);
     let mut samples = Vec::new();
     let sample_rate;
-    
     {
         let mut guard = engine.lock().unwrap();
         let eng = guard.as_mut().ok_or("Audio engine not initialized")?;
         sample_rate = eng.sample_rate;
-        log_info!("🎤 record_audio_while_flag: Using sample rate {}", sample_rate);
         if let Ok(mut cons) = eng.pre_roll_consumer.lock() {
-            let pre_roll_count = samples.len();
             while let Some(s) = cons.try_pop() { samples.push(s); }
-            log_info!("🎤 record_audio_while_flag: Collected {} pre-roll samples", samples.len() - pre_roll_count);
         }
         *eng.recording_tx.lock().unwrap() = Some(tx);
     }
 
     let (data_tx, data_rx) = mpsc::channel::<Vec<u8>>();
     std::thread::spawn(move || {
-        log_info!("🎤 record_audio_while_flag: Processing thread started");
         let mut all = samples;
-        let mut received = 0;
-        while let Ok(s) = rx.recv() { 
-            all.push(s); 
-            received += 1;
-        }
-        log_info!("🎤 record_audio_while_flag: Finished receiving. Total samples: {}, Received during recording: {}", all.len(), received);
+        while let Ok(s) = rx.recv() { all.push(s); }
         let mut out = Vec::new();
         if let Ok(mut w) = WavWriter::new(std::io::Cursor::new(&mut out), WavSpec { channels: 1, sample_rate, bits_per_sample: 16, sample_format: hound::SampleFormat::Int }) {
             for s in all { let _ = w.write_sample(process_sample(s)); }
             let _ = w.finalize();
         }
-        log_info!("🎤 record_audio_while_flag: WAV encoding complete ({} bytes)", out.len());
         let _ = data_tx.send(out);
     });
 
-    log_info!("🎤 record_audio_while_flag: Waiting for is_recording to become false...");
     while *is_recording.lock().unwrap() { tokio::time::sleep(Duration::from_millis(10)).await; }
-    log_info!("🎤 record_audio_while_flag: is_recording is false, stopping recording_tx");
-    {
-        if let Some(eng) = engine.lock().unwrap().as_ref() { *eng.recording_tx.lock().unwrap() = None; }
-    }
-
-    log_info!("🎤 record_audio_while_flag: Waiting for processed data...");
+    if let Some(eng) = engine.lock().unwrap().as_ref() { *eng.recording_tx.lock().unwrap() = None; }
     let final_wav = data_rx.recv()?;
-    log_info!("🎤 record_audio_while_flag: Data received, converting for Whisper");
     convert_audio_for_whisper(&final_wav, sample_rate, 1)
 }
 
@@ -251,29 +322,23 @@ where F: Fn(f32) + Send + 'static
         let mut samples = Vec::new();
         let mut peak = 0.0f32;
         let mut count = 0;
-        let throttle_window = 800; // ~50ms at 16kHz
-
+        let throttle_window = 800; 
         while let Ok(s) = rx.recv() {
             let abs_s = s.abs();
             if abs_s > peak { peak = abs_s; }
             count += 1;
-
             if count >= throttle_window {
                 on_volume(peak);
                 peak = 0.0;
                 count = 0;
             }
-            
             samples.push(process_sample(s));
         }
         let _ = data_tx.send(samples);
     });
 
     while *is_mic_test.lock().unwrap() { tokio::time::sleep(Duration::from_millis(10)).await; }
-    {
-        if let Some(eng) = engine.lock().unwrap().as_ref() { *eng.recording_tx.lock().unwrap() = None; }
-    }
-
+    if let Some(eng) = engine.lock().unwrap().as_ref() { *eng.recording_tx.lock().unwrap() = None; }
     let mut final_samples = data_rx.recv()?;
     if sample_rate != 16000 { final_samples = resample_audio(&final_samples, sample_rate, 16000); }
     normalize_audio(&mut final_samples);
@@ -289,7 +354,10 @@ where F: FnOnce() + Send + 'static
         if let Ok(devices) = host.output_devices() {
             for dev in devices {
                 if let Ok(id) = dev.id() {
+                    #[cfg(target_os = "linux")]
                     if id.1 == "pulse" || id.1.starts_with("default") { selected = Some(dev); break; }
+                    #[cfg(not(target_os = "linux"))]
+                    if id.1.starts_with("default") { selected = Some(dev); break; }
                 }
             }
         }
@@ -300,7 +368,6 @@ where F: FnOnce() + Send + 'static
     let stream_config: StreamConfig = config.clone().into();
     let resampled = Arc::new(resample_audio(&samples, sample_rate, stream_config.sample_rate));
     let chans = stream_config.channels as usize;
-
     let resampled_clone1 = resampled.clone();
     let mut idx1 = 0;
     let mut done1 = Some(on_done);
@@ -317,7 +384,7 @@ where F: FnOnce() + Send + 'static
         }
     };
 
-    let err_fn = |err| log_info!("🔊 Playback error: {}", err);
+    let err_fn = |err| crate::log_info!("🔊 Playback error: {}", err);
     let stream = match config.sample_format() {
         SampleFormat::F32 => device.build_output_stream(&stream_config, callback, err_fn, None)?,
         SampleFormat::I16 => {
@@ -329,9 +396,7 @@ where F: FnOnce() + Send + 'static
                         let s = resampled_clone2[idx2];
                         for out in frame.iter_mut() { *out = s; }
                         idx2 += 1;
-                    } else {
-                        for out in frame.iter_mut() { *out = 0; }
-                    }
+                    } else { for out in frame.iter_mut() { *out = 0; } }
                 }
             }, err_fn, None)?
         },

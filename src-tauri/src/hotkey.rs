@@ -58,6 +58,11 @@ pub fn parse_hardware_hotkey(hotkey_str: &str) -> HardwareHotkey {
     }
 }
 
+#[cfg(not(target_os = "linux"))]
+pub fn parse_hardware_hotkey(_hotkey_str: &str) -> HardwareHotkey {
+    HardwareHotkey::default()
+}
+
 // Keep the standard parser for other platforms
 #[allow(dead_code)]
 pub fn parse_hotkey_string(hotkey_str: &str) -> Result<Shortcut, Box<dyn std::error::Error + Send + Sync>> {

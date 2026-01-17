@@ -1,12 +1,16 @@
+#[cfg(target_os = "linux")]
 use evdev::{uinput::VirtualDevice, KeyCode, KeyEvent, SynchronizationEvent, SynchronizationCode};
+#[cfg(target_os = "windows")]
+use windows::Win32::UI::Input::KeyboardAndMouse::*;
+
 use std::thread;
 use std::time::Duration;
 use std::sync::{Arc, Mutex};
 use arboard::Clipboard;
 
+#[cfg(target_os = "linux")]
 fn char_to_keys(ch: char) -> (Vec<KeyCode>, bool) {
     match ch {
-        // Lowercase letters
         'a' => (vec![KeyCode::KEY_A], false),
         'b' => (vec![KeyCode::KEY_B], false),
         'c' => (vec![KeyCode::KEY_C], false),
@@ -33,8 +37,6 @@ fn char_to_keys(ch: char) -> (Vec<KeyCode>, bool) {
         'x' => (vec![KeyCode::KEY_X], false),
         'y' => (vec![KeyCode::KEY_Y], false),
         'z' => (vec![KeyCode::KEY_Z], false),
-
-        // Uppercase letters
         'A' => (vec![KeyCode::KEY_A], true),
         'B' => (vec![KeyCode::KEY_B], true),
         'C' => (vec![KeyCode::KEY_C], true),
@@ -61,8 +63,6 @@ fn char_to_keys(ch: char) -> (Vec<KeyCode>, bool) {
         'X' => (vec![KeyCode::KEY_X], true),
         'Y' => (vec![KeyCode::KEY_Y], true),
         'Z' => (vec![KeyCode::KEY_Z], true),
-
-        // Numbers
         '0' => (vec![KeyCode::KEY_0], false),
         '1' => (vec![KeyCode::KEY_1], false),
         '2' => (vec![KeyCode::KEY_2], false),
@@ -73,8 +73,6 @@ fn char_to_keys(ch: char) -> (Vec<KeyCode>, bool) {
         '7' => (vec![KeyCode::KEY_7], false),
         '8' => (vec![KeyCode::KEY_8], false),
         '9' => (vec![KeyCode::KEY_9], false),
-
-        // Symbols and Punctuation (US Layout assumption for now)
         ' ' => (vec![KeyCode::KEY_SPACE], false),
         '.' => (vec![KeyCode::KEY_DOT], false),
         ',' => (vec![KeyCode::KEY_COMMA], false),
@@ -85,7 +83,7 @@ fn char_to_keys(ch: char) -> (Vec<KeyCode>, bool) {
         '\\' => (vec![KeyCode::KEY_BACKSLASH], false),
         '-' => (vec![KeyCode::KEY_MINUS], false),
         '=' => (vec![KeyCode::KEY_EQUAL], false),
-        '#' => (vec![KeyCode::KEY_3], true), // Fixed duplicated mapping
+        '#' => (vec![KeyCode::KEY_3], true),
         '!' => (vec![KeyCode::KEY_1], true),
         '@' => (vec![KeyCode::KEY_2], true),
         '$' => (vec![KeyCode::KEY_4], true),
@@ -110,15 +108,60 @@ fn char_to_keys(ch: char) -> (Vec<KeyCode>, bool) {
         '\'' => (vec![KeyCode::KEY_APOSTROPHE], false),
         '\n' => (vec![KeyCode::KEY_ENTER], false),
         '\t' => (vec![KeyCode::KEY_TAB], false),
-
-        // Typographic Smart Characters & Common Replacements
-        '“' | '”' => (vec![KeyCode::KEY_APOSTROPHE], true),  // Smart Double Quotes -> "
-        '‘' | '’' => (vec![KeyCode::KEY_APOSTROPHE], false), // Smart Single Quotes -> '
-        '—' | '–' => (vec![KeyCode::KEY_MINUS], false),      // Em/En Dash -> -
-        '…' => (vec![KeyCode::KEY_DOT, KeyCode::KEY_DOT, KeyCode::KEY_DOT], false), // Ellipsis -> ...
-
-        // Fallback for unknown chars
+        '“' | '”' => (vec![KeyCode::KEY_APOSTROPHE], true),
+        '‘' | '’' => (vec![KeyCode::KEY_APOSTROPHE], false),
+        '—' | '–' => (vec![KeyCode::KEY_MINUS], false),
+        '…' => (vec![KeyCode::KEY_DOT, KeyCode::KEY_DOT, KeyCode::KEY_DOT], false),
         _ => (vec![KeyCode::KEY_SPACE], false),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn char_to_vks(ch: char) -> (Vec<VIRTUAL_KEY>, bool) {
+    match ch {
+        'a'..='z' => (vec![VIRTUAL_KEY(ch.to_ascii_uppercase() as u16)], false),
+        'A'..='Z' => (vec![VIRTUAL_KEY(ch as u16)], true),
+        '0'..='9' => (vec![VIRTUAL_KEY(ch as u16)], false),
+        ' ' => (vec![VK_SPACE], false),
+        '.' => (vec![VK_OEM_PERIOD], false),
+        ',' => (vec![VK_OEM_COMMA], false),
+        ';' => (vec![VK_OEM_1], false),
+        '/' => (vec![VK_OEM_2], false),
+        '[' => (vec![VK_OEM_4], false),
+        ']' => (vec![VK_OEM_6], false),
+        '\\' => (vec![VK_OEM_5], false),
+        '-' => (vec![VK_OEM_MINUS], false),
+        '=' => (vec![VK_OEM_PLUS], false),
+        '!' => (vec![VIRTUAL_KEY('1' as u16)], true),
+        '@' => (vec![VIRTUAL_KEY('2' as u16)], true),
+        '#' => (vec![VIRTUAL_KEY('3' as u16)], true),
+        '$' => (vec![VIRTUAL_KEY('4' as u16)], true),
+        '%' => (vec![VIRTUAL_KEY('5' as u16)], true),
+        '^' => (vec![VIRTUAL_KEY('6' as u16)], true),
+        '&' => (vec![VIRTUAL_KEY('7' as u16)], true),
+        '*' => (vec![VIRTUAL_KEY('8' as u16)], true),
+        '(' => (vec![VIRTUAL_KEY('9' as u16)], true),
+        ')' => (vec![VIRTUAL_KEY('0' as u16)], true),
+        '_' => (vec![VK_OEM_MINUS], true),
+        '+' => (vec![VK_OEM_PLUS], true),
+        '{' => (vec![VK_OEM_4], true),
+        '}' => (vec![VK_OEM_6], true),
+        '|' => (vec![VK_OEM_5], true),
+        ':' => (vec![VK_OEM_1], true),
+        '"' => (vec![VK_OEM_7], true),
+        '<' => (vec![VK_OEM_COMMA], true),
+        '>' => (vec![VK_OEM_PERIOD], true),
+        '?' => (vec![VK_OEM_2], true),
+        '~' => (vec![VK_OEM_3], true),
+        '`' => (vec![VK_OEM_3], false),
+        '\'' => (vec![VK_OEM_7], false),
+        '\n' => (vec![VK_RETURN], false),
+        '\t' => (vec![VK_TAB], false),
+        '“' | '”' => (vec![VK_OEM_7], true),
+        '‘' | '’' => (vec![VK_OEM_7], false),
+        '—' | '–' => (vec![VK_OEM_MINUS], false),
+        '…' => (vec![VK_OEM_PERIOD, VK_OEM_PERIOD, VK_OEM_PERIOD], false),
+        _ => (vec![VK_SPACE], false),
     }
 }
 
@@ -126,63 +169,68 @@ pub fn type_text_hardware(
     text: &str, 
     typing_speed_interval: f64,
     key_press_duration_ms: u64,
-    virtual_keyboard: Arc<Mutex<Option<VirtualDevice>>>
+    #[allow(unused_variables)]
+    virtual_keyboard: Arc<Mutex<Option<crate::VirtualKeyboardHandle>>>
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let interval_ms = (typing_speed_interval * 1000.0) as u64;
-    
-    let mut keyboard_lock = virtual_keyboard.lock().unwrap();
-    if keyboard_lock.is_none() {
-        return Err("Virtual hardware keyboard not initialized".into());
-    }
-    
-    let device = keyboard_lock.as_mut().unwrap();
-    log_info!("⌨️  [Hardware Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)", text, interval_ms, key_press_duration_ms);
-    
-    // Hold each key for a specified duration to simulate physical reality
     let hold_duration = Duration::from_millis(key_press_duration_ms);
+    
+    crate::log_info!("⌨️  [Hardware Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)", text, interval_ms, key_press_duration_ms);
 
-    for ch in text.chars() {
-        let (key_codes, needs_shift) = char_to_keys(ch);
-
-        // 1. Press Shift if needed
-        if needs_shift {
-            device.emit(&[KeyEvent::new(KeyCode::KEY_LEFTSHIFT, 1).into()])?;
-        }
-
-        // 2. Press actual keys
-        for key in &key_codes {
-            device.emit(&[KeyEvent::new(*key, 1).into()])?;
-        }
-
-        thread::sleep(hold_duration);
-
-        // 3. Release actual keys
-        for key in &key_codes {
-            device.emit(&[KeyEvent::new(*key, 0).into()])?;
-        }
-
-        // 4. Release Shift if needed
-        if needs_shift {
-            device.emit(&[KeyEvent::new(KeyCode::KEY_LEFTSHIFT, 0).into()])?;
-        }
-        
-        device.emit(&[SynchronizationEvent::new(SynchronizationCode::SYN_REPORT, 0).into()])?;
-
-        // Interval between characters
-        if interval_ms > 0 {
-            thread::sleep(Duration::from_millis(interval_ms));
+    #[cfg(target_os = "linux")]
+    {
+        let mut keyboard_lock = virtual_keyboard.lock().unwrap();
+        if let Some(device) = keyboard_lock.as_mut() {
+            for ch in text.chars() {
+                let (key_codes, needs_shift) = char_to_keys(ch);
+                if needs_shift { device.emit(&[KeyEvent::new(KeyCode::KEY_LEFTSHIFT, 1).into()])?; }
+                for key in &key_codes { device.emit(&[KeyEvent::new(*key, 1).into()])?; }
+                thread::sleep(hold_duration);
+                for key in &key_codes { device.emit(&[KeyEvent::new(*key, 0).into()])?; }
+                if needs_shift { device.emit(&[KeyEvent::new(KeyCode::KEY_LEFTSHIFT, 0).into()])?; }
+                device.emit(&[SynchronizationEvent::new(SynchronizationCode::SYN_REPORT, 0).into()])?;
+                if interval_ms > 0 { thread::sleep(Duration::from_millis(interval_ms)); }
+            }
         }
     }
-    
-    log_info!("✅ Hardware typing complete");
+
+    #[cfg(target_os = "windows")]
+    {
+        for ch in text.chars() {
+            let (vk_codes, needs_shift) = char_to_vks(ch);
+            unsafe {
+                if needs_shift { emit_vk(VK_SHIFT, true); }
+                for vk in &vk_codes { emit_vk(*vk, true); }
+                thread::sleep(hold_duration);
+                for vk in &vk_codes { emit_vk(*vk, false); }
+                if needs_shift { emit_vk(VK_SHIFT, false); }
+            }
+            if interval_ms > 0 { thread::sleep(Duration::from_millis(interval_ms)); }
+        }
+    }
+
+    crate::log_info!("✅ Hardware typing complete");
     Ok(())
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn emit_vk(vk: VIRTUAL_KEY, is_down: bool) {
+    let mut input = INPUT::default();
+    input.r#type = INPUT_KEYBOARD;
+    input.Anonymous.ki = KEYBDINPUT {
+        wVk: vk,
+        wScan: 0,
+        dwFlags: if is_down { KEYBD_EVENT_FLAGS(0) } else { KEYEVENTF_KEYUP },
+        time: 0,
+        dwExtraInfo: 0,
+    };
+    SendInput(&[input], std::mem::size_of::<INPUT>() as i32);
 }
 
 pub fn copy_to_clipboard(text: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    log_info!("📋 Attempting to copy to clipboard ({} chars)...", text.len());
+    crate::log_info!("📋 Attempting to copy to clipboard ({} chars)...", text.len());
     let mut clipboard = Clipboard::new()?;
     clipboard.set_text(text.to_string())?;
-    log_info!("✅ Copied to clipboard successfully");
+    crate::log_info!("✅ Copied to clipboard successfully");
     Ok(())
 }
-
