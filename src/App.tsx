@@ -589,7 +589,8 @@ function App() {
       <div className="toast-container">
         {toasts.map(toast => (
           <div key={toast.id} className={`toast ${toast.type}`} onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}>
-            {toast.message}
+            <span className="toast-dot"></span>
+            <span className="toast-message">{toast.message}</span>
           </div>
         ))}
       </div>
