@@ -97,10 +97,15 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
 
                     let friendly = friendly_name.unwrap_or_else(|| "Unknown Device".to_string());
                     let label = if let Some(desc) = device_desc {
-                        if desc != friendly {
-                            format!("{} - {}", friendly, desc)
-                        } else {
+                        let f_lower = friendly.to_lowercase();
+                        let d_lower = desc.to_lowercase();
+                        
+                        if f_lower.contains(&d_lower) {
                             friendly
+                        } else if d_lower.contains(&f_lower) {
+                            desc
+                        } else {
+                            format!("{} - {}", friendly, desc)
                         }
                     } else if friendly == "Unknown Device" {
                         format!("Unknown Device ({})", id)
