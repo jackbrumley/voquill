@@ -20,6 +20,7 @@ interface Config {
   pixels_from_bottom: number;
   audio_device: string | null;
   debug_mode: boolean;
+  enable_recording_logs: boolean;
   input_sensitivity: number;
 }
 
@@ -50,6 +51,7 @@ function App() {
     pixels_from_bottom: 100,
     audio_device: 'default',
     debug_mode: false,
+    enable_recording_logs: false,
     input_sensitivity: 1.0,
   });
   
@@ -444,19 +446,30 @@ function App() {
 
             <ConfigField 
               label="Debug Mode" 
-              description="Advanced diagnostic settings and recording logs."
+              description="Master switch for advanced diagnostic settings."
             >
               <Switch 
                 checked={config.debug_mode} 
                 onChange={(checked) => updateConfig('debug_mode', checked)} 
-                label="Enable Recording Logs"
+                label="Enable Debug Settings"
               />
-              {config.debug_mode ? (
-                <div style={{ marginTop: 'var(--spacing-sm)', display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button size="sm" variant="ghost" onClick={openDebugFolder}>Open Recordings Folder</Button>
-                </div>
-              ) : null}
             </ConfigField>
+
+            {config.debug_mode ? (
+              <ConfigField 
+                label="Recording Logs" 
+                description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues."
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Switch 
+                    checked={config.enable_recording_logs} 
+                    onChange={(checked) => updateConfig('enable_recording_logs', checked)} 
+                    label="Enable Recording Logs"
+                  />
+                  <Button size="sm" variant="ghost" onClick={openDebugFolder}>Open Folder</Button>
+                </div>
+              </ConfigField>
+            ) : null}
 
             <div className="form-actions-bottom">
               <Button variant="primary" className="save-button" onClick={saveConfig}>Save Configuration</Button>

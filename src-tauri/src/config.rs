@@ -20,6 +20,8 @@ pub struct Config {
     pub audio_device: Option<String>,
     #[serde(default = "default_debug_mode")]
     pub debug_mode: bool,
+    #[serde(default = "default_enable_recording_logs")]
+    pub enable_recording_logs: bool,
     #[serde(default = "default_input_sensitivity")]
     pub input_sensitivity: f32,
 }
@@ -32,6 +34,7 @@ fn default_key_press_duration() -> u64 { 2 }
 fn default_pixels_from_bottom() -> i32 { 50 }
 fn default_audio_device() -> Option<String> { Some("default".to_string()) }
 fn default_debug_mode() -> bool { false }
+fn default_enable_recording_logs() -> bool { false }
 fn default_input_sensitivity() -> f32 { 1.0 }
 
 impl Default for Config {
@@ -45,6 +48,7 @@ impl Default for Config {
             pixels_from_bottom: default_pixels_from_bottom(),
             audio_device: default_audio_device(),
             debug_mode: default_debug_mode(),
+            enable_recording_logs: default_enable_recording_logs(),
             input_sensitivity: default_input_sensitivity(),
         }
     }

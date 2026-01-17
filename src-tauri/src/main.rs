@@ -735,13 +735,18 @@ async fn record_and_transcribe(
     }
     
     emit_status_to_frontend("Transcribing").await;
-    let (api_key, api_url, debug_mode) = {
+    let (api_key, api_url, debug_mode, enable_recording_logs) = {
         let config = config.lock().unwrap();
-        (config.openai_api_key.clone(), config.api_url.clone(), config.debug_mode)
+        (
+            config.openai_api_key.clone(), 
+            config.api_url.clone(), 
+            config.debug_mode,
+            config.enable_recording_logs
+        )
     };
     
     // Handle debug mode recording persistence
-    if debug_mode {
+    if debug_mode && enable_recording_logs {
         let debug_dir = dirs::config_dir()
             .unwrap_or_default()
             .join("voquill")
