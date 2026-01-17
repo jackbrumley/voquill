@@ -49,6 +49,7 @@ async function checkLinuxDependencies() {
   const dependencies = [
     { name: "libpulse-dev", apt: "libpulse-dev" },
     { name: "libgtk-layer-shell-dev", apt: "libgtk-layer-shell-dev" },
+    { name: "wl-clipboard", apt: "wl-clipboard" },
   ];
 
   for (const dep of dependencies) {
