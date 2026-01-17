@@ -18,7 +18,7 @@ use windows::Win32::System::Com::StructuredStorage::*;
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::Shell::PropertiesSystem::*;
 #[cfg(target_os = "windows")]
-use windows::core::PROPVARIANT;
+use windows::Win32::Devices::FunctionDiscovery::*;
 
 #[derive(serde::Serialize, Clone, Debug)]
 pub struct AudioDevice {
@@ -27,32 +27,38 @@ pub struct AudioDevice {
 }
 
 #[cfg(target_os = "windows")]
-const PKEY_DEVICE_FRIENDLY_NAME: PROPERTYKEY = PROPERTYKEY {
-    fmtid: windows::core::GUID::from_u128(0xa45c2502_df90_44d4_9700_05884a8c14c3),
-    pid: 14,
-};
+unsafe fn get_string_property(props: &IPropertyStore, key: *const PROPERTYKEY) -> Option<String> {
+    let mut pv = match props.GetValue(key) {
+        Ok(v) => v,
+        Err(_) => return None,
+    };
 
-#[cfg(target_os = "windows")]
-const PKEY_DEVICE_DESC: PROPERTYKEY = PROPERTYKEY {
-    fmtid: windows::core::GUID::from_u128(0xa45c2502_df90_44d4_9700_05884a8c14c3),
-    pid: 2,
-};
+    let result = match PropVariantToStringAlloc(&pv) {
+        Ok(pwstr) => {
+            if pwstr.is_null() {
+                None
+            } else {
+                let s = pwstr.to_string().ok();
+                let _ = CoTaskMemFree(Some(pwstr.0 as *const _));
+                s
+            }
+        }
+        Err(_) => None,
+    };
 
-#[cfg(target_os = "windows")]
-unsafe fn pv_to_string(pv: &PROPVARIANT) -> String {
-    if let Ok(psz_out) = PropVariantToStringAlloc(pv) {
-        let s = psz_out.to_string().unwrap_or_default();
-        let _ = windows::Win32::System::Com::CoTaskMemFree(Some(psz_out.as_ptr() as *const _));
-        return s;
-    }
-    String::new()
+    let _ = PropVariantClear(&mut pv);
+    result.filter(|s| !s.trim().is_empty())
 }
 
 #[cfg(target_os = "windows")]
 fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
     let mut devices = Vec::new();
     unsafe {
-        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        let hr = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        if hr.is_err() && hr.0 != 0x00040101 { // RPC_E_CHANGED_MODE
+             crate::log_info!("⚠️ Windows Audio: CoInitializeEx failed: {:?}", hr);
+        }
+
         let enumerator: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
             .map_err(|e| format!("Failed to create MMDeviceEnumerator: {}", e))?;
         
@@ -62,27 +68,47 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
         let count = collection.GetCount()
             .map_err(|e| format!("Failed to get device count: {}", e))?;
         
+        crate::log_info!("📡 Windows Audio: Found {} active capture endpoints", count);
+        
         for i in 0..count {
             if let Ok(device) = collection.Item(i) {
-                let id = device.GetId().map(|p| p.to_string().unwrap_or_default()).unwrap_or_default();
+                let id_pwstr = match device.GetId() {
+                    Ok(p) => p,
+                    Err(_) => continue,
+                };
+                let id = id_pwstr.to_string().unwrap_or_default();
+                CoTaskMemFree(Some(id_pwstr.0 as *const _));
                 
                 if let Ok(props) = device.OpenPropertyStore(STGM_READ) {
-                    let friendly_name = props.GetValue(&PKEY_DEVICE_FRIENDLY_NAME)
-                        .map(|pv| pv_to_string(&pv))
-                        .unwrap_or_default();
-                    
-                    let device_desc = props.GetValue(&PKEY_DEVICE_DESC)
-                        .map(|pv| pv_to_string(&pv))
-                        .unwrap_or_default();
+                    let friendly_name = get_string_property(&props, &PKEY_Device_FriendlyName);
+                    let device_desc = get_string_property(&props, &PKEY_Device_DeviceDesc);
 
-                    if friendly_name.is_empty() { continue; }
+                    if friendly_name.is_none() && device_desc.is_none() {
+                        if let Ok(p_count) = props.GetCount() {
+                            crate::log_info!("⚠️ Windows Audio: Store for {} has {} properties but FriendlyName/Desc missing", id, p_count);
+                            for j in 0..p_count {
+                                let mut pk = PROPERTYKEY::default();
+                                if props.GetAt(j, &mut pk).is_ok() {
+                                    crate::log_info!("   Property {}: GUID={:?}, PID={}", j, pk.fmtid, pk.pid);
+                                }
+                            }
+                        }
+                    }
 
-                    let label = if !device_desc.is_empty() && device_desc != friendly_name {
-                        format!("{} - {}", friendly_name, device_desc)
+                    let friendly = friendly_name.unwrap_or_else(|| "Unknown Device".to_string());
+                    let label = if let Some(desc) = device_desc {
+                        if desc != friendly {
+                            format!("{} - {}", friendly, desc)
+                        } else {
+                            friendly
+                        }
+                    } else if friendly == "Unknown Device" {
+                        format!("Unknown Device ({})", id)
                     } else {
-                        friendly_name.clone()
+                        friendly
                     };
 
+                    crate::log_info!("✅ Windows Audio: Enumerated '{}'", label);
                     devices.push(AudioDevice { id, label });
                 }
             }

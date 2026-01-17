@@ -56,7 +56,8 @@ windows = { version = "0.58", features = [
     "Win32_System_Com_StructuredStorage",
     "Win32_System_Variant",
     "Win32_UI_Shell_PropertiesSystem",
-    "Win32_Devices_Properties"
+    "Win32_Devices_Properties",
+    "Win32_Devices_FunctionDiscovery"
 ] }
 
 [features]
