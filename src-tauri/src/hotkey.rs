@@ -1,3 +1,5 @@
+#[cfg(target_os = "linux")]
+use evdev::KeyCode;
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
 
 #[derive(Clone, Debug, Default)]
@@ -18,20 +20,24 @@ pub fn parse_hardware_hotkey(hotkey_str: &str) -> HardwareHotkey {
     for part in parts {
         let part = part.trim();
         let code = match part {
-            "ctrl" | "control" => 29, // Left Ctrl
-            "shift" => 42,           // Left Shift
-            "alt" => 56,             // Left Alt
-            "super" | "cmd" | "win" => 125, // Left Meta
-            "space" => 57,
-            "a" => 30, "b" => 48, "c" => 46, "d" => 32, "e" => 18,
-            "f" => 33, "g" => 34, "h" => 35, "i" => 23, "j" => 36,
-            "k" => 37, "l" => 38, "m" => 50, "n" => 49, "o" => 24,
-            "p" => 25, "q" => 16, "r" => 19, "s" => 31, "t" => 20,
-            "u" => 22, "v" => 47, "w" => 17, "x" => 45, "y" => 21,
-            "z" => 44,
-            "f1" => 59, "f2" => 60, "f3" => 61, "f4" => 62, "f5" => 63,
-            "f6" => 64, "f7" => 65, "f8" => 66, "f9" => 67, "f10" => 68,
-            "f11" => 87, "f12" => 88,
+            "ctrl" | "control" => KeyCode::KEY_LEFTCTRL.code(),
+            "shift" => KeyCode::KEY_LEFTSHIFT.code(),
+            "alt" => KeyCode::KEY_LEFTALT.code(),
+            "super" | "cmd" | "win" => KeyCode::KEY_LEFTMETA.code(),
+            "space" => KeyCode::KEY_SPACE.code(),
+            "a" => KeyCode::KEY_A.code(), "b" => KeyCode::KEY_B.code(), "c" => KeyCode::KEY_C.code(), 
+            "d" => KeyCode::KEY_D.code(), "e" => KeyCode::KEY_E.code(), "f" => KeyCode::KEY_F.code(), 
+            "g" => KeyCode::KEY_G.code(), "h" => KeyCode::KEY_H.code(), "i" => KeyCode::KEY_I.code(), 
+            "j" => KeyCode::KEY_J.code(), "k" => KeyCode::KEY_K.code(), "l" => KeyCode::KEY_L.code(), 
+            "m" => KeyCode::KEY_M.code(), "n" => KeyCode::KEY_N.code(), "o" => KeyCode::KEY_O.code(), 
+            "p" => KeyCode::KEY_P.code(), "q" => KeyCode::KEY_Q.code(), "r" => KeyCode::KEY_R.code(), 
+            "s" => KeyCode::KEY_S.code(), "t" => KeyCode::KEY_T.code(), "u" => KeyCode::KEY_U.code(), 
+            "v" => KeyCode::KEY_V.code(), "w" => KeyCode::KEY_W.code(), "x" => KeyCode::KEY_X.code(), 
+            "y" => KeyCode::KEY_Y.code(), "z" => KeyCode::KEY_Z.code(),
+            "f1" => KeyCode::KEY_F1.code(), "f2" => KeyCode::KEY_F2.code(), "f3" => KeyCode::KEY_F3.code(), 
+            "f4" => KeyCode::KEY_F4.code(), "f5" => KeyCode::KEY_F5.code(), "f6" => KeyCode::KEY_F6.code(), 
+            "f7" => KeyCode::KEY_F7.code(), "f8" => KeyCode::KEY_F8.code(), "f9" => KeyCode::KEY_F9.code(), 
+            "f10" => KeyCode::KEY_F10.code(), "f11" => KeyCode::KEY_F11.code(), "f12" => KeyCode::KEY_F12.code(),
             _ => 0
         };
 

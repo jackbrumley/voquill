@@ -875,13 +875,12 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                         let dev_name = dev.name().unwrap_or("Unknown").to_string();
                         if let Ok(events) = dev.fetch_events() {
                             for event in events {
-                                if event.event_type() == evdev::EventType::KEY {
-                                    let code = event.code();
-                                    let value = event.value();
+                                if let evdev::EventSummary::Key(_, key_code, value) = event.destructure() {
+                                    let code = key_code.code();
                                     let h_hotkey = hardware_hotkey_flag.lock().unwrap().clone();
 
                                     if value == 1 { // Pressed
-                                        log_info!("⌨️  [{}] Key {} PRESSED", dev_name, code);
+                                        log_info!("⌨️  [{}] Key {:?} PRESSED", dev_name, key_code);
                                         pressed_keys.insert(code);
                                         
                                         let all_pressed = !h_hotkey.all_codes.is_empty() && 
@@ -911,7 +910,7 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                                             }
                                         }
                                     } else if value == 0 { // Released
-                                        log_info!("⌨️  [{}] Key {} RELEASED", dev_name, code);
+                                        log_info!("⌨️  [{}] Key {:?} RELEASED", dev_name, key_code);
                                         pressed_keys.remove(&code);
                                         
                                         let is_combo_key = h_hotkey.all_codes.contains(&code);

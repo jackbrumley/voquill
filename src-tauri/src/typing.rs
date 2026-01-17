@@ -1,4 +1,4 @@
-use evdev::{uinput::VirtualDevice, KeyCode, InputEvent, EventType};
+use evdev::{uinput::VirtualDevice, KeyCode, KeyEvent, SynchronizationEvent, SynchronizationCode};
 use std::thread;
 use std::time::Duration;
 use std::sync::{Arc, Mutex};
@@ -146,27 +146,27 @@ pub fn type_text_hardware(
 
         // 1. Press Shift if needed
         if needs_shift {
-            device.emit(&[InputEvent::new(EventType::KEY.0, KeyCode::KEY_LEFTSHIFT.0, 1)])?;
+            device.emit(&[KeyEvent::new(KeyCode::KEY_LEFTSHIFT, 1).into()])?;
         }
 
         // 2. Press actual keys
         for key in &key_codes {
-            device.emit(&[InputEvent::new(EventType::KEY.0, key.0, 1)])?;
+            device.emit(&[KeyEvent::new(*key, 1).into()])?;
         }
 
         thread::sleep(hold_duration);
 
         // 3. Release actual keys
         for key in &key_codes {
-            device.emit(&[InputEvent::new(EventType::KEY.0, key.0, 0)])?;
+            device.emit(&[KeyEvent::new(*key, 0).into()])?;
         }
 
         // 4. Release Shift if needed
         if needs_shift {
-            device.emit(&[InputEvent::new(EventType::KEY.0, KeyCode::KEY_LEFTSHIFT.0, 0)])?;
+            device.emit(&[KeyEvent::new(KeyCode::KEY_LEFTSHIFT, 0).into()])?;
         }
         
-        device.emit(&[InputEvent::new(EventType::SYNCHRONIZATION.0, 0, 0)])?;
+        device.emit(&[SynchronizationEvent::new(SynchronizationCode::SYN_REPORT, 0).into()])?;
 
         // Interval between characters
         if interval_ms > 0 {
