@@ -59,52 +59,44 @@
 
 /* Large variant for main application window */
 .status-icon-container.large .icon-circle {
-  width: 160px;
-  height: 160px;
+  width: 130px;
+  height: 130px;
 }
 
 .status-icon-container.large .status-icon {
-  font-size: 96px;
+  font-size: 72px;
 }
 
-/* Ready Dots Animation */
-.ready-dots {
+/* Ready Dot Animation */
+.ready-dot {
   display: flex;
-  gap: 6px;
   align-items: center;
   justify-content: center;
 }
 
-.ready-dots span {
-  width: 8px;
-  height: 8px;
+.ready-dot span {
+  width: 12px;
+  height: 12px;
   background-color: white;
   border-radius: 50%;
-  opacity: 0.3;
-  animation: dotWave 1.4s infinite ease-in-out;
+  animation: dotJump 2s infinite ease-in-out;
 }
-
-.ready-dots span:nth-child(2) { animation-delay: 0.2s; }
-.ready-dots span:nth-child(3) { animation-delay: 0.4s; }
 
 /* Scaling for Large variant */
-.status-icon-container.large .ready-dots {
-  gap: 12px;
+.status-icon-container.large .ready-dot span {
+  width: 20px;
+  height: 20px;
 }
 
-.status-icon-container.large .ready-dots span {
-  width: 16px;
-  height: 16px;
-}
-
-@keyframes dotWave {
-  0%, 100% { 
-    opacity: 0.3; 
-    transform: scale(1);
+@keyframes dotJump {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0) scale(1, 1);
   }
-  50% { 
-    opacity: 1; 
-    transform: scale(1.2);
+  40% {
+    transform: translateY(-15px) scale(0.9, 1.1);
+  }
+  45% {
+    transform: translateY(0) scale(1.1, 0.9);
   }
 }
 
