@@ -799,7 +799,9 @@ async fn record_and_transcribe(
         match output_method {
             config::OutputMethod::Typewriter => {
                 if copy_on_typewriter {
-                    let _ = typing::copy_to_clipboard(&text);
+                    if let Err(e) = typing::copy_to_clipboard(&text) {
+                        println!("❌ CLIPBOARD ERROR: {}", e);
+                    }
                 }
                 println!("⌨️  Forwarding text to hardware typing engine...");
                 if let Err(e) = typing::type_text_hardware(&text, typing_speed, hold_duration, virtual_keyboard) {
@@ -807,9 +809,9 @@ async fn record_and_transcribe(
                 }
             },
             config::OutputMethod::Clipboard => {
-                println!("📋 Forwarding text to hardware paste engine...");
-                if let Err(e) = typing::paste_text_hardware(&text, hold_duration, virtual_keyboard) {
-                    println!("❌ PASTE ENGINE ERROR: {}", e);
+                println!("📋 Copying text to clipboard (Clipboard Mode)...");
+                if let Err(e) = typing::copy_to_clipboard(&text) {
+                    println!("❌ CLIPBOARD ERROR: {}", e);
                 }
             }
         }

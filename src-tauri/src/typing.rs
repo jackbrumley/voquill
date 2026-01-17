@@ -179,49 +179,10 @@ pub fn type_text_hardware(
 }
 
 pub fn copy_to_clipboard(text: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    println!("📋 Attempting to copy to clipboard ({} chars)...", text.len());
     let mut clipboard = Clipboard::new()?;
     clipboard.set_text(text.to_string())?;
+    println!("✅ Copied to clipboard successfully");
     Ok(())
 }
 
-pub fn paste_text_hardware(
-    text: &str,
-    key_press_duration_ms: u64,
-    virtual_keyboard: Arc<Mutex<Option<VirtualDevice>>>
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    println!("📋 [Hardware Engine] Pasting via clipboard: '{}' (Hold: {}ms)", text, key_press_duration_ms);
-    
-    // 1. Set clipboard content
-    copy_to_clipboard(text)?;
-
-    let mut keyboard_lock = virtual_keyboard.lock().unwrap();
-    if keyboard_lock.is_none() {
-        return Err("Virtual hardware keyboard not initialized".into());
-    }
-    
-    let device = keyboard_lock.as_mut().unwrap();
-    let hold_duration = Duration::from_millis(key_press_duration_ms);
-
-    // 2. Emit Ctrl+V (or Cmd+V for Mac)
-    // For Linux/Windows, we use Control + V
-    // Note: On Linux, some apps might use Shift+Insert, but Ctrl+V is universal for text fields.
-    
-    // Press Control
-    device.emit(&[InputEvent::new(EventType::KEY, Key::KEY_LEFTCTRL.0, 1)])?;
-    
-    // Press V
-    device.emit(&[InputEvent::new(EventType::KEY, Key::KEY_V.0, 1)])?;
-    
-    thread::sleep(hold_duration);
-    
-    // Release V
-    device.emit(&[InputEvent::new(EventType::KEY, Key::KEY_V.0, 0)])?;
-    
-    // Release Control
-    device.emit(&[InputEvent::new(EventType::KEY, Key::KEY_LEFTCTRL.0, 0)])?;
-    
-    device.emit(&[InputEvent::new(EventType::SYNCHRONIZATION, 0, 0)])?;
-
-    println!("✅ Hardware paste complete");
-    Ok(())
-}

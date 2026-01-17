@@ -290,6 +290,29 @@ select {
   line-height: 1.2;
 }
 
+.mode-badge-container {
+  margin-top: var(--spacing-sm);
+}
+
+.status-mode-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--typography-size-xs);
+  color: var(--colors-text-muted);
+  background: var(--colors-bg-secondary);
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--colors-bg-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+}
+
+.mode-badge-icon {
+  font-size: 14px;
+}
+
 .mode-switcher-container {
   margin-top: var(--spacing-lg);
   display: flex;

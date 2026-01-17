@@ -57,7 +57,7 @@ function App() {
     enable_recording_logs: false,
     input_sensitivity: 1.0,
     output_method: 'Typewriter',
-    copy_on_typewriter: false,
+    copy_on_typewriter: true,
   });
   
   const [activeTab, setActiveTab] = useState<'status' | 'history' | 'config'>('status');
@@ -364,6 +364,13 @@ function App() {
               <StatusIcon status={currentStatus} large />
               <div className="status-text-app" key={`text-${currentStatus}`}>{currentStatus}</div>
               
+              <div className="mode-badge-container">
+                <div className="status-mode-badge">
+                  <span className="mode-badge-icon">{config.output_method === 'Typewriter' ? '⌨️' : '📋'}</span>
+                  <span>{config.output_method} Mode</span>
+                </div>
+              </div>
+              
               <div className="mode-switcher-container">
                 <div className={`mode-switcher mode-${config.output_method.toLowerCase()}`}>
                   <div className="mode-switcher-slider"></div>
@@ -489,13 +496,13 @@ function App() {
               onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}
             >
               <ConfigField 
-                label="Copy to Clipboard" 
-                description="Automatically copies the transcription to your clipboard even in Typewriter mode."
+                label="Always Copy to Clipboard" 
+                description="Automatically copies the transcription to your clipboard even when in Typewriter mode."
               >
                 <Switch 
                   checked={config.copy_on_typewriter} 
                   onChange={(checked) => updateConfig('copy_on_typewriter', checked)} 
-                  label="Always Copy Text"
+                  label="Enabled"
                 />
               </ConfigField>
 
