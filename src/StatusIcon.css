@@ -64,12 +64,12 @@
 
 /* Large variant for main application window */
 .status-icon-container.large .icon-circle {
-  width: 130px;
-  height: 130px;
+  width: 110px;
+  height: 110px;
 }
 
 .status-icon-container.large .status-icon {
-  font-size: 72px;
+  font-size: 60px;
 }
 
 /* Ready Dot Animation */

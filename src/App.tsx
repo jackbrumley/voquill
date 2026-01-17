@@ -3,6 +3,9 @@ import { useState, useEffect } from 'preact/hooks';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getVersion } from '@tauri-apps/api/app';
+import { open } from '@tauri-apps/plugin-shell';
+import { IconBrandGithub } from '@tabler/icons-react';
 import StatusIcon from './StatusIcon.tsx';
 import { tokens, tokensToCssVars } from './design-tokens.ts';
 import { Card } from './components/Card.tsx';
@@ -71,6 +74,7 @@ function App() {
   const [micTestStatus, setMicTestStatus] = useState<'idle' | 'recording' | 'playing' | 'processing'>('idle');
   const [micVolume, setMicVolume] = useState<number>(0);
   const [activeConfigSection, setActiveConfigSection] = useState<string | null>('connection');
+  const [appVersion, setAppVersion] = useState<string>('');
 
   const logUI = (msg: string) => {
     if (!config.debug_mode && !msg.includes('Button clicked')) return;
@@ -93,6 +97,8 @@ function App() {
     loadConfig();
     loadMics();
     loadHistory();
+    
+    getVersion().then(setAppVersion).catch(err => console.error("Failed to get version:", err));
 
     const unlistenPressed = listen('hotkey-pressed', () => {
       setCurrentStatus('Recording');
@@ -348,6 +354,17 @@ function App() {
                   <li>Release keys to transcribe and type.</li>
                 </ol>
               </Card>
+
+              <div className="status-footer">
+                <span className="version-text">v{appVersion}</span>
+                <button 
+                  className="github-link" 
+                  onClick={() => open('https://github.com/jackbrumley/voquill')}
+                  title="View on GitHub"
+                >
+                  <IconBrandGithub size={16} />
+                </button>
+              </div>
             </div>
           </div>
         )}

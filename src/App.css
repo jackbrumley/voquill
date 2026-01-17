@@ -108,6 +108,7 @@
 .tab-panel-padded {
   padding: var(--spacing-md);
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--spacing-sm);
 }
@@ -299,14 +300,14 @@ select {
   align-items: center;
   justify-content: center;
   gap: var(--spacing-md);
-  padding: var(--spacing-xl) var(--spacing-md);
+  padding: var(--spacing-md);
   transition: var(--transitions-normal);
 }
 
 .status-text-app {
   color: var(--colors-text-primary);
   font-weight: 500;
-  font-size: 34px;
+  font-size: 28px;
   letter-spacing: -0.02em;
   line-height: 1.2;
   /* Animation for state changes */
@@ -319,10 +320,49 @@ select {
 }
 
 .mode-switcher-container {
-  margin-top: var(--spacing-lg);
+  margin-top: var(--spacing-md);
   display: flex;
   justify-content: center;
   width: 100%;
+}
+
+.status-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) 0;
+  opacity: 0.6;
+  transition: var(--transitions-fast);
+}
+
+.status-footer:hover {
+  opacity: 1;
+}
+
+.version-text {
+  font-size: var(--typography-size-xs);
+  color: var(--colors-text-muted);
+  font-family: var(--typography-font-mono);
+}
+
+.github-link {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--colors-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transitions-fast);
+  border-radius: 50%;
+}
+
+.github-link:hover {
+  color: var(--colors-text-primary);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .mode-switcher {
@@ -394,11 +434,11 @@ body.status-typing .status-icon { animation: bounce 1s ease-in-out infinite; }
   font-size: var(--typography-size-sm);
   line-height: 1.6;
   color: var(--colors-text-primary);
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
 }
 
 .help-content h3 {
-  margin: 0 0 var(--spacing-lg) 0;
+  margin: 0 0 var(--spacing-sm) 0;
   font-size: var(--typography-size-lg);
   font-weight: 700;
   text-align: center;

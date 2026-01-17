@@ -24,6 +24,7 @@
     "preact/jsx-runtime": "npm:preact@^10.28.2/jsx-runtime",
     "@tauri-apps/api": "npm:@tauri-apps/api@^2",
     "@tauri-apps/plugin-shell": "npm:@tauri-apps/plugin-shell@^2",
+    "@tabler/icons-react": "npm:@tabler/icons-react@^3.36.1",
     "@preact/preset-vite": "npm:@preact/preset-vite@^2.10.2",
     "vite": "npm:vite@^6.4.1"
   },
