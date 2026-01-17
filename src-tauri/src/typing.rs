@@ -126,6 +126,7 @@ fn char_to_keys(ch: char) -> (Vec<Key>, bool) {
 pub fn type_text_hardware(
     text: &str, 
     typing_speed_interval: f64,
+    key_press_duration_ms: u64,
     virtual_keyboard: Arc<Mutex<Option<VirtualDevice>>>
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let interval_ms = (typing_speed_interval * 1000.0) as u64;
@@ -136,11 +137,11 @@ pub fn type_text_hardware(
     }
     
     let device = keyboard_lock.as_mut().unwrap();
-    println!("⌨️  [Hardware Engine] Typing: '{}'", text);
+    println!("⌨️  [Hardware Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)", text, interval_ms, key_press_duration_ms);
     
-    // Hold each key for a short duration to simulate physical reality
+    // Hold each key for a specified duration to simulate physical reality
     // Most systems ignore keys held for less than 15-20ms
-    let hold_duration = Duration::from_millis(20);
+    let hold_duration = Duration::from_millis(key_press_duration_ms);
 
     for ch in text.chars() {
         let (key_codes, needs_shift) = char_to_keys(ch);

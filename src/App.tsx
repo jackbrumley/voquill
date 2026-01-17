@@ -10,6 +10,7 @@ interface Config {
   api_url: string;
   hotkey: string;
   typing_speed_interval: number;
+  key_press_duration_ms: number;
   pixels_from_bottom: number;
   audio_device: string | null;
   debug_mode: boolean;
@@ -38,7 +39,8 @@ function App() {
     openai_api_key: '',
     api_url: 'https://api.openai.com/v1/audio/transcriptions',
     hotkey: 'ctrl+space',
-    typing_speed_interval: 0.01,
+    typing_speed_interval: 0.001,
+    key_press_duration_ms: 2,
     pixels_from_bottom: 100,
     audio_device: 'default',
     debug_mode: false,
@@ -184,6 +186,15 @@ function App() {
     }
   };
 
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Copied to clipboard', 'success');
+    } catch (error) {
+      showToast('Failed to copy', 'error');
+    }
+  };
+
   const updateConfig = (key: keyof Config, value: any) => {
     setConfig(prev => ({ ...prev, [key]: value }));
   };
@@ -196,6 +207,7 @@ function App() {
         api_url: config.api_url,
         hotkey: config.hotkey,
         typing_speed_interval: config.typing_speed_interval / 1000,
+        key_press_duration_ms: config.key_press_duration_ms,
         pixels_from_bottom: config.pixels_from_bottom,
         audio_device: config.audio_device,
         debug_mode: config.debug_mode,
@@ -437,6 +449,13 @@ function App() {
             <div className="form-group">
               <label>Typing Speed (ms):</label>
               <input type="number" value={config.typing_speed_interval} onChange={(e: any) => updateConfig('typing_speed_interval', parseInt(e.target.value))} />
+              <p className="debug-help-text">Delay between characters. Lower values are faster (1ms recommended).</p>
+            </div>
+
+            <div className="form-group">
+              <label>Key Press Duration (ms):</label>
+              <input type="number" value={config.key_press_duration_ms} onChange={(e: any) => updateConfig('key_press_duration_ms', parseInt(e.target.value))} />
+              <p className="debug-help-text">How long each key is held down. Increase if characters are skipped.</p>
             </div>
 
             <div className="form-group">
@@ -459,8 +478,14 @@ function App() {
               {history.length === 0 ? <div className="empty-history"><p>No transcriptions yet.</p></div> :
                 history.map((item) => (
                   <div key={item.id} className="history-item">
-                    <div className="history-time">{new Date(item.timestamp).toLocaleString()}</div>
                     <div className="history-text">{item.text}</div>
+                    <button className="copy-button" onClick={() => copyToClipboard(item.text)} title="Copy to clipboard">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    </button>
+                    <div className="history-timestamp">{new Date(item.timestamp).toLocaleString()}</div>
                   </div>
                 ))
               }

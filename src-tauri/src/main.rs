@@ -778,14 +778,17 @@ async fn record_and_transcribe(
         }
         
         emit_status_to_frontend("Typing").await;
-        let typing_speed = { config.lock().unwrap().typing_speed_interval };
+        let (typing_speed, hold_duration) = { 
+            let config_guard = config.lock().unwrap();
+            (config_guard.typing_speed_interval, config_guard.key_press_duration_ms) 
+        };
         
         // Give the OS a moment to ensure the overlay is hidden and focus is restored to the target app
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
         
-        log_info!("⌨️  Forwarding text to hardware typing engine...");
-        if let Err(e) = typing::type_text_hardware(&text, typing_speed, virtual_keyboard) {
-            log_info!("❌ TYPING ENGINE ERROR: {}", e);
+        println!("⌨️  Forwarding text to hardware typing engine...");
+        if let Err(e) = typing::type_text_hardware(&text, typing_speed, hold_duration, virtual_keyboard) {
+            println!("❌ TYPING ENGINE ERROR: {}", e);
         }
     } else {
         log_info!("ℹ️ Transcription was empty, skipping typing.");
@@ -913,7 +916,7 @@ fn start_linux_input_engine(app_handle: AppHandle) {
 fn main() {
     env_logger::init();
 
-    let is_first_launch = config::is_first_launch().unwrap_or(false);
+    let _is_first_launch = config::is_first_launch().unwrap_or(false);
     let initial_config = config::load_config().unwrap_or_default();
     
     let app_state = AppState {
@@ -1021,7 +1024,9 @@ fn main() {
                 w.on_window_event(move |event| { if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); let _ = w_c.hide(); } });
             }
 
-            if is_first_launch { if let Some(w) = app.get_webview_window("main") { let _ = w.show(); } }
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+            }
 
             let h = app.handle().clone();
             #[cfg(target_os = "linux")]
