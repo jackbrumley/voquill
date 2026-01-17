@@ -188,6 +188,7 @@ pub async fn record_audio_while_flag(
     is_recording: &Arc<Mutex<bool>>,
     engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    println!("🎤 record_audio_while_flag: Initializing sync channel");
     let (tx, rx) = mpsc::sync_channel::<f32>(65536);
     let mut samples = Vec::new();
     let sample_rate;
@@ -196,30 +197,44 @@ pub async fn record_audio_while_flag(
         let mut guard = engine.lock().unwrap();
         let eng = guard.as_mut().ok_or("Audio engine not initialized")?;
         sample_rate = eng.sample_rate;
+        println!("🎤 record_audio_while_flag: Using sample rate {}", sample_rate);
         if let Ok(mut cons) = eng.pre_roll_consumer.lock() {
+            let pre_roll_count = samples.len();
             while let Some(s) = cons.try_pop() { samples.push(s); }
+            println!("🎤 record_audio_while_flag: Collected {} pre-roll samples", samples.len() - pre_roll_count);
         }
         *eng.recording_tx.lock().unwrap() = Some(tx);
     }
 
     let (data_tx, data_rx) = mpsc::channel::<Vec<u8>>();
     std::thread::spawn(move || {
+        println!("🎤 record_audio_while_flag: Processing thread started");
         let mut all = samples;
-        while let Ok(s) = rx.recv() { all.push(s); }
+        let mut received = 0;
+        while let Ok(s) = rx.recv() { 
+            all.push(s); 
+            received += 1;
+        }
+        println!("🎤 record_audio_while_flag: Finished receiving. Total samples: {}, Received during recording: {}", all.len(), received);
         let mut out = Vec::new();
         if let Ok(mut w) = WavWriter::new(std::io::Cursor::new(&mut out), WavSpec { channels: 1, sample_rate, bits_per_sample: 16, sample_format: hound::SampleFormat::Int }) {
             for s in all { let _ = w.write_sample(process_sample(s)); }
             let _ = w.finalize();
         }
+        println!("🎤 record_audio_while_flag: WAV encoding complete ({} bytes)", out.len());
         let _ = data_tx.send(out);
     });
 
+    println!("🎤 record_audio_while_flag: Waiting for is_recording to become false...");
     while *is_recording.lock().unwrap() { tokio::time::sleep(Duration::from_millis(10)).await; }
+    println!("🎤 record_audio_while_flag: is_recording is false, stopping recording_tx");
     {
         if let Some(eng) = engine.lock().unwrap().as_ref() { *eng.recording_tx.lock().unwrap() = None; }
     }
 
+    println!("🎤 record_audio_while_flag: Waiting for processed data...");
     let final_wav = data_rx.recv()?;
+    println!("🎤 record_audio_while_flag: Data received, converting for Whisper");
     Ok(convert_audio_for_whisper(&final_wav, sample_rate, 1)?)
 }
 

@@ -541,7 +541,6 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
             if let Ok(gtk_window) = window_clone.gtk_window() {
                 // Resolution: Use fully qualified syntax and the correct method name 'set_layer_shell_margin'
                 // to resolve the conflict with WidgetExt::set_margin
-                gtk_window.init_layer_shell();
                 gtk_window.set_anchor(gtk_layer_shell::Edge::Bottom, true);
                 LayerShell::set_layer_shell_margin(&gtk_window, gtk_layer_shell::Edge::Bottom, pixels_from_bottom_logical);
             }
