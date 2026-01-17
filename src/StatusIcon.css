@@ -77,6 +77,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Center the bounding box of the jump animation */
+  transform: translateY(calc(var(--jump-height) / -2));
 }
 
 .ready-dot span {
@@ -84,7 +86,7 @@
   height: 12px;
   background-color: white;
   border-radius: 50%;
-  animation: dotJump 2s infinite ease-in-out;
+  animation: dotJump 3s infinite ease-in-out;
 }
 
 /* Scaling for Large variant */
@@ -94,22 +96,22 @@
 }
 
 @keyframes dotJump {
-  0%, 15%, 70%, 100% {
+  0%, 40%, 100% {
     transform: translateY(0) scale(1, 1);
   }
-  20% {
-    transform: translateY(0) scale(1.25, 0.75); /* Squash before jump */
+  43% {
+    transform: translateY(0) scale(1.25, 0.75); /* Deep squash before jump */
   }
-  35% {
-    transform: translateY(var(--jump-height)) scale(0.9, 1.1); /* Peak high */
+  53% {
+    transform: translateY(var(--jump-height)) scale(0.9, 1.1); /* Peak high (slower loop) */
   }
-  45% {
+  63% {
     transform: translateY(0) scale(1.2, 0.8); /* Hit ground squash */
   }
-  55% {
-    transform: translateY(calc(var(--jump-height) / 3)) scale(0.95, 1.05); /* Secondary bounce */
+  68% {
+    transform: translateY(calc(var(--jump-height) / 4)) scale(0.95, 1.05); /* Quick secondary bounce peak */
   }
-  62% {
+  73% {
     transform: translateY(0) scale(1.05, 0.95); /* Final touch squash */
   }
 }
