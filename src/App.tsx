@@ -9,6 +9,7 @@ import { Card } from './components/Card.tsx';
 import { Button } from './components/Button.tsx';
 import { ConfigField } from './components/ConfigField.tsx';
 import { Switch } from './components/Switch.tsx';
+import { CollapsibleSection } from './components/CollapsibleSection.tsx';
 import './App.css';
 
 interface Config {
@@ -63,6 +64,7 @@ function App() {
   const [availableMics, setAvailableMics] = useState<AudioDevice[]>([]);
   const [micTestStatus, setMicTestStatus] = useState<'idle' | 'recording' | 'playing' | 'processing'>('idle');
   const [micVolume, setMicVolume] = useState<number>(0);
+  const [activeConfigSection, setActiveConfigSection] = useState<string | null>('connection');
 
   const logUI = (msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -356,122 +358,142 @@ function App() {
         )}
 
         {activeTab === 'config' && (
-          <div className="tab-panel">
-            <ConfigField 
-              label="API Key" 
-              description="Used to authenticate with the transcription service (OpenAI)."
+          <div className="tab-panel config-panel">
+            <CollapsibleSection 
+              title="Connection" 
+              isOpen={activeConfigSection === 'connection'} 
+              onToggle={() => setActiveConfigSection(activeConfigSection === 'connection' ? null : 'connection')}
             >
-              <div className="input-with-button" style={{ display: 'flex', gap: '8px' }}>
-                <input type="password" value={config.openai_api_key} onChange={(e: any) => updateConfig('openai_api_key', e.target.value)} placeholder="sk-..." />
-                <Button onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? '...' : 'Test'}</Button>
-              </div>
-            </ConfigField>
-
-            <ConfigField 
-              label="Microphone" 
-              description="Choose the input device for recording your voice."
-            >
-              <div className="select-wrapper">
-                <select value={config.audio_device || 'default'} onChange={(e: any) => updateConfig('audio_device', e.target.value)}>
-                  {availableMics.map((mic: any) => <option key={mic.id} value={mic.id}>{mic.label}</option>)}
-                </select>
-                <Button variant="ghost" className="icon-button" onClick={loadMics} title="Refresh Devices">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                    <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
-                    <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
-                  </svg>
-                </Button>
-              </div>
-            </ConfigField>
-              
-            <ConfigField 
-              label={`Mic Sensitivity (${Math.round(config.input_sensitivity * 100)}%)`}
-              description="Adjust the gain levels. Higher values pick up quieter sounds."
-            >
-              <input 
-                type="range" min="0.1" max="2.0" step="0.05" 
-                value={config.input_sensitivity} 
-                onChange={(e: any) => updateConfig('input_sensitivity', parseFloat(e.target.value))}
-                className="slider"
-              />
-            </ConfigField>
-
-            <Card className="mic-test-row">
-              <Button 
-                className={`mic-test-button ${micTestStatus !== 'idle' ? 'active' : ''}`} 
-                disabled={micTestStatus === 'processing'}
-                onClick={() => {
-                  if (micTestStatus === 'idle') startMicTest();
-                  else if (micTestStatus === 'recording') stopMicTest();
-                  else if (micTestStatus === 'playing') stopMicPlayback();
-                }}
-              >
-                {micTestStatus === 'idle' ? 'Check Microphone' : 
-                 micTestStatus === 'recording' ? 'Stop & Play Back' :
-                 micTestStatus === 'playing' ? 'Stop Playback' :
-                 'Processing...'}
-              </Button>
-              {micTestStatus === 'recording' ? (
-                <div className="volume-meter-container">
-                  <div 
-                    className={`volume-meter-bar ${micVolume > 0.9 ? 'clipping' : micVolume > 0.7 ? 'warning' : ''}`} 
-                    style={{ width: `${Math.min(micVolume * 100, 100)}%` }}
-                  ></div>
-                </div>
-              ) : null}
-            </Card>
-
-            <hr className="config-divider" />
-
-            <ConfigField label="API URL" description="The endpoint that processes audio (OpenAI or Local Whisper).">
-              <input type="url" value={config.api_url} onChange={(e: any) => updateConfig('api_url', e.target.value)} />
-            </ConfigField>
-
-            <ConfigField label="Global Hotkey" description="Hold these keys to record, release to transcribe.">
-              <input type="text" value={config.hotkey} onChange={(e: any) => updateConfig('hotkey', e.target.value)} />
-            </ConfigField>
-
-            <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
-              <input type="number" value={config.typing_speed_interval} onChange={(e: any) => updateConfig('typing_speed_interval', parseInt(e.target.value))} />
-            </ConfigField>
-
-            <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
-              <input type="number" value={config.key_press_duration_ms} onChange={(e: any) => updateConfig('key_press_duration_ms', parseInt(e.target.value))} />
-            </ConfigField>
-
-            <ConfigField label="Popup Position (px)" description="Vertical offset for the status overlay from the screen bottom.">
-              <input type="number" value={config.pixels_from_bottom} onChange={(e: any) => updateConfig('pixels_from_bottom', parseInt(e.target.value))} />
-            </ConfigField>
-
-            <hr className="config-divider" />
-
-            <ConfigField 
-              label="Debug Mode" 
-              description="Master switch for advanced diagnostic settings."
-            >
-              <Switch 
-                checked={config.debug_mode} 
-                onChange={(checked) => updateConfig('debug_mode', checked)} 
-                label="Enable Debug Settings"
-              />
-            </ConfigField>
-
-            {config.debug_mode ? (
               <ConfigField 
-                label="Recording Logs" 
-                description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues."
+                label="API Key" 
+                description="Used to authenticate with the transcription service (OpenAI)."
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Switch 
-                    checked={config.enable_recording_logs} 
-                    onChange={(checked) => updateConfig('enable_recording_logs', checked)} 
-                    label="Enable Recording Logs"
-                  />
-                  <Button size="sm" variant="ghost" onClick={openDebugFolder}>Open Folder</Button>
+                <div className="input-with-button" style={{ display: 'flex', gap: '8px' }}>
+                  <input type="password" value={config.openai_api_key} onChange={(e: any) => updateConfig('openai_api_key', e.target.value)} placeholder="sk-..." />
+                  <Button onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? '...' : 'Test'}</Button>
                 </div>
               </ConfigField>
-            ) : null}
+
+              <ConfigField label="API URL" description="The endpoint that processes audio (OpenAI or Local Whisper).">
+                <input type="url" value={config.api_url} onChange={(e: any) => updateConfig('api_url', e.target.value)} />
+              </ConfigField>
+            </CollapsibleSection>
+
+            <CollapsibleSection 
+              title="Audio" 
+              isOpen={activeConfigSection === 'audio'} 
+              onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}
+            >
+              <ConfigField 
+                label="Microphone" 
+                description="Choose the input device for recording your voice."
+              >
+                <div className="select-wrapper">
+                  <select value={config.audio_device || 'default'} onChange={(e: any) => updateConfig('audio_device', e.target.value)}>
+                    {availableMics.map((mic: any) => <option key={mic.id} value={mic.id}>{mic.label}</option>)}
+                  </select>
+                  <Button variant="ghost" className="icon-button" onClick={loadMics} title="Refresh Devices">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                      <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
+                      <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
+                    </svg>
+                  </Button>
+                </div>
+              </ConfigField>
+                
+              <ConfigField 
+                label={`Mic Sensitivity (${Math.round(config.input_sensitivity * 100)}%)`}
+                description="Adjust the gain levels. Higher values pick up quieter sounds."
+              >
+                <input 
+                  type="range" min="0.1" max="2.0" step="0.05" 
+                  value={config.input_sensitivity} 
+                  onChange={(e: any) => updateConfig('input_sensitivity', parseFloat(e.target.value))}
+                  className="slider"
+                />
+              </ConfigField>
+
+              <Card className="mic-test-row">
+                <Button 
+                  className={`mic-test-button ${micTestStatus !== 'idle' ? 'active' : ''}`} 
+                  disabled={micTestStatus === 'processing'}
+                  onClick={() => {
+                    if (micTestStatus === 'idle') startMicTest();
+                    else if (micTestStatus === 'recording') stopMicTest();
+                    else if (micTestStatus === 'playing') stopMicPlayback();
+                  }}
+                >
+                  {micTestStatus === 'idle' ? 'Check Microphone' : 
+                   micTestStatus === 'recording' ? 'Stop & Play Back' :
+                   micTestStatus === 'playing' ? 'Stop Playback' :
+                   'Processing...'}
+                </Button>
+                {micTestStatus === 'recording' ? (
+                  <div className="volume-meter-container">
+                    <div 
+                      className={`volume-meter-bar ${micVolume > 0.9 ? 'clipping' : micVolume > 0.7 ? 'warning' : ''}`} 
+                      style={{ width: `${Math.min(micVolume * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                ) : null}
+              </Card>
+            </CollapsibleSection>
+
+            <CollapsibleSection 
+              title="Typing" 
+              isOpen={activeConfigSection === 'typing'} 
+              onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}
+            >
+              <ConfigField label="Global Hotkey" description="Hold these keys to record, release to transcribe.">
+                <input type="text" value={config.hotkey} onChange={(e: any) => updateConfig('hotkey', e.target.value)} />
+              </ConfigField>
+
+              <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
+                <input type="number" value={config.typing_speed_interval} onChange={(e: any) => updateConfig('typing_speed_interval', parseInt(e.target.value))} />
+              </ConfigField>
+
+              <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
+                <input type="number" value={config.key_press_duration_ms} onChange={(e: any) => updateConfig('key_press_duration_ms', parseInt(e.target.value))} />
+              </ConfigField>
+            </CollapsibleSection>
+
+            <CollapsibleSection 
+              title="Advanced" 
+              isOpen={activeConfigSection === 'advanced'} 
+              onToggle={() => setActiveConfigSection(activeConfigSection === 'advanced' ? null : 'advanced')}
+            >
+              <ConfigField label="Popup Position (px)" description="Vertical offset for the status overlay from the screen bottom.">
+                <input type="number" value={config.pixels_from_bottom} onChange={(e: any) => updateConfig('pixels_from_bottom', parseInt(e.target.value))} />
+              </ConfigField>
+
+              <ConfigField 
+                label="Debug Mode" 
+                description="Master switch for advanced diagnostic settings."
+              >
+                <Switch 
+                  checked={config.debug_mode} 
+                  onChange={(checked) => updateConfig('debug_mode', checked)} 
+                  label="Enable Debug Settings"
+                />
+              </ConfigField>
+
+              {config.debug_mode ? (
+                <ConfigField 
+                  label="Recording Logs" 
+                  description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues."
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Switch 
+                      checked={config.enable_recording_logs} 
+                      onChange={(checked) => updateConfig('enable_recording_logs', checked)} 
+                      label="Enable Recording Logs"
+                    />
+                    <Button size="sm" variant="ghost" onClick={openDebugFolder}>Open Folder</Button>
+                  </div>
+                </ConfigField>
+              ) : null}
+            </CollapsibleSection>
 
             <div className="form-actions-bottom">
               <Button variant="primary" className="save-button" onClick={saveConfig}>Save Configuration</Button>
@@ -482,7 +504,7 @@ function App() {
         {activeTab === 'history' && (
           <div className="tab-panel">
             <div className="history-header">
-              <Button variant="danger" size="sm" onClick={clearHistory}>Clear History</Button>
+              <Button variant="danger" className="clear-history-button" onClick={clearHistory}>Clear History</Button>
             </div>
             <div className="history-list">
               {history.length === 0 ? <Card className="empty-history"><p>No transcriptions yet.</p></Card> :

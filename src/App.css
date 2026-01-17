@@ -87,13 +87,14 @@
   padding: var(--spacing-md);
   background: var(--colors-bg-primary);
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .tab-panel {
-  height: 100%;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
 }
 
 /* Components: Card */
@@ -223,6 +224,8 @@
   gap: var(--spacing-md);
   align-items: center;
 }
+
+/* Form Controls */
 input[type="text"],
 input[type="password"],
 input[type="number"],
@@ -472,17 +475,84 @@ input:checked + .switch-slider:before {
   transform: translateX(18px);
 }
 
-/* Sticky Footer */
-.form-actions-bottom {
-  position: sticky;
-  /* Ground it to the bottom with negative margin to offset parent padding */
-  bottom: calc(-1 * var(--spacing-md));
-  margin: auto calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-md));
+/* Collapsible Section */
+.collapsible-section {
+  display: flex;
+  flex-direction: column;
+  background: var(--colors-bg-secondary);
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--colors-bg-tertiary);
+  overflow: visible;
+  transition: var(--transitions-normal);
+  margin-left: calc(-1 * var(--spacing-md));
+  margin-right: calc(-1 * var(--spacing-md));
+}
+
+.collapsible-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  user-select: none;
+  background: var(--colors-bg-tertiary);
+  transition: var(--transitions-fast);
+  border-radius: 0;
+}
+
+.collapsible-header:hover {
+  background: var(--colors-bg-hover);
+}
+
+.collapsible-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: 700;
+  font-size: var(--typography-size-sm);
+  color: var(--colors-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.collapsible-chevron {
+  transition: var(--transitions-normal);
+  color: var(--colors-text-muted);
+}
+
+.is-open .collapsible-chevron {
+  transform: rotate(180deg);
+}
+
+.collapsible-content {
   padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.tab-panel.config-panel {
+  padding-top: 0;
+}
+
+.clear-history-button {
+  width: 100%;
+}
+
+/* Form Actions Pinned to Bottom */
+.form-actions-bottom {
+  margin-top: auto; /* Push to bottom of flex container */
+  padding: var(--spacing-md);
+  margin-left: calc(-1 * var(--spacing-md));
+  margin-right: calc(-1 * var(--spacing-md));
+  margin-bottom: calc(-1 * var(--spacing-md));
   background: var(--colors-bg-primary);
   border-top: 1px solid var(--colors-bg-tertiary);
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
   z-index: 10;
+  position: sticky;
+  bottom: calc(-1 * var(--spacing-md));
 }
 
 /* Toasts */
