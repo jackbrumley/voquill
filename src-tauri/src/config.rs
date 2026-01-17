@@ -109,12 +109,12 @@ pub fn is_first_launch() -> Result<bool, Box<dyn std::error::Error>> {
 
 pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let config_path = get_config_path()?;
-    println!("Attempting to save config to: {:?}", config_path);
+    log_info!("Attempting to save config to: {:?}", config_path);
     
     let config_str = serde_json::to_string_pretty(config)?;
-    println!("Config JSON: {}", config_str);
+    log_info!("Config JSON: {}", config_str);
     
     fs::write(&config_path, config_str)?;
-    println!("Config saved successfully to: {:?}", config_path);
+    log_info!("Config saved successfully to: {:?}", config_path);
     Ok(())
 }

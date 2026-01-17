@@ -6,6 +6,8 @@ export const tokens = {
     bgSecondary: '#2f3136',
     bgTertiary: '#202225',
     bgHover: '#40444b',
+    bgGradientWarm: '#4a384d',
+    bgGradientCool: '#2d454f',
     
     // Text
     textPrimary: '#ffffff',

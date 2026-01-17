@@ -359,7 +359,7 @@ function App() {
 
       <div className="tab-content">
         {activeTab === 'status' && (
-          <div className="tab-panel">
+          <div className="tab-panel" key="status">
             <div className="status-display">
               <StatusIcon status={currentStatus} large />
               <div className="status-text-app" key={`text-${currentStatus}`}>{currentStatus}</div>
@@ -400,7 +400,7 @@ function App() {
         )}
 
         {activeTab === 'config' && (
-          <div className="tab-panel config-panel">
+          <div className="tab-panel config-panel" key="config">
             <CollapsibleSection 
               title="Connection" 
               isOpen={activeConfigSection === 'connection'} 
@@ -411,7 +411,7 @@ function App() {
                 description="Used to authenticate with the transcription service (OpenAI)."
               >
                 <div className="input-with-button" style={{ display: 'flex', gap: '8px' }}>
-                  <input type="password" value={config.openai_api_key} onChange={(e: any) => updateConfig('openai_api_key', e.target.value)} placeholder="sk-..." />
+                  <input type="text" value={config.openai_api_key} onChange={(e: any) => updateConfig('openai_api_key', e.target.value)} placeholder="sk-..." />
                   <Button onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? '...' : 'Test'}</Button>
                 </div>
               </ConfigField>
@@ -556,7 +556,7 @@ function App() {
         )}
 
         {activeTab === 'history' && (
-          <div className="tab-panel">
+          <div className="tab-panel" key="history">
             <div className="history-header">
               <Button variant="danger" className="clear-history-button" onClick={clearHistory}>Clear History</Button>
             </div>

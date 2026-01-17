@@ -1,6 +1,14 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// Logging macro with timestamps
+#[macro_export]
+macro_rules! log_info {
+    ($($arg:tt)*) => {
+        println!("[{}] {}", ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"), format!($($arg)*))
+    };
+}
+
 use std::sync::{Arc, Mutex, OnceLock};
 use std::collections::HashSet;
 use tauri::{
@@ -19,13 +27,6 @@ mod typing;
 
 use config::Config;
 use hotkey::HardwareHotkey;
-
-// Logging macro with timestamps
-macro_rules! log_info {
-    ($($arg:tt)*) => {
-        println!("[{}] {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"), format!($($arg)*));
-    };
-}
 
 #[cfg(target_os = "linux")]
 async fn check_request_audio_portal(app_handle: &tauri::AppHandle) -> Result<(), String> {
@@ -800,18 +801,18 @@ async fn record_and_transcribe(
             config::OutputMethod::Typewriter => {
                 if copy_on_typewriter {
                     if let Err(e) = typing::copy_to_clipboard(&text) {
-                        println!("❌ CLIPBOARD ERROR: {}", e);
+                        log_info!("❌ CLIPBOARD ERROR: {}", e);
                     }
                 }
-                println!("⌨️  Forwarding text to hardware typing engine...");
+                log_info!("⌨️  Forwarding text to hardware typing engine...");
                 if let Err(e) = typing::type_text_hardware(&text, typing_speed, hold_duration, virtual_keyboard) {
-                    println!("❌ TYPING ENGINE ERROR: {}", e);
+                    log_info!("❌ TYPING ENGINE ERROR: {}", e);
                 }
             },
             config::OutputMethod::Clipboard => {
-                println!("📋 Copying text to clipboard (Clipboard Mode)...");
+                log_info!("📋 Copying text to clipboard (Clipboard Mode)...");
                 if let Err(e) = typing::copy_to_clipboard(&text) {
-                    println!("❌ CLIPBOARD ERROR: {}", e);
+                    log_info!("❌ CLIPBOARD ERROR: {}", e);
                 }
             }
         }

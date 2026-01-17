@@ -136,7 +136,7 @@ pub fn type_text_hardware(
     }
     
     let device = keyboard_lock.as_mut().unwrap();
-    println!("⌨️  [Hardware Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)", text, interval_ms, key_press_duration_ms);
+    log_info!("⌨️  [Hardware Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)", text, interval_ms, key_press_duration_ms);
     
     // Hold each key for a specified duration to simulate physical reality
     let hold_duration = Duration::from_millis(key_press_duration_ms);
@@ -174,15 +174,15 @@ pub fn type_text_hardware(
         }
     }
     
-    println!("✅ Hardware typing complete");
+    log_info!("✅ Hardware typing complete");
     Ok(())
 }
 
 pub fn copy_to_clipboard(text: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    println!("📋 Attempting to copy to clipboard ({} chars)...", text.len());
+    log_info!("📋 Attempting to copy to clipboard ({} chars)...", text.len());
     let mut clipboard = Clipboard::new()?;
     clipboard.set_text(text.to_string())?;
-    println!("✅ Copied to clipboard successfully");
+    log_info!("✅ Copied to clipboard successfully");
     Ok(())
 }
 

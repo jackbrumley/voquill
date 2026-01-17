@@ -7,7 +7,7 @@
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background: var(--colors-bg-primary);
+  background: linear-gradient(135deg, var(--colors-bg-gradient-warm) 0%, var(--colors-bg-primary) 50%, var(--colors-bg-gradient-cool) 100%);
   color: var(--colors-text-primary);
   font-family: var(--typography-font-main);
   overflow: hidden;
@@ -40,10 +40,11 @@
 /* Tabs */
 .tab-nav {
   display: flex;
-  background: var(--colors-bg-secondary);
+  background: rgba(47, 49, 54, 0.8);
+  backdrop-filter: blur(10px);
   padding: var(--spacing-sm) var(--spacing-sm) 0 var(--spacing-sm);
   gap: var(--spacing-xs);
-  border-bottom: 1px solid var(--colors-bg-tertiary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .tab {
@@ -58,16 +59,18 @@
   transition: var(--transitions-normal);
   border-radius: var(--radii-input) var(--radii-input) 0 0;
   position: relative;
+  z-index: 1;
 }
 
 .tab:hover {
-  background: var(--colors-bg-hover);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--colors-text-primary);
 }
 
 .tab.active {
-  background: var(--colors-bg-primary);
+  background: rgba(54, 57, 63, 0.5);
   color: var(--colors-text-primary);
+  backdrop-filter: blur(5px);
 }
 
 .tab.active::after {
@@ -85,7 +88,7 @@
   flex: 1;
   overflow-y: auto;
   padding: var(--spacing-md);
-  background: var(--colors-bg-primary);
+  background: transparent;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -96,6 +99,19 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+  /* Animation for tab switching */
+  animation: tab-enter 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes tab-enter {
+  from { 
+    opacity: 0; 
+    transform: translateY(4px) scale(0.995); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+  }
 }
 
 /* Special Case: Config Panel uses a tight accordion with no gaps and no top spacing */
@@ -109,13 +125,15 @@
 .card {
   padding: var(--spacing-lg);
   border-radius: var(--radii-panel);
-  border: 1px solid var(--colors-bg-tertiary);
-  box-shadow: var(--shadows-md);
+  background: rgba(47, 49, 54, 0.6); /* Glass effect */
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadows-lg);
   transition: var(--transitions-normal);
 }
 
-.card-primary { background: var(--colors-bg-secondary); }
-.card-secondary { background: var(--colors-bg-tertiary); }
+.card-primary { background: rgba(47, 49, 54, 0.7); }
+.card-secondary { background: rgba(32, 34, 37, 0.6); }
 
 .card.clickable {
   cursor: pointer;
@@ -416,6 +434,12 @@ body.status-typing .status-icon { animation: bounce 1s ease-in-out infinite; }
 }
 
 /* History List */
+.history-header {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--spacing-sm);
+}
+
 .history-list {
   display: flex;
   flex-direction: column;
@@ -632,7 +656,8 @@ input:checked + .switch-slider:before {
   margin-left: calc(-1 * var(--spacing-md));
   margin-right: calc(-1 * var(--spacing-md));
   margin-bottom: calc(-1 * var(--spacing-md));
-  background: var(--colors-bg-primary);
+  background: rgba(54, 57, 63, 0.95); /* Semi-transparent bgPrimary */
+  backdrop-filter: blur(10px);
   border-top: 1px solid var(--colors-bg-tertiary);
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
   z-index: 10;
@@ -641,7 +666,7 @@ input:checked + .switch-slider:before {
 }
 
 .clear-history-button {
-  width: 100%;
+  /* Removed width: 100% */
 }
 
 /* Toasts */

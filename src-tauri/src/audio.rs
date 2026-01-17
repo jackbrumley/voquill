@@ -40,7 +40,7 @@ impl PersistentAudioEngine {
         let mut dc_offset_state = 0.0f32;
         let alpha = 0.995f32; 
 
-        let err_fn = |err| println!("❌ Audio stream error: {}", err);
+        let err_fn = |err| log_info!("❌ Audio stream error: {}", err);
         
         let callback = {
             let recording_tx = recording_tx_clone.clone();
@@ -64,29 +64,21 @@ impl PersistentAudioEngine {
         let stream = match device.build_input_stream(&stream_config, callback, err_fn, None) {
             Ok(s) => s,
             Err(e) => {
-                println!("⚠️  16kHz Mono request failed ({}), falling back to default...", e);
+                log_info!("⚠️  16kHz Mono request failed ({}), falling back to default...", e);
                 let config = device.default_input_config().map_err(|e| e.to_string())?;
-                let channels = config.channels();
-                let sensitivity = sensitivity;
-                let recording_tx = recording_tx_clone.clone();
-                let mut pre_roll_prod = {
-                    let (prod, _) = HeapRb::<f32>::new(pre_roll_size).split();
-                    prod
-                };
-                
-                let mut dc_state_fallback = 0.0f32;
-                let mut fallback_callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                    for frame in data.chunks(channels as usize) {
-                        let sum: f32 = frame.iter().sum();
-                        let sample_raw = sum / channels as f32;
-                        let filtered = sample_raw - dc_state_fallback;
-                        dc_state_fallback = filtered + 0.995 * dc_state_fallback;
-                        let sample = filtered * sensitivity;
-
-                        let _ = pre_roll_prod.try_push(sample);
-                        if let Ok(guard) = recording_tx.try_lock() {
-                            if let Some(tx) = guard.as_ref() {
-                                let _ = tx.try_send(sample);
+                let mut fallback_callback = {
+                    let recording_tx = recording_tx_clone.clone();
+                    let mut dc_offset_state = 0.0f32;
+                    let alpha = 0.995f32;
+                    move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                        for &sample_raw in data {
+                            let filtered = sample_raw - dc_offset_state;
+                            dc_offset_state = filtered + alpha * dc_offset_state;
+                            let sample = filtered * sensitivity;
+                            if let Ok(guard) = recording_tx.try_lock() {
+                                if let Some(tx) = guard.as_ref() {
+                                    let _ = tx.try_send(sample);
+                                }
                             }
                         }
                     }
@@ -188,7 +180,7 @@ pub async fn record_audio_while_flag(
     is_recording: &Arc<Mutex<bool>>,
     engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-    println!("🎤 record_audio_while_flag: Initializing sync channel");
+    log_info!("🎤 record_audio_while_flag: Initializing sync channel");
     let (tx, rx) = mpsc::sync_channel::<f32>(65536);
     let mut samples = Vec::new();
     let sample_rate;
@@ -197,44 +189,44 @@ pub async fn record_audio_while_flag(
         let mut guard = engine.lock().unwrap();
         let eng = guard.as_mut().ok_or("Audio engine not initialized")?;
         sample_rate = eng.sample_rate;
-        println!("🎤 record_audio_while_flag: Using sample rate {}", sample_rate);
+        log_info!("🎤 record_audio_while_flag: Using sample rate {}", sample_rate);
         if let Ok(mut cons) = eng.pre_roll_consumer.lock() {
             let pre_roll_count = samples.len();
             while let Some(s) = cons.try_pop() { samples.push(s); }
-            println!("🎤 record_audio_while_flag: Collected {} pre-roll samples", samples.len() - pre_roll_count);
+            log_info!("🎤 record_audio_while_flag: Collected {} pre-roll samples", samples.len() - pre_roll_count);
         }
         *eng.recording_tx.lock().unwrap() = Some(tx);
     }
 
     let (data_tx, data_rx) = mpsc::channel::<Vec<u8>>();
     std::thread::spawn(move || {
-        println!("🎤 record_audio_while_flag: Processing thread started");
+        log_info!("🎤 record_audio_while_flag: Processing thread started");
         let mut all = samples;
         let mut received = 0;
         while let Ok(s) = rx.recv() { 
             all.push(s); 
             received += 1;
         }
-        println!("🎤 record_audio_while_flag: Finished receiving. Total samples: {}, Received during recording: {}", all.len(), received);
+        log_info!("🎤 record_audio_while_flag: Finished receiving. Total samples: {}, Received during recording: {}", all.len(), received);
         let mut out = Vec::new();
         if let Ok(mut w) = WavWriter::new(std::io::Cursor::new(&mut out), WavSpec { channels: 1, sample_rate, bits_per_sample: 16, sample_format: hound::SampleFormat::Int }) {
             for s in all { let _ = w.write_sample(process_sample(s)); }
             let _ = w.finalize();
         }
-        println!("🎤 record_audio_while_flag: WAV encoding complete ({} bytes)", out.len());
+        log_info!("🎤 record_audio_while_flag: WAV encoding complete ({} bytes)", out.len());
         let _ = data_tx.send(out);
     });
 
-    println!("🎤 record_audio_while_flag: Waiting for is_recording to become false...");
+    log_info!("🎤 record_audio_while_flag: Waiting for is_recording to become false...");
     while *is_recording.lock().unwrap() { tokio::time::sleep(Duration::from_millis(10)).await; }
-    println!("🎤 record_audio_while_flag: is_recording is false, stopping recording_tx");
+    log_info!("🎤 record_audio_while_flag: is_recording is false, stopping recording_tx");
     {
         if let Some(eng) = engine.lock().unwrap().as_ref() { *eng.recording_tx.lock().unwrap() = None; }
     }
 
-    println!("🎤 record_audio_while_flag: Waiting for processed data...");
+    log_info!("🎤 record_audio_while_flag: Waiting for processed data...");
     let final_wav = data_rx.recv()?;
-    println!("🎤 record_audio_while_flag: Data received, converting for Whisper");
+    log_info!("🎤 record_audio_while_flag: Data received, converting for Whisper");
     Ok(convert_audio_for_whisper(&final_wav, sample_rate, 1)?)
 }
 
@@ -325,7 +317,7 @@ where F: FnOnce() + Send + 'static
         }
     };
 
-    let err_fn = |err| println!("🔊 Playback error: {}", err);
+    let err_fn = |err| log_info!("🔊 Playback error: {}", err);
     let stream = match config.sample_format() {
         SampleFormat::F32 => device.build_output_stream(&stream_config, callback, err_fn, None)?,
         SampleFormat::I16 => {
