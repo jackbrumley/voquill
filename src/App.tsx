@@ -414,10 +414,11 @@ function App() {
                 />
               </ConfigField>
 
-              <Card className="mic-test-row">
+              <div className="mic-test-row">
                 <Button 
-                  className={`mic-test-button ${micTestStatus !== 'idle' ? 'active' : ''}`} 
+                  className="mic-test-button"
                   disabled={micTestStatus === 'processing'}
+                  variant={micTestStatus !== 'idle' ? 'primary' : 'secondary'}
                   onClick={() => {
                     if (micTestStatus === 'idle') startMicTest();
                     else if (micTestStatus === 'recording') stopMicTest();
@@ -437,7 +438,7 @@ function App() {
                     ></div>
                   </div>
                 ) : null}
-              </Card>
+              </div>
             </CollapsibleSection>
 
             <CollapsibleSection 
