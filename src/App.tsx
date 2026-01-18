@@ -416,7 +416,15 @@ function App() {
               <Card className="help-content">
                 <h3>How to Use Voquill</h3>
                 <ol className="instructions">
-                  <li>Enter your <strong>OpenAI API key</strong> in Config.</li>
+                  {config.transcription_mode === 'Local' ? (
+                    modelStatus[config.local_model_size] ? (
+                      <li>Local Whisper model is <strong>Ready</strong>.</li>
+                    ) : (
+                      <li>Download a <strong>Whisper model</strong> in Config.</li>
+                    )
+                  ) : (
+                    <li>Enter your <strong>OpenAI API key</strong> in Config.</li>
+                  )}
                   <li>Position cursor in any text field.</li>
                   <li>Hold <strong>{config.hotkey}</strong> and speak.</li>
                   <li>Release keys to transcribe and type.</li>
