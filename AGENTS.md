@@ -19,9 +19,9 @@ Code is for humans to read, and only secondarily for machines to execute.
 - **Formatting:** Strict adherence to `cargo fmt` and `deno task check`.
 - **Proactive Cleanup:** If you see messy code, redundant nesting, or illogical organization, you are expected to suggest a cleanup or fix it immediately (after confirming with the user).
 
-### 3. The "Wayland-First" Mandate
-Linux support must prioritize Wayland.
-- **No X11-Only Hacks:** Hardware access (Microphone) must use **XDG Portals** (via `ashpd`) where possible.
+### 3. The "Wayland-Only" Mandate
+Linux support is strictly Wayland.
+- **XDG Portals:** Hardware access (Microphone) must use **XDG Portals** (via `ashpd`).
 - **Compositor Awareness:** Recognize that Wayland compositors (GNOME, KDE, Hyprland) have strict security models; handle window positioning and input simulation using proper, future-proof protocols.
 - **Primary Delivery:** The Linux AppImage is our gold standard for delivery. Keep packaging logic simple, portable, and self-contained.
 
@@ -85,7 +85,6 @@ Managed via **Deno**. Entry points are in the `/scripts` directory.
 | Platform | Display Server | Audio Backend | Hardware Access |
 | :--- | :--- | :--- | :--- |
 | **Linux** | Wayland (Primary) | ALSA / PulseAudio | XDG Portals (ashpd) |
-| **Linux** | X11 (Fallback) | ALSA / PulseAudio | Direct Xlib (Avoid if possible) |
 | **Windows** | Desktop | WASAPI | CoreAudio API |
 
 ### Linux Permission Setup
@@ -128,7 +127,6 @@ Any agent working on this repo should prioritize the following cleanups:
 
 ## ⚠️ Common Pitfalls to Avoid
 - **Blocking the UI:** Never run expensive calculations or blocking I/O on the main thread.
-- **X11 Reliance:** Avoid crates or logic that assume an X11 environment (e.g., direct Xlib calls) without a Wayland equivalent.
 - **Hardcoding Paths:** Always use the Tauri `PathResolver` or standard `dirs` crate to locate configuration and data directories.
 - **Silent Failures:** Always log errors and, if relevant, notify the user via a Toast or Status update.
 - **Inconsistent Naming:** Do not mix `camelCase` and `snake_case` in the same context. Follow the established patterns (Rust: `snake_case`, TS: `camelCase`).
