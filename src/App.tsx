@@ -7,7 +7,7 @@ import { getVersion } from '@tauri-apps/api/app';
 import { open } from '@tauri-apps/plugin-shell';
 import { IconBrandGithub } from '@tabler/icons-react';
 import StatusIcon from './StatusIcon.tsx';
-import { tokens, tokensToCssVars } from './design-tokens.ts';
+import { tokens } from './design-tokens.ts';
 import { Card } from './components/Card.tsx';
 import { Button } from './components/Button.tsx';
 import { ConfigField } from './components/ConfigField.tsx';
@@ -94,14 +94,6 @@ function App() {
       console.error(`Failed to send log to backend: ${err}`);
     });
   };
-
-  useEffect(() => {
-    const cssVars = tokensToCssVars(tokens);
-    const root = document.documentElement;
-    Object.entries(cssVars).forEach(([key, value]) => {
-      root.style.setProperty(key, value);
-    });
-  }, []);
 
   useEffect(() => {
     loadConfig();

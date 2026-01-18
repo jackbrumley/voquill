@@ -52,9 +52,10 @@ export const tokens = {
   },
   
   typography: {
-    fontMain: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif",
-    fontMono: "'Consolas', 'Monaco', 'Courier New', monospace",
+    fontMain: "Inter, 'Segoe UI', system-ui, -apple-system, sans-serif",
+    fontMono: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace",
     sizeXs: '11px',
+
     sizeSm: '13px',
     sizeMd: '14px',
     sizeLg: '16px',

@@ -36,6 +36,7 @@ body {
 
 .status-text {
   color: white;
+  font-family: var(--typography-font-main);
   font-size: 16px;
   font-weight: 300;
   text-align: center;
@@ -44,6 +45,7 @@ body {
   border-radius: 8px;
   backdrop-filter: blur(12px) saturate(180%);
 }
+
 
 /* Override the light mode media query from index.css */
 @media (prefers-color-scheme: light) {
