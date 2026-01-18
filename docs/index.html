@@ -100,9 +100,41 @@
         }
 
         .platform-icon {
-            height: 56px;
-            width: auto;
-            filter: brightness(0) invert(1);
+            height: 64px;
+            width: 64px;
+            background-color: var(--colors-text-primary);
+            mask-size: contain;
+            mask-repeat: no-repeat;
+            mask-position: center;
+            -webkit-mask-size: contain;
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            transition: background-color 0.3s ease;
+        }
+
+        .icon-windows {
+            mask-image: url('windows.svg');
+            -webkit-mask-image: url('windows.svg');
+        }
+
+        .icon-linux {
+            mask-image: url('linux.svg');
+            -webkit-mask-image: url('linux.svg');
+        }
+
+        .platform-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0.4;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: default;
+        }
+
+        .platform-block:hover {
+            opacity: 1;
+            transform: translateY(-4px);
         }
 
         .platform-label {
@@ -227,13 +259,13 @@
             <p class="tagline">Free, private, and open-source system-wide push-to-talk dictation tool.</p>
             <div class="platform-support">
                 <div class="platform-block">
-                    <img src="windows.svg" alt="Windows" class="platform-icon">
-                    <span class="platform-label">Windows</span>
+                    <div class="platform-icon icon-linux"></div>
+                    <span class="platform-label">Linux</span>
                 </div>
                 <div class="platform-divider"></div>
                 <div class="platform-block">
-                    <img src="linux.svg" alt="Linux" class="platform-icon">
-                    <span class="platform-label">Linux</span>
+                    <div class="platform-icon icon-windows"></div>
+                    <span class="platform-label">Windows</span>
                 </div>
             </div>
         </header>
