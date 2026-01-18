@@ -274,29 +274,24 @@ function App() {
     }
   };
 
-  const updateConfig = (key: keyof Config, value: any, shouldPersist = false) => {
-    setConfig(prev => {
-      const newConfig = { ...prev, [key]: value };
-      if (shouldPersist) {
-        persistConfig(newConfig);
-      }
-      return newConfig;
-    });
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      persistConfig(config);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [config]);
 
-  const saveConfig = async () => {
-    logUI('🖱️ Button clicked: Save Configuration');
-    await persistConfig(config);
-    showToast('Configuration saved!', 'success');
+  const updateConfig = (key: keyof Config, value: any) => {
+    setConfig(prev => ({ ...prev, [key]: value }));
   };
 
   const toggleOutputMethod = (method: 'Typewriter' | 'Clipboard') => {
     logUI(`🖱️ Output Method changed to: ${method}`);
-    updateConfig('output_method', method, true);
+    updateConfig('output_method', method);
   };
 
   const startMicTest = async () => {
-    logUI('🖱️ Button clicked: Check Microphone (Start)');
+    logUI('🖱️ Button clicked: Test Microphone (Start)');
     try {
       setMicTestStatus('recording');
       await invoke('start_mic_test');
@@ -452,7 +447,7 @@ function App() {
                 <ConfigField label="Transcription Method" description="Choose between cloud-based API or fully local processing.">
                   <ModeSwitcher 
                     value={config.transcription_mode} 
-                    onToggle={(val) => updateConfig('transcription_mode', val, true)} 
+                    onToggle={(val) => updateConfig('transcription_mode', val)} 
                     options={[
                       { value: 'Local', label: 'Local', title: 'Run Whisper locally' },
                       { value: 'API', label: 'Cloud API', title: 'Use OpenAI API' }
@@ -483,7 +478,7 @@ function App() {
                       <div className="select-wrapper">
                         {availableModels.length > 0 ? (
                           <>
-                            <select value={config.local_model_size} onChange={(e: any) => updateConfig('local_model_size', e.target.value, true)}>
+                            <select value={config.local_model_size} onChange={(e: any) => updateConfig('local_model_size', e.target.value)}>
                               {availableModels.map(m => (
                                 <option key={m.size} value={m.size}>{m.size.charAt(0).toUpperCase() + m.size.slice(1)} ({Math.round(m.file_size / 1024 / 1024)}MB)</option>
                               ))}
@@ -517,7 +512,7 @@ function App() {
               <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
                 <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
                   <div className="select-wrapper">
-                    <select value={config.audio_device || 'default'} onChange={(e: any) => updateConfig('audio_device', e.target.value, true)}>
+                    <select value={config.audio_device || 'default'} onChange={(e: any) => updateConfig('audio_device', e.target.value)}>
                       {availableMics.map((mic: any) => <option key={mic.id} value={mic.id}>{mic.label}</option>)}
                     </select>
                     <Button variant="ghost" className="icon-button" onClick={loadMics} title="Refresh Devices">
@@ -534,7 +529,7 @@ function App() {
 
                 <div className="mic-test-row">
                   <Button className="mic-test-button" disabled={micTestStatus === 'processing'} variant={micTestStatus !== 'idle' ? 'primary' : 'secondary'} onClick={() => { if (micTestStatus === 'idle') startMicTest(); else if (micTestStatus === 'recording') stopMicTest(); else if (micTestStatus === 'playing') stopMicPlayback(); }}>
-                    {micTestStatus === 'idle' ? 'Check Microphone' : micTestStatus === 'recording' ? 'Stop & Play Back' : micTestStatus === 'playing' ? 'Stop Playback' : 'Processing...'}
+                    {micTestStatus === 'idle' ? 'Test Microphone' : micTestStatus === 'recording' ? 'Stop & Play Back' : micTestStatus === 'playing' ? 'Stop Playback' : 'Processing...'}
                   </Button>
                   {micTestStatus === 'recording' && (
                     <div className="volume-meter-container">
@@ -546,7 +541,7 @@ function App() {
 
               <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>
                 <ConfigField label="Always Copy to Clipboard" description="Automatically copies the transcription to your clipboard even when in Typewriter mode.">
-                  <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked, true)} label="Enabled" />
+                  <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} label="Enabled" />
                 </ConfigField>
 
                 <ConfigField label="Global Hotkey" description="Hold these keys to record, release to transcribe.">
@@ -568,13 +563,13 @@ function App() {
                 </ConfigField>
 
                 <ConfigField label="Debug Mode" description="Master switch for advanced diagnostic settings.">
-                  <Switch checked={config.debug_mode} onChange={(checked) => updateConfig('debug_mode', checked, true)} label="Enable Debug Settings" />
+                  <Switch checked={config.debug_mode} onChange={(checked) => updateConfig('debug_mode', checked)} label="Enable Debug Settings" />
                 </ConfigField>
 
                 {config.debug_mode && (
                   <ConfigField label="Recording Logs" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked, true)} label="Enable Recording Logs" />
+                      <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} label="Enable Recording Logs" />
                       <Button size="sm" variant="ghost" onClick={openDebugFolder}>Open Folder</Button>
                     </div>
                   </ConfigField>
@@ -606,12 +601,6 @@ function App() {
           </div>
         )}
       </div>
-
-      {activeTab === 'config' && (
-        <ActionFooter>
-          <Button variant="primary" className="sticky-footer-button" onClick={saveConfig}>Save Configuration</Button>
-        </ActionFooter>
-      )}
 
       {activeTab === 'history' && (
         <ActionFooter>
