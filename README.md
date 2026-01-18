@@ -4,7 +4,7 @@
 
 # Voquill
 
-**The original, free, and private system-wide push-to-talk dictation tool.**
+**Free, and private system-wide push-to-talk dictation tool.**
 
 [voquill.org](https://voquill.org)
 
