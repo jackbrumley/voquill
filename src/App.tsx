@@ -33,6 +33,7 @@ interface Config {
   input_sensitivity: number;
   output_method: 'Typewriter' | 'Clipboard';
   copy_on_typewriter: boolean;
+  language: string;
 }
 
 interface Toast {
@@ -69,6 +70,7 @@ function App() {
     input_sensitivity: 1.0,
     output_method: 'Typewriter',
     copy_on_typewriter: false,
+    language: 'auto',
   });
   
   const [activeTab, setActiveTab] = useState<'status' | 'history' | 'config'>('status');
@@ -445,6 +447,25 @@ function App() {
                       { value: 'API', label: 'Cloud API', title: 'Use OpenAI API' }
                     ]}
                   />
+                </ConfigField>
+
+                <ConfigField label="Language" description="Hint the dialect or hard-set the output language.">
+                  <div className="select-wrapper">
+                    <select value={config.language} onChange={(e: any) => updateConfig('language', e.target.value)}>
+                      <option value="auto">Automatic Detection</option>
+                      <option value="en-AU">English (Australia)</option>
+                      <option value="en-GB">English (United Kingdom)</option>
+                      <option value="en-US">English (United States)</option>
+                      <option value="fr">French</option>
+                      <option value="es">Spanish</option>
+                      <option value="de">German</option>
+                      <option value="it">Italian</option>
+                      <option value="pt">Portuguese</option>
+                      <option value="nl">Dutch</option>
+                      <option value="ja">Japanese</option>
+                      <option value="zh">Chinese</option>
+                    </select>
+                  </div>
                 </ConfigField>
 
                 {config.transcription_mode === 'API' ? (

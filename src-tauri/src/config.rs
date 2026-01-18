@@ -46,6 +46,8 @@ pub struct Config {
     pub output_method: OutputMethod,
     #[serde(default = "default_copy_on_typewriter")]
     pub copy_on_typewriter: bool,
+    #[serde(default = "default_language")]
+    pub language: String,
 }
 
 fn default_api_key() -> String { "your_api_key_here".to_string() }
@@ -63,6 +65,7 @@ fn default_enable_recording_logs() -> bool { false }
 fn default_input_sensitivity() -> f32 { 1.0 }
 fn default_output_method() -> OutputMethod { OutputMethod::Typewriter }
 fn default_copy_on_typewriter() -> bool { false }
+fn default_language() -> String { "auto".to_string() }
 
 impl Default for Config {
     fn default() -> Self {
@@ -82,6 +85,7 @@ impl Default for Config {
             input_sensitivity: default_input_sensitivity(),
             output_method: default_output_method(),
             copy_on_typewriter: default_copy_on_typewriter(),
+            language: default_language(),
         }
     }
 }

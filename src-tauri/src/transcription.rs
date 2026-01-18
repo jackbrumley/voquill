@@ -23,7 +23,7 @@ impl std::error::Error for TranscriptionError {}
 
 #[async_trait]
 pub trait TranscriptionService {
-    async fn transcribe(&self, audio_data: &[u8]) -> Result<String, TranscriptionError>;
+    async fn transcribe(&self, audio_data: &[u8], language: Option<&str>, prompt: Option<&str>) -> Result<String, TranscriptionError>;
     fn service_name(&self) -> &'static str;
 }
 
@@ -35,10 +35,10 @@ pub struct APITranscriptionService {
 
 #[async_trait]
 impl TranscriptionService for APITranscriptionService {
-    async fn transcribe(&self, audio_data: &[u8]) -> Result<String, TranscriptionError> {
+    async fn transcribe(&self, audio_data: &[u8], language: Option<&str>, prompt: Option<&str>) -> Result<String, TranscriptionError> {
         let client = reqwest::Client::new();
         
-        let form = multipart::Form::new()
+        let mut form = multipart::Form::new()
             .part(
                 "file",
                 multipart::Part::bytes(audio_data.to_vec())
@@ -48,6 +48,14 @@ impl TranscriptionService for APITranscriptionService {
             )
             .text("model", self.api_model.clone());
 
+        if let Some(lang) = language {
+            form = form.text("language", lang.to_string());
+        }
+
+        if let Some(p) = prompt {
+            form = form.text("prompt", p.to_string());
+        }
+
         let response = client
             .post(&self.api_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
@@ -55,6 +63,7 @@ impl TranscriptionService for APITranscriptionService {
             .send()
             .await
             .map_err(|e| TranscriptionError::NetworkError(e.to_string()))?;
+
 
         if !response.status().is_success() {
             let error_text = response.text().await

@@ -774,30 +774,38 @@ async fn record_and_transcribe(
     }
     
     emit_status_to_frontend("Transcribing").await;
-    let (transcription_mode, api_key, api_url, api_model, debug_mode, enable_recording_logs) = {
-        let config = config.lock().unwrap();
+    let (transcription_mode, api_key, api_url, api_model, debug_mode, enable_recording_logs, language_choice) = {
+        let config_guard = config.lock().unwrap();
         (
-            config.transcription_mode.clone(),
-            config.openai_api_key.clone(), 
-            config.api_url.clone(), 
-            config.api_model.clone(),
-            config.debug_mode,
-            config.enable_recording_logs
+            config_guard.transcription_mode.clone(),
+            config_guard.openai_api_key.clone(),
+            config_guard.api_url.clone(),
+            config_guard.api_model.clone(),
+            config_guard.debug_mode,
+            config_guard.enable_recording_logs,
+            config_guard.language.clone(),
         )
     };
+
+    let (lang_code, prompt_hint) = match language_choice.as_str() {
+        "auto" => (None, None),
+        "en-AU" => (Some("en"), Some("Australian spelling.")),
+        "en-GB" => (Some("en"), Some("British spelling.")),
+        "en-US" => (Some("en"), Some("American spelling.")),
+        code => (Some(code), None),
+    };
     
-    // Handle debug mode recording persistence
     if debug_mode && enable_recording_logs {
-        let debug_dir = dirs::config_dir()
+
+        let debug_path = dirs::config_dir()
             .unwrap_or_default()
             .join("voquill")
-            .join("debug");
-        let _ = std::fs::create_dir_all(&debug_dir);
+            .join("debug")
+            .join(format!("recording_{}.wav", ::chrono::Local::now().format("%Y%m%d_%H%M%S")));
         
-        let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
-        let debug_path = debug_dir.join(format!("recording_{}.wav", timestamp));
-        
-        if let Err(e) = std::fs::write(&debug_path, &audio_data) {
+        if let Err(e) = std::fs::create_dir_all(debug_path.parent().unwrap()) {
+            log_info!("❌ Failed to create debug directory: {}", e);
+        } else if let Err(e) = std::fs::write(&debug_path, &audio_data) {
             log_info!("❌ Failed to save debug recording: {}", e);
         } else {
             log_info!("🛡️ Debug recording saved to: {:?}", debug_path);
@@ -805,6 +813,7 @@ async fn record_and_transcribe(
     }
     
     log_info!("📡 Transcription Mode: {:?}", transcription_mode);
+    log_info!("🌐 Language: {:?}, Hint: {:?}", lang_code, prompt_hint);
     
     let service: Box<dyn transcription::TranscriptionService + Send + Sync> = match transcription_mode {
         TranscriptionMode::API => Box::new(transcription::APITranscriptionService {
@@ -828,11 +837,12 @@ async fn record_and_transcribe(
         }
     };
 
-    let text = match service.transcribe(&audio_data).await {
+    let text = match service.transcribe(&audio_data, lang_code, prompt_hint).await {
         Ok(text) => {
             log_info!("📝 Transcription received ({}): \"{}\"", service.service_name(), text);
             text
         },
+
         Err(e) => { 
             log_info!("❌ Transcription failed ({}): {}", service.service_name(), e);
             reset_status_on_exit().await; 

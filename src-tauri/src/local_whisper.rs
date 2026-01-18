@@ -30,7 +30,7 @@ impl LocalWhisperService {
 
 #[async_trait]
 impl TranscriptionService for LocalWhisperService {
-    async fn transcribe(&self, audio_data: &[u8]) -> Result<String, TranscriptionError> {
+    async fn transcribe(&self, audio_data: &[u8], language: Option<&str>, prompt: Option<&str>) -> Result<String, TranscriptionError> {
         // Convert WAV bytes to f32 samples
         let mut reader = hound::WavReader::new(std::io::Cursor::new(audio_data))
             .map_err(|e| TranscriptionError::AudioError(e.to_string()))?;
@@ -58,7 +58,10 @@ impl TranscriptionService for LocalWhisperService {
 
         // Configure transcription parameters
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-        params.set_language(Some("en"));
+        params.set_language(language);
+        if let Some(p) = prompt {
+            params.set_initial_prompt(p);
+        }
         params.set_translate(false);
         params.set_print_progress(false);
         params.set_print_realtime(false);
