@@ -76,6 +76,24 @@
             font-weight: 400;
         }
 
+        .platform-support {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+            opacity: 0.6;
+            transition: opacity 0.3s ease;
+        }
+
+        header:hover .platform-support {
+            opacity: 1;
+        }
+
+        .platform-icon {
+            height: 24px;
+            fill: var(--colors-text-secondary);
+        }
+
         .philosophy-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -182,6 +200,16 @@
             <img src="logo.png" alt="Voquill Logo" class="logo">
             <h1>Voquill</h1>
             <p class="tagline">The original free, private, and open-source system-wide push-to-talk dictation tool.</p>
+            <div class="platform-support">
+                <!-- Windows Icon -->
+                <svg class="platform-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" title="Windows Support">
+                    <path d="M0 3.449L9.75 2.1V11.7H0V3.449zm0 17.102L9.75 21.9V12.3H0v8.251zM10.5 2V11.7H24V0L10.5 2zm13.5 10.3H10.5V22l13.5 2V12.3z"/>
+                </svg>
+                <!-- Linux Icon (Tux) -->
+                <svg class="platform-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" title="Linux Support">
+                    <path d="M12 0c-3.15 0-5.7 2.55-5.7 5.7s2.55 5.7 5.7 5.7 5.7-2.55 5.7-5.7-2.55-5.7-5.7-5.7zm0 1.8c2.15 0 3.9 1.75 3.9 3.9s-1.75 3.9-3.9 3.9-3.9-1.75-3.9-3.9 1.75-3.9 3.9-3.9zm-4.5 10.2c-2.48 0-4.5 2.02-4.5 4.5v1.5c0 .83.67 1.5 1.5 1.5h15c.83 0 1.5-.67 1.5-1.5v-1.5c0-2.48-2.02-4.5-4.5-4.5h-9zm0 1.8h9c1.5 0 2.7 1.2 2.7 2.7v.9h-14.4v-.9c0-1.5 1.2-2.7 2.7-2.7z"/>
+                </svg>
+            </div>
         </header>
 
         <section class="philosophy-grid">
