@@ -1,129 +1,64 @@
-# Release Process
+# Manual Release Process
 
-This document explains how to create releases for Voquill using the automated GitHub Actions workflow.
+This document outlines the steps to manually create and publish a new release of Voquill.
 
-## Overview
+## 1. Prepare the Release
 
-The GitHub Actions workflow automatically builds Voquill for all supported platforms (Windows, macOS, and Linux) and creates a GitHub release with all the binaries.
+Before building, ensure the version numbers are consistent across the project.
 
-## Supported Platforms
-
-- **Windows x86_64**: `.exe` executable and `.msi` installer
-- **macOS x86_64**: Binary executable and `.dmg` installer
-- **Linux x86_64**: Binary executable, `.deb` package, and `.AppImage`
-
-## How to Create a Release
-
-### Method 1: Git Tag (Recommended)
-
-1. **Ensure your code is ready for release**:
+1. Update version in `src-tauri/Cargo.toml`
+2. Update version in `src-tauri/tauri.conf.json`
+3. Update version in `package.json`
+4. Commit these changes:
    ```bash
-   # Make sure all changes are committed
    git add .
-   git commit -m "Prepare for release v1.0.0"
-   git push origin main
+   git commit -m "Bump version to vX.Y.Z"
    ```
 
-2. **Create and push a version tag**:
-   ```bash
-   # Create a tag (replace 1.0.0 with your version)
-   git tag v1.0.0
-   
-   # Push the tag to GitHub
-   git push origin v1.0.0
-   ```
+## 2. Build the Binaries
 
-3. **Wait for the build to complete**:
-   - Go to your GitHub repository
-   - Click on "Actions" tab
-   - Watch the "Release" workflow run
-   - This typically takes 10-15 minutes
+You will need to build the application on each target platform.
 
-4. **Check the release**:
-   - Go to the "Releases" section of your GitHub repository
-   - Your new release should appear with all platform binaries attached
-
-### Method 2: Manual Trigger
-
-1. Go to your GitHub repository
-2. Click on "Actions" tab
-3. Select "Release" workflow
-4. Click "Run workflow"
-5. Choose the branch and click "Run workflow"
-
-## Version Numbering
-
-Use semantic versioning (semver) for your tags:
-- `v1.0.0` - Major release
-- `v1.0.1` - Patch release
-- `v1.1.0` - Minor release
-- `v2.0.0` - Major breaking changes
-
-## What Gets Built
-
-For each platform, the workflow creates:
-
-### Windows
-- `voquill.exe` - Standalone executable
-- `voquill_1.0.0_x64_en-US.msi` - Windows installer
-
-### macOS
-- `voquill` - Standalone executable
-- `Voquill_1.0.0_x64.dmg` - macOS disk image
-
-### Linux
-- `voquill` - Standalone executable
-- `voquill_1.0.0_amd64.deb` - Debian/Ubuntu package
-- `voquill_1.0.0_amd64.AppImage` - Universal Linux package
-
-## Distribution
-
-Users can download the appropriate file for their platform:
-
-- **Windows users**: Download the `.msi` installer for easy installation, or the `.exe` for portable use
-- **macOS users**: Download the `.dmg` file and drag to Applications folder
-- **Linux users**: 
-  - Debian/Ubuntu: Download and install the `.deb` package
-  - Other distributions: Use the `.AppImage` file (no installation required)
-  - Advanced users: Use the standalone binary
-
-## Troubleshooting
-
-### Build Fails
-1. Check the Actions tab for error details
-2. Common issues:
-   - Syntax errors in code
-   - Missing dependencies
-   - Version conflicts
-
-### Missing Binaries
-- Some platforms might fail while others succeed
-- Check individual job logs in the Actions tab
-- The release will still be created with available binaries
-
-### Permission Issues
-- Ensure your GitHub repository has Actions enabled
-- Check that the workflow has write permissions to create releases
-
-## Local Testing
-
-Before creating a release, test your build locally:
-
+### Linux (Debian/Ubuntu/RPM/AppImage)
+On a Linux machine:
 ```bash
-# Test the build process
-node scripts/build.js
-
-# Test in development mode
-cd rust
-cargo tauri dev
+deno task build
 ```
+Artifacts will be in `src-tauri/target/release/bundle/deb/`, `src-tauri/target/release/bundle/rpm/`, and `src-tauri/target/release/bundle/appimage/`.
 
-## Updating the Workflow
+### Windows (MSI/EXE)
+On a Windows machine:
+```bash
+deno task build
+```
+Artifacts will be in `src-tauri/target/release/bundle/msi/` and `src-tauri/target/release/`.
 
-The workflow file is located at `.github/workflows/release.yml`. Modify it if you need to:
-- Add new target platforms
-- Change build configurations
-- Update dependencies
-- Modify artifact names
+## 3. Create a GitHub Release
 
-After updating the workflow, commit and push the changes before creating your next release.
+1. **Tag the commit**:
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+
+2. **Draft the Release on GitHub**:
+   - Go to the "Releases" section of the repository.
+   - Click "Draft a new release".
+   - Select the tag you just pushed.
+   - Set the title (e.g., `Voquill vX.Y.Z`).
+   - Describe the changes in the release notes.
+
+3. **Upload Assets**:
+   Manually upload the following files from your build outputs:
+   - `voquill_X.Y.Z_amd64.deb`
+   - `voquill_X.Y.Z_amd64.rpm`
+   - `voquill_X.Y.Z_amd64.AppImage`
+   - `Voquill_X.Y.Z_x64_en-US.msi`
+   - `voquill.exe` (Standalone Windows binary)
+
+4. **Publish**:
+   Review the release and click "Publish release".
+
+## 4. Post-Release
+
+Verify that the download links in the README point to the latest version and that the binaries work as expected on clean installations.

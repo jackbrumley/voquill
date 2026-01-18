@@ -9,7 +9,7 @@ This document outlines the plan to integrate local Whisper model support into Vo
 ### Existing Implementation
 - **Transcription**: OpenAI's Whisper API via HTTP requests in `transcription.rs`
 - **Configuration**: Simple config structure with `openai_api_key` field
-- **Frontend**: Tauri-based desktop app with React UI
+- **Frontend**: Tauri-based desktop app with Preact UI
 - **Audio**: Recording via `cpal` and `hound` libraries
 - **Dependencies**: `reqwest` for HTTP, `serde` for serialization
 

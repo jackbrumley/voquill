@@ -72,7 +72,7 @@ Managed via **Deno**. Entry points are in the `/scripts` directory.
 - **State Management:** Use `AppState` (managed by Tauri) to hold shared resources like `Config`, `AudioStream`, or `RecordingState`.
 - **Modularity:** Keep hardware-specific logic isolated in modules (e.g., `audio.rs`, `typing.rs`, `hotkey.rs`).
 
-### 2. Frontend (React 19)
+### 2. Frontend (Preact)
 - **Strict TypeScript:** No `any`. Explicit interfaces for all data structures (API responses, State slices).
 - **Hooks over Classes:** Use functional components and custom hooks (in `src/ui/src/hooks/`) for logic isolation.
 - **Styles:** Use semantic CSS. Avoid inline styles or "magic number" positioning. Themes should be managed via global CSS variables in `index.css`.
@@ -87,7 +87,6 @@ Managed via **Deno**. Entry points are in the `/scripts` directory.
 | **Linux** | Wayland (Primary) | ALSA / PulseAudio | XDG Portals (ashpd) |
 | **Linux** | X11 (Fallback) | ALSA / PulseAudio | Direct Xlib (Avoid if possible) |
 | **Windows** | Desktop | WASAPI | CoreAudio API |
-| **macOS** | Quartz | CoreAudio | AVFoundation |
 
 ### Linux Permission Setup
 On first launch or if permissions are missing, Voquill triggers a Polkit prompt (`pkexec`) to add the user to the `audio` and `input` groups. Agents must ensure any new hardware interaction respects this flow.
@@ -100,7 +99,7 @@ When adding a new feature, follow this sequence:
 1.  **Analyze Environment:** Check for platform-specific constraints (especially Wayland).
 2.  **Scaffold Backend:** Implement the logic in a new or existing Rust module.
 3.  **Expose Command:** Create a `#[tauri::command]` and register it in `main.rs`.
-4.  **Implement UI:** Create the React component and hook it up to the command using `invoke`.
+4.  **Implement UI:** Create the Preact component and hook it up to the command using `invoke`.
 5.  **Verify Integrity:** Run `cargo clippy`, `deno task check`, and `npm run lint`.
 6.  **Test Platform Parity:** Verify the feature works on Linux (Wayland) and Windows.
 
@@ -120,7 +119,7 @@ Any agent working on this repo should prioritize the following cleanups:
 - **Ask, Don't Assume:** If a cleanup involves structural changes (like moving folders or renaming modules), always explain *why* it's cleaner and ask for approval.
 - **Trace the Data:** Before proposing a fix for any data-related issue, trace the information back to its origin. Propose a fix for the source logic rather than a filter for the consumer.
 - **Status Updates:** Use the centralized `emit_status_update` in Rust as the single source of truth for UI state. Avoid emitting ad-hoc events for standard states.
-- **Platform Parity:** When adding a feature, ensure it is considered for Windows, macOS, and Linux (Wayland). If a platform requires specific logic, isolate it in a platform-specific module.
+- **Platform Parity:** When adding a feature, ensure it is considered for Windows and Linux (Wayland). If a platform requires specific logic, isolate it in a platform-specific module.
 - **Documentation:** Proactively update `AGENTS.md` or other docs if you introduce a new architectural pattern or a major dependency.
 - **Self-Verification:** Always run `cargo check` and `deno task check` before declaring a task complete.
 - **Git Commits:** Do not perform git commits without explicit user approval. Always ask for confirmation before running `git commit`.
