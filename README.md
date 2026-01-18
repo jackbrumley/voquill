@@ -4,25 +4,36 @@
 
 # Voquill
 
-**Free, Open-Source, and Private: System-wide push-to-talk dictation with offline Whisper speech recognition.**
+**The original, free, and private system-wide push-to-talk dictation tool.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)](https://github.com/jackbrumley/voquill)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri-24C8DB)](https://tauri.app/)
 
-*Accurate voice dictation that works in any application, anywhere on your system. 100% local, 100% private.*
+*Accurate voice dictation that works in any application, anywhere on your system. 100% local, 100% private, and open source under the MIT license.*
 
 </div>
 
 ---
 
+## The Philosophy
+
+Voquill was created with a simple premise: **voice dictation should be a basic utility, not a subscription service.** 
+
+In an era of cloud-first AI, Voquill stands apart by prioritizing the user:
+- **Zero Backend**: No remote servers, no cloud services, and no data collection.
+- **Zero Accounts**: No login required. No tracking, no onboarding, and no "Free Tiers."
+- **Zero Cost**: Truly free and open source under the MIT license.
+- **Privacy First**: Your voice never leaves your computer. Transcription happens 100% on your device.
+
+---
+
 ## Features
 
-- **Private by Default** - High-performance offline transcription ensures your voice never leaves your computer.
-- **Free and Open Source** - No subscriptions, no tracking, and no hidden costs.
+- **Private by Default** - High-performance offline transcription ensures total data sovereignty.
 - **Global Push-to-Talk** - Hold a customizable shortcut to record and release to transcribe instantly.
 - **Universal Input** - Transcribed text is injected directly into your active window as keystrokes.
-- **Windows and Linux Support** - Native support for Windows and Linux (Wayland/X11).
+- **Windows and Linux Support** - Native support for Windows and Linux (Wayland).
 - **Minimalist Design** - An unobtrusive overlay provides status updates without getting in your way.
 - **History Management** - Quickly access, copy, and manage your previous transcriptions.
 
@@ -72,18 +83,14 @@ Voquill is built for performance and security:
 - **Preact** - Clean and responsive interface.
 - **Deno** - Modern JavaScript/TypeScript runtime and task runner.
 
-## Use Cases
-
-- **Writing** - Dictate emails, blog posts, and long-form documents.
-- **Development** - Voice-driven code comments and documentation.
-- **Accessibility** - A powerful hands-free input method.
-- **Productivity** - Faster text entry for everyday tasks.
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
+
+### Project Provenance
+*Voquill was founded in July 2025 by Jack Brumley as a minimalist, privacy-first alternative to cloud-based dictation services. It remains committed to the principle that utility tools should be free, open, and local.*
 
 <div align="center">
 
