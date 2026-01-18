@@ -34,3 +34,6 @@ src-tauri/debug
 
 # Archives
 .archive
+
+# Local Strategy/Temp
+temp/
