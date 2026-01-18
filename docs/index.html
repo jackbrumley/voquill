@@ -79,25 +79,44 @@
         .platform-support {
             display: flex;
             justify-content: center;
-            gap: 1.5rem;
-            margin-top: 1.5rem;
-            opacity: 0.6;
-            transition: opacity 0.3s ease;
+            align-items: center;
+            gap: 2rem;
+            margin-top: 2rem;
         }
 
-        header:hover .platform-support {
+        .platform-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0.4;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: default;
+        }
+
+        .platform-block:hover {
             opacity: 1;
+            transform: translateY(-4px);
         }
 
         .platform-icon {
-            height: 40px;
+            height: 56px;
             width: auto;
-            filter: brightness(0) invert(0.7);
-            transition: filter 0.3s ease;
+            filter: brightness(0) invert(1);
         }
 
-        header:hover .platform-icon {
-            filter: brightness(0) invert(1);
+        .platform-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.3em;
+            color: var(--colors-text-primary);
+            text-transform: uppercase;
+        }
+
+        .platform-divider {
+            width: 1px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
         }
 
         .philosophy-grid {
@@ -207,10 +226,15 @@
             <h1>Voquill</h1>
             <p class="tagline">Free, private, and open-source system-wide push-to-talk dictation tool.</p>
             <div class="platform-support">
-                <!-- Windows Logo -->
-                <img src="windows.svg" alt="Windows Support" class="platform-icon" title="Windows Support">
-                <!-- Linux Logo -->
-                <img src="linux.svg" alt="Linux Support" class="platform-icon" title="Linux Support">
+                <div class="platform-block">
+                    <img src="windows.svg" alt="Windows" class="platform-icon">
+                    <span class="platform-label">Windows</span>
+                </div>
+                <div class="platform-divider"></div>
+                <div class="platform-block">
+                    <img src="linux.svg" alt="Linux" class="platform-icon">
+                    <span class="platform-label">Linux</span>
+                </div>
             </div>
         </header>
 
