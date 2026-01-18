@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voquill | The Original Free & Private Dictation Tool</title>
+    <style>
+        :root {
+            --bg-color: #0f1115;
+            --text-color: #e6e6e6;
+            --accent-color: #3b82f6;
+            --secondary-text: #9ca3af;
+            --card-bg: #1a1d23;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 90%;
+            padding: 4rem 1rem;
+            text-align: center;
+        }
+
+        header {
+            margin-bottom: 4rem;
+        }
+
+        .logo {
+            width: 128px;
+            height: 128px;
+            margin-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin: 0;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+        }
+
+        .tagline {
+            font-size: 1.25rem;
+            color: var(--secondary-text);
+            margin-top: 1rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .philosophy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin: 4rem 0;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: left;
+            border: 1px solid #2d3139;
+        }
+
+        .card h3 {
+            margin-top: 0;
+            color: var(--accent-color);
+            font-size: 1.2rem;
+        }
+
+        .card p {
+            margin-bottom: 0;
+            font-size: 0.95rem;
+            color: var(--secondary-text);
+        }
+
+        .download-section {
+            margin: 4rem 0;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: var(--accent-color);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: opacity 0.2s;
+            margin: 0.5rem;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            border: 1px solid var(--secondary-text);
+            color: var(--text-color);
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 4rem 0 2rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--secondary-text);
+            width: 100%;
+        }
+
+        hr {
+            border: 0;
+            border-top: 1px solid #2d3139;
+            margin: 2rem 0;
+            width: 100%;
+        }
+
+        .provenance {
+            font-style: italic;
+            opacity: 0.7;
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 2.25rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="logo.png" alt="Voquill Logo" class="logo">
+            <h1>Voquill</h1>
+            <p class="tagline">The original, free, and private system-wide push-to-talk dictation tool.</p>
+        </header>
+
+        <section class="philosophy-grid">
+            <div class="card">
+                <h3>Zero Cloud</h3>
+                <p>No remote servers, no cloud services, and no data collection. Transcription happens 100% on your device.</p>
+            </div>
+            <div class="card">
+                <h3>Zero Accounts</h3>
+                <p>No login required. No tracking, no onboarding, and no "Free Tiers". You own your software.</p>
+            </div>
+            <div class="card">
+                <h3>Zero Cost</h3>
+                <p>Truly free and open source under the MIT license. Voice dictation is a utility, not a subscription.</p>
+            </div>
+        </section>
+
+        <div class="download-section">
+            <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn">Download Latest Release</a>
+            <br>
+            <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">View on GitHub</a>
+        </div>
+
+        <footer>
+            <hr>
+            <p class="provenance">Founded July 2025 by Jack Brumley</p>
+            <p>&copy; 2026 Voquill Project. MIT Licensed.</p>
+        </footer>
+    </div>
+</body>
+</html>
