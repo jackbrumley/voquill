@@ -101,25 +101,9 @@
 
         .platform-icon {
             height: 64px;
-            width: 64px;
-            background-color: var(--colors-text-primary);
-            mask-size: contain;
-            mask-repeat: no-repeat;
-            mask-position: center;
-            -webkit-mask-size: contain;
-            -webkit-mask-repeat: no-repeat;
-            -webkit-mask-position: center;
-            transition: background-color 0.3s ease;
-        }
-
-        .icon-windows {
-            mask-image: url('windows.svg');
-            -webkit-mask-image: url('windows.svg');
-        }
-
-        .icon-linux {
-            mask-image: url('linux.svg');
-            -webkit-mask-image: url('linux.svg');
+            width: auto;
+            filter: brightness(0) invert(1);
+            transition: opacity 0.3s ease;
         }
 
         .platform-block {
@@ -259,12 +243,12 @@
             <p class="tagline">Free, private, and open-source system-wide push-to-talk dictation tool.</p>
             <div class="platform-support">
                 <div class="platform-block">
-                    <div class="platform-icon icon-linux"></div>
+                    <img src="linux.svg" alt="Linux" class="platform-icon">
                     <span class="platform-label">Linux</span>
                 </div>
                 <div class="platform-divider"></div>
                 <div class="platform-block">
-                    <div class="platform-icon icon-windows"></div>
+                    <img src="windows.svg" alt="Windows" class="platform-icon">
                     <span class="platform-label">Windows</span>
                 </div>
             </div>
