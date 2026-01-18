@@ -50,14 +50,18 @@
 
   "bundle": {
     "active": true,
+    "publisher": "Jack Brumley",
     "category": "DeveloperTool",
     "copyright": "",
     "shortDescription": "Voice dictation app",
     "longDescription": "Cross-platform push-to-talk dictation app with Whisper-powered speech recognition",
     "icon": [
       "icons/32x32.png",
+      "icons/64x64.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.svg",
       "icons/icon.ico"
     ],
     "targets": "all",
