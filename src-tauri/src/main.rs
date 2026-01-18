@@ -24,8 +24,10 @@ mod history;
 mod hotkey;
 mod transcription;
 mod typing;
+mod model_manager;
+mod local_whisper;
 
-use config::Config;
+use config::{Config, TranscriptionMode};
 use hotkey::HardwareHotkey;
 
 #[cfg(target_os = "linux")]
@@ -496,6 +498,28 @@ async fn test_api_key(api_key: String, api_url: String) -> Result<bool, String> 
     transcription::test_api_key(&api_key, &api_url).await.map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn get_available_models() -> Result<Vec<model_manager::ModelInfo>, String> {
+    Ok(model_manager::ModelManager::get_available_models())
+}
+
+#[tauri::command]
+async fn check_model_status(model_size: String) -> Result<bool, String> {
+    let mm = model_manager::ModelManager::new().map_err(|e| e.to_string())?;
+    Ok(mm.is_model_downloaded(&model_size))
+}
+
+#[tauri::command]
+async fn download_model(model_size: String, app_handle: tauri::AppHandle) -> Result<(), String> {
+    let mm = model_manager::ModelManager::new().map_err(|e| e.to_string())?;
+    
+    mm.download_model(&model_size, move |progress| {
+        let _ = app_handle.emit("model-download-progress", progress);
+    }).await?;
+    
+    Ok(())
+}
+
 static CURRENT_STATUS: OnceLock<Mutex<String>> = OnceLock::new();
 
 #[tauri::command]
@@ -736,11 +760,13 @@ async fn record_and_transcribe(
     }
     
     emit_status_to_frontend("Transcribing").await;
-    let (api_key, api_url, debug_mode, enable_recording_logs) = {
+    let (transcription_mode, api_key, api_url, api_model, debug_mode, enable_recording_logs) = {
         let config = config.lock().unwrap();
         (
+            config.transcription_mode.clone(),
             config.openai_api_key.clone(), 
             config.api_url.clone(), 
+            config.api_model.clone(),
             config.debug_mode,
             config.enable_recording_logs
         )
@@ -764,16 +790,39 @@ async fn record_and_transcribe(
         }
     }
     
-    log_info!("📡 Sending {} bytes to transcription API...", audio_data.len());
-    let text = match transcription::transcribe_audio(&audio_data, &api_key, &api_url).await {
+    log_info!("📡 Transcription Mode: {:?}", transcription_mode);
+    
+    let service: Box<dyn transcription::TranscriptionService + Send + Sync> = match transcription_mode {
+        TranscriptionMode::API => Box::new(transcription::APITranscriptionService {
+            api_key,
+            api_url,
+            api_model,
+        }),
+        TranscriptionMode::Local => {
+            let model_size = {
+                let config_lock = config.lock().unwrap();
+                config_lock.local_model_size.clone()
+            };
+            match local_whisper::LocalWhisperService::new(&model_size) {
+                Ok(s) => Box::new(s),
+                Err(e) => {
+                    log_info!("❌ Failed to initialize Local Whisper: {}", e);
+                    reset_status_on_exit().await;
+                    return Err(e.into());
+                }
+            }
+        }
+    };
+
+    let text = match service.transcribe(&audio_data).await {
         Ok(text) => {
-            log_info!("📝 Transcription received: \"{}\"", text);
+            log_info!("📝 Transcription received ({}): \"{}\"", service.service_name(), text);
             text
         },
         Err(e) => { 
-            log_info!("❌ Transcription API failed: {}", e);
+            log_info!("❌ Transcription failed ({}): {}", service.service_name(), e);
             reset_status_on_exit().await; 
-            return Err(e); 
+            return Err(e.into()); 
         }
     };
     
@@ -1068,7 +1117,7 @@ fn main() {
             test_api_key, get_current_status, get_history, clear_history,
             check_hotkey_status, manual_register_hotkey, get_audio_devices,
             start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder,
-            log_ui_event
+            log_ui_event, get_available_models, check_model_status, download_model
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

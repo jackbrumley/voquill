@@ -2,10 +2,16 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum OutputMethod {
     Typewriter,
     Clipboard,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum TranscriptionMode {
+    API,
+    Local,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,6 +20,12 @@ pub struct Config {
     pub openai_api_key: String,
     #[serde(default = "default_api_url")]
     pub api_url: String,
+    #[serde(default = "default_api_model")]
+    pub api_model: String,
+    #[serde(default = "default_transcription_mode")]
+    pub transcription_mode: TranscriptionMode,
+    #[serde(default = "default_local_model_size")]
+    pub local_model_size: String,
     #[serde(default = "default_hotkey")]
     pub hotkey: String,
     #[serde(default = "default_typing_speed")]
@@ -38,6 +50,9 @@ pub struct Config {
 
 fn default_api_key() -> String { "your_api_key_here".to_string() }
 fn default_api_url() -> String { "https://api.openai.com/v1/audio/transcriptions".to_string() }
+fn default_api_model() -> String { "whisper-1".to_string() }
+fn default_transcription_mode() -> TranscriptionMode { TranscriptionMode::Local }
+fn default_local_model_size() -> String { "base".to_string() }
 fn default_hotkey() -> String { "ctrl+space".to_string() }
 fn default_typing_speed() -> f64 { 0.001 }
 fn default_key_press_duration() -> u64 { 2 }
@@ -54,6 +69,9 @@ impl Default for Config {
         Self {
             openai_api_key: default_api_key(),
             api_url: default_api_url(),
+            api_model: default_api_model(),
+            transcription_mode: default_transcription_mode(),
+            local_model_size: default_local_model_size(),
             hotkey: default_hotkey(),
             typing_speed_interval: default_typing_speed(),
             key_press_duration_ms: default_key_press_duration(),

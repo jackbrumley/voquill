@@ -20,6 +20,9 @@ import './App.css';
 interface Config {
   openai_api_key: string;
   api_url: string;
+  api_model: string;
+  transcription_mode: 'API' | 'Local';
+  local_model_size: string;
   hotkey: string;
   typing_speed_interval: number;
   key_press_duration_ms: number;
@@ -53,6 +56,9 @@ function App() {
   const [config, setConfig] = useState<Config>({
     openai_api_key: '',
     api_url: 'https://api.openai.com/v1/audio/transcriptions',
+    api_model: 'whisper-1',
+    transcription_mode: 'Local',
+    local_model_size: 'base',
     hotkey: 'ctrl+space',
     typing_speed_interval: 1,
     key_press_duration_ms: 2,
@@ -73,8 +79,12 @@ function App() {
   const [availableMics, setAvailableMics] = useState<AudioDevice[]>([]);
   const [micTestStatus, setMicTestStatus] = useState<'idle' | 'recording' | 'playing' | 'processing'>('idle');
   const [micVolume, setMicVolume] = useState<number>(0);
-  const [activeConfigSection, setActiveConfigSection] = useState<string | null>('connection');
+  const [activeConfigSection, setActiveConfigSection] = useState<string | null>('basic');
   const [appVersion, setAppVersion] = useState<string>('');
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [modelStatus, setModelStatus] = useState<Record<string, boolean>>({});
 
   const logUI = (msg: string) => {
     if (!config.debug_mode && !msg.includes('Button clicked')) return;
@@ -97,6 +107,7 @@ function App() {
     loadConfig();
     loadMics();
     loadHistory();
+    loadModels();
     
     getVersion().then(setAppVersion).catch(err => console.error("Failed to get version:", err));
 
@@ -139,6 +150,10 @@ function App() {
       setMicVolume(event.payload as number);
     });
 
+    const unlistenDownloadProgress = listen<number>('model-download-progress', (event: any) => {
+      setDownloadProgress(event.payload as number);
+    });
+
     return () => {
       unlistenPressed.then((fn: any) => fn());
       unlistenReleased.then((fn: any) => fn());
@@ -148,8 +163,15 @@ function App() {
       unlistenMicTestStarted.then((fn: any) => fn());
       unlistenMicTestFinished.then((fn: any) => fn());
       unlistenMicVolume.then((fn: any) => fn());
+      unlistenDownloadProgress.then((fn: any) => fn());
     };
   }, []);
+
+  useEffect(() => {
+    if (config.transcription_mode === 'Local' && availableModels.length === 0) {
+      loadModels();
+    }
+  }, [config.transcription_mode]);
 
   const loadConfig = async () => {
     try {
@@ -178,6 +200,43 @@ function App() {
       setHistory(savedHistory.items || []);
     } catch (error) {
       console.error('Failed to load history:', error);
+    }
+  };
+
+  const loadModels = async () => {
+    console.log('📡 Fetching available models...');
+    try {
+      const models = await invoke<any[]>('get_available_models');
+      console.log('✅ Models received:', models);
+      if (!models || models.length === 0) {
+        console.warn('⚠️ No models returned from backend.');
+      }
+      setAvailableModels(models || []);
+      
+      const status: Record<string, boolean> = {};
+      for (const model of (models || [])) {
+        status[model.size] = await invoke<boolean>('check_model_status', { modelSize: model.size });
+      }
+      setModelStatus(status);
+    } catch (error) {
+      console.error('❌ Failed to load models:', error);
+      showToast(`Failed to load models: ${error}`, 'error');
+    }
+  };
+
+  const downloadModel = async (size: string) => {
+    logUI(`🖱️ Button clicked: Download Model (${size})`);
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    try {
+      await invoke('download_model', { modelSize: size });
+      showToast(`${size} model downloaded successfully!`, 'success');
+      loadModels();
+    } catch (error) {
+      showToast(`Failed to download model: ${error}`, 'error');
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(0);
     }
   };
 
@@ -231,7 +290,7 @@ function App() {
     showToast('Configuration saved!', 'success');
   };
 
-  const toggleOutputMethod = async (method: 'Typewriter' | 'Clipboard') => {
+  const toggleOutputMethod = (method: 'Typewriter' | 'Clipboard') => {
     logUI(`🖱️ Output Method changed to: ${method}`);
     updateConfig('output_method', method, true);
   };
@@ -341,8 +400,17 @@ function App() {
             <div className="tab-panel-padded">
               <div className="status-display">
                 <StatusIcon status={currentStatus} large />
-                <div className="status-text-app" key={`text-${currentStatus}`}>{currentStatus}</div>
-                <ModeSwitcher method={config.output_method} onToggle={toggleOutputMethod} />
+                <div className="status-text-app" key={`text-${currentStatus}`}>
+                  {currentStatus === 'Transcribing' ? `Transcribing (${config.transcription_mode})` : currentStatus}
+                </div>
+                <ModeSwitcher 
+                  value={config.output_method} 
+                  onToggle={toggleOutputMethod} 
+                  options={[
+                    { value: 'Typewriter', label: 'Typewriter', title: 'Typewriter Mode: Simulates key presses' },
+                    { value: 'Clipboard', label: 'Clipboard', title: 'Clipboard Mode: Fast copy-paste' }
+                  ]}
+                />
               </div>
               
               <Card className="help-content">
@@ -372,17 +440,70 @@ function App() {
         {activeTab === 'config' && (
           <div className="tab-panel config-panel" key="config">
             <div className="tab-panel-content">
-              <CollapsibleSection title="Connection" isOpen={activeConfigSection === 'connection'} onToggle={() => setActiveConfigSection(activeConfigSection === 'connection' ? null : 'connection')}>
-                <ConfigField label="API Key" description="Used to authenticate with the transcription service (OpenAI).">
-                  <div className="input-with-button" style={{ display: 'flex', gap: '8px' }}>
-                    <input type="text" value={config.openai_api_key} onChange={(e: any) => updateConfig('openai_api_key', e.target.value)} placeholder="sk-..." />
-                    <Button onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? '...' : 'Test'}</Button>
-                  </div>
+              <CollapsibleSection title="Basic" isOpen={activeConfigSection === 'basic'} onToggle={() => setActiveConfigSection(activeConfigSection === 'basic' ? null : 'basic')}>
+                <ConfigField label="Transcription Method" description="Choose between cloud-based API or fully local processing.">
+                  <ModeSwitcher 
+                    value={config.transcription_mode} 
+                    onToggle={(val) => updateConfig('transcription_mode', val, true)} 
+                    options={[
+                      { value: 'Local', label: 'Local', title: 'Run Whisper locally' },
+                      { value: 'API', label: 'Cloud API', title: 'Use OpenAI API' }
+                    ]}
+                  />
                 </ConfigField>
 
-                <ConfigField label="API URL" description="The endpoint that processes audio (OpenAI or Local Whisper).">
-                  <input type="url" value={config.api_url} onChange={(e: any) => updateConfig('api_url', e.target.value)} />
-                </ConfigField>
+                {config.transcription_mode === 'API' ? (
+                  <>
+                    <ConfigField label="API Key" description="Used to authenticate with the transcription service (OpenAI).">
+                      <div className="input-with-button" style={{ display: 'flex', gap: '8px' }}>
+                        <input type="text" value={config.openai_api_key} onChange={(e: any) => updateConfig('openai_api_key', e.target.value)} placeholder="sk-..." />
+                        <Button onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? '...' : 'Test'}</Button>
+                      </div>
+                    </ConfigField>
+
+                    <ConfigField label="API URL" description="The endpoint that processes audio (OpenAI or Local Whisper).">
+                      <input type="url" value={config.api_url} onChange={(e: any) => updateConfig('api_url', e.target.value)} />
+                    </ConfigField>
+                    
+                    <ConfigField label="API Model" description="The model name to use with the API provider.">
+                      <input type="text" value={config.api_model} onChange={(e: any) => updateConfig('api_model', e.target.value)} />
+                    </ConfigField>
+                  </>
+                ) : (
+                  <>
+                    <ConfigField label="Local Model" description="Choose the Whisper model size. Larger models are more accurate but slower.">
+                      <div className="select-wrapper">
+                        {availableModels.length > 0 ? (
+                          <>
+                            <select value={config.local_model_size} onChange={(e: any) => updateConfig('local_model_size', e.target.value, true)}>
+                              {availableModels.map(m => (
+                                <option key={m.size} value={m.size}>{m.size.charAt(0).toUpperCase() + m.size.slice(1)} ({Math.round(m.file_size / 1024 / 1024)}MB)</option>
+                              ))}
+                            </select>
+                            {!modelStatus[config.local_model_size] && (
+                              <Button size="sm" onClick={() => downloadModel(config.local_model_size)} disabled={isDownloading}>
+                                {isDownloading ? '...' : 'Download'}
+                              </Button>
+                            )}
+                          </>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
+                            <div style={{ fontSize: '12px', color: 'var(--color-text-dim)', flex: 1 }}>Loading models...</div>
+                            <Button size="sm" onClick={loadModels}>Retry</Button>
+                          </div>
+                        )}
+                      </div>
+                    </ConfigField>
+                    {isDownloading && (
+                      <div className="download-progress-container" style={{ marginTop: '-8px', marginBottom: '16px' }}>
+                        <div className="volume-meter-container" style={{ height: '4px' }}>
+                           <div className="volume-meter-bar" style={{ width: `${downloadProgress}%`, background: 'var(--color-primary)' }}></div>
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--color-text-dim)', textAlign: 'right', marginTop: '2px' }}>Downloading model... {Math.round(downloadProgress)}%</div>
+                      </div>
+                    )}
+                  </>
+                )}
               </CollapsibleSection>
 
               <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>

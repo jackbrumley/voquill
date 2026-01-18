@@ -1,33 +1,36 @@
 
-import { tokens } from '../design-tokens.ts';
-
-interface ModeSwitcherProps {
-  method: 'Typewriter' | 'Clipboard';
-  onToggle: (method: 'Typewriter' | 'Clipboard') => void;
+interface ModeOption<T> {
+  value: T;
+  label: string;
+  title: string;
 }
 
-export const ModeSwitcher = ({ method, onToggle }: ModeSwitcherProps) => {
+interface ModeSwitcherProps<T> {
+  value: T;
+  options: [ModeOption<T>, ModeOption<T>];
+  onToggle: (value: T) => void;
+  className?: string;
+}
+
+export function ModeSwitcher<T extends string>({ value, options, onToggle, className = "" }: ModeSwitcherProps<T>) {
+  const activeIndex = options.findIndex(opt => opt.value === value);
+  const modeClass = `mode-${activeIndex === 0 ? 'first' : 'second'}`;
+
   return (
-    <div className="mode-switcher-container">
-      <div className={`mode-switcher mode-${method.toLowerCase()}`}>
+    <div className={`mode-switcher-container ${className}`}>
+      <div className={`mode-switcher ${modeClass}`}>
         <div className="mode-switcher-slider"></div>
-        <button 
-          className={method === 'Typewriter' ? 'active' : ''} 
-          onClick={() => onToggle('Typewriter')}
-          title="Typewriter Mode: Simulates key presses"
-        >
-          <span className="mode-icon">⌨️</span>
-          <span>Typewriter</span>
-        </button>
-        <button 
-          className={method === 'Clipboard' ? 'active' : ''} 
-          onClick={() => onToggle('Clipboard')}
-          title="Clipboard Mode: Fast copy-paste"
-        >
-          <span className="mode-icon">📋</span>
-          <span>Clipboard</span>
-        </button>
+        {options.map((option, index) => (
+          <button 
+            key={option.value}
+            className={value === option.value ? 'active' : ''} 
+            onClick={() => onToggle(option.value)}
+            title={option.title}
+          >
+            <span>{option.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
-};
+}

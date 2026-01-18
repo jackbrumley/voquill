@@ -50,6 +50,10 @@ async function checkLinuxDependencies() {
     { name: "libpulse-dev", apt: "libpulse-dev" },
     { name: "libgtk-layer-shell-dev", apt: "libgtk-layer-shell-dev" },
     { name: "wl-clipboard", apt: "wl-clipboard" },
+    { name: "cmake", apt: "cmake" },
+    { name: "pkg-config", apt: "pkg-config" },
+    { name: "libclang-dev", apt: "libclang-dev" },
+    { name: "build-essential", apt: "build-essential" },
   ];
 
   for (const dep of dependencies) {
