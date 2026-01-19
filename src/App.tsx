@@ -5,7 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { open } from '@tauri-apps/plugin-shell';
-import { IconBrandGithub } from '@tabler/icons-react';
+import { IconBrandGithub, IconHeart } from '@tabler/icons-react';
 import StatusIcon from './StatusIcon.tsx';
 import { tokens } from './design-tokens.ts';
 import { Card } from './components/Card.tsx';
@@ -422,6 +422,14 @@ function App() {
 
               <div className="status-footer">
                 <span className="version-text">v{appVersion}</span>
+                <button 
+                  className="github-link" 
+                  onClick={() => open('https://voquill.org/donate')}
+                  title="Donate & Support"
+                  style={{ marginRight: '8px' }}
+                >
+                  <IconHeart size={16} color="#ff4b4b" />
+                </button>
                 <button 
                   className="github-link" 
                   onClick={() => open('https://github.com/jackbrumley/voquill')}

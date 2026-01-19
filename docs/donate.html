@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voquill | Donate</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --colors-bg-primary: #36393f;
+      --colors-bg-gradient-warm: #4a384d;
+      --colors-bg-gradient-cool: #2d454f;
+      --colors-text-primary: #ffffff;
+      --colors-text-secondary: #8e9297;
+      --colors-accent-primary: #5865f2;
+      --colors-success: #10b981;
+      --colors-glass-bg: rgba(47, 49, 54, 0.6);
+      --colors-glass-blur: 16px;
+
+      --typography-font-main: "Inter", 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --typography-font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: var(--typography-font-main);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      background: linear-gradient(
+        135deg,
+        var(--colors-bg-gradient-warm) 0%,
+        var(--colors-bg-primary) 50%,
+        var(--colors-bg-gradient-cool) 100%
+      );
+      background-attachment: fixed;
+      color: var(--colors-text-primary);
+      line-height: 1.5;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 900px;
+      width: 95%;
+      padding: 1rem 1rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    header { margin-bottom: 1rem; }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 0.75rem;
+      filter: drop-shadow(0 8px 24px rgba(0,0,0,0.3));
+    }
+
+    h1 {
+      font-size: 2.25rem;
+      margin: 0;
+      font-weight: 300;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+
+    .tagline {
+      font-size: 1.1rem;
+      color: var(--colors-text-secondary);
+      margin-top: 0.75rem;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      font-weight: 400;
+    }
+
+    .card {
+      background: var(--colors-glass-bg);
+      backdrop-filter: blur(var(--colors-glass-blur));
+      -webkit-backdrop-filter: blur(var(--colors-glass-blur));
+      padding: 1.25rem;
+      border-radius: 16px;
+      text-align: left;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+      margin: 1rem auto;
+      max-width: 760px;
+    }
+
+    .card h2 {
+      margin: 0 0 0.75rem 0;
+      color: var(--colors-accent-primary);
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      text-align: center;
+    }
+
+    .card p {
+      margin: 0.5rem 0;
+      font-size: 0.95rem;
+      color: var(--colors-text-secondary);
+      text-align: center;
+    }
+
+    .donate-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+      margin-top: 1rem;
+    }
+
+    .btn {
+      display: inline-block;
+      background-color: var(--colors-success);
+      color: white;
+      padding: 0.85rem 2.25rem;
+      border-radius: 40px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1.05rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+      filter: brightness(1.05);
+    }
+
+    .btn-secondary {
+      background-color: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--colors-text-primary);
+      box-shadow: none;
+    }
+
+    .btn-secondary:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .qr-wrap {
+      display: flex;
+      justify-content: center;
+      margin-top: 1rem;
+    }
+
+    .qr {
+      width: 128px;
+      height: 128px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+      background: rgba(0,0,0,0.15);
+      padding: 0.5rem;
+    }
+
+    footer {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--colors-text-secondary);
+      width: 100%;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .provenance {
+      font-style: normal;
+      opacity: 0.8;
+      font-weight: 500;
+      color: var(--colors-text-primary);
+      margin-bottom: 0.25rem;
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 2.05rem; }
+      .container { padding: 2rem 1rem; }
+      body { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="logo.png" alt="Voquill Logo" class="logo">
+      <h1>Support Voquill</h1>
+      <p class="tagline">
+        Voquill is free, private, and open-source. Donations help cover ongoing development, testing, and distribution.
+      </p>
+    </header>
+
+    <section class="card">
+      <h2>Donate via PayPal (AUD)</h2>
+      <p>Use the button below to choose an amount, or scan the QR code on a mobile device.</p>
+
+      <div class="donate-actions">
+        <a
+          class="btn"
+          href="https://www.paypal.com/donate/?business=NQLJU7FJPRFB4&no_recurring=0&item_name=Support+development+and+maintenance+of+Voquill%2C+a+free+and+open-source+offline+dictation+tool.&currency_code=AUD"
+          target="_blank"
+          rel="noopener noreferrer"
+        >Donate with PayPal</a>
+
+        <a class="btn btn-secondary" href="./">Back to Home</a>
+      </div>
+
+      <div class="qr-wrap">
+        <a
+          href="https://www.paypal.com/donate/?business=NQLJU7FJPRFB4&no_recurring=0&item_name=Support+development+and+maintenance+of+Voquill%2C+a+free+and+open-source+offline+dictation+tool.&currency_code=AUD"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open PayPal donate link"
+        >
+          <img class="qr" src="paypal-donate-qr-code.png" alt="PayPal donate QR code">
+        </a>
+      </div>
+
+      <p style="margin-top: 1rem; font-size: 0.9rem;">
+        Donations are optional and do not unlock features. Voquill remains free and MIT licensed.
+      </p>
+    </section>
+
+    <footer>
+      <p class="provenance">Founded July 2025 by Jack Brumley</p>
+      <p>&copy; 2026 Voquill Project. MIT Licensed.</p>
+    </footer>
+  </div>
+</body>
+</html>
