@@ -87,6 +87,8 @@ function App() {
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [isDownloading, setIsDownloading] = useState(false);
   const [modelStatus, setModelStatus] = useState<Record<string, boolean>>({});
+  const [isSetupRequired, setIsSetupRequired] = useState<boolean>(false);
+  const [linuxSetupStatus, setLinuxSetupStatus] = useState<'idle' | 'configuring' | 'restart-required' | 'failed'>('idle');
 
   const logUI = (msg: string) => {
     if (!config.debug_mode && !msg.includes('Button clicked')) return;
@@ -102,6 +104,7 @@ function App() {
     loadMics();
     loadHistory();
     loadModels();
+    checkSetupStatus();
     
     getVersion().then(setAppVersion).catch(err => console.error("Failed to get version:", err));
 
@@ -166,6 +169,29 @@ function App() {
       loadModels();
     }
   }, [config.transcription_mode]);
+
+  const checkSetupStatus = async () => {
+    try {
+      const isReady = await invoke<boolean>('get_linux_setup_status');
+      setIsSetupRequired(!isReady);
+    } catch (error) {
+      console.error('Failed to check setup status:', error);
+    }
+  };
+
+  const handleLinuxSetup = async () => {
+    logUI('🖱️ Button clicked: Grant Permissions');
+    setLinuxSetupStatus('configuring');
+    try {
+      await invoke('run_linux_setup');
+      setLinuxSetupStatus('restart-required');
+      setIsSetupRequired(false); // Hide setup view after success
+    } catch (error) {
+      console.error('Linux setup failed:', error);
+      setLinuxSetupStatus('failed');
+      showToast(`Setup failed: ${error}`, 'error');
+    }
+  };
 
   const loadConfig = async () => {
     try {
@@ -387,56 +413,116 @@ function App() {
         {activeTab === 'status' && (
           <div className="tab-panel" key="status">
             <div className="tab-panel-padded">
-              <div className="status-display">
-                <StatusIcon status={currentStatus} large />
-                <div className="status-text-app" key={`text-${currentStatus}`}>
-                  {currentStatus === 'Transcribing' ? `Transcribing (${config.transcription_mode})` : currentStatus}
-                </div>
-                <ModeSwitcher 
-                  value={config.output_method} 
-                  onToggle={toggleOutputMethod} 
-                  options={[
-                    { value: 'Typewriter', label: 'Typewriter', title: 'Typewriter Mode: Simulates key presses' },
-                    { value: 'Clipboard', label: 'Clipboard', title: 'Clipboard Mode: Fast copy-paste' }
-                  ]}
-                />
-              </div>
-              
-              <Card className="help-content">
-                <h3>How to Use Voquill</h3>
-                <ol className="instructions">
-                  {config.transcription_mode === 'Local' ? (
-                    modelStatus[config.local_model_size] ? (
-                      <li>Local Whisper model is <strong>Ready</strong>.</li>
-                    ) : (
-                      <li>Download a <strong>Whisper model</strong> in Config.</li>
-                    )
-                  ) : (
-                    <li>Enter your <strong>OpenAI API key</strong> in Config.</li>
-                  )}
-                  <li>Position cursor in any text field.</li>
-                  <li>Hold <strong>{config.hotkey}</strong> and speak.</li>
-                  <li>Release keys to transcribe and type.</li>
-                </ol>
-              </Card>
+              {isSetupRequired ? (
+                <Card className="setup-required-card">
+                  <div className="setup-header">
+                    <div className="setup-icon-container">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="setup-icon">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <path d="M12 8v4" />
+                        <path d="M12 16h.01" />
+                      </svg>
+                    </div>
+                    <h2>System Setup Required</h2>
+                  </div>
+                  
+                  <div className="setup-body">
+                    <p>To enable dictation on Linux, Voquill needs permission to:</p>
+                    <ul className="setup-list">
+                      <li>
+                        <strong>Record Audio:</strong> Used to capture your voice.
+                      </li>
+                      <li>
+                        <strong>Simulate Typing:</strong> Used to inject text into other apps.
+                      </li>
+                    </ul>
+                    <p className="setup-note">Note: This requires a one-time administrative password prompt and a system logout/restart afterward.</p>
+                  </div>
 
+                  <div className="setup-actions">
+                    <Button 
+                      variant="primary" 
+                      onClick={handleLinuxSetup} 
+                      disabled={linuxSetupStatus === 'configuring'}
+                      className="setup-button"
+                    >
+                      {linuxSetupStatus === 'configuring' ? 'Configuring...' : 'Grant Permissions'}
+                    </Button>
+                  </div>
+                </Card>
+              ) : linuxSetupStatus === 'restart-required' ? (
+                <Card className="setup-required-card success">
+                  <div className="setup-header">
+                    <div className="setup-icon-container success">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="setup-icon">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                    </div>
+                    <h2>Setup Complete!</h2>
+                  </div>
+                  <div className="setup-body">
+                    <p>Permissions have been updated. You <strong>must</strong> restart your system (or logout) for these changes to take effect.</p>
+                  </div>
+                  <div className="setup-actions">
+                    <Button variant="secondary" onClick={() => setLinuxSetupStatus('idle')}>Dismiss</Button>
+                  </div>
+                </Card>
+              ) : (
+                <>
+                  <div className="status-display">
+                    <StatusIcon status={currentStatus} large />
+                    <div className="status-text-app" key={`text-${currentStatus}`}>
+                      {currentStatus === 'Transcribing' ? `Transcribing (${config.transcription_mode})` : currentStatus}
+                    </div>
+                    <ModeSwitcher 
+                      value={config.output_method} 
+                      onToggle={toggleOutputMethod} 
+                      options={[
+                        { value: 'Typewriter', label: 'Typewriter', title: 'Typewriter Mode: Simulates key presses' },
+                        { value: 'Clipboard', label: 'Clipboard', title: 'Clipboard Mode: Fast copy-paste' }
+                      ]}
+                    />
+                  </div>
+                  
+                  <Card className="help-content">
+                    <h3>How to Use Voquill</h3>
+                    <ol className="instructions">
+                      {config.transcription_mode === 'Local' ? (
+                        modelStatus[config.local_model_size] ? (
+                          <li>Local Whisper model is <strong>Ready</strong>.</li>
+                        ) : (
+                          <li>Download a <strong>Whisper model</strong> in Config.</li>
+                        )
+                      ) : (
+                        <li>Enter your <strong>OpenAI API key</strong> in Config.</li>
+                      )}
+                      <li>Position cursor in any text field.</li>
+                      <li>Hold <strong>{config.hotkey}</strong> and speak.</li>
+                      <li>Release keys to transcribe and type.</li>
+                    </ol>
+                  </Card>
+                </>
+              )}
+              
               <div className="status-footer">
                 <span className="version-text">v{appVersion}</span>
-                <button 
-                  className="github-link" 
-                  onClick={() => open('https://voquill.org/donate')}
-                  title="Donate & Support"
-                  style={{ marginRight: '8px' }}
-                >
-                  <IconHeart size={16} color="#ff4b4b" />
-                </button>
-                <button 
-                  className="github-link" 
-                  onClick={() => open('https://github.com/jackbrumley/voquill')}
-                  title="View on GitHub"
-                >
-                  <IconBrandGithub size={16} />
-                </button>
+                <div className="status-footer-links">
+                  <button 
+                    className="github-link" 
+                    onClick={() => open('https://voquill.org/donate')}
+                    title="Donate & Support"
+                  >
+                    <IconHeart size={16} color="#ff4b4b" />
+                  </button>
+                  <button 
+                    className="github-link" 
+                    onClick={() => open('https://github.com/jackbrumley/voquill')}
+                    title="View on GitHub"
+                  >
+                    <IconBrandGithub size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
