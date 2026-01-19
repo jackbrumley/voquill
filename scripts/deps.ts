@@ -12,21 +12,96 @@ const colors = {
 interface Dependency {
   name: string;
   cmd?: string; // Command to check in PATH
-  apt?: string; // Linux package name
-  defaults?: string[]; // Windows default install paths
-  install: string; // Installation command
+  apt?: string; // Debian/Ubuntu package name
+  pacman?: string; // Arch/Manjaro package name
+  pkgConfig?: string; // pkg-config name
+  install?: {
+    apt: string;
+    pacman: string;
+    windows?: string;
+  };
   desc: string;
+  defaults?: string[]; // Windows default install paths
 }
 
 const REGISTRY: Record<string, Dependency[]> = {
   linux: [
-    { name: "libpulse-dev", apt: "libpulse-dev", install: "sudo apt install libpulse-dev", desc: "PulseAudio development headers" },
-    { name: "libgtk-layer-shell-dev", apt: "libgtk-layer-shell-dev", install: "sudo apt install libgtk-layer-shell-dev", desc: "GTK Layer Shell development headers" },
-    { name: "cmake", cmd: "cmake", apt: "cmake", install: "sudo apt install cmake", desc: "CMake build system" },
-    { name: "pkg-config", cmd: "pkg-config", apt: "pkg-config", install: "sudo apt install pkg-config", desc: "Package configuration tool" },
-    { name: "libclang-dev", apt: "libclang-dev", install: "sudo apt install libclang-dev", desc: "Clang development headers" },
-    { name: "build-essential", apt: "build-essential", install: "sudo apt install build-essential", desc: "Build tools (gcc, make, etc.)" },
-    { name: "wl-clipboard", cmd: "wl-copy", apt: "wl-clipboard", install: "sudo apt install wl-clipboard", desc: "Wayland clipboard utilities" },
+    {
+      name: "libpulse",
+      apt: "libpulse-dev",
+      pacman: "libpulse",
+      pkgConfig: "libpulse",
+      install: {
+        apt: "sudo apt install libpulse-dev",
+        pacman: "sudo pacman -S libpulse",
+      },
+      desc: "PulseAudio development headers",
+    },
+    {
+      name: "libgtk-layer-shell",
+      apt: "libgtk-layer-shell-dev",
+      pacman: "gtk-layer-shell",
+      pkgConfig: "gtk-layer-shell-0",
+      install: {
+        apt: "sudo apt install libgtk-layer-shell-dev",
+        pacman: "sudo pacman -S gtk-layer-shell",
+      },
+      desc: "GTK Layer Shell development headers",
+    },
+    {
+      name: "cmake",
+      cmd: "cmake",
+      apt: "cmake",
+      pacman: "cmake",
+      install: {
+        apt: "sudo apt install cmake",
+        pacman: "sudo pacman -S cmake",
+      },
+      desc: "CMake build system",
+    },
+    {
+      name: "pkg-config",
+      cmd: "pkg-config",
+      apt: "pkg-config",
+      pacman: "pkgconf",
+      install: {
+        apt: "sudo apt install pkg-config",
+        pacman: "sudo pacman -S pkgconf",
+      },
+      desc: "Package configuration tool",
+    },
+    {
+      name: "libclang",
+      apt: "libclang-dev",
+      pacman: "clang",
+      install: {
+        apt: "sudo apt install libclang-dev",
+        pacman: "sudo pacman -S clang",
+      },
+      desc: "Clang development headers",
+    },
+    {
+      name: "build-essential",
+      apt: "build-essential",
+      pacman: "base-devel",
+      cmd: "gcc",
+      install: {
+        apt: "sudo apt install build-essential",
+        pacman: "sudo pacman -S base-devel",
+      },
+      desc: "Build tools (gcc, make, etc.)",
+    },
+    {
+      name: "wl-clipboard",
+      cmd: "wl-copy",
+      apt: "wl-clipboard",
+      pacman: "wl-clipboard",
+      install: {
+        apt: "sudo apt install wl-clipboard",
+        pacman: "sudo pacman -S wl-clipboard",
+      },
+      desc: "Wayland clipboard utilities",
+    },
   ],
   windows: [
     { 
@@ -36,7 +111,11 @@ const REGISTRY: Record<string, Dependency[]> = {
         "C:\\Program Files\\LLVM\\bin\\clang.exe",
         "C:\\Program Files (x86)\\LLVM\\bin\\clang.exe"
       ], 
-      install: "winget install -e --id LLVM.LLVM", 
+      install: {
+        apt: "winget install -e --id LLVM.LLVM",
+        pacman: "winget install -e --id LLVM.LLVM",
+        windows: "winget install -e --id LLVM.LLVM",
+      }, 
       desc: "LLVM/Clang (required for bindgen)" 
     },
     { 
@@ -46,7 +125,11 @@ const REGISTRY: Record<string, Dependency[]> = {
         "C:\\Program Files\\CMake\\bin\\cmake.exe",
         "C:\\Program Files (x86)\\CMake\\bin\\cmake.exe"
       ], 
-      install: "winget install -e --id Kitware.CMake", 
+      install: {
+        apt: "winget install -e --id Kitware.CMake",
+        pacman: "winget install -e --id Kitware.CMake",
+        windows: "winget install -e --id Kitware.CMake",
+      }, 
       desc: "CMake (required for building C/C++ libs)" 
     },
   ]
@@ -69,21 +152,59 @@ async function isCommandInPath(cmd: string): Promise<boolean> {
 async function checkLinuxDeps(isDev: boolean) {
   console.log(`\n${colors.bright}[0]${colors.reset} ${colors.cyan}Checking Linux dependencies...${colors.reset}`);
 
+  const hasApt = await isCommandInPath("apt-get");
+  const hasPacman = await isCommandInPath("pacman");
+  const hasPkgConfig = await isCommandInPath("pkg-config");
+
   for (const dep of REGISTRY.linux) {
-    // Skip dev-only deps if not in dev mode
     if (dep.name === "wl-clipboard" && !isDev) continue;
 
-    // Check by dpkg first as it's the primary source of truth for headers
-    const command = new Deno.Command("dpkg", {
-      args: ["-s", dep.apt!],
-      stdout: "null",
-      stderr: "null",
-    });
+    let found = false;
 
-    const { success } = await command.output();
-    if (!success) {
+    // 1. Check if command is in PATH
+    if (dep.cmd && await isCommandInPath(dep.cmd)) {
+      found = true;
+    }
+
+    // 2. Check via pkg-config (best for libraries/headers)
+    if (!found && hasPkgConfig && dep.pkgConfig) {
+      try {
+        const process = new Deno.Command("pkg-config", {
+          args: ["--exists", dep.pkgConfig],
+        });
+        const { success } = await process.output();
+        if (success) found = true;
+      } catch { /* ignore */ }
+    }
+
+    // 3. Check via package manager
+    if (!found) {
+      if (hasApt && dep.apt) {
+        try {
+          const process = new Deno.Command("dpkg", {
+            args: ["-s", dep.apt],
+          });
+          const { success } = await process.output();
+          if (success) found = true;
+        } catch { /* ignore */ }
+      } else if (hasPacman && dep.pacman) {
+        try {
+          const process = new Deno.Command("pacman", {
+            args: ["-Qq", dep.pacman],
+          });
+          const { success } = await process.output();
+          if (success) found = true;
+        } catch { /* ignore */ }
+      }
+    }
+
+    if (!found) {
       console.error(`${colors.red}❌ Missing dependency: ${dep.desc}${colors.reset}`);
-      console.log(`${colors.yellow}Please install it with: ${colors.bright}${dep.install}${colors.reset}`);
+      let installCmd = "your package manager";
+      if (hasApt) installCmd = dep.install?.apt || "apt install ...";
+      else if (hasPacman) installCmd = dep.install?.pacman || "pacman -S ...";
+      
+      console.log(`${colors.yellow}Please install it with: ${colors.bright}${installCmd}${colors.reset}`);
       Deno.exit(1);
     } else {
       console.log(`${colors.green}✅ ${dep.name} is installed${colors.reset}`);
@@ -122,7 +243,8 @@ async function checkWindowsDeps() {
       Deno.exit(1);
     } else {
       console.error(`${colors.red}❌ Missing tool: ${dep.desc}${colors.reset}`);
-      console.log(`${colors.yellow}Please install it with: ${colors.bright}${dep.install}${colors.reset}`);
+      const installCmd = dep.install?.windows || dep.install?.apt || "winget install ...";
+      console.log(`${colors.yellow}Please install it with: ${colors.bright}${installCmd}${colors.reset}`);
       console.log(`${colors.yellow}Note: You MUST restart your terminal after installation.${colors.reset}`);
       Deno.exit(1);
     }
