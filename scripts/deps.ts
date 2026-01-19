@@ -102,6 +102,50 @@ const REGISTRY: Record<string, Dependency[]> = {
       },
       desc: "Wayland clipboard utilities",
     },
+    {
+      name: "libwebkit2gtk-4.1",
+      apt: "libwebkit2gtk-4.1-dev",
+      pacman: "webkit2gtk-4.1",
+      pkgConfig: "webkit2gtk-4.1",
+      install: {
+        apt: "sudo apt install libwebkit2gtk-4.1-dev",
+        pacman: "sudo pacman -S webkit2gtk-4.1",
+      },
+      desc: "WebKitGTK development headers",
+    },
+    {
+      name: "libgtk-3",
+      apt: "libgtk-3-dev",
+      pacman: "gtk3",
+      pkgConfig: "gtk+-3.0",
+      install: {
+        apt: "sudo apt install libgtk-3-dev",
+        pacman: "sudo pacman -S gtk3",
+      },
+      desc: "GTK3 development headers",
+    },
+    {
+      name: "libayatana-appindicator3",
+      apt: "libayatana-appindicator3-dev",
+      pacman: "libayatana-appindicator",
+      pkgConfig: "ayatana-appindicator3-0.1",
+      install: {
+        apt: "sudo apt install libayatana-appindicator3-dev",
+        pacman: "sudo pacman -S libayatana-appindicator",
+      },
+      desc: "Ayatana AppIndicator headers",
+    },
+    {
+      name: "librsvg2",
+      apt: "librsvg2-dev",
+      pacman: "librsvg",
+      pkgConfig: "librsvg-2.0",
+      install: {
+        apt: "sudo apt install librsvg2-dev",
+        pacman: "sudo pacman -S librsvg",
+      },
+      desc: "librsvg development headers",
+    },
   ],
   windows: [
     { 

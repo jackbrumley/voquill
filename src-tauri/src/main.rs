@@ -35,18 +35,18 @@ use hotkey::HardwareHotkey;
 async fn check_request_audio_portal(app_handle: &tauri::AppHandle) -> Result<(), String> {
     use ashpd::desktop::camera::Camera;
     
-    log_info!("Checking Audio/Microphone portal status (via Camera portal)...");
+    log_info!("Checking Audio/Microphone portal status (via Camera portal proxy)...");
     
     match Camera::new().await {
         Ok(proxy) => {
             match proxy.request_access().await {
                 Ok(_request) => {
-                    log_info!("✅ Audio/Camera portal request sent");
+                    log_info!("✅ Audio/Microphone portal request sent");
                     Ok(())
                 },
                 Err(e) => {
                     let error_msg = format!("{}", e);
-                    log_info!("⚠️ Audio/Camera portal request failed: {}", error_msg);
+                    log_info!("⚠️ Audio/Microphone portal request failed: {}", error_msg);
                     if !error_msg.contains("not found") {
                         let _ = app_handle.emit("audio-error", "portal-denied");
                     }
@@ -55,7 +55,7 @@ async fn check_request_audio_portal(app_handle: &tauri::AppHandle) -> Result<(),
             }
         },
         Err(e) => {
-            log_info!("⚠️ Audio/Camera portal not available ({}). PulseAudio policy will manage access.", e);
+            log_info!("⚠️ Audio/Microphone portal not available ({}). PulseAudio policy will manage access.", e);
             Ok(())
         }
     }
@@ -100,64 +100,76 @@ impl Default for AppState {
 }
 
 #[cfg(target_os = "linux")]
-async fn check_and_request_permissions(app_handle: &tauri::AppHandle) -> Result<(), String> {
-    use std::process::Command;
+#[tauri::command]
+async fn get_linux_setup_status() -> Result<bool, String> {
     use std::fs;
+    use std::process::Command;
 
-    log_info!("Checking system portals and groups...");
-
-    // Check uinput access directly
+    // 1. Check uinput access directly
     let has_uinput_access = fs::OpenOptions::new().write(true).open("/dev/uinput").is_ok();
-    log_info!("📂 /dev/uinput access: {}", if has_uinput_access { "Writable ✅" } else { "DENIED ❌" });
     
     // 2. Check group memberships
     let groups_output = match Command::new("groups").output() {
         Ok(o) => String::from_utf8_lossy(&o.stdout).into_owned(),
-        Err(e) => {
-            log_info!("⚠️ Failed to run 'groups' command: {}", e);
-            return Ok(());
-        }
+        Err(_) => return Ok(false),
     };
-    log_info!("👤 User groups: {}", groups_output.trim());
     
     let is_in_audio = groups_output.contains("audio");
     let is_in_input = groups_output.contains("input");
-    let is_in_uinput = groups_output.contains("uinput");
 
-    if !has_uinput_access || !is_in_audio || !is_in_input {
-        log_info!("🔧 Missing permissions or group memberships. Triggering Polkit request...");
-        let _ = app_handle.emit("setup-status", "configuring-system");
-        
-        let username = std::env::var("USER").unwrap_or_default();
-        if username.is_empty() {
-             log_info!("⚠️ Could not determine username, skipping setup.");
-             return Ok(());
-        }
+    Ok(has_uinput_access && is_in_audio && is_in_input)
+}
 
-        // Determine correct group for uinput
-        let uinput_group = if is_in_uinput || groups_output.contains("uinput") { "uinput" } else { "input" };
-        
-        let cmd = format!("usermod -aG audio,input,{} {}", uinput_group, username);
-        log_info!("🔧 Executing: pkexec {}", cmd);
-        
-        let output = Command::new("pkexec")
-            .args(["bash", "-c", &cmd])
-            .output();
+#[cfg(target_os = "linux")]
+#[tauri::command]
+async fn run_linux_setup(app_handle: tauri::AppHandle) -> Result<(), String> {
+    use std::process::Command;
 
-        match output {
-            Ok(out) if out.status.success() => {
-                log_info!("✅ Permissions updated. Notifying user to restart session.");
-                let _ = app_handle.emit("setup-status", "restart-required");
-            },
-            _ => {
-                log_info!("⚠️ Permission update failed or cancelled.");
-                let _ = app_handle.emit("setup-status", "setup-failed");
-            }
-        }
+    log_info!("🚀 User initiated Linux system setup...");
+    
+    // Trigger portal request first
+    let _ = check_request_audio_portal(&app_handle).await;
+
+    let groups_output = match Command::new("groups").output() {
+        Ok(o) => String::from_utf8_lossy(&o.stdout).into_owned(),
+        Err(e) => return Err(format!("Failed to check groups: {}", e)),
+    };
+
+    let username = std::env::var("USER").unwrap_or_default();
+    if username.is_empty() {
+        return Err("Could not determine username".to_string());
     }
 
-    Ok(())
+    let is_in_uinput = groups_output.contains("uinput");
+    let uinput_group = if is_in_uinput { "uinput" } else { "input" };
+    
+    let cmd = format!("usermod -aG audio,input,{} {}", uinput_group, username);
+    log_info!("🔧 Executing: pkexec {}", cmd);
+    
+    let output = Command::new("pkexec")
+        .args(["bash", "-c", &cmd])
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => {
+            log_info!("✅ Permissions updated successfully.");
+            let _ = app_handle.emit("setup-status", "restart-required");
+            Ok(())
+        },
+        _ => {
+            log_info!("⚠️ Permission update failed or cancelled.");
+            Err("Setup failed or cancelled by user".to_string())
+        }
+    }
 }
+
+#[cfg(not(target_os = "linux"))]
+#[tauri::command]
+async fn get_linux_setup_status() -> Result<bool, String> { Ok(true) }
+
+#[cfg(not(target_os = "linux"))]
+#[tauri::command]
+async fn run_linux_setup() -> Result<(), String> { Ok(()) }
 
 // Tauri commands
 #[tauri::command]
@@ -1198,11 +1210,7 @@ fn main() {
 
             #[cfg(target_os = "linux")]
             {
-                let h = app.handle().clone();
-                tauri::async_runtime::spawn(async move {
-                    let _ = check_request_audio_portal(&h).await;
-                    let _ = check_and_request_permissions(&h).await;
-                });
+                // No automatic setup anymore
             }
             
             Ok(())
@@ -1212,7 +1220,8 @@ fn main() {
             test_api_key, get_current_status, get_history, clear_history,
             check_hotkey_status, manual_register_hotkey, get_audio_devices,
             start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder,
-            log_ui_event, get_available_models, check_model_status, download_model
+            log_ui_event, get_available_models, check_model_status, download_model,
+            get_linux_setup_status, run_linux_setup
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -37,9 +37,10 @@ sha2 = "0.10"
 async-trait = "0.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
 pulsectl-rs = "0.3"
 evdev = "0.13.2"
-ashpd = { version = "0.12.1", default-features = false, features = ["tokio"] }
+ashpd = { version = "0.12.1", features = ["tokio"] }
 zbus = "5.13.1"
 nix = "0.30.1"
 gtk = "0.18"

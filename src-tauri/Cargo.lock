@@ -5527,6 +5527,7 @@ dependencies = [
  "gtk",
  "gtk-layer-shell",
  "hound",
+ "libc",
  "libloading 0.9.0",
  "log",
  "nix 0.30.1",

@@ -1,5 +1,5 @@
 #[cfg(target_os = "linux")]
-use evdev::{uinput::VirtualDevice, KeyCode, KeyEvent, SynchronizationEvent, SynchronizationCode};
+use evdev::{KeyCode, KeyEvent, SynchronizationEvent, SynchronizationCode};
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 
