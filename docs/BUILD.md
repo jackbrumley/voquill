@@ -41,8 +41,16 @@ Additional Tauri requirements:
 - `libayatana-appindicator3-dev`
 - `librsvg2-dev`
 
-#### Windows
-- Microsoft C++ Build Tools or Visual Studio with C++ support
+## Known Runtime Warnings
+
+### libayatana-appindicator Deprecation (Linux)
+
+When running Voquill on Linux, you may see a warning in the terminal:
+`libayatana-appindicator-WARNING: libayatana-appindicator is deprecated. Please use libayatana-appindicator-glib in newly written code.`
+
+**Status:** This is a cosmetic warning that affects all Tauri v2 applications using tray icons on Linux. It does not affect functionality.
+
+**Cause:** Tauri's tray implementation currently depends on the older `libayatana-appindicator3` library. The upstream project has released a newer `-glib` variant, but the Rust ecosystem bindings haven't migrated yet. No action is required from users or developers.
 
 ## What the Build Script Does
 

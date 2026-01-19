@@ -103,21 +103,29 @@ impl Default for AppState {
 #[tauri::command]
 async fn get_linux_setup_status() -> Result<bool, String> {
     use std::fs;
-    use std::process::Command;
 
-    // 1. Check uinput access directly
+    // 1. Check uinput access (for virtual keyboard)
     let has_uinput_access = fs::OpenOptions::new().write(true).open("/dev/uinput").is_ok();
     
-    // 2. Check group memberships
-    let groups_output = match Command::new("groups").output() {
-        Ok(o) => String::from_utf8_lossy(&o.stdout).into_owned(),
-        Err(_) => return Ok(false),
-    };
-    
-    let is_in_audio = groups_output.contains("audio");
-    let is_in_input = groups_output.contains("input");
+    // 2. Check input device access (for hotkey detection)
+    // We verify we can actually open a keyboard device, not just any input device.
+    let mut has_input_access = false;
+    if let Ok(entries) = fs::read_dir("/dev/input") {
+        for entry in entries.flatten() {
+            if entry.file_name().to_string_lossy().starts_with("event") {
+                if let Ok(device) = evdev::Device::open(entry.path()) {
+                    // Stricter check: must have enough keys to be a keyboard
+                    let has_keys = device.supported_keys().map(|k| k.iter().count() > 20).unwrap_or(false);
+                    if has_keys {
+                        has_input_access = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
-    Ok(has_uinput_access && is_in_audio && is_in_input)
+    Ok(has_uinput_access && has_input_access)
 }
 
 #[cfg(target_os = "linux")]
@@ -928,13 +936,19 @@ fn start_linux_input_engine(app_handle: AppHandle) {
                 let path = entry.path();
                 if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                     if name.starts_with("event") {
-                        if let Ok(device) = evdev::Device::open(&path) {
-                            let has_keys = device.supported_keys().map(|k| k.iter().count() > 20).unwrap_or(false);
-                            if has_keys {
-                                let dev_name = device.name().unwrap_or("Unknown").to_string();
-                                log_info!("🔍 Monitoring hardware: {} ({})", dev_name, path.display());
-                                devices.push(device);
+                        match evdev::Device::open(&path) {
+                            Ok(device) => {
+                                let has_keys = device.supported_keys().map(|k| k.iter().count() > 20).unwrap_or(false);
+                                if has_keys {
+                                    let dev_name = device.name().unwrap_or("Unknown").to_string();
+                                    log_info!("🔍 Monitoring hardware: {} ({})", dev_name, path.display());
+                                    devices.push(device);
+                                }
                             }
+                            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                                log_info!("⚠️ Permission denied for input device: {}", path.display());
+                            }
+                            Err(_) => {}
                         }
                     }
                 }
@@ -943,6 +957,7 @@ fn start_linux_input_engine(app_handle: AppHandle) {
         
         if devices.is_empty() {
             log_info!("⚠️ No keyboards found! Input engine disabled.");
+            log_info!("💡 Note: If you recently granted permissions, you MUST logout or restart for them to take effect.");
             return;
         }
 

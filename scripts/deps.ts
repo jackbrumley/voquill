@@ -126,14 +126,12 @@ const REGISTRY: Record<string, Dependency[]> = {
     },
     {
       name: "libayatana-appindicator3",
-      apt: "libayatana-appindicator3-dev",
-      pacman: "libayatana-appindicator",
       pkgConfig: "ayatana-appindicator3-0.1",
       install: {
         apt: "sudo apt install libayatana-appindicator3-dev",
         pacman: "sudo pacman -S libayatana-appindicator",
       },
-      desc: "Ayatana AppIndicator headers",
+      desc: "Ayatana AppIndicator (required for Tauri tray icons)",
     },
     {
       name: "librsvg2",
