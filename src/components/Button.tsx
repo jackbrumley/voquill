@@ -10,6 +10,7 @@ interface ButtonProps {
   className?: string;
   title?: string;
   type?: 'button' | 'submit' | 'reset';
+  style?: any;
 }
 
 export const Button = ({ 
@@ -20,7 +21,8 @@ export const Button = ({
   disabled = false,
   className = '',
   title,
-  type = 'button'
+  type = 'button',
+  style
 }: ButtonProps) => {
   const classes = [
     'btn',
@@ -36,6 +38,7 @@ export const Button = ({
       onClick={onClick} 
       disabled={disabled}
       title={title}
+      style={style}
     >
       {children}
     </button>

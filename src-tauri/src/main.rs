@@ -27,40 +27,13 @@ mod transcription;
 mod typing;
 mod model_manager;
 mod local_whisper;
+mod permissions;
 
 use config::{Config, TranscriptionMode};
 use hotkey::HardwareHotkey;
+use permissions::{LinuxPermissions, check_linux_permissions, request_linux_permissions};
 
 #[cfg(target_os = "linux")]
-async fn check_request_audio_portal(app_handle: &tauri::AppHandle) -> Result<(), String> {
-    use ashpd::desktop::camera::Camera;
-    
-    log_info!("Checking Audio/Microphone portal status (via Camera portal proxy)...");
-    
-    match Camera::new().await {
-        Ok(proxy) => {
-            match proxy.request_access().await {
-                Ok(_request) => {
-                    log_info!("✅ Audio/Microphone portal request sent");
-                    Ok(())
-                },
-                Err(e) => {
-                    let error_msg = format!("{}", e);
-                    log_info!("⚠️ Audio/Microphone portal request failed: {}", error_msg);
-                    if !error_msg.contains("not found") {
-                        let _ = app_handle.emit("audio-error", "portal-denied");
-                    }
-                    Ok(()) 
-                }
-            }
-        },
-        Err(e) => {
-            log_info!("⚠️ Audio/Microphone portal not available ({}). PulseAudio policy will manage access.", e);
-            Ok(())
-        }
-    }
-}
-
 // Application state
 #[cfg(target_os = "linux")]
 pub type VirtualKeyboardHandle = evdev::uinput::VirtualDevice;
@@ -99,85 +72,15 @@ impl Default for AppState {
     }
 }
 
-#[cfg(target_os = "linux")]
 #[tauri::command]
-async fn get_linux_setup_status() -> Result<bool, String> {
-    use std::fs;
-
-    // 1. Check uinput access (for virtual keyboard)
-    let has_uinput_access = fs::OpenOptions::new().write(true).open("/dev/uinput").is_ok();
-    
-    // 2. Check input device access (for hotkey detection)
-    // We verify we can actually open a keyboard device, not just any input device.
-    let mut has_input_access = false;
-    if let Ok(entries) = fs::read_dir("/dev/input") {
-        for entry in entries.flatten() {
-            if entry.file_name().to_string_lossy().starts_with("event") {
-                if let Ok(device) = evdev::Device::open(entry.path()) {
-                    // Stricter check: must have enough keys to be a keyboard
-                    let has_keys = device.supported_keys().map(|k| k.iter().count() > 20).unwrap_or(false);
-                    if has_keys {
-                        has_input_access = true;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(has_uinput_access && has_input_access)
+async fn get_linux_setup_status() -> Result<LinuxPermissions, String> {
+    Ok(check_linux_permissions().await)
 }
 
-#[cfg(target_os = "linux")]
 #[tauri::command]
 async fn run_linux_setup(app_handle: tauri::AppHandle) -> Result<(), String> {
-    use std::process::Command;
-
-    log_info!("🚀 User initiated Linux system setup...");
-    
-    // Trigger portal request first
-    let _ = check_request_audio_portal(&app_handle).await;
-
-    let groups_output = match Command::new("groups").output() {
-        Ok(o) => String::from_utf8_lossy(&o.stdout).into_owned(),
-        Err(e) => return Err(format!("Failed to check groups: {}", e)),
-    };
-
-    let username = std::env::var("USER").unwrap_or_default();
-    if username.is_empty() {
-        return Err("Could not determine username".to_string());
-    }
-
-    let is_in_uinput = groups_output.contains("uinput");
-    let uinput_group = if is_in_uinput { "uinput" } else { "input" };
-    
-    let cmd = format!("usermod -aG audio,input,{} {}", uinput_group, username);
-    log_info!("🔧 Executing: pkexec {}", cmd);
-    
-    let output = Command::new("pkexec")
-        .args(["bash", "-c", &cmd])
-        .output();
-
-    match output {
-        Ok(out) if out.status.success() => {
-            log_info!("✅ Permissions updated successfully.");
-            let _ = app_handle.emit("setup-status", "restart-required");
-            Ok(())
-        },
-        _ => {
-            log_info!("⚠️ Permission update failed or cancelled.");
-            Err("Setup failed or cancelled by user".to_string())
-        }
-    }
+    request_linux_permissions(app_handle).await
 }
-
-#[cfg(not(target_os = "linux"))]
-#[tauri::command]
-async fn get_linux_setup_status() -> Result<bool, String> { Ok(true) }
-
-#[cfg(not(target_os = "linux"))]
-#[tauri::command]
-async fn run_linux_setup() -> Result<(), String> { Ok(()) }
 
 // Tauri commands
 #[tauri::command]
