@@ -441,10 +441,10 @@ function App() {
             </div>
             
             <div className="setup-body">
-              <p>Voquill needs standard Wayland portal permissions to operate:</p>
-              <div className="setup-list">
+              <p style={{ textAlign: 'center' }}>Voquill needs standard Wayland portal permissions to operate:</p>
+              <div className="setup-list" style={{ width: '100%' }}>
                 <div className={`permission-item ${permissions?.audio ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
                     <div className="permission-icon">
                       <IconMicrophone size={20} />
                     </div>
@@ -459,7 +459,7 @@ function App() {
                 </div>
 
                 <div className={`permission-item ${permissions?.shortcuts ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
                     <div className="permission-icon">
                       <IconKeyboard size={20} />
                     </div>
@@ -474,7 +474,7 @@ function App() {
                 </div>
 
                 <div className={`permission-item ${permissions?.input_emulation ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
                     <div className="permission-icon">
                       <IconTextRecognition size={20} />
                     </div>
