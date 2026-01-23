@@ -48,6 +48,10 @@ pub struct Config {
     pub copy_on_typewriter: bool,
     #[serde(default = "default_language")]
     pub language: String,
+    #[serde(default)]
+    pub shortcuts_token: Option<String>,
+    #[serde(default)]
+    pub input_token: Option<String>,
 }
 
 fn default_api_key() -> String { "your_api_key_here".to_string() }
@@ -55,7 +59,7 @@ fn default_api_url() -> String { "https://api.openai.com/v1/audio/transcriptions
 fn default_api_model() -> String { "whisper-1".to_string() }
 fn default_transcription_mode() -> TranscriptionMode { TranscriptionMode::Local }
 fn default_local_model_size() -> String { "base".to_string() }
-fn default_hotkey() -> String { "ctrl+space".to_string() }
+fn default_hotkey() -> String { "ctrl+shift+space".to_string() }
 fn default_typing_speed() -> f64 { 0.001 }
 fn default_key_press_duration() -> u64 { 2 }
 fn default_pixels_from_bottom() -> i32 { 100 }
@@ -86,6 +90,8 @@ impl Default for Config {
             output_method: default_output_method(),
             copy_on_typewriter: default_copy_on_typewriter(),
             language: default_language(),
+            shortcuts_token: None,
+            input_token: None,
         }
     }
 }

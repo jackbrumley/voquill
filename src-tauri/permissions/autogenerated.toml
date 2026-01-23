@@ -20,5 +20,7 @@ commands.allow = [
     "log_ui_event",
     "get_available_models",
     "check_model_status",
-    "download_model"
+    "download_model",
+    "get_linux_setup_status",
+    "run_linux_setup"
 ]

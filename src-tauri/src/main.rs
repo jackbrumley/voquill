@@ -10,8 +10,6 @@ macro_rules! log_info {
 }
 
 use std::sync::{Arc, Mutex, OnceLock};
-#[cfg(target_os = "linux")]
-use std::collections::HashSet;
 use tauri::{
     Manager, WebviewWindow, Emitter, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}, AppHandle,
 };
@@ -52,6 +50,8 @@ pub struct AppState {
     pub playback_stream: Arc<Mutex<Option<cpal::Stream>>>,
     pub mic_test_samples: Arc<Mutex<Vec<f32>>>,
     pub audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
+    #[cfg(target_os = "linux")]
+    pub hotkey_engine_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
 }
 
 impl Default for AppState {
@@ -68,18 +68,33 @@ impl Default for AppState {
             playback_stream: Arc::new(Mutex::new(None)),
             mic_test_samples: Arc::new(Mutex::new(Vec::new())),
             audio_engine: Arc::new(Mutex::new(None)),
+            #[cfg(target_os = "linux")]
+            hotkey_engine_cancel: Arc::new(Mutex::new(None)),
         }
     }
 }
 
 #[tauri::command]
-async fn get_linux_setup_status() -> Result<LinuxPermissions, String> {
-    Ok(check_linux_permissions().await)
+async fn get_linux_setup_status(state: tauri::State<'_, AppState>) -> Result<LinuxPermissions, String> {
+    let config = {
+        let guard = state.config.lock().unwrap();
+        guard.clone()
+    };
+    Ok(check_linux_permissions(&config).await)
 }
 
 #[tauri::command]
 async fn run_linux_setup(app_handle: tauri::AppHandle) -> Result<(), String> {
-    request_linux_permissions(app_handle).await
+    request_linux_permissions(app_handle.clone()).await?;
+    
+    // On Linux, immediately restart the hotkey engine now that we have tokens
+    #[cfg(target_os = "linux")]
+    {
+        log_info!("✅ Setup complete! Restarting Wayland Global Shortcuts Engine...");
+        tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle.clone()));
+    }
+    
+    Ok(())
 }
 
 // Tauri commands
@@ -355,27 +370,19 @@ async fn save_config(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let mut restart_engine = false;
-    {
+    let (restart_engine, hotkey_changed) = {
         let mut config = state.config.lock().unwrap();
-        if config.audio_device != new_config.audio_device || config.input_sensitivity != new_config.input_sensitivity {
-            restart_engine = true;
-        }
+        let audio_changed = config.audio_device != new_config.audio_device || config.input_sensitivity != new_config.input_sensitivity;
+        let hotkey_changed = config.hotkey != new_config.hotkey;
         *config = new_config.clone();
-        
-        // Update Hardware Hotkey for Linux
-        #[cfg(target_os = "linux")]
-        {
-            let mut hardware_hotkey = state.hardware_hotkey.lock().unwrap();
-            *hardware_hotkey = hotkey::parse_hardware_hotkey(&new_config.hotkey);
-            log_info!("🔧 Updated hardware hotkey: {:?}", *hardware_hotkey);
-        }
 
         // Pre-warm the audio device cache
         let mut cached_device = state.cached_device.lock().unwrap();
         *cached_device = audio::lookup_device(new_config.audio_device.clone()).ok();
         log_info!("🔧 Pre-warmed audio device cache");
-    }
+        
+        (audio_changed, hotkey_changed)
+    };
 
     if restart_engine {
         log_info!("🔧 Audio config changed, restarting persistent engine...");
@@ -396,33 +403,46 @@ async fn save_config(
         return Err(error_msg);
     }
     
-    if let Err(e) = re_register_hotkey(&app_handle, &new_config.hotkey).await {
-        let mut error_lock = state.hotkey_error.lock().unwrap();
-        *error_lock = Some(e.clone());
-        return Err(format!("Config saved but failed to update hotkey: {}", e));
-    } else {
-        let mut error_lock = state.hotkey_error.lock().unwrap();
-        *error_lock = None;
+    if hotkey_changed {
+        if let Err(e) = re_register_hotkey(&app_handle, &new_config.hotkey).await {
+            let mut error_lock = state.hotkey_error.lock().unwrap();
+            *error_lock = Some(e.clone());
+            return Err(format!("Config saved but failed to update hotkey: {}", e));
+        } else {
+            let mut error_lock = state.hotkey_error.lock().unwrap();
+            *error_lock = None;
+        }
     }
     
     Ok(())
 }
 
-async fn re_register_hotkey(_app_handle: &tauri::AppHandle, _hotkey_string: &str) -> Result<(), String> {
+async fn re_register_hotkey(app_handle: &tauri::AppHandle, hotkey_string: &str) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
+        // On Linux, restart the Portal hotkey engine with the new key
+        let state = app_handle.state::<AppState>();
+        let has_token = {
+            let config = state.config.lock().unwrap();
+            config.shortcuts_token.is_some()
+        };
+        
+        if has_token {
+            log_info!("🔄 Hotkey changed to '{}', restarting Global Shortcuts Engine...", hotkey_string);
+            tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle.clone()));
+        }
         Ok(())
     }
 
     #[cfg(not(target_os = "linux"))]
     {
         use tauri_plugin_global_shortcut::GlobalShortcutExt;
-        log_info!("Re-registering hotkey: {}", _hotkey_string);
-        let _ = _app_handle.global_shortcut().unregister_all();
-        match hotkey::parse_hotkey_string(_hotkey_string) {
+        log_info!("Re-registering hotkey: {}", hotkey_string);
+        let _ = app_handle.global_shortcut().unregister_all();
+        match hotkey::parse_hotkey_string(hotkey_string) {
             Ok(shortcut) => {
-                _app_handle.global_shortcut().register(shortcut).map_err(|e| e.to_string())?;
-                log_info!("✅ Global hotkey registered: {}", _hotkey_string);
+                app_handle.global_shortcut().register(shortcut).map_err(|e| e.to_string())?;
+                log_info!("✅ Global hotkey registered: {}", hotkey_string);
                 Ok(())
             }
             Err(e) => Err(e.to_string())
@@ -821,129 +841,222 @@ async fn record_and_transcribe(
 }
 
 #[cfg(target_os = "linux")]
-fn start_linux_input_engine(app_handle: AppHandle) {
-    use std::fs;
-    use std::os::unix::io::AsRawFd;
-    use libc::{poll, pollfd, POLLIN};
+fn normalize_wayland_trigger(hotkey: &str) -> String {
+    // Freedesktop Shortcuts Specification format: MOD+MOD+KeySymName
+    // https://specifications.freedesktop.org/shortcuts-spec/latest/
+    // Modifiers: CTRL, ALT, SHIFT, LOGO (for Super/Meta)
+    // Keys: lowercase xkbcommon keysym names (e.g., space, h, Return)
     
-    let state = app_handle.state::<AppState>();
-    let is_recording_flag = state.is_recording.clone();
-    let hardware_hotkey_flag = state.hardware_hotkey.clone();
-
-    std::thread::spawn(move || {
-        log_info!("🚀 Linux Hardware Input Engine started.");
-        
-        let mut devices = Vec::new();
-        if let Ok(entries) = fs::read_dir("/dev/input") {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name.starts_with("event") {
-                        match evdev::Device::open(&path) {
-                            Ok(device) => {
-                                let has_keys = device.supported_keys().map(|k| k.iter().count() > 20).unwrap_or(false);
-                                if has_keys {
-                                    let dev_name = device.name().unwrap_or("Unknown").to_string();
-                                    log_info!("🔍 Monitoring hardware: {} ({})", dev_name, path.display());
-                                    devices.push(device);
-                                }
-                            }
-                            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
-                                log_info!("⚠️ Permission denied for input device: {}", path.display());
-                            }
-                            Err(_) => {}
-                        }
-                    }
-                }
+    let parts: Vec<&str> = hotkey.split('+').collect();
+    let mut modifiers: Vec<&str> = Vec::new();
+    let mut primary = String::new();
+    
+    for part in parts {
+        let lower = part.to_lowercase();
+        match lower.as_str() {
+            "ctrl" | "control" => modifiers.push("CTRL"),
+            "alt" => modifiers.push("ALT"),
+            "shift" => modifiers.push("SHIFT"),
+            "super" | "meta" => modifiers.push("LOGO"),
+            _ => {
+                // Map to xkbcommon keysym names (lowercase, special handling)
+                primary = match lower.as_str() {
+                    "space" => "space".to_string(),
+                    "enter" | "return" => "Return".to_string(),
+                    "backspace" => "BackSpace".to_string(),
+                    "tab" => "Tab".to_string(),
+                    "escape" | "esc" => "Escape".to_string(),
+                    _ => lower,
+                };
             }
         }
-        
-        if devices.is_empty() {
-            log_info!("⚠️ No keyboards found! Input engine disabled.");
-            log_info!("💡 Note: If you recently granted permissions, you MUST logout or restart for them to take effect.");
+    }
+    
+    // Build the final trigger: MOD+MOD+Key
+    let mut result = modifiers.join("+");
+    if !result.is_empty() && !primary.is_empty() {
+        result.push('+');
+    }
+    result.push_str(&primary);
+    
+    result
+}
+
+#[cfg(target_os = "linux")]
+async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle) {
+    use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
+    use futures_util::StreamExt;
+
+    // Cancel any existing engine before starting a new one
+    let state = app_handle.state::<AppState>();
+    
+    // First, cancel the old engine and WAIT for it to finish
+    let has_previous = {
+        let mut cancel_lock = state.hotkey_engine_cancel.lock().unwrap();
+        if let Some(sender) = cancel_lock.take() {
+            log_info!("🔄 Cancelling previous hotkey engine...");
+            let _ = sender.send(());
+            true
+        } else {
+            false
+        }
+    };
+    
+    if has_previous {
+        // Give the old engine more time to shut down to avoid race conditions
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+    }
+    
+    // Create a cancellation channel for this new engine
+    let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel::<()>();
+    {
+        let mut cancel_lock = state.hotkey_engine_cancel.lock().unwrap();
+        *cancel_lock = Some(cancel_tx);
+    }
+
+    log_info!("🚀 Wayland Global Shortcuts Engine starting...");
+
+    let (shortcuts_token, hotkey_str) = {
+        let config = state.config.lock().unwrap();
+        (config.shortcuts_token.clone(), config.hotkey.clone())
+    };
+
+    if shortcuts_token.is_none() {
+        log_info!("⚠️ No shortcuts token found. Skipping hotkey registration until setup is run.");
+        return;
+    }
+
+    let proxy = match GlobalShortcuts::new().await {
+        Ok(p) => p,
+        Err(e) => {
+            log_info!("❌ Failed to connect to Global Shortcuts Portal: {}", e);
             return;
         }
+    };
 
-        let mut poll_fds: Vec<pollfd> = devices.iter().map(|d| pollfd { fd: d.as_raw_fd(), events: POLLIN, revents: 0 }).collect();
-        let mut pressed_keys: HashSet<u16> = HashSet::new();
+    // Restore session
+    let session = match proxy.create_session().await {
+        Ok(s) => s,
+        Err(e) => {
+            log_info!("❌ Failed to create shortcuts session: {}", e);
+            return;
+        }
+    };
 
+    // Normalize the hotkey to XDG/Portal format
+    let normalized_trigger = normalize_wayland_trigger(&hotkey_str);
+    log_info!("🔑 Attempting to bind trigger: '{}'", normalized_trigger);
+
+    // Bind shortcuts
+    let shortcut = NewShortcut::new("record", "Dictation Hotkey")
+        .preferred_trigger(Some(normalized_trigger.as_str()));
+
+    let bind_result = match proxy.bind_shortcuts(&session, &[shortcut], None).await {
+        Ok(r) => r,
+        Err(e) => {
+            log_info!("❌ Failed to bind shortcuts: {}", e);
+            return;
+        }
+    };
+
+    // Verify what the OS actually bound
+    let bound = match bind_result.response() {
+        Ok(shortcuts) => shortcuts,
+        Err(e) => {
+            log_info!("❌ Failed to get bind response: {}", e);
+            return;
+        }
+    };
+
+    if bound.shortcuts().is_empty() {
+        log_info!("⚠️ OS rejected the shortcut request. No shortcuts were bound.");
+        log_info!("💡 This may mean the key combination is already in use by the system.");
+        return;
+    }
+    
+    let mut actual_trigger = String::new();
+    for s in bound.shortcuts() {
+        log_info!("✅ Wayland Global Shortcuts bound: ID='{}', Description='{}', Trigger='{}'", 
+            s.id(), s.description(), s.trigger_description());
+        if s.id() == "record" {
+            actual_trigger = s.trigger_description().to_string();
+        }
+    }
+
+    if actual_trigger.is_empty() {
+        log_info!("⚠️ OS accepted the registration but didn't assign a trigger.");
+        log_info!("💡 KDE Plasma: You may need to manually assign the shortcut in System Settings → Shortcuts");
+        log_info!("💡 Or check: journalctl --user -u xdg-desktop-portal-kde -n 50");
+    } else {
+        log_info!("🎉 Trigger successfully bound: '{}'", actual_trigger);
+    }
+
+    let mut activated_stream = match proxy.receive_activated().await {
+        Ok(s) => s,
+        Err(e) => {
+            log_info!("❌ Failed to listen for shortcut activation: {}", e);
+            return;
+        }
+    };
+
+    let mut deactivated_stream = match proxy.receive_deactivated().await {
+        Ok(s) => s,
+        Err(e) => {
+            log_info!("❌ Failed to listen for shortcut deactivation: {}", e);
+            return;
+        }
+    };
+
+    let h_handle = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        log_info!("👂 Listening for shortcut events...");
         loop {
-            let ret = unsafe { poll(poll_fds.as_mut_ptr(), poll_fds.len() as libc::nfds_t, 100) };
-            if ret < 0 { continue; }
-
-            if ret > 0 {
-                for i in 0..poll_fds.len() {
-                    if poll_fds[i].revents & POLLIN != 0 {
-                        let dev = &mut devices[i];
-                        let dev_name = dev.name().unwrap_or("Unknown").to_string();
-                        if let Ok(events) = dev.fetch_events() {
-                            for event in events {
-                                if let evdev::EventSummary::Key(_, key_code, value) = event.destructure() {
-                                    let code = key_code.code();
-                                    let h_hotkey = hardware_hotkey_flag.lock().unwrap().clone();
-
-                                    if value == 1 { // Pressed
-                                        log_info!("⌨️  [{}] Key {:?} PRESSED", dev_name, key_code);
-                                        pressed_keys.insert(code);
-                                        
-                                        let all_pressed = !h_hotkey.all_codes.is_empty() && 
-                                                         h_hotkey.all_codes.iter().all(|c| pressed_keys.contains(c));
-                                        
-                                        if all_pressed {
-                                            let mut recording = is_recording_flag.lock().unwrap();
-                                            if !*recording {
-                                                *recording = true;
-                                                log_info!("🎤 ENGINE: Combination Met! Starting recording.");
-                                                
-                                                let h_clone = app_handle.clone();
-                                                tauri::async_runtime::spawn(async move {
-                                                    emit_status_update("Recording").await;
-                                                    let s = h_clone.state::<AppState>();
-                                                    let config = s.config.clone();
-                                                    let is_recording = s.is_recording.clone();
-                                                    let audio_engine = s.audio_engine.clone();
-                                                    let virtual_keyboard = s.virtual_keyboard.clone();
-                                                    
-                                                    let _ = record_and_transcribe(config, is_recording, h_clone, audio_engine, virtual_keyboard).await;
-                                                });
-                                                
-                                                if let Some(w) = app_handle.get_webview_window("main") {
-                                                    let _ = w.emit("hotkey-pressed", ());
-                                                }
-                                            }
-                                        }
-                                    } else if value == 0 { // Released
-                                        log_info!("⌨️  [{}] Key {:?} RELEASED", dev_name, key_code);
-                                        pressed_keys.remove(&code);
-                                        
-                                        let is_combo_key = h_hotkey.all_codes.contains(&code);
-                                        let mut recording = is_recording_flag.lock().unwrap();
-                                        if *recording && is_combo_key {
-                                            *recording = false;
-                                            log_info!("⏹️  ENGINE: Key Released! Finalizing.");
-                                            
-                                            let h_clone = app_handle.clone();
-                                            tauri::async_runtime::spawn(async move {
-                                                emit_status_update("Transcribing").await;
-                                                if let Some(w) = h_clone.get_webview_window("main") {
-                                                    let _ = w.emit("hotkey-released", ());
-                                                }
-                                            });
-                                        }
-                                    }
-                                }
-                            }
+            tokio::select! {
+                _ = &mut cancel_rx => {
+                    log_info!("🛑 Hotkey engine cancelled. Shutting down...");
+                    break;
+                }
+                Some(event) = activated_stream.next() => {
+                    log_info!("🔔 Portal event received: Activated shortcut_id='{}'", event.shortcut_id());
+                    if event.shortcut_id() == "record" {
+                        log_info!("🎤 Portal: Hotkey Pressed");
+                        let state = h_handle.state::<AppState>();
+                        let _ = start_recording(state, h_handle.clone()).await;
+                        if let Some(w) = h_handle.get_webview_window("main") {
+                            let _ = w.emit("hotkey-pressed", ());
                         }
+                    } else {
+                        log_info!("⚠️ Unknown shortcut activated: {}", event.shortcut_id());
+                    }
+                }
+                Some(event) = deactivated_stream.next() => {
+                    log_info!("🔔 Portal event received: Deactivated shortcut_id='{}'", event.shortcut_id());
+                    if event.shortcut_id() == "record" {
+                        log_info!("⏹️  Portal: Hotkey Released");
+                        let state = h_handle.state::<AppState>();
+                        let _ = stop_recording(state).await;
+                        if let Some(w) = h_handle.get_webview_window("main") {
+                            let _ = w.emit("hotkey-released", ());
+                        }
+                    } else {
+                        log_info!("⚠️ Unknown shortcut deactivated: {}", event.shortcut_id());
                     }
                 }
             }
         }
+        log_info!("✅ Hotkey engine stopped cleanly.");
     });
 }
 
 fn main() {
     #[cfg(target_os = "linux")]
     {
+        // CRITICAL: Set app identity BEFORE any GTK/Portal operations
+        // This must happen at the very start so all D-Bus calls are signed with the correct app_id
+        std::env::set_var("WAYLAND_APP_ID", "com.voquill.voquill");
+        gtk::glib::set_prgname(Some("com.voquill.voquill"));
+        gtk::glib::set_application_name("Voquill Dev");
+        
         // Pre-flight check: Ensure we are in a Wayland session
         // Voquill strictly requires Wayland for Layer Shell positioning and security protocols.
         let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok();
@@ -1019,12 +1132,6 @@ fn main() {
 
             #[cfg(target_os = "linux")]
             {
-                // Fix for Wayland taskbar icons: 
-                // Set the program name to match the .desktop file name (voquill.desktop)
-                // This allows the compositor to correctly associate the window with its icon.
-                gtk::glib::set_prgname(Some("voquill"));
-                gtk::glib::set_application_name("Voquill");
-
                 // Diagnostic: Confirm we are running on Wayland
                 if let Some(display) = gdk::Display::default() {
                     use gtk::glib::prelude::ObjectExt;
@@ -1049,7 +1156,7 @@ fn main() {
             let _ = audio::get_input_devices();
             
             #[cfg(target_os = "linux")]
-            start_linux_input_engine(app.handle().clone());
+            tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app.handle().clone()));
 
             #[cfg(target_os = "linux")]
             {

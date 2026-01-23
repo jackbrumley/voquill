@@ -3,8 +3,9 @@ use ashpd::desktop::camera::Camera;
 #[cfg(target_os = "linux")]
 use ashpd::desktop::global_shortcuts::GlobalShortcuts;
 #[cfg(target_os = "linux")]
-use ashpd::desktop::remote_desktop::RemoteDesktop;
-use std::fs;
+use ashpd::desktop::remote_desktop::{RemoteDesktop, DeviceType};
+#[cfg(target_os = "linux")]
+use ashpd::desktop::PersistMode;
 use tauri::AppHandle;
 
 #[derive(Serialize, Clone, Debug)]
@@ -15,18 +16,16 @@ pub struct LinuxPermissions {
 }
 
 #[cfg(target_os = "linux")]
-pub async fn check_linux_permissions() -> LinuxPermissions {
-    // 1. Audio check - check if we can list devices as a proxy for permissions
-    let audio = fs::read_dir("/dev/snd").is_ok();
-
-    // 2. Shortcuts check - can we interact with the GlobalShortcuts portal?
-    // This doesn't mean we HAVE a shortcut, just that the portal is available.
-    let shortcuts = GlobalShortcuts::new().await.is_ok();
-
-    // 3. Input emulation - check if uinput is writable (legacy) or portal is available
-    let has_uinput = fs::OpenOptions::new().write(true).open("/dev/uinput").is_ok();
-    let has_portal = RemoteDesktop::new().await.is_ok();
-    let input_emulation = has_uinput || has_portal;
+pub async fn check_linux_permissions(config: &crate::config::Config) -> LinuxPermissions {
+    // Modern Wayland: We check if tokens exist as a proxy for "user has gone through setup"
+    // The actual enforcement happens at runtime when we try to use the portals
+    
+    let audio = Camera::new().await.is_ok();
+    
+    // For Shortcuts and Input, we check if tokens exist
+    // If the user cancels the prompts, these will be None
+    let shortcuts = config.shortcuts_token.is_some();
+    let input_emulation = config.input_token.is_some();
 
     LinuxPermissions {
         audio,
@@ -36,7 +35,7 @@ pub async fn check_linux_permissions() -> LinuxPermissions {
 }
 
 #[cfg(not(target_os = "linux"))]
-pub async fn check_linux_permissions() -> LinuxPermissions {
+pub async fn check_linux_permissions(_config: &crate::config::Config) -> LinuxPermissions {
     LinuxPermissions {
         audio: true,
         shortcuts: true,
@@ -45,15 +44,69 @@ pub async fn check_linux_permissions() -> LinuxPermissions {
 }
 
 #[cfg(target_os = "linux")]
-pub async fn request_linux_permissions(_app_handle: AppHandle) -> Result<(), String> {
-    // 1. Request Audio (via Camera portal proxy which handles Mic too in some versions)
+pub async fn request_linux_permissions(app_handle: AppHandle) -> Result<(), String> {
+    use crate::AppState;
+    use tauri::Manager;
+
+    // 1. Request Audio (Mic) via Camera Portal
     let camera = Camera::new().await.map_err(|e| format!("Audio Portal not available: {}. Is xdg-desktop-portal-gtk/kde installed?", e))?;
     camera.request_access().await.map_err(|e| format!("Audio access denied: {}", e))?;
 
     // 2. Request Global Shortcuts
     let shortcuts = GlobalShortcuts::new().await.map_err(|e| format!("Global Shortcuts Portal not available: {}. Your compositor might not support it.", e))?;
     let session = shortcuts.create_session().await.map_err(|e| format!("Failed to create shortcuts session: {}", e))?;
-    shortcuts.list_shortcuts(&session).await.map_err(|e| format!("Failed to list/init shortcuts: {}", e))?;
+    
+    // In Wayland, we must BIND the shortcuts during setup to trigger the OS dialog
+    // We use the standard Freedesktop Shortcuts Specification format
+    use ashpd::desktop::global_shortcuts::NewShortcut;
+    
+    // Default hint for initial setup (CTRL+SHIFT+space)
+    let shortcut = NewShortcut::new("record", "Dictation Hotkey")
+        .preferred_trigger(Some("CTRL+SHIFT+space"));
+
+    let bind_request = shortcuts.bind_shortcuts(&session, &[shortcut], None).await.map_err(|e| format!("Failed to bind shortcuts: {}", e))?;
+    
+    // Wait for the user to pick/confirm in the OS dialog
+    let result = bind_request.response().map_err(|e| format!("Shortcut registration cancelled: {}", e))?;
+    
+    // Verify we actually got a trigger
+    let s_token = if result.shortcuts().iter().any(|s| !s.trigger_description().is_empty()) {
+        Some("granted".to_string())
+    } else {
+        log_info!("⚠️ User didn't assign a key in the dialog.");
+        None
+    };
+
+    // 3. Request Input Emulation via Remote Desktop Portal
+    let remote_desktop = RemoteDesktop::new().await.map_err(|e| format!("Remote Desktop Portal not available: {}", e))?;
+    let rd_session = remote_desktop.create_session().await.map_err(|e| format!("Failed to create remote desktop session: {}", e))?;
+    
+    // First, we must call select_devices and WAIT for the request to resolve
+    let select_request = remote_desktop.select_devices(&rd_session, DeviceType::Keyboard.into(), None, PersistMode::DoNot).await.map_err(|e| format!("Failed to select devices: {}", e))?;
+    
+    // Wait for the user to interact with the "Select Devices" dialog
+    select_request.response().map_err(|e| format!("Device selection cancelled: {}", e))?;
+    
+    // Now trigger the actual session start - THIS shows the final OS prompt
+    let start_request = remote_desktop.start(&rd_session, None).await.map_err(|e| format!("Failed to start remote desktop session: {}", e))?;
+    
+    // Extract the REAL restore token from the OS response
+    let selected_devices = start_request.response().map_err(|e| format!("Input emulation request cancelled or denied: {}", e))?;
+    
+    // If the OS provides a restore token, use it. Otherwise, use a placeholder.
+    // This signals to the UI that the user has completed setup, even if persistence isn't available.
+    let i_token = selected_devices.restore_token()
+        .map(|t| t.to_string())
+        .or(Some("session".to_string()));
+
+    // Save tokens to config ONLY if we got here (meaning user granted everything)
+    {
+        let state = app_handle.state::<AppState>();
+        let mut config = state.config.lock().unwrap();
+        config.shortcuts_token = s_token;
+        config.input_token = i_token;
+        let _ = crate::config::save_config(&config);
+    }
 
     Ok(())
 }

@@ -65,8 +65,55 @@ async function main() {
   logStep("2", "Dependencies managed by Deno...");
   log(`${colors.green}✅ Using Deno's automatic dependency management${colors.reset}`);
 
-  // 3. Run Dev Server
-  logStep("3", "Starting Tauri dev server...");
+  // 3. Register app identity for Wayland portals (Linux only)
+  if (Deno.build.os === "linux") {
+    logStep("3", "Registering app identity for Wayland portals...");
+    try {
+      const homeDir = Deno.env.get("HOME");
+      if (!homeDir) {
+        log(`${colors.yellow}⚠️ Could not determine HOME directory, skipping desktop file creation${colors.reset}`);
+      } else {
+        const applicationsDir = join(homeDir, ".local", "share", "applications");
+        await Deno.mkdir(applicationsDir, { recursive: true });
+        
+        const desktopFilePath = join(applicationsDir, "com.voquill.voquill.desktop");
+        const execPath = join(Deno.cwd(), "src-tauri", "target", "debug", "voquill");
+        const iconPath = join(Deno.cwd(), "src-tauri", "icons", "icon.svg");
+        
+        const desktopContent = `[Desktop Entry]
+Name=Voquill Dev
+Comment=Voice dictation app (Development)
+Exec=${execPath}
+Icon=${iconPath}
+Type=Application
+Terminal=false
+Categories=Utility;AudioVideo;
+StartupWMClass=com.voquill.voquill
+X-KDE-StartupNotify=false
+`;
+        
+        await Deno.writeTextFile(desktopFilePath, desktopContent);
+        log(`${colors.green}✅ Desktop file created: ${desktopFilePath}${colors.reset}`);
+        
+        // Update the desktop database so KDE sees it immediately
+        try {
+          await new Deno.Command("update-desktop-database", {
+            args: [applicationsDir],
+            stdout: "null",
+            stderr: "null",
+          }).output();
+          log(`${colors.green}✅ Desktop database updated${colors.reset}`);
+        } catch {
+          log(`${colors.yellow}⚠️ Could not update desktop database (update-desktop-database not found)${colors.reset}`);
+        }
+      }
+    } catch (error) {
+      log(`${colors.yellow}⚠️ Failed to create desktop file: ${error}${colors.reset}`);
+    }
+  }
+
+  // 4. Run Dev Server
+  logStep("4", "Starting Tauri dev server...");
   await runCommand(["deno", "task", "tauri", "dev"]);
 }
 

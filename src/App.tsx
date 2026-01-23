@@ -95,6 +95,8 @@ function App() {
   const [modelStatus, setModelStatus] = useState<Record<string, boolean>>({});
   const [permissions, setPermissions] = useState<LinuxPermissions | null>(null);
   const [linuxSetupStatus, setLinuxSetupStatus] = useState<'idle' | 'configuring' | 'restart-required' | 'failed'>('idle');
+  const [isRecordingHotkey, setIsRecordingHotkey] = useState(false);
+  const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
 
   const logUI = (msg: string) => {
     // Log Toasts and Clicks always, drop other spam unless debug mode
@@ -106,6 +108,7 @@ function App() {
     });
   };
 
+  // Initialize app data once on mount
   useEffect(() => {
     loadConfig();
     loadMics();
@@ -177,6 +180,19 @@ function App() {
     };
   }, []);
 
+  // Handle hotkey recording separately
+  useEffect(() => {
+    if (!isRecordingHotkey) return;
+
+    window.addEventListener('keydown', handleHotkeyKeyDown);
+    window.addEventListener('keyup', handleHotkeyKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleHotkeyKeyDown);
+      window.removeEventListener('keyup', handleHotkeyKeyUp);
+    };
+  }, [isRecordingHotkey, recordedKeys]);
+
   useEffect(() => {
     if (config.transcription_mode === 'Local' && availableModels.length === 0) {
       loadModels();
@@ -197,11 +213,13 @@ function App() {
     setLinuxSetupStatus('configuring');
     try {
       await invoke('run_linux_setup');
-      // Wait a moment for portals to settle
-      setTimeout(checkSetupStatus, 1000);
+      setLinuxSetupStatus('idle');
+      showToast('Permissions granted successfully!', 'success');
+      // Immediately refresh the permission status
+      await checkSetupStatus();
     } catch (error) {
       console.error('Linux setup failed:', error);
-      setLinuxSetupStatus('failed');
+      setLinuxSetupStatus('idle');
       showToast(`Setup failed: ${error}`, 'error');
     }
   };
@@ -406,6 +424,69 @@ function App() {
 
   const handleMinimize = async () => {
     await getCurrentWindow().minimize();
+  };
+
+  const normalizeHotkey = (keys: Set<string>): string => {
+    const modifiers: string[] = [];
+    let primaryKey = '';
+
+    keys.forEach(key => {
+      const lower = key.toLowerCase();
+      if (lower === 'control' || lower === 'controlleft' || lower === 'controlright') modifiers.push('Ctrl');
+      else if (lower === 'shift' || lower === 'shiftleft' || lower === 'shiftright') modifiers.push('Shift');
+      else if (lower === 'alt' || lower === 'altleft' || lower === 'altright') modifiers.push('Alt');
+      else if (lower === 'meta' || lower === 'metaleft' || lower === 'metaright') modifiers.push('Super');
+      else if (key.startsWith('Key')) {
+        // Handle KeyA, KeyB, etc.
+        primaryKey = key.slice(3); // "KeyA" -> "A"
+      } else if (key === 'Space') {
+        primaryKey = 'Space';
+      } else {
+        // Other keys like F1, Escape, etc.
+        primaryKey = key.charAt(0).toUpperCase() + key.slice(1).toLowerCase();
+      }
+    });
+
+    return [...modifiers.sort(), primaryKey].filter(Boolean).join('+');
+  };
+
+  const startRecordingHotkey = () => {
+    setIsRecordingHotkey(true);
+    setRecordedKeys(new Set());
+  };
+
+  const handleHotkeyKeyDown = (e: KeyboardEvent) => {
+    if (!isRecordingHotkey) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+
+    const newKeys = new Set(recordedKeys);
+    if (e.ctrlKey) newKeys.add('Control');
+    if (e.shiftKey) newKeys.add('Shift');
+    if (e.altKey) newKeys.add('Alt');
+    if (e.metaKey) newKeys.add('Meta');
+    
+    // Use e.code for more reliable key identification
+    const code = e.code;
+    
+    // Add the primary key (not a modifier)
+    if (!['ControlLeft', 'ControlRight', 'ShiftLeft', 'ShiftRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight'].includes(code)) {
+      newKeys.add(code);
+      // Stop recording once we have a primary key
+      const normalized = normalizeHotkey(newKeys);
+      updateConfig('hotkey', normalized);
+      setIsRecordingHotkey(false);
+      setRecordedKeys(new Set());
+    } else {
+      setRecordedKeys(newKeys);
+    }
+  };
+
+  const handleHotkeyKeyUp = (e: KeyboardEvent) => {
+    if (!isRecordingHotkey) return;
+    e.preventDefault();
+    e.stopPropagation();
   };
 
   const isAllReady = permissions && permissions.audio && permissions.shortcuts && permissions.input_emulation;
@@ -683,7 +764,27 @@ function App() {
                     </ConfigField>
 
                     <ConfigField label="Global Hotkey" description="Hold these keys to record, release to transcribe.">
-                      <input type="text" value={config.hotkey} onChange={(e: any) => updateConfig('hotkey', e.target.value)} />
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input 
+                          type="text" 
+                          value={isRecordingHotkey ? 'Press keys...' : config.hotkey} 
+                          readOnly
+                          style={{ 
+                            flex: 1,
+                            backgroundColor: isRecordingHotkey ? 'var(--color-primary-dim)' : undefined,
+                            color: isRecordingHotkey ? 'var(--color-primary)' : undefined,
+                            fontWeight: isRecordingHotkey ? 'bold' : undefined,
+                            cursor: 'default'
+                          }}
+                        />
+                        <Button 
+                          size="sm" 
+                          variant={isRecordingHotkey ? 'primary' : 'secondary'}
+                          onClick={isRecordingHotkey ? () => setIsRecordingHotkey(false) : startRecordingHotkey}
+                        >
+                          {isRecordingHotkey ? 'Cancel' : 'Record'}
+                        </Button>
+                      </div>
                     </ConfigField>
 
                     <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">

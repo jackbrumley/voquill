@@ -21,7 +21,7 @@ Code is for humans to read, and only secondarily for machines to execute.
 
 ### 3. The "Wayland-Only" Mandate
 Linux support is strictly Wayland.
-- **XDG Portals:** Hardware access (Microphone) must use **XDG Portals** (via `ashpd`).
+- **XDG Portals:** Hardware access (Microphone, Shortcuts, Input Emulation) must use **XDG Portals** (via `ashpd`).
 - **Compositor Awareness:** Recognize that Wayland compositors (GNOME, KDE, Hyprland) have strict security models; handle window positioning and input simulation using proper, future-proof protocols.
 - **Primary Delivery:** The Linux AppImage is our gold standard for delivery. Keep packaging logic simple, portable, and self-contained.
 
@@ -88,7 +88,7 @@ Managed via **Deno**. Entry points are in the `/scripts` directory.
 | **Windows** | Desktop | WASAPI | CoreAudio API |
 
 ### Linux Permission Setup
-On first launch or if permissions are missing, Voquill triggers a Polkit prompt (`pkexec`) to add the user to the `audio` and `input` groups. Agents must ensure any new hardware interaction respects this flow.
+On first launch or if permissions are missing, Voquill triggers standard XDG Portal prompts to request access to the microphone, global shortcuts, and remote desktop (for input simulation). Agents must ensure any new hardware interaction respects this Portal-first flow.
 
 ---
 
