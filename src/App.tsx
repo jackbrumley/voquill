@@ -739,6 +739,34 @@ function App() {
                         )}
                       </>
                     )}
+
+                    <ConfigField label="Global Hotkey" description="Hold these keys to record, release to transcribe.">
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input 
+                          type="text" 
+                          value={isRecordingHotkey ? 'Press keys...' : config.hotkey} 
+                          readOnly
+                          style={{ 
+                            flex: 1,
+                            backgroundColor: isRecordingHotkey ? 'var(--color-primary-dim)' : undefined,
+                            color: isRecordingHotkey ? 'var(--color-primary)' : undefined,
+                            fontWeight: isRecordingHotkey ? 'bold' : undefined,
+                            cursor: 'default'
+                          }}
+                        />
+                        <Button 
+                          size="sm" 
+                          variant={isRecordingHotkey ? 'primary' : 'secondary'}
+                          onClick={isRecordingHotkey ? () => setIsRecordingHotkey(false) : startRecordingHotkey}
+                        >
+                          {isRecordingHotkey ? 'Cancel' : 'Record'}
+                        </Button>
+                      </div>
+                    </ConfigField>
+
+                    <ConfigField label="Always Copy to Clipboard" description="Automatically copies the transcription to your clipboard even when in Typewriter mode.">
+                      <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} label="Enabled" />
+                    </ConfigField>
                   </CollapsibleSection>
 
                   <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
@@ -772,34 +800,6 @@ function App() {
                   </CollapsibleSection>
 
                   <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>
-                    <ConfigField label="Always Copy to Clipboard" description="Automatically copies the transcription to your clipboard even when in Typewriter mode.">
-                      <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} label="Enabled" />
-                    </ConfigField>
-
-                    <ConfigField label="Global Hotkey" description="Hold these keys to record, release to transcribe.">
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <input 
-                          type="text" 
-                          value={isRecordingHotkey ? 'Press keys...' : config.hotkey} 
-                          readOnly
-                          style={{ 
-                            flex: 1,
-                            backgroundColor: isRecordingHotkey ? 'var(--color-primary-dim)' : undefined,
-                            color: isRecordingHotkey ? 'var(--color-primary)' : undefined,
-                            fontWeight: isRecordingHotkey ? 'bold' : undefined,
-                            cursor: 'default'
-                          }}
-                        />
-                        <Button 
-                          size="sm" 
-                          variant={isRecordingHotkey ? 'primary' : 'secondary'}
-                          onClick={isRecordingHotkey ? () => setIsRecordingHotkey(false) : startRecordingHotkey}
-                        >
-                          {isRecordingHotkey ? 'Cancel' : 'Record'}
-                        </Button>
-                      </div>
-                    </ConfigField>
-
                     <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
                       <input type="number" value={config.typing_speed_interval} onChange={(e: any) => updateConfig('typing_speed_interval', parseInt(e.target.value))} />
                     </ConfigField>
