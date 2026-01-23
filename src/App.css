@@ -339,7 +339,7 @@ select {
 
 .status-footer-links {
   display: flex;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
   align-items: center;
 }
 

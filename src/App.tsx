@@ -642,8 +642,8 @@ function App() {
                         <Button variant="icon" className="github-link" onClick={() => open('https://github.com/jackbrumley/voquill')} title="GitHub Repository">
                           <IconBrandGithub size={18} />
                         </Button>
-                        <Button variant="icon" className="github-link" onClick={() => open('https://voquill.com/donate')} title="Support the project">
-                          <IconHeart size={18} />
+                        <Button variant="icon" className="github-link" onClick={() => open('https://voquill.org/donate')} title="Support the project">
+                          <IconHeart size={18} color="#ff6b6b" fill="#ff6b6b" fillOpacity={0.2} />
                         </Button>
                       </div>
                       <div className="version-text">v{appVersion}</div>
