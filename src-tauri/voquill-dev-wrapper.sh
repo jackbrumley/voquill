@@ -10,6 +10,17 @@ export DESKTOP_ENTRY="com.voquill.voquill"
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Tauri/Cargo appends "run" as the first argument; we should strip it
+# It also appends "--no-default-features" etc if passed to cargo
+# We want to pass everything after "run" to the binary, but actually 
+# tauri calls "runner run <args>". 
+# The actual binary we want to run is in target/debug/voquill
+
+# Strip "run" if it's the first arg
+if [ "$1" = "run" ]; then
+    shift
+fi
+
 # Launch via systemd-run to break the terminal process tree link
 # This ensures KDE sees the app_id as "com.voquill.voquill" instead of "org.kde.konsole"
 exec systemd-run --user --scope --unit=voquill-dev \

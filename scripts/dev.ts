@@ -114,7 +114,24 @@ X-KDE-StartupNotify=false
 
   // 4. Run Dev Server
   logStep("4", "Starting Tauri dev server...");
-  await runCommand(["deno", "task", "tauri", "dev"]);
+  const tauriArgs = ["deno", "task", "tauri", "dev"];
+  
+  if (Deno.build.os === "linux") {
+    // Dynamically generate a Linux-specific config with the absolute path to the wrapper
+    // This solves the "command not found" issue in Tauri's runner while remaining portable
+    const wrapperPath = join(Deno.cwd(), "src-tauri", "voquill-dev-wrapper.sh");
+    const linuxConfig = {
+      build: {
+        runner: wrapperPath
+      }
+    };
+    const linuxConfigPath = join(Deno.cwd(), "src-tauri", "tauri.linux.conf.json");
+    await Deno.writeTextFile(linuxConfigPath, JSON.stringify(linuxConfig, null, 2));
+    
+    tauriArgs.push("--config", "src-tauri/tauri.linux.conf.json");
+  }
+  
+  await runCommand(tauriArgs);
 }
 
 if (import.meta.main) {

@@ -37,3 +37,4 @@ src-tauri/debug
 
 # Local Strategy/Temp
 temp/
+src-tauri/tauri.linux.conf.json

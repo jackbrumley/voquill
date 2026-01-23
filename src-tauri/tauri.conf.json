@@ -7,8 +7,7 @@
     "beforeBuildCommand": "deno task build:ui",
     "beforeDevCommand": "deno task dev:ui",
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:1420",
-    "runner": "bash ./voquill-dev-wrapper.sh"
+    "devUrl": "http://localhost:1420"
   },
   "app": {
     "windows": [
