@@ -76,6 +76,7 @@ impl Default for AppState {
 
 #[tauri::command]
 async fn get_linux_setup_status(state: tauri::State<'_, AppState>) -> Result<LinuxPermissions, String> {
+    log_info!("📡 Tauri Command: get_linux_setup_status invoked");
     let config = {
         let guard = state.config.lock().unwrap();
         guard.clone()
@@ -85,13 +86,14 @@ async fn get_linux_setup_status(state: tauri::State<'_, AppState>) -> Result<Lin
 
 #[tauri::command]
 async fn run_linux_setup(app_handle: tauri::AppHandle) -> Result<(), String> {
+    log_info!("📡 Tauri Command: run_linux_setup invoked");
     request_linux_permissions(app_handle.clone()).await?;
     
     // On Linux, immediately restart the hotkey engine now that we have tokens
     #[cfg(target_os = "linux")]
     {
         log_info!("✅ Setup complete! Restarting Wayland Global Shortcuts Engine...");
-        tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle.clone()));
+        tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle.clone(), true));
     }
     
     Ok(())
@@ -428,8 +430,8 @@ async fn re_register_hotkey(app_handle: &tauri::AppHandle, hotkey_string: &str) 
         };
         
         if has_token {
-            log_info!("🔄 Hotkey changed to '{}', restarting Global Shortcuts Engine...", hotkey_string);
-            tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle.clone()));
+            log_info!("🔄 Registering hotkey '{}' with Global Shortcuts Engine...", hotkey_string);
+            tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle.clone(), false));
         }
         Ok(())
     }
@@ -883,7 +885,7 @@ fn normalize_wayland_trigger(hotkey: &str) -> String {
 }
 
 #[cfg(target_os = "linux")]
-async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle) {
+async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle, force: bool) {
     use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
     use futures_util::StreamExt;
 
@@ -921,8 +923,8 @@ async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle) {
         (config.shortcuts_token.clone(), config.hotkey.clone())
     };
 
-    if shortcuts_token.is_none() {
-        log_info!("⚠️ No shortcuts token found. Skipping hotkey registration until setup is run.");
+    if shortcuts_token.is_none() && !force {
+        log_info!("⚠️ No shortcuts token found and force=false. Skipping hotkey registration until setup is run.");
         return;
     }
 
@@ -989,6 +991,13 @@ async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle) {
         log_info!("💡 Or check: journalctl --user -u xdg-desktop-portal-kde -n 50");
     } else {
         log_info!("🎉 Trigger successfully bound: '{}'", actual_trigger);
+        
+        // Save the token now that we've successfully bound a trigger
+        {
+            let mut config = state.config.lock().unwrap();
+            config.shortcuts_token = Some("granted".to_string());
+            let _ = crate::config::save_config(&config);
+        }
     }
 
     let mut activated_stream = match proxy.receive_activated().await {
@@ -1155,9 +1164,6 @@ fn main() {
             }
             let _ = audio::get_input_devices();
             
-            #[cfg(target_os = "linux")]
-            tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app.handle().clone()));
-
             #[cfg(target_os = "linux")]
             {
                 let state = app.state::<AppState>();

@@ -1,8 +1,6 @@
 use serde::Serialize;
 use ashpd::desktop::camera::Camera;
 #[cfg(target_os = "linux")]
-use ashpd::desktop::global_shortcuts::GlobalShortcuts;
-#[cfg(target_os = "linux")]
 use ashpd::desktop::remote_desktop::{RemoteDesktop, DeviceType};
 #[cfg(target_os = "linux")]
 use ashpd::desktop::PersistMode;
@@ -52,32 +50,7 @@ pub async fn request_linux_permissions(app_handle: AppHandle) -> Result<(), Stri
     let camera = Camera::new().await.map_err(|e| format!("Audio Portal not available: {}. Is xdg-desktop-portal-gtk/kde installed?", e))?;
     camera.request_access().await.map_err(|e| format!("Audio access denied: {}", e))?;
 
-    // 2. Request Global Shortcuts
-    let shortcuts = GlobalShortcuts::new().await.map_err(|e| format!("Global Shortcuts Portal not available: {}. Your compositor might not support it.", e))?;
-    let session = shortcuts.create_session().await.map_err(|e| format!("Failed to create shortcuts session: {}", e))?;
-    
-    // In Wayland, we must BIND the shortcuts during setup to trigger the OS dialog
-    // We use the standard Freedesktop Shortcuts Specification format
-    use ashpd::desktop::global_shortcuts::NewShortcut;
-    
-    // Default hint for initial setup (CTRL+SHIFT+space)
-    let shortcut = NewShortcut::new("record", "Dictation Hotkey")
-        .preferred_trigger(Some("CTRL+SHIFT+space"));
-
-    let bind_request = shortcuts.bind_shortcuts(&session, &[shortcut], None).await.map_err(|e| format!("Failed to bind shortcuts: {}", e))?;
-    
-    // Wait for the user to pick/confirm in the OS dialog
-    let result = bind_request.response().map_err(|e| format!("Shortcut registration cancelled: {}", e))?;
-    
-    // Verify we actually got a trigger
-    let s_token = if result.shortcuts().iter().any(|s| !s.trigger_description().is_empty()) {
-        Some("granted".to_string())
-    } else {
-        log_info!("⚠️ User didn't assign a key in the dialog.");
-        None
-    };
-
-    // 3. Request Input Emulation via Remote Desktop Portal
+    // 2. Request Input Emulation via Remote Desktop Portal
     let remote_desktop = RemoteDesktop::new().await.map_err(|e| format!("Remote Desktop Portal not available: {}", e))?;
     let rd_session = remote_desktop.create_session().await.map_err(|e| format!("Failed to create remote desktop session: {}", e))?;
     
@@ -103,7 +76,6 @@ pub async fn request_linux_permissions(app_handle: AppHandle) -> Result<(), Stri
     {
         let state = app_handle.state::<AppState>();
         let mut config = state.config.lock().unwrap();
-        config.shortcuts_token = s_token;
         config.input_token = i_token;
         let _ = crate::config::save_config(&config);
     }

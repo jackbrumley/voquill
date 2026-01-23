@@ -117,6 +117,11 @@ X-KDE-StartupNotify=false
   const tauriArgs = ["deno", "task", "tauri", "dev"];
   
   if (Deno.build.os === "linux") {
+    // 3.5 Force a rebuild of the Rust binary to ensure new commands are included
+    // This is necessary because using a custom 'runner' can sometimes skip automatic recompilation
+    logStep("3.5", "Building Rust binary...");
+    await runCommand(["cargo", "build"], join(Deno.cwd(), "src-tauri"));
+
     // Dynamically generate a Linux-specific config with the absolute path to the wrapper
     // This solves the "command not found" issue in Tauri's runner while remaining portable
     const wrapperPath = join(Deno.cwd(), "src-tauri", "voquill-dev-wrapper.sh");
