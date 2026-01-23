@@ -1,6 +1,6 @@
 [package]
 name = "voquill"
-version = "1.2.2"
+version = "1.2.4"
 description = "Cross-platform push-to-talk dictation app"
 authors = ["Jack Brumley"]
 license = "MIT"
