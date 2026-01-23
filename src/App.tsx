@@ -66,7 +66,7 @@ function App() {
     api_model: 'whisper-1',
     transcription_mode: 'Local',
     local_model_size: 'base',
-    hotkey: 'ctrl+space',
+    hotkey: 'ctrl+shift+space',
     typing_speed_interval: 1,
     key_press_duration_ms: 2,
     pixels_from_bottom: 100,
@@ -609,14 +609,21 @@ function App() {
                     <div className="status-text-app" key={`text-${currentStatus}`}>
                       {currentStatus === 'Transcribing' ? `Transcribing (${config.transcription_mode})` : currentStatus}
                     </div>
-                    <ModeSwitcher 
-                      value={config.output_method} 
-                      onToggle={toggleOutputMethod} 
-                      options={[
-                        { value: 'Typewriter', label: 'Typewriter', title: 'Typewriter Mode: Simulates key presses' },
-                        { value: 'Clipboard', label: 'Clipboard', title: 'Clipboard Mode: Fast copy-paste' }
-                      ]}
-                    />
+                    <div className="mode-selection-group">
+                      <ModeSwitcher 
+                        value={config.output_method} 
+                        onToggle={toggleOutputMethod} 
+                        options={[
+                          { value: 'Typewriter', label: 'Typewriter', title: 'Typewriter Mode: Simulates key presses' },
+                          { value: 'Clipboard', label: 'Clipboard', title: 'Clipboard Mode: Fast copy-paste' }
+                        ]}
+                      />
+                      <div className="mode-description" key={`desc-${config.output_method}`}>
+                        {config.output_method === 'Typewriter' 
+                          ? 'Types directly into your active cursor.' 
+                          : 'Copies results to your clipboard.'}
+                      </div>
+                    </div>
                   </div>
                   
                   <Card className="help-content">
@@ -706,13 +713,15 @@ function App() {
                       </>
                     ) : (
                       <>
-                        <ConfigField label="Local Model" description="Choose the Whisper model size. Larger models are more accurate but slower.">
+                        <ConfigField label="Local Model" description="Choose the Whisper model size. The base model is recommended for its balance of speed and accuracy.">
                           <div className="select-wrapper">
                             {availableModels.length > 0 ? (
                               <>
                                 <select value={config.local_model_size} onChange={(e: any) => updateConfig('local_model_size', e.target.value)}>
                                   {availableModels.map(m => (
-                                    <option key={m.size} value={m.size}>{m.size.charAt(0).toUpperCase() + m.size.slice(1)} ({Math.round(m.file_size / 1024 / 1024)}MB)</option>
+                                    <option key={m.size} value={m.size}>
+                                      {m.size.charAt(0).toUpperCase() + m.size.slice(1)} {m.size === 'base' ? '(Recommended)' : ''} ({Math.round(m.file_size / 1024 / 1024)}MB)
+                                    </option>
                                   ))}
                                 </select>
                                 {!modelStatus[config.local_model_size] && (

@@ -80,7 +80,7 @@
             font-size: 1.25rem;
             color: var(--colors-text-secondary);
             margin-top: 0.75rem;
-            max-width: 500px;
+            max-width: 800px;
             margin-left: auto;
             margin-right: auto;
             font-weight: 400;
@@ -119,20 +119,21 @@
         .philosophy-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1rem;
-            margin: 1.25rem 0;
+            gap: 2rem;
+            margin: 2rem 0;
         }
 
         .card {
             background: var(--colors-glass-bg);
             backdrop-filter: blur(var(--colors-glass-blur));
             -webkit-backdrop-filter: blur(var(--colors-glass-blur));
-            padding: 1.25rem;
-            border-radius: 16px;
+            padding: 1.5rem;
+            border-radius: 20px;
             text-align: left;
             border: 1px solid rgba(255, 255, 255, 0.05);
             box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
             transition: transform 0.25s ease;
+            height: 100%;
         }
 
         .card:hover {
@@ -208,6 +209,82 @@
             margin-bottom: 0.25rem;
         }
 
+        .hero-container {
+            margin: 2rem auto;
+            max-width: 800px;
+            width: 100%;
+            border-radius: 20px;
+            overflow: hidden;
+            background: var(--colors-glass-bg);
+            backdrop-filter: blur(var(--colors-glass-blur));
+            -webkit-backdrop-filter: blur(var(--colors-glass-blur));
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            transition: transform 0.3s ease;
+            cursor: zoom-in;
+        }
+
+        .hero-container:hover {
+            transform: scale(1.01);
+        }
+
+        .hero-container img {
+            width: 100%;
+            display: block;
+        }
+
+        /* Lightbox Styles */
+        .lightbox-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            cursor: zoom-out;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .lightbox-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .lightbox-image {
+            max-width: 90%;
+            max-height: 90vh;
+            border-radius: 12px;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+
+        .lightbox-overlay.active .lightbox-image {
+            transform: scale(1);
+        }
+
+        .view-gallery-link {
+            display: inline-block;
+            margin-top: 1rem;
+            color: var(--colors-text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .view-gallery-link:hover {
+            color: var(--colors-text-primary);
+            text-decoration: underline;
+        }
+
         @media (max-width: 600px) {
             h1 { font-size: 2.25rem; }
             .container { padding: 2rem 1rem; }
@@ -220,13 +297,18 @@
         <header>
             <img src="logo.png" alt="Voquill Logo" class="logo">
             <h1>Voquill</h1>
-            <p class="tagline">Free, private, and open-source system-wide push-to-talk dictation tool.</p>
+            <p class="tagline">Voquill is the original private dictation utility that lives in your system tray and lets you dictate into any application with a single keypress. Your voice is transcribed 100% locally and typed directly where you need it, ensuring your data never leaves your device.</p>
             <div class="platform-support">
                 <span class="platform-label">Linux</span>
                 <div class="platform-divider"></div>
                 <span class="platform-label">Windows</span>
             </div>
         </header>
+
+        <div class="hero-container">
+            <img src="screenshots/screen-recording.gif" alt="Voquill in action">
+        </div>
+        <a href="screenshots.html" class="view-gallery-link">View Screenshots →</a>
 
         <section class="philosophy-grid">
             <div class="card">
@@ -250,10 +332,40 @@
             <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">View Source on GitHub</a>
         </div>
 
-        <footer>
-            <p class="provenance">Founded July 2025 by Jack Brumley</p>
-            <p>&copy; 2026 Voquill Project. MIT Licensed.</p>
-        </footer>
+    <footer>
+        <p class="provenance">Founded July 2025 by Jack Brumley</p>
+        <p>&copy; 2026 Voquill Project. MIT Licensed.</p>
+    </footer>
+
+    <div class="lightbox-overlay" id="lightbox">
+        <img src="" alt="Full size view" class="lightbox-image" id="lightbox-img">
     </div>
+
+    <script>
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightbox-img');
+        const heroContainer = document.querySelector('.hero-container');
+
+        if (heroContainer) {
+            heroContainer.addEventListener('click', () => {
+                const img = heroContainer.querySelector('img');
+                lightboxImg.src = img.src;
+                lightbox.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            });
+        }
+
+        lightbox.addEventListener('click', () => {
+            lightbox.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && lightbox.classList.contains('active')) {
+                lightbox.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
+        });
+    </script>
 </body>
 </html>

@@ -52,13 +52,13 @@ Ready-to-use binaries are available for supported platforms:
 
 ### Setup Guide
 
-Ensure you have a working microphone set as your default audio device before starting.
+Ensure you have a working microphone set as your default audio device before starting (see **Audio Optimization** below).
 
 #### Local Mode (Recommended)
 
 Voquill is designed to work offline. Simply launch the app and:
-1. Select your preferred model size from the **Config tab** when prompted.
-2. Voquill will handle the one-time download and optimization.
+1. Select your preferred model size from the **Config tab** (the **base** model is recommended for most users).
+2. Click the **Download** button to fetch the model to your device.
 3. Start dictating immediately.
 
 #### Cloud Mode (Optional)
@@ -68,12 +68,24 @@ If you prefer using the OpenAI Whisper API for cloud-based transcription:
 2. Ensure your account has a balance.
 3. Switch the transcription mode to "Cloud".
 
+#### Audio Optimization
+
+To ensure the highest transcription accuracy, take a moment to calibrate your audio in the **Config > Audio** section:
+1. **Select Microphone**: Ensure the correct device is selected.
+2. **Adjust Sensitivity**: Use the **Mic Sensitivity** slider so your voice is clear but not clipping.
+3. **Test & Playback**: Use the **Test Microphone** button to record and listen to a snippet to verify clarity.
+
 ### How to Dictate
 
 1. **Focus**: Click into any text field (Email, Word, Browser, Code Editor, etc.).
-2. **Hold**: Press and hold `Ctrl + Space` (default).
+2. **Hold**: Press and hold `Ctrl + Shift + Space` (default).
 3. **Speak**: Speak clearly while holding the keys.
 4. **Release**: Let go of the keys. Your speech will appear as text at your cursor.
+
+## Known Issues
+
+- **Linux Input Support**: Current Linux input is limited to standard English characters. Support for non-English characters and Unicode symbols is planned for a future update.
+- **Language Selection**: Choosing a language in settings provides a "hint" to the AI, but transcription may not always reliably follow the selected language depending on the model used.
 
 ## Technology
 
