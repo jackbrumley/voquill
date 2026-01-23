@@ -44,29 +44,29 @@ async function runCommand(cmd: string[], cwd: string = Deno.cwd()) {
 async function main() {
   log(`${colors.bright}${colors.magenta}🔨 Voquill Build Script (Deno)${colors.reset}`);
   
+  // 1. Check requirements
   await verifyDependencies(false);
 
-  const tauriDir = join(Deno.cwd(), "src-tauri");
-
-  // Dependencies are managed by Deno via deno.json imports
-  logStep("1", "Dependencies managed by Deno...");
-  log(`${colors.green}✅ Using Deno's automatic dependency management${colors.reset}`);
-
-  // 2. Build Tauri App (which will run beforeBuildCommand to build frontend)
-  logStep("2", "Building Tauri application...");
+  // 2. Build Tauri App
+  logStep("1", "Building Tauri application...");
   
-  // Check for debug flag
   const args = Deno.args;
-  const isDev = args.includes("--dev") || args.includes("-d");
+  const isDebug = args.includes("--debug") || args.includes("-d");
   
   const tauriArgs = ["deno", "task", "tauri", "build"];
-  if (isDev) {
+  
+  // Ensure we DON'T use any dev configs that might be lying around
+  // Tauri 2 will use tauri.conf.json by default.
+  
+  if (isDebug) {
     tauriArgs.push("--debug");
+    log(`${colors.yellow}⚠️ Building in DEBUG mode${colors.reset}`);
   }
   
   await runCommand(tauriArgs);
   
   log(`\n${colors.green}✅ Build completed successfully!${colors.reset}`);
+  log(`${colors.cyan}Artifacts can be found in: src-tauri/target/release/bundle/${colors.reset}`);
 }
 
 if (import.meta.main) {

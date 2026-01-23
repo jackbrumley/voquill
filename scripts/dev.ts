@@ -130,10 +130,10 @@ X-KDE-StartupNotify=false
         runner: wrapperPath
       }
     };
-    const linuxConfigPath = join(Deno.cwd(), "src-tauri", "tauri.linux.conf.json");
+    const linuxConfigPath = join(Deno.cwd(), "src-tauri", "tauri.linux-dev.json");
     await Deno.writeTextFile(linuxConfigPath, JSON.stringify(linuxConfig, null, 2));
     
-    tauriArgs.push("--config", "src-tauri/tauri.linux.conf.json");
+    tauriArgs.push("--config", "src-tauri/tauri.linux-dev.json");
   }
   
   await runCommand(tauriArgs);

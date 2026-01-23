@@ -635,9 +635,22 @@ function App() {
                       <li>Hold <strong>{config.hotkey}</strong> and speak.</li>
                       <li>Release keys to transcribe and type.</li>
                     </ol>
-                  </Card>
+                    </Card>
+
+                    <div className="status-footer">
+                      <div className="status-footer-links">
+                        <Button variant="icon" className="github-link" onClick={() => open('https://github.com/jackbrumley/voquill')} title="GitHub Repository">
+                          <IconBrandGithub size={18} />
+                        </Button>
+                        <Button variant="icon" className="github-link" onClick={() => open('https://voquill.com/donate')} title="Support the project">
+                          <IconHeart size={18} />
+                        </Button>
+                      </div>
+                      <div className="version-text">v{appVersion}</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+
             )}
 
             {activeTab === 'config' && (
