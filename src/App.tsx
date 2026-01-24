@@ -5,7 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { open } from '@tauri-apps/plugin-shell';
-import { IconBrandGithub, IconHeart, IconMicrophone, IconKeyboard, IconTextRecognition, IconCheck, IconX } from '@tabler/icons-react';
+import { IconBrandGithub, IconHeart, IconMicrophone, IconKeyboard, IconTextRecognition, IconCheck, IconX, IconInfoCircle, IconRocket, IconRefresh, IconCopy, IconShieldLock } from '@tabler/icons-react';
 import StatusIcon from './StatusIcon.tsx';
 import { tokens } from './design-tokens.ts';
 import { Card } from './components/Card.tsx';
@@ -15,6 +15,7 @@ import { Switch } from './components/Switch.tsx';
 import { CollapsibleSection } from './components/CollapsibleSection.tsx';
 import { ModeSwitcher } from './components/ModeSwitcher.tsx';
 import { ActionFooter } from './components/ActionFooter.tsx';
+import { ModelInfoModal } from './components/ModelInfoModal.tsx';
 import './App.css';
 
 interface Config {
@@ -34,6 +35,7 @@ interface Config {
   output_method: 'Typewriter' | 'Clipboard';
   copy_on_typewriter: boolean;
   language: string;
+  enable_gpu: boolean;
 }
 
 interface Toast {
@@ -77,6 +79,7 @@ function App() {
     output_method: 'Typewriter',
     copy_on_typewriter: false,
     language: 'auto',
+    enable_gpu: false,
   });
   
   const [activeTab, setActiveTab] = useState<'status' | 'history' | 'config'>('status');
@@ -97,6 +100,7 @@ function App() {
   const [linuxSetupStatus, setLinuxSetupStatus] = useState<'idle' | 'configuring' | 'restart-required' | 'failed'>('idle');
   const [isRecordingHotkey, setIsRecordingHotkey] = useState(false);
   const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
+  const [showModelGuide, setShowModelGuide] = useState(false);
 
   const logUI = (msg: string) => {
     // Log Toasts and Clicks always, drop other spam unless debug mode
@@ -512,11 +516,7 @@ function App() {
           <Card className="setup-required-card">
             <div className="setup-header">
               <div className="setup-icon-container">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="setup-icon">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  <path d="M12 8v4" />
-                  <path d="M12 16h.01" />
-                </svg>
+                <IconShieldLock size={32} className="setup-icon" />
               </div>
               <h2>System Access Required</h2>
             </div>
@@ -713,17 +713,20 @@ function App() {
                       </>
                     ) : (
                       <>
-                        <ConfigField label="Local Model" description="Choose the Whisper model size. The base model is recommended for its balance of speed and accuracy.">
+                        <ConfigField label="Local Model" description="Choose the Whisper model size. Larger models are more accurate but slower.">
                           <div className="select-wrapper">
                             {availableModels.length > 0 ? (
                               <>
                                 <select value={config.local_model_size} onChange={(e: any) => updateConfig('local_model_size', e.target.value)}>
                                   {availableModels.map(m => (
                                     <option key={m.size} value={m.size}>
-                                      {m.size.charAt(0).toUpperCase() + m.size.slice(1)} {m.size === 'base' ? '(Recommended)' : ''} ({Math.round(m.file_size / 1024 / 1024)}MB)
+                                      {m.label} {m.recommended ? '(Recommended)' : ''} ({Math.round(m.file_size / 1024 / 1024)}MB)
                                     </option>
                                   ))}
                                 </select>
+                                <Button variant="ghost" className="icon-button" onClick={() => setShowModelGuide(true)} title="Model Guide">
+                                  <IconInfoCircle size={20} />
+                                </Button>
                                 {!modelStatus[config.local_model_size] && (
                                   <Button size="sm" onClick={() => downloadModel(config.local_model_size)} disabled={isDownloading}>
                                     {isDownloading ? '...' : 'Download'}
@@ -737,6 +740,11 @@ function App() {
                               </div>
                             )}
                           </div>
+                          {availableModels.length > 0 && (
+                            <div className="mode-description" style={{ textAlign: 'left', marginTop: '4px' }}>
+                              {availableModels.find(m => m.size === config.local_model_size)?.description}
+                            </div>
+                          )}
                         </ConfigField>
                         {isDownloading && (
                           <div className="download-progress-container" style={{ marginTop: '-8px', marginBottom: '16px' }}>
@@ -785,9 +793,7 @@ function App() {
                           {availableMics.map((mic: any) => <option key={mic.id} value={mic.id}>{mic.label}</option>)}
                         </select>
                         <Button variant="ghost" className="icon-button" onClick={loadMics} title="Refresh Devices">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                            <path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
-                          </svg>
+                          <IconRefresh size={16} />
                         </Button>
                       </div>
                     </ConfigField>
@@ -827,6 +833,13 @@ function App() {
                       <Switch checked={config.debug_mode} onChange={(checked) => updateConfig('debug_mode', checked)} label="Enable Debug Settings" />
                     </ConfigField>
 
+                    <ConfigField label="Turbo Mode (GPU)" description="Uses your graphics card to speed up transcription. Recommended for 'Medium' models.">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} label="Enabled" />
+                        <IconRocket size={20} style={{ color: config.enable_gpu ? '#f1c40f' : 'var(--colors-text-muted)', opacity: config.enable_gpu ? 1 : 0.5, transition: 'all 0.3s ease' }} />
+                      </div>
+                    </ConfigField>
+
                     {config.debug_mode && (
                       <ConfigField label="Recording Logs" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -849,9 +862,7 @@ function App() {
                         <Card key={item.id} className="history-item">
                           <div className="history-text">{item.text}</div>
                           <Button variant="ghost" size="sm" className="copy-button" onClick={() => copyToClipboard(item.text)} title="Copy to clipboard">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                            </svg>
+                            <IconCopy size={14} />
                           </Button>
                           <div className="history-timestamp">{new Date(item.timestamp).toLocaleString()}</div>
                         </Card>
@@ -879,6 +890,8 @@ function App() {
           </div>
         ))}
       </div>
+
+      {showModelGuide && <ModelInfoModal onClose={() => setShowModelGuide(false)} />}
     </div>
   );
 }

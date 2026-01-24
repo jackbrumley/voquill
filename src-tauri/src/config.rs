@@ -52,6 +52,8 @@ pub struct Config {
     pub shortcuts_token: Option<String>,
     #[serde(default)]
     pub input_token: Option<String>,
+    #[serde(default = "default_enable_gpu")]
+    pub enable_gpu: bool,
 }
 
 fn default_api_key() -> String { "your_api_key_here".to_string() }
@@ -70,6 +72,7 @@ fn default_input_sensitivity() -> f32 { 1.0 }
 fn default_output_method() -> OutputMethod { OutputMethod::Typewriter }
 fn default_copy_on_typewriter() -> bool { false }
 fn default_language() -> String { "auto".to_string() }
+fn default_enable_gpu() -> bool { false }
 
 impl Default for Config {
     fn default() -> Self {
@@ -92,6 +95,7 @@ impl Default for Config {
             language: default_language(),
             shortcuts_token: None,
             input_token: None,
+            enable_gpu: default_enable_gpu(),
         }
     }
 }

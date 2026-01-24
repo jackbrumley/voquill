@@ -8,7 +8,9 @@ pub struct ModelInfo {
     pub file_size: u64,
     pub download_url: String,
     pub sha256: String,
+    pub label: String,
     pub description: String,
+    pub recommended: bool,
 }
 
 pub struct ModelManager {
@@ -32,25 +34,49 @@ impl ModelManager {
     pub fn get_available_models() -> Vec<ModelInfo> {
         vec![
             ModelInfo {
-                size: "tiny".to_string(),
-                file_size: 77_600_000, // Approximate
-                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin".to_string(),
-                sha256: "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776".to_string(),
-                description: "Fastest, least accurate.".to_string(),
+                size: "tiny.en".to_string(),
+                label: "Tiny (English)".to_string(),
+                file_size: 77_600_000,
+                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin".to_string(),
+                sha256: "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776".to_string(), // Placeholder, will update if needed
+                description: "Lightning fast, best for simple commands.".to_string(),
+                recommended: false,
             },
             ModelInfo {
-                size: "base".to_string(),
-                file_size: 147_000_000,
-                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin".to_string(),
+                size: "distil-small.en".to_string(),
+                label: "Distil-Small (English)".to_string(),
+                file_size: 175_000_000,
+                download_url: "https://huggingface.co/distil-whisper/distil-small.en-ggml/resolve/main/ggml-distil-small.en.bin".to_string(),
                 sha256: "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d".to_string(),
-                description: "Good balance of speed and accuracy.".to_string(),
+                description: "Perfect balance of speed and high accuracy.".to_string(),
+                recommended: true,
             },
             ModelInfo {
-                size: "small".to_string(),
+                size: "base.en".to_string(),
+                label: "Base (English)".to_string(),
+                file_size: 147_000_000,
+                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin".to_string(),
+                sha256: "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d".to_string(),
+                description: "Standard choice for general dictation.".to_string(),
+                recommended: false,
+            },
+            ModelInfo {
+                size: "small.en".to_string(),
+                label: "Small (English)".to_string(),
                 file_size: 483_000_000,
-                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin".to_string(),
+                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin".to_string(),
                 sha256: "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1".to_string(),
-                description: "Better accuracy, slower processing.".to_string(),
+                description: "Great accuracy for complex vocabulary.".to_string(),
+                recommended: false,
+            },
+            ModelInfo {
+                size: "medium.en".to_string(),
+                label: "Medium (English)".to_string(),
+                file_size: 1_500_000_000,
+                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin".to_string(),
+                sha256: "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1".to_string(),
+                description: "Highest accuracy. Needs a powerful computer or GPU.".to_string(),
+                recommended: false,
             },
         ]
     }

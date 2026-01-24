@@ -767,11 +767,11 @@ async fn record_and_transcribe(
             api_model,
         }),
         TranscriptionMode::Local => {
-            let model_size = {
+            let (model_size, use_gpu) = {
                 let config_lock = config.lock().unwrap();
-                config_lock.local_model_size.clone()
+                (config_lock.local_model_size.clone(), config_lock.enable_gpu)
             };
-            match local_whisper::LocalWhisperService::new(&model_size) {
+            match local_whisper::LocalWhisperService::new(&model_size, use_gpu) {
                 Ok(s) => Box::new(s),
                 Err(e) => {
                     log_info!("❌ Failed to initialize Local Whisper: {}", e);

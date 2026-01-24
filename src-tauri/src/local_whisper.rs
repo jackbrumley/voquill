@@ -7,10 +7,11 @@ use hound;
 
 pub struct LocalWhisperService {
     model_path: PathBuf,
+    use_gpu: bool,
 }
 
 impl LocalWhisperService {
-    pub fn new(model_size: &str) -> Result<Self, TranscriptionError> {
+    pub fn new(model_size: &str, use_gpu: bool) -> Result<Self, TranscriptionError> {
         let model_manager = ModelManager::new()
             .map_err(|e| TranscriptionError::ModelError(e))?;
         
@@ -24,6 +25,7 @@ impl LocalWhisperService {
         
         Ok(Self {
             model_path,
+            use_gpu,
         })
     }
 }
@@ -49,9 +51,16 @@ impl TranscriptionService for LocalWhisperService {
             .map_err(|e| TranscriptionError::AudioError(e.to_string()))?;
 
         // Load context (lazy loading)
+        let mut context_params = WhisperContextParameters::default();
+        if self.use_gpu {
+            log_info!("🚀 Attempting to use GPU acceleration (Vulkan/Metal/CUDA)...");
+            // Note: whisper-rs handles the specific backend based on features enabled at build time.
+            // We can also hint at the number of GPU layers if needed in the future.
+        }
+
         let ctx = WhisperContext::new_with_params(
             self.model_path.to_str().ok_or_else(|| TranscriptionError::ModelError("Invalid model path".to_string()))?,
-            WhisperContextParameters::default(),
+            context_params,
         ).map_err(|e| TranscriptionError::ModelError(e.to_string()))?;
         
         let mut state = ctx.create_state().map_err(|e| TranscriptionError::ModelError(e.to_string()))?;

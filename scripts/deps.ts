@@ -144,6 +144,28 @@ const REGISTRY: Record<string, Dependency[]> = {
       },
       desc: "librsvg development headers",
     },
+    {
+      name: "vulkan-headers",
+      apt: "libvulkan-dev",
+      pacman: "vulkan-headers",
+      pkgConfig: "vulkan",
+      install: {
+        apt: "sudo apt install libvulkan-dev",
+        pacman: "sudo pacman -S vulkan-headers",
+      },
+      desc: "Vulkan development headers (required for Turbo Mode)",
+    },
+    {
+      name: "shaderc",
+      cmd: "glslc",
+      apt: "shaderc",
+      pacman: "shaderc",
+      install: {
+        apt: "sudo apt install shaderc",
+        pacman: "sudo pacman -S shaderc",
+      },
+      desc: "Vulkan shader compiler (required for Turbo Mode)",
+    },
   ],
   windows: [
     { 
