@@ -158,10 +158,10 @@ const REGISTRY: Record<string, Dependency[]> = {
     {
       name: "shaderc",
       cmd: "glslc",
-      apt: "shaderc",
+      apt: "glslc",
       pacman: "shaderc",
       install: {
-        apt: "sudo apt install shaderc",
+        apt: "sudo apt install glslc",
         pacman: "sudo pacman -S shaderc",
       },
       desc: "Vulkan shader compiler (required for Turbo Mode)",
