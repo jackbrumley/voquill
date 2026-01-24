@@ -112,17 +112,27 @@ impl ModelManager {
         
         let total_size = response.content_length().unwrap_or(model_info.file_size);
         let mut downloaded: u64 = 0;
+        let mut last_reported_progress: f64 = -1.0;
         
-        let mut file = std::fs::File::create(&path).map_err(|e| e.to_string())?;
+        let mut file = tokio::fs::File::create(&path).await.map_err(|e| e.to_string())?;
         
-        use std::io::Write;
+        use tokio::io::AsyncWriteExt;
         while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
-            file.write_all(&chunk).map_err(|e| e.to_string())?;
+            file.write_all(&chunk).await.map_err(|e| e.to_string())?;
             downloaded += chunk.len() as u64;
+            
             let progress = (downloaded as f64 / total_size as f64) * 100.0;
-            progress_callback(progress);
+            
+            // Only report progress if it has increased by at least 0.5%
+            // to prevent saturating the Tauri IPC bridge and freezing the UI
+            if progress - last_reported_progress >= 0.5 || progress >= 100.0 {
+                progress_callback(progress);
+                last_reported_progress = progress;
+            }
         }
         
+        file.flush().await.map_err(|e| e.to_string())?;
         Ok(path)
+
     }
 }
