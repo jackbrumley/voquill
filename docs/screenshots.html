@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshots | Voquill</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --colors-bg-primary: #36393f;
+            --colors-bg-gradient-warm: #4a384d;
+            --colors-bg-gradient-cool: #2d454f;
+            --colors-text-primary: #ffffff;
+            --colors-text-secondary: #8e9297;
+            --colors-accent-primary: #5865f2;
+            --colors-glass-bg: rgba(47, 49, 54, 0.6);
+            --colors-glass-blur: 16px;
+            --typography-font-main: "Inter", 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--typography-font-main);
+            background: linear-gradient(135deg, var(--colors-bg-gradient-warm) 0%, var(--colors-bg-primary) 50%, var(--colors-bg-gradient-cool) 100%);
+            background-attachment: fixed;
+            color: var(--colors-text-primary);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 95%;
+            padding: 4rem 1rem;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 2rem;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 2rem;
+            color: var(--colors-text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .back-link:hover {
+            color: var(--colors-text-primary);
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2.5rem;
+            max-width: 1100px;
+            margin: 0 auto;
+            align-items: stretch;
+        }
+
+        .screenshot-card {
+            background: var(--colors-glass-bg);
+            backdrop-filter: blur(var(--colors-glass-blur));
+            border-radius: 20px;
+            padding: 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            cursor: zoom-in;
+        }
+
+        .screenshot-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .screenshot-card img {
+            width: 100%;
+            height: auto;
+            border-radius: 12px;
+            display: block;
+            flex-grow: 1;
+            object-fit: contain;
+            background: rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+
+        .screenshot-card p {
+            margin-top: 1.25rem;
+            color: var(--colors-text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.4;
+            min-height: 3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        /* Lightbox Styles */
+        .lightbox-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            cursor: zoom-out;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .lightbox-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .lightbox-image {
+            max-width: 90%;
+            max-height: 90vh;
+            border-radius: 12px;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+
+        .lightbox-overlay.active .lightbox-image {
+            transform: scale(1);
+        }
+
+        @media (max-width: 900px) {
+            .gallery {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .gallery {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 2rem;
+            color: var(--colors-text-secondary);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Home</a>
+        <h1>Screenshots</h1>
+        
+        <div class="gallery">
+            <div class="screenshot-card">
+                <img src="screenshots/screenshot-status.png" alt="Voquill Status View">
+                <p>Minimalist status overlay during transcription.</p>
+            </div>
+            <div class="screenshot-card">
+                <img src="screenshots/screenshot-config.png" alt="Voquill Configuration">
+                <p>Simple, distraction-free configuration and engine settings.</p>
+            </div>
+            <div class="screenshot-card">
+                <img src="screenshots/screenshot-history.png" alt="Voquill History">
+                <p>Local-only history to review your recent dictations.</p>
+            </div>
+        </div>
+    </div>
+    <footer>
+        &copy; 2026 Voquill Project. MIT Licensed.
+    </footer>
+
+    <div class="lightbox-overlay" id="lightbox">
+        <img src="" alt="Full size screenshot" class="lightbox-image" id="lightbox-img">
+    </div>
+
+    <script>
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightbox-img');
+        const cards = document.querySelectorAll('.screenshot-card');
+
+        cards.forEach(card => {
+            card.addEventListener('click', () => {
+                const img = card.querySelector('img');
+                lightboxImg.src = img.src;
+                lightbox.classList.add('active');
+                document.body.style.overflow = 'hidden'; // Prevent scrolling
+            });
+        });
+
+        lightbox.addEventListener('click', () => {
+            lightbox.classList.remove('active');
+            document.body.style.overflow = 'auto'; // Restore scrolling
+        });
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && lightbox.classList.contains('active')) {
+                lightbox.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
+        });
+    </script>
+</body>
+</html>
