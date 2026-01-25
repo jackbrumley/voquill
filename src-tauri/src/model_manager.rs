@@ -46,7 +46,7 @@ impl ModelManager {
                 size: "distil-small.en".to_string(),
                 label: "Distil-Small (English)".to_string(),
                 file_size: 175_000_000,
-                download_url: "https://huggingface.co/distil-whisper/distil-small.en-ggml/resolve/main/ggml-distil-small.en.bin".to_string(),
+                download_url: "https://huggingface.co/distil-whisper/distil-small.en-ggml/resolve/main/ggml-distil-small.en.bin?download=true".to_string(),
                 sha256: "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d".to_string(),
                 description: "Perfect balance of speed and high accuracy.".to_string(),
                 recommended: true,

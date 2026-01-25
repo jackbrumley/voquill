@@ -51,7 +51,7 @@ impl TranscriptionService for LocalWhisperService {
             .map_err(|e| TranscriptionError::AudioError(e.to_string()))?;
 
         // Load context (lazy loading)
-        let mut context_params = WhisperContextParameters::default();
+        let context_params = WhisperContextParameters::default();
         if self.use_gpu {
             log_info!("🚀 Attempting to use GPU acceleration (Vulkan/Metal/CUDA)...");
             // Note: whisper-rs handles the specific backend based on features enabled at build time.

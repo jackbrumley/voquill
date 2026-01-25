@@ -9,13 +9,14 @@ interface ModelInfoModalProps {
 export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
   return (
     <div className="modal-overlay" onClick={() => onClose()}>
-      <Card className="modal-card" onClick={(e: any) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Model Guide</h2>
-          <Button variant="icon" onClick={() => onClose()} title="Close">
-            <IconX size={20} />
-          </Button>
-        </div>
+      <div onClick={(e: any) => e.stopPropagation()} style={{ width: '100%', maxWidth: '500px' }}>
+        <Card className="modal-card">
+          <div className="modal-header">
+            <h2>Model Guide</h2>
+            <Button variant="icon" onClick={() => onClose()} title="Close">
+              <IconX size={20} />
+            </Button>
+          </div>
 
         <div className="modal-body">
           <p className="modal-intro">
@@ -69,6 +70,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
           <Button variant="primary" onClick={() => onClose()}>Got it</Button>
         </div>
       </Card>
+      </div>
     </div>
   );
 }
