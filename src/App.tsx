@@ -24,6 +24,7 @@ interface Config {
   api_model: string;
   transcription_mode: 'API' | 'Local';
   local_model_size: string;
+  local_engine: string;
   hotkey: string;
   typing_speed_interval: number;
   key_press_duration_ms: number;
@@ -68,6 +69,7 @@ function App() {
     api_model: 'whisper-1',
     transcription_mode: 'Local',
     local_model_size: 'base',
+    local_engine: 'Whisper.cpp',
     hotkey: 'ctrl+shift+space',
     typing_speed_interval: 1,
     key_press_duration_ms: 2,
@@ -92,6 +94,7 @@ function App() {
   const [micVolume, setMicVolume] = useState<number>(0);
   const [activeConfigSection, setActiveConfigSection] = useState<string | null>('basic');
   const [appVersion, setAppVersion] = useState<string>('');
+  const [availableEngines, setAvailableEngines] = useState<string[]>([]);
   const [availableModels, setAvailableModels] = useState<any[]>([]);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -261,6 +264,9 @@ function App() {
   const loadModels = async () => {
     console.log('📡 Fetching available models...');
     try {
+      const engines = await invoke<string[]>('get_available_engines');
+      setAvailableEngines(engines || []);
+
       const models = await invoke<any[]>('get_available_models');
       console.log('✅ Models received:', models);
       if (!models || models.length === 0) {
@@ -335,6 +341,19 @@ function App() {
     }, 500);
     return () => clearTimeout(timer);
   }, [config]);
+
+  useEffect(() => {
+    if (availableModels.length > 0) {
+      const modelsForEngine = availableModels.filter(m => m.engine === config.local_engine);
+      const isCurrentModelValid = modelsForEngine.some(m => m.size === config.local_model_size);
+      
+      if (!isCurrentModelValid && modelsForEngine.length > 0) {
+        // Find recommended or first model for this engine
+        const recommended = modelsForEngine.find(m => m.recommended) || modelsForEngine[0];
+        updateConfig('local_model_size', recommended.size);
+      }
+    }
+  }, [config.local_engine, availableModels]);
 
   const updateConfig = (key: keyof Config, value: any) => {
     setConfig(prev => ({ ...prev, [key]: value }));
@@ -713,16 +732,29 @@ function App() {
                       </>
                     ) : (
                       <>
+                        <ConfigField label="Local Engine" description="The core technology used to process your voice locally.">
+                          <div className="select-wrapper">
+                            <select value={config.local_engine} onChange={(e: any) => updateConfig('local_engine', e.target.value)}>
+                              {availableEngines.map(engine => (
+                                <option key={engine} value={engine}>{engine}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </ConfigField>
+
                         <ConfigField label="Local Model" description="Choose the Whisper model size. Larger models are more accurate but slower.">
                           <div className="select-wrapper">
                             {availableModels.length > 0 ? (
                               <>
                                 <select value={config.local_model_size} onChange={(e: any) => updateConfig('local_model_size', e.target.value)}>
-                                  {availableModels.map(m => (
-                                    <option key={m.size} value={m.size}>
-                                      {m.label} {m.recommended ? '(Recommended)' : ''} ({Math.round(m.file_size / 1024 / 1024)}MB)
-                                    </option>
-                                  ))}
+                                  {availableModels
+                                    .filter(m => m.engine === config.local_engine)
+                                    .map(m => (
+                                      <option key={m.size} value={m.size}>
+                                        {m.label} {m.recommended ? '(Recommended)' : ''} ({Math.round(m.file_size / 1024 / 1024)}MB)
+                                      </option>
+                                    ))
+                                  }
                                 </select>
                                 <Button variant="ghost" className="icon-button" onClick={() => setShowModelGuide(true)} title="Model Guide">
                                   <IconInfoCircle size={20} />

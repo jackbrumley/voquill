@@ -26,6 +26,8 @@ pub struct Config {
     pub transcription_mode: TranscriptionMode,
     #[serde(default = "default_local_model_size")]
     pub local_model_size: String,
+    #[serde(default = "default_local_engine")]
+    pub local_engine: String,
     #[serde(default = "default_hotkey")]
     pub hotkey: String,
     #[serde(default = "default_typing_speed")]
@@ -56,23 +58,60 @@ pub struct Config {
     pub enable_gpu: bool,
 }
 
-fn default_api_key() -> String { "your_api_key_here".to_string() }
-fn default_api_url() -> String { "https://api.openai.com/v1/audio/transcriptions".to_string() }
-fn default_api_model() -> String { "whisper-1".to_string() }
-fn default_transcription_mode() -> TranscriptionMode { TranscriptionMode::Local }
-fn default_local_model_size() -> String { "base".to_string() }
-fn default_hotkey() -> String { "ctrl+shift+space".to_string() }
-fn default_typing_speed() -> f64 { 0.001 }
-fn default_key_press_duration() -> u64 { 2 }
-fn default_pixels_from_bottom() -> i32 { 100 }
-fn default_audio_device() -> Option<String> { Some("default".to_string()) }
-fn default_debug_mode() -> bool { false }
-fn default_enable_recording_logs() -> bool { false }
-fn default_input_sensitivity() -> f32 { 1.0 }
-fn default_output_method() -> OutputMethod { OutputMethod::Typewriter }
-fn default_copy_on_typewriter() -> bool { false }
-fn default_language() -> String { "auto".to_string() }
-fn default_enable_gpu() -> bool { false }
+fn default_api_key() -> String {
+    "your_api_key_here".to_string()
+}
+fn default_api_url() -> String {
+    "https://api.openai.com/v1/audio/transcriptions".to_string()
+}
+fn default_api_model() -> String {
+    "whisper-1".to_string()
+}
+fn default_transcription_mode() -> TranscriptionMode {
+    TranscriptionMode::Local
+}
+fn default_local_model_size() -> String {
+    "base".to_string()
+}
+fn default_local_engine() -> String {
+    "Whisper.cpp".to_string()
+}
+fn default_hotkey() -> String {
+    "ctrl+shift+space".to_string()
+}
+fn default_typing_speed() -> f64 {
+    0.001
+}
+fn default_key_press_duration() -> u64 {
+    2
+}
+fn default_pixels_from_bottom() -> i32 {
+    100
+}
+fn default_audio_device() -> Option<String> {
+    Some("default".to_string())
+}
+fn default_debug_mode() -> bool {
+    false
+}
+fn default_enable_recording_logs() -> bool {
+    false
+}
+fn default_input_sensitivity() -> f32 {
+    1.0
+}
+fn default_output_method() -> OutputMethod {
+    OutputMethod::Typewriter
+}
+fn default_copy_on_typewriter() -> bool {
+    false
+}
+fn default_language() -> String {
+    "auto".to_string()
+}
+fn default_enable_gpu() -> bool {
+    false
+}
 
 impl Default for Config {
     fn default() -> Self {
@@ -82,6 +121,7 @@ impl Default for Config {
             api_model: default_api_model(),
             transcription_mode: default_transcription_mode(),
             local_model_size: default_local_model_size(),
+            local_engine: default_local_engine(),
             hotkey: default_hotkey(),
             typing_speed_interval: default_typing_speed(),
             key_press_duration_ms: default_key_press_duration(),
@@ -104,17 +144,17 @@ pub fn get_config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let config_dir = dirs::config_dir()
         .ok_or("Could not find config directory")?
         .join("voquill");
-    
+
     fs::create_dir_all(&config_dir)?;
     Ok(config_dir.join("config.json"))
 }
 
 pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
     let config_path = get_config_path()?;
-    
+
     if config_path.exists() {
         let config_str = fs::read_to_string(&config_path)?;
-        
+
         // Try to parse as current Config struct - serde(default) handles missing fields
         let config = serde_json::from_str::<Config>(&config_str)?;
         Ok(config)
@@ -128,12 +168,12 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
 
 pub fn is_first_launch() -> Result<bool, Box<dyn std::error::Error>> {
     let config_path = get_config_path()?;
-    
+
     // If config file doesn't exist, it's definitely first launch
     if !config_path.exists() {
         return Ok(true);
     }
-    
+
     // If config exists but API key is still default, treat as first launch
     let config = load_config()?;
     Ok(config.openai_api_key == "your_api_key_here" || config.openai_api_key.is_empty())
@@ -142,10 +182,10 @@ pub fn is_first_launch() -> Result<bool, Box<dyn std::error::Error>> {
 pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let config_path = get_config_path()?;
     log_info!("Attempting to save config to: {:?}", config_path);
-    
+
     let config_str = serde_json::to_string_pretty(config)?;
     log_info!("Config JSON: {}", config_str);
-    
+
     fs::write(&config_path, config_str)?;
     log_info!("Config saved successfully to: {:?}", config_path);
     Ok(())

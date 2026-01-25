@@ -4,6 +4,7 @@ use dirs;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ModelInfo {
+    pub engine: String,
     pub size: String,
     pub file_size: u64,
     pub download_url: String,
@@ -34,15 +35,17 @@ impl ModelManager {
     pub fn get_available_models() -> Vec<ModelInfo> {
         vec![
             ModelInfo {
+                engine: "Whisper.cpp".to_string(),
                 size: "tiny.en".to_string(),
                 label: "Tiny (English)".to_string(),
                 file_size: 77_600_000,
                 download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin".to_string(),
-                sha256: "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776".to_string(), // Placeholder, will update if needed
+                sha256: "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776".to_string(),
                 description: "Lightning fast, best for simple commands.".to_string(),
                 recommended: false,
             },
             ModelInfo {
+                engine: "Whisper.cpp".to_string(),
                 size: "distil-small.en".to_string(),
                 label: "Distil-Small (English)".to_string(),
                 file_size: 175_000_000,
@@ -52,6 +55,7 @@ impl ModelManager {
                 recommended: true,
             },
             ModelInfo {
+                engine: "Whisper.cpp".to_string(),
                 size: "base.en".to_string(),
                 label: "Base (English)".to_string(),
                 file_size: 147_000_000,
@@ -61,6 +65,7 @@ impl ModelManager {
                 recommended: false,
             },
             ModelInfo {
+                engine: "Whisper.cpp".to_string(),
                 size: "small.en".to_string(),
                 label: "Small (English)".to_string(),
                 file_size: 483_000_000,
@@ -70,6 +75,7 @@ impl ModelManager {
                 recommended: false,
             },
             ModelInfo {
+                engine: "Whisper.cpp".to_string(),
                 size: "medium.en".to_string(),
                 label: "Medium (English)".to_string(),
                 file_size: 1_500_000_000,
@@ -79,6 +85,16 @@ impl ModelManager {
                 recommended: false,
             },
         ]
+    }
+
+    pub fn get_available_engines() -> Vec<String> {
+        let mut engines: Vec<String> = Self::get_available_models()
+            .iter()
+            .map(|m| m.engine.clone())
+            .collect();
+        engines.sort();
+        engines.dedup();
+        engines
     }
     
     pub fn get_model_path(&self, model_size: &str) -> PathBuf {

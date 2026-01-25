@@ -458,6 +458,11 @@ async fn test_api_key(api_key: String, api_url: String) -> Result<bool, String> 
 }
 
 #[tauri::command]
+async fn get_available_engines() -> Result<Vec<String>, String> {
+    Ok(model_manager::ModelManager::get_available_engines())
+}
+
+#[tauri::command]
 async fn get_available_models() -> Result<Vec<model_manager::ModelInfo>, String> {
     Ok(model_manager::ModelManager::get_available_models())
 }
@@ -1251,7 +1256,7 @@ fn main() {
             test_api_key, get_current_status, get_history, clear_history,
             check_hotkey_status, manual_register_hotkey, get_audio_devices,
             start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder,
-            log_ui_event, get_available_models, check_model_status, download_model,
+            log_ui_event, get_available_engines, get_available_models, check_model_status, download_model,
             get_linux_setup_status, run_linux_setup
         ])
         .run(tauri::generate_context!())
