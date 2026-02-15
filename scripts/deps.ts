@@ -148,7 +148,6 @@ const REGISTRY: Record<string, Dependency[]> = {
       name: "vulkan-headers",
       apt: "libvulkan-dev",
       pacman: "vulkan-headers",
-      pkgConfig: "vulkan",
       install: {
         apt: "sudo apt install libvulkan-dev",
         pacman: "sudo pacman -S vulkan-headers",
