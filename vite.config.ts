@@ -8,11 +8,10 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig({
   plugins: [preact()],
 
-  // Diagnostic: Keep minification off to confirm error resolution
+  // Modern build target for Windows WebView2
   build: {
     target: "esnext",
-    minify: false,
-    sourcemap: true,
+    minify: "esbuild",
   },
 
   resolve: {

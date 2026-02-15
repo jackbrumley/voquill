@@ -39,3 +39,5 @@ src-tauri/debug
 temp/
 src-tauri/tauri.*-dev.json
 src-tauri/tauri.linux.conf.json
+session-ses_*.md
+
