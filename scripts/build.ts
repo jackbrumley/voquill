@@ -50,6 +50,16 @@ async function main() {
   // 2. Build Tauri App
   logStep("1", "Building Tauri application...");
   
+  // Clean up any potential dev configs that might hijack the build
+  const devConfigs = ["tauri.linux-dev.json", "tauri.linux.conf.json"];
+  for (const config of devConfigs) {
+    const configPath = join(Deno.cwd(), "src-tauri", config);
+    if (await exists(configPath)) {
+      log(`${colors.yellow}🧹 Cleaning up ${config}...${colors.reset}`);
+      await Deno.remove(configPath);
+    }
+  }
+
   const args = Deno.args;
   const isDebug = args.includes("--debug") || args.includes("-d");
   

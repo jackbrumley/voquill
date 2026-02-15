@@ -165,6 +165,16 @@ const REGISTRY: Record<string, Dependency[]> = {
       },
       desc: "Vulkan shader compiler (required for Turbo Mode)",
     },
+    {
+      name: "fuse2",
+      apt: "libfuse2",
+      pacman: "fuse2",
+      install: {
+        apt: "sudo apt install libfuse2",
+        pacman: "sudo pacman -S fuse2",
+      },
+      desc: "FUSE 2 library (required for AppImage bundling)",
+    },
   ],
   windows: [
     { 

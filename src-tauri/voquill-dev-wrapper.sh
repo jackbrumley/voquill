@@ -16,8 +16,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # tauri calls "runner run <args>". 
 # The actual binary we want to run is in target/debug/voquill
 
-# Strip "run" if it's the first arg
+# The first argument from Tauri is usually the path to the binary
+# If it's "run", we shift it (some versions of Tauri/Cargo do this)
 if [ "$1" = "run" ]; then
+    shift
+fi
+
+# Use the provided binary path if it exists, otherwise fallback to debug
+TARGET_BIN="$1"
+if [ -z "$TARGET_BIN" ] || [ ! -f "$TARGET_BIN" ]; then
+    TARGET_BIN="$SCRIPT_DIR/target/debug/voquill"
+else
     shift
 fi
 
@@ -27,4 +36,4 @@ exec systemd-run --user --scope --unit=voquill-dev \
     --setenv=WAYLAND_APP_ID="com.voquill.voquill" \
     --setenv=GDK_BACKEND="wayland" \
     --setenv=DESKTOP_ENTRY="com.voquill.voquill" \
-    "$SCRIPT_DIR/target/debug/voquill" "$@"
+    "$TARGET_BIN" "$@"
