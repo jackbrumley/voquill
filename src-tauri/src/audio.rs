@@ -20,6 +20,8 @@ use windows::Win32::UI::Shell::PropertiesSystem::*;
 #[cfg(target_os = "windows")]
 use windows::Win32::Devices::FunctionDiscovery::*;
 
+
+
 #[derive(serde::Serialize, Clone, Debug)]
 pub struct AudioDevice {
     pub id: String,

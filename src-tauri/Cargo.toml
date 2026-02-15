@@ -42,14 +42,14 @@ pulsectl-rs = "0.3"
 evdev = "0.13.2"
 ashpd = { version = "0.12.1", features = ["tokio"] }
 zbus = "5.13.1"
-nix = "0.30.1"
+nix = "0.31.1"
 gtk = "0.18"
 gdk = "0.18"
 gtk-layer-shell = { version = "0.8.2", features = ["v0_6"] }
 arboard = { version = "3.6.1", features = ["wayland-data-control"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.58", features = [
+windows = { version = "0.62", features = [
     "Win32_UI_Input_KeyboardAndMouse", 
     "Win32_Foundation",
     "Win32_Media_Audio",

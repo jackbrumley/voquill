@@ -26,12 +26,21 @@ function logStep(step: string, message: string) {
 async function runCommand(cmd: string[], cwd: string = Deno.cwd()) {
   log(`   ${colors.blue}$ ${cmd.join(" ")}${colors.reset}`);
   
+  const env = { ...Deno.env.toObject() };
+  if (Deno.build.os === "windows") {
+    // Force a short build path to avoid MAX_PATH (260 char) issues
+    // Folder is verified/created in scripts/deps.ts
+    env["CARGO_TARGET_DIR"] = "C:\\v-target";
+  }
+
   const command = new Deno.Command(cmd[0], {
     args: cmd.slice(1),
     cwd,
+    env,
     stdout: "inherit",
     stderr: "inherit",
   });
+
 
   const { code } = await command.output();
   
@@ -75,9 +84,14 @@ async function main() {
   
   await runCommand(tauriArgs);
   
+  const artifactsPath = Deno.build.os === "windows" 
+    ? "C:\\v-target\\release\\bundle\\" 
+    : "src-tauri/target/release/bundle/";
+
   log(`\n${colors.green}✅ Build completed successfully!${colors.reset}`);
-  log(`${colors.cyan}Artifacts can be found in: src-tauri/target/release/bundle/${colors.reset}`);
+  log(`${colors.cyan}Artifacts can be found in: ${artifactsPath}${colors.reset}`);
 }
+
 
 if (import.meta.main) {
   main();

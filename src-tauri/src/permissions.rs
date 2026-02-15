@@ -1,10 +1,12 @@
 use serde::Serialize;
+#[cfg(target_os = "linux")]
 use ashpd::desktop::camera::Camera;
 #[cfg(target_os = "linux")]
 use ashpd::desktop::remote_desktop::{RemoteDesktop, DeviceType};
 #[cfg(target_os = "linux")]
 use ashpd::desktop::PersistMode;
 use tauri::AppHandle;
+
 
 #[derive(Serialize, Clone, Debug)]
 pub struct LinuxPermissions {

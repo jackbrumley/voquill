@@ -222,6 +222,59 @@ async function isCommandInPath(cmd: string): Promise<boolean> {
   }
 }
 
+async function checkLongPathsEnabled(): Promise<boolean> {
+  try {
+    const command = new Deno.Command("reg", {
+      args: [
+        "query",
+        "HKLM\\System\\CurrentControlSet\\Control\\FileSystem",
+        "/v",
+        "LongPathsEnabled",
+      ],
+    });
+    const { success, stdout } = await command.output();
+    if (!success) return false;
+    const output = new TextDecoder().decode(stdout);
+    return output.includes("0x1");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ensures the Windows build artifact directory exists.
+ * This short path (C:\v-target) is used to bypass MAX_PATH limits.
+ */
+async function checkArtifactDirectory() {
+  const targetDir = "C:\\v-target";
+  try {
+    if (!(await exists(targetDir))) {
+      console.log(
+        `${colors.yellow}Creating build artifact directory: ${targetDir}...${colors.reset}`,
+      );
+      await Deno.mkdir(targetDir, { recursive: true });
+      console.log(`${colors.green}✅ Created ${targetDir}${colors.reset}`);
+    } else {
+      console.log(
+        `${colors.green}✅ Build artifact directory exists: ${targetDir}${colors.reset}`,
+      );
+    }
+  } catch (error) {
+    console.error(
+      `${colors.red}❌ Could not prepare artifact directory: ${targetDir}${colors.reset}`,
+    );
+    console.log(`${colors.yellow}Error: ${error}${colors.reset}`);
+    console.log(
+      `${colors.yellow}This directory is required to bypass Windows path length limits during the Whisper build.${colors.reset}`,
+    );
+    console.log(
+      `${colors.cyan}Please create the folder 'C:\\v-target' manually or run this terminal as Administrator once.${colors.reset}`,
+    );
+    Deno.exit(1);
+  }
+}
+
+
 async function checkLinuxDeps(isDev: boolean) {
   console.log(`\n${colors.bright}[0]${colors.reset} ${colors.cyan}Checking Linux dependencies...${colors.reset}`);
 
@@ -288,7 +341,30 @@ async function checkLinuxDeps(isDev: boolean) {
 async function checkWindowsDeps() {
   console.log(`\n${colors.bright}[0]${colors.reset} ${colors.cyan}Checking Windows build dependencies...${colors.reset}`);
 
+  // 1. Prepare Artifact Directory (to bypass MAX_PATH issues)
+  await checkArtifactDirectory();
+
+  // 2. Check for Long Path Support (Required for LLVM/Rust toolchain)
+  const longPaths = await checkLongPathsEnabled();
+  if (!longPaths) {
+    console.error(
+      `${colors.red}❌ Windows Long Paths are NOT enabled.${colors.reset}`,
+    );
+    console.log(
+      `${colors.yellow}This is required to build Whisper dependencies which have deep directory structures.${colors.reset}`,
+    );
+    console.log(
+      `${colors.yellow}Please run this command in an ${colors.bright}Administrator PowerShell${colors.reset}${colors.yellow} and then restart your terminal:${colors.reset}`,
+    );
+    console.log(
+      `${colors.bright}New-ItemProperty -Path "HKLM:\\System\\CurrentControlSet\\Control\\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force${colors.reset}`,
+    );
+    Deno.exit(1);
+  }
+  console.log(`${colors.green}✅ Long Paths are enabled${colors.reset}`);
+
   for (const dep of REGISTRY.windows) {
+
     // 1. Check if in PATH
     if (await isCommandInPath(dep.cmd!)) {
       console.log(`${colors.green}✅ ${dep.name} is available in PATH${colors.reset}`);

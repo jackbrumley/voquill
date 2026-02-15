@@ -27,14 +27,23 @@ function logStep(step: string, message: string) {
 async function runCommand(cmd: string[], cwd: string = Deno.cwd()) {
   log(`   ${colors.blue}$ ${cmd.join(" ")}${colors.reset}`);
   
+  const env = { ...Deno.env.toObject() };
+  if (Deno.build.os === "windows") {
+    // Force a short build path to avoid MAX_PATH (260 char) issues
+    // Folder is verified/created in scripts/deps.ts
+    env["CARGO_TARGET_DIR"] = "C:\\v-target";
+  }
+
   const command = new Deno.Command(cmd[0], {
     args: cmd.slice(1),
     cwd,
+    env,
     stdout: "inherit",
     stderr: "inherit",
   });
 
   const { code } = await command.output();
+
   
   if (code !== 0) {
     console.error(`${colors.red}❌ Command failed with exit code ${code}${colors.reset}`);
