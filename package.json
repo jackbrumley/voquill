@@ -8,7 +8,7 @@
     "tauri": "deno task tauri"
   },
   "dependencies": {
-    "@tabler/icons-react": "^3.36.1"
+    "@tabler/icons-preact": "^3.36.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.6"

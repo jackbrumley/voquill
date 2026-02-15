@@ -6,7 +6,7 @@
     "jsr:@std/path@*": "1.1.3",
     "jsr:@std/path@^1.1.3": "1.1.3",
     "npm:@preact/preset-vite@^2.10.2": "2.10.2_@babel+core@7.28.6_vite@6.4.1__picomatch@4.0.3_preact@10.28.2",
-    "npm:@tabler/icons-react@^3.36.1": "3.36.1_react@19.2.3",
+    "npm:@tabler/icons-preact@^3.36.1": "3.36.1_preact@10.28.2",
     "npm:@tauri-apps/api@2": "2.9.1",
     "npm:@tauri-apps/cli@*": "2.9.6",
     "npm:@tauri-apps/cli@^2.9.6": "2.9.6",
@@ -517,11 +517,11 @@
       "os": ["win32"],
       "cpu": ["x64"]
     },
-    "@tabler/icons-react@3.36.1_react@19.2.3": {
-      "integrity": "sha512-/8nOXeNeMoze9xY/QyEKG65wuvRhkT3q9aytaur6Gj8bYU2A98YVJyLc9MRmc5nVvpy+bRlrrwK/Ykr8WGyUWg==",
+    "@tabler/icons-preact@3.36.1_preact@10.28.2": {
+      "integrity": "sha512-mA69ydpz7lWgbi8ig0hrbauB4Jprk6sLl0zIZbb2X4FhsjMTi70NAGp1+DvO0H8XjHmpPEukggLdCRD5+tDEzA==",
       "dependencies": [
         "@tabler/icons",
-        "react"
+        "preact"
       ]
     },
     "@tabler/icons@3.36.1": {
@@ -820,9 +820,6 @@
     "preact@10.28.2": {
       "integrity": "sha512-lbteaWGzGHdlIuiJ0l2Jq454m6kcpI1zNje6d8MlGAFlYvP2GO4ibnat7P74Esfz4sPTdM6UxtTwh/d3pwM9JA=="
     },
-    "react@19.2.3": {
-      "integrity": "sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA=="
-    },
     "rollup@4.55.1": {
       "integrity": "sha512-wDv/Ht1BNHB4upNbK74s9usvl7hObDnvVzknxqY/E/O3X6rW1U1rV1aENEfJ54eFZDTNo7zv1f5N4edCluH7+A==",
       "dependencies": [
@@ -927,7 +924,7 @@
   "workspace": {
     "dependencies": [
       "npm:@preact/preset-vite@^2.10.2",
-      "npm:@tabler/icons-react@^3.36.1",
+      "npm:@tabler/icons-preact@^3.36.1",
       "npm:@tauri-apps/api@2",
       "npm:@tauri-apps/plugin-shell@2",
       "npm:preact@^10.28.2",
@@ -935,7 +932,7 @@
     ],
     "packageJson": {
       "dependencies": [
-        "npm:@tabler/icons-react@^3.36.1",
+        "npm:@tabler/icons-preact@^3.36.1",
         "npm:@tauri-apps/cli@^2.9.6"
       ]
     }

@@ -1,4 +1,4 @@
-import { IconX, IconRocket, IconTarget, IconScale, IconCpu, IconBolt } from '@tabler/icons-react';
+import { IconX, IconRocket, IconTarget, IconScale, IconCpu, IconBolt } from '@tabler/icons-preact';
 import { Button } from './Button.tsx';
 import { Card } from './Card.tsx';
 

@@ -51,7 +51,7 @@ arboard = { version = "3.6.1", features = ["wayland-data-control"] }
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.62", features = [
     "Win32_UI_Input_KeyboardAndMouse", 
-    "Win32_Foundation",
+    "Win32_Foundation", 
     "Win32_Media_Audio",
     "Win32_System_Com",
     "Win32_System_Com_StructuredStorage",

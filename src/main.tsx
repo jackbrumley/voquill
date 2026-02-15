@@ -5,8 +5,9 @@ import Overlay from './Overlay.tsx'
 import { tokens, tokensToCssVars } from './design-tokens.ts';
 
 // Global Design Token Initialization
-// Injects CSS variables into the root element so they are available to all windows (App, Overlay, etc.)
+console.log('🎬 Voquill Frontend Initializing...');
 const initDesignTokens = () => {
+
   const cssVars = tokensToCssVars(tokens);
   const root = document.documentElement;
   Object.entries(cssVars).forEach(([key, value]) => {
@@ -17,13 +18,33 @@ const initDesignTokens = () => {
 initDesignTokens();
 
 const Main = () => {
+  const path = window.location.pathname;
+  const search = window.location.search;
+  const hash = window.location.hash;
+  
+  console.log('🚀 Voquill Routing Check:', { path, search, hash });
 
-  const path = window.location.pathname
-  console.log('🚀 Current path:', path);
-  if (path === '/overlay' || path.includes('overlay')) {
+  // Handle various ways the path might be represented in a packaged app
+  const isOverlay = 
+    path.includes('overlay') || 
+    search.includes('overlay') || 
+    hash.includes('overlay');
+
+  if (isOverlay) {
+    console.log('🎭 Rendering: Overlay');
     return <Overlay />
   }
+
+  console.log('🏠 Rendering: Main App');
   return <App />
 }
 
-render(<Main />, document.getElementById('root')!)
+console.log('⚛️ Attempting to render Preact root...');
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  console.error('❌ CRITICAL: Root element #root not found in DOM!');
+} else {
+  render(<Main />, rootElement);
+  console.log('✅ Preact render command issued');
+}
+

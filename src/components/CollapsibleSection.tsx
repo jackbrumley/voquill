@@ -1,6 +1,6 @@
 
 import { ComponentChildren } from 'preact';
-import { IconChevronDown } from '@tabler/icons-react';
+import { IconChevronDown } from '@tabler/icons-preact';
 
 interface CollapsibleSectionProps {
   title: string;

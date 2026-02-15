@@ -10,15 +10,17 @@ use ringbuf::{HeapRb, CachingCons};
 use pulsectl::controllers::DeviceControl;
 
 #[cfg(target_os = "windows")]
-use windows::Win32::Media::Audio::*;
+use windows::Win32::Foundation::PROPERTYKEY;
 #[cfg(target_os = "windows")]
-use windows::Win32::System::Com::*;
+use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
 #[cfg(target_os = "windows")]
-use windows::Win32::System::Com::StructuredStorage::*;
+use windows::Win32::Devices::FunctionDiscovery::{PKEY_Device_FriendlyName, PKEY_Device_DeviceDesc};
 #[cfg(target_os = "windows")]
-use windows::Win32::UI::Shell::PropertiesSystem::*;
+use windows::Win32::Media::Audio::{eCapture, DEVICE_STATE_ACTIVE, MMDeviceEnumerator, IMMDeviceEnumerator};
 #[cfg(target_os = "windows")]
-use windows::Win32::Devices::FunctionDiscovery::*;
+use windows::Win32::System::Com::{STGM_READ, CoInitializeEx, CoCreateInstance, COINIT_APARTMENTTHREADED, CLSCTX_ALL, CoTaskMemFree};
+#[cfg(target_os = "windows")]
+use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToStringAlloc};
 
 
 
@@ -51,6 +53,7 @@ unsafe fn get_string_property(props: &IPropertyStore, key: *const PROPERTYKEY) -
     let _ = PropVariantClear(&mut pv);
     result.filter(|s| !s.trim().is_empty())
 }
+
 
 #[cfg(target_os = "windows")]
 fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
@@ -90,6 +93,7 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
                             crate::log_info!("⚠️ Windows Audio: Store for {} has {} properties but FriendlyName/Desc missing", id, p_count);
                             for j in 0..p_count {
                                 let mut pk = PROPERTYKEY::default();
+
                                 if props.GetAt(j, &mut pk).is_ok() {
                                     crate::log_info!("   Property {}: GUID={:?}, PID={}", j, pk.fmtid, pk.pid);
                                 }

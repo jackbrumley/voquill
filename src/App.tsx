@@ -5,7 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { open } from '@tauri-apps/plugin-shell';
-import { IconBrandGithub, IconHeart, IconMicrophone, IconKeyboard, IconTextRecognition, IconCheck, IconX, IconInfoCircle, IconRocket, IconRefresh, IconCopy, IconShieldLock } from '@tabler/icons-react';
+import { IconBrandGithub, IconHeart, IconMicrophone, IconKeyboard, IconTextRecognition, IconCheck, IconX, IconInfoCircle, IconRocket, IconRefresh, IconCopy, IconShieldLock } from '@tabler/icons-preact';
 import StatusIcon from './StatusIcon.tsx';
 import { tokens } from './design-tokens.ts';
 import { Card } from './components/Card.tsx';
