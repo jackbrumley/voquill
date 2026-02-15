@@ -37,6 +37,8 @@ interface Config {
   copy_on_typewriter: boolean;
   language: string;
   enable_gpu: boolean;
+  shortcuts_token?: string;
+  input_token?: string;
 }
 
 interface Toast {

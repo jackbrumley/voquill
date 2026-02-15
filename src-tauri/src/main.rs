@@ -376,11 +376,21 @@ async fn save_config(
         let mut config = state.config.lock().unwrap();
         let audio_changed = config.audio_device != new_config.audio_device || config.input_sensitivity != new_config.input_sensitivity;
         let hotkey_changed = config.hotkey != new_config.hotkey;
-        *config = new_config.clone();
+        
+        // CRITICAL: Preserve internal tokens that the frontend doesn't manage
+        let mut merged_config = new_config.clone();
+        if merged_config.shortcuts_token.is_none() {
+            merged_config.shortcuts_token = config.shortcuts_token.clone();
+        }
+        if merged_config.input_token.is_none() {
+            merged_config.input_token = config.input_token.clone();
+        }
+        
+        *config = merged_config;
 
         // Pre-warm the audio device cache
         let mut cached_device = state.cached_device.lock().unwrap();
-        *cached_device = audio::lookup_device(new_config.audio_device.clone()).ok();
+        *cached_device = audio::lookup_device(config.audio_device.clone()).ok();
         log_info!("🔧 Pre-warmed audio device cache");
         
         (audio_changed, hotkey_changed)
