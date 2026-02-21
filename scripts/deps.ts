@@ -12,8 +12,8 @@ const colors = {
 interface Dependency {
   name: string;
   cmd?: string; // Command to check in PATH
-  apt?: string; // Debian/Ubuntu package name
-  pacman?: string; // Arch/Manjaro package name
+  apt?: string | string[]; // Debian/Ubuntu package name (can be an array)
+  pacman?: string | string[]; // Arch/Manjaro package name (can be an array)
   pkgConfig?: string; // pkg-config name
   install?: {
     apt: string;
@@ -84,12 +84,12 @@ const REGISTRY: Record<string, Dependency[]> = {
       name: "build-essential",
       apt: "build-essential",
       pacman: "base-devel",
-      cmd: "gcc",
+      cmd: "g++",
       install: {
         apt: "sudo apt install build-essential",
         pacman: "sudo pacman -S base-devel",
       },
-      desc: "Build tools (gcc, make, etc.)",
+      desc: "Build tools (gcc, g++, make, etc.)",
     },
     {
       name: "wl-clipboard",
@@ -167,13 +167,90 @@ const REGISTRY: Record<string, Dependency[]> = {
     },
     {
       name: "fuse2",
-      apt: "libfuse2",
+      apt: ["libfuse2", "libfuse2t64"],
       pacman: "fuse2",
       install: {
         apt: "sudo apt install libfuse2",
         pacman: "sudo pacman -S fuse2",
       },
       desc: "FUSE 2 library (required for AppImage bundling)",
+    },
+    {
+      name: "patchelf",
+      cmd: "patchelf",
+      apt: "patchelf",
+      pacman: "patchelf",
+      install: {
+        apt: "sudo apt install patchelf",
+        pacman: "sudo pacman -S patchelf",
+      },
+      desc: "PatchELF utility (required for AppImage bundling)",
+    },
+    {
+      name: "file",
+      cmd: "file",
+      apt: "file",
+      pacman: "file",
+      install: {
+        apt: "sudo apt install file",
+        pacman: "sudo pacman -S file",
+      },
+      desc: "File utility (required for AppImage bundling)",
+    },
+    {
+      name: "alsa",
+      apt: "libasound2-dev",
+      pacman: "alsa-lib",
+      pkgConfig: "alsa",
+      install: {
+        apt: "sudo apt install libasound2-dev",
+        pacman: "sudo pacman -S alsa-lib",
+      },
+      desc: "ALSA audio development headers",
+    },
+    {
+      name: "openssl",
+      apt: "libssl-dev",
+      pacman: "openssl",
+      pkgConfig: "openssl",
+      install: {
+        apt: "sudo apt install libssl-dev",
+        pacman: "sudo pacman -S openssl",
+      },
+      desc: "OpenSSL development headers",
+    },
+    {
+      name: "libudev",
+      apt: "libudev-dev",
+      pacman: "systemd-libs",
+      pkgConfig: "libudev",
+      install: {
+        apt: "sudo apt install libudev-dev",
+        pacman: "sudo pacman -S systemd-libs",
+      },
+      desc: "libudev development headers",
+    },
+    {
+      name: "rust",
+      cmd: "cargo",
+      desc: "Rust toolchain (cargo, rustc)",
+      install: {
+        apt: "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh",
+        pacman: "sudo pacman -S rustup && rustup default stable",
+        windows: "https://rustup.rs/",
+      },
+    },
+    {
+      name: "nodejs",
+      cmd: "node",
+      apt: "nodejs",
+      pacman: "nodejs",
+      install: {
+        apt: "sudo apt install nodejs npm",
+        pacman: "sudo pacman -S nodejs npm",
+        windows: "winget install -e --id OpenJS.NodeJS",
+      },
+      desc: "Node.js runtime (required for UI build)",
     },
   ],
   windows: [
@@ -204,6 +281,26 @@ const REGISTRY: Record<string, Dependency[]> = {
         windows: "winget install -e --id Kitware.CMake",
       }, 
       desc: "CMake (required for building C/C++ libs)" 
+    },
+    {
+      name: "rust",
+      cmd: "cargo",
+      desc: "Rust toolchain (cargo, rustc)",
+      install: {
+        apt: "https://rustup.rs/",
+        pacman: "https://rustup.rs/",
+        windows: "winget install -e --id Rustlang.Rustup",
+      },
+    },
+    {
+      name: "nodejs",
+      cmd: "node",
+      install: {
+        apt: "winget install -e --id OpenJS.NodeJS",
+        pacman: "winget install -e --id OpenJS.NodeJS",
+        windows: "winget install -e --id OpenJS.NodeJS",
+      },
+      desc: "Node.js runtime (required for UI build)",
     },
   ]
 };
@@ -282,6 +379,9 @@ async function checkLinuxDeps(isDev: boolean) {
   const hasPacman = await isCommandInPath("pacman");
   const hasPkgConfig = await isCommandInPath("pkg-config");
 
+  const missingPackages: string[] = [];
+  const missingDescriptions: string[] = [];
+
   for (const dep of REGISTRY.linux) {
     if (dep.name === "wl-clipboard" && !isDev) continue;
 
@@ -306,35 +406,84 @@ async function checkLinuxDeps(isDev: boolean) {
     // 3. Check via package manager
     if (!found) {
       if (hasApt && dep.apt) {
-        try {
-          const process = new Deno.Command("dpkg", {
-            args: ["-s", dep.apt],
-          });
-          const { success } = await process.output();
-          if (success) found = true;
-        } catch { /* ignore */ }
+        const aptPackages = Array.isArray(dep.apt) ? dep.apt : [dep.apt];
+        for (const pkg of aptPackages) {
+          try {
+            const process = new Deno.Command("dpkg", {
+              args: ["-s", pkg],
+            });
+            const { success } = await process.output();
+            if (success) {
+              found = true;
+              break;
+            }
+          } catch { /* ignore */ }
+        }
       } else if (hasPacman && dep.pacman) {
-        try {
-          const process = new Deno.Command("pacman", {
-            args: ["-Qq", dep.pacman],
-          });
-          const { success } = await process.output();
-          if (success) found = true;
-        } catch { /* ignore */ }
+        const pacmanPackages = Array.isArray(dep.pacman) ? dep.pacman : [dep.pacman];
+        for (const pkg of pacmanPackages) {
+          try {
+            const process = new Deno.Command("pacman", {
+              args: ["-Qq", pkg],
+            });
+            const { success } = await process.output();
+            if (success) {
+              found = true;
+              break;
+            }
+          } catch { /* ignore */ }
+        }
       }
     }
 
     if (!found) {
-      console.error(`${colors.red}❌ Missing dependency: ${dep.desc}${colors.reset}`);
-      let installCmd = "your package manager";
-      if (hasApt) installCmd = dep.install?.apt || "apt install ...";
-      else if (hasPacman) installCmd = dep.install?.pacman || "pacman -S ...";
+      console.error(`${colors.red}❌ Missing: ${dep.name}${colors.reset} (${dep.desc})`);
+      missingDescriptions.push(`${dep.name} (${dep.desc})`);
       
-      console.log(`${colors.yellow}Please install it with: ${colors.bright}${installCmd}${colors.reset}`);
-      Deno.exit(1);
+      if (hasApt && dep.apt) {
+        const pkg = Array.isArray(dep.apt) ? dep.apt[0] : dep.apt;
+        missingPackages.push(pkg);
+      } else if (hasPacman && dep.pacman) {
+        const pkg = Array.isArray(dep.pacman) ? dep.pacman[0] : dep.pacman;
+        missingPackages.push(pkg);
+      } else if (dep.install) {
+        // Handle tools with custom install commands (like Rust)
+        const customCmd = hasApt ? dep.install.apt : (hasPacman ? dep.install.pacman : "");
+        if (customCmd) {
+          missingDescriptions.push(`${colors.yellow}👉 To install ${dep.name}: ${colors.bright}${customCmd}${colors.reset}`);
+        }
+      }
     } else {
       console.log(`${colors.green}✅ ${dep.name} is installed${colors.reset}`);
     }
+  }
+
+  if (missingPackages.length > 0 || missingDescriptions.some(d => d.includes("👉"))) {
+    if (missingPackages.length > 0) {
+      console.log(`\n${colors.bright}${colors.red}Found ${missingPackages.length} missing system packages!${colors.reset}`);
+      
+      let installCmd = "";
+      if (hasApt) {
+        installCmd = `sudo apt install ${missingPackages.join(" ")}`;
+      } else if (hasPacman) {
+        installCmd = `sudo pacman -S ${missingPackages.join(" ")}`;
+      }
+
+      if (installCmd) {
+        console.log(`${colors.yellow}Please install them with:${colors.reset}`);
+        console.log(`${colors.bright}${colors.cyan}${installCmd}${colors.reset}`);
+      }
+    }
+
+    const specialInstalls = missingDescriptions.filter(d => d.includes("👉"));
+    if (specialInstalls.length > 0) {
+      console.log(`\n${colors.bright}${colors.yellow}Additional setup required:${colors.reset}`);
+      for (const special of specialInstalls) {
+        console.log(special);
+      }
+    }
+    
+    Deno.exit(1);
   }
 }
 
@@ -363,6 +512,9 @@ async function checkWindowsDeps() {
   }
   console.log(`${colors.green}✅ Long Paths are enabled${colors.reset}`);
 
+  const missingTools: string[] = [];
+  const toolsNotInPath: { name: string; path: string; binDir: string }[] = [];
+
   for (const dep of REGISTRY.windows) {
 
     // 1. Check if in PATH
@@ -384,19 +536,36 @@ async function checkWindowsDeps() {
 
     if (foundPath) {
       const binDir = foundPath.substring(0, foundPath.lastIndexOf("\\"));
+      toolsNotInPath.push({ name: dep.name, path: foundPath, binDir });
       console.error(`${colors.yellow}⚠️  ${dep.name} found but NOT in PATH${colors.reset}`);
-      console.log(`${colors.cyan}Location: ${foundPath}${colors.reset}`);
-      console.log(`${colors.yellow}Please add this directory to your system PATH:${colors.reset}`);
-      console.log(`${colors.bright}${binDir}${colors.reset}`);
-      console.log(`${colors.yellow}Then restart your terminal session.${colors.reset}`);
-      Deno.exit(1);
     } else {
-      console.error(`${colors.red}❌ Missing tool: ${dep.desc}${colors.reset}`);
-      const installCmd = dep.install?.windows || dep.install?.apt || "winget install ...";
-      console.log(`${colors.yellow}Please install it with: ${colors.bright}${installCmd}${colors.reset}`);
-      console.log(`${colors.yellow}Note: You MUST restart your terminal after installation.${colors.reset}`);
-      Deno.exit(1);
+      missingTools.push(dep.name);
+      console.error(`${colors.red}❌ Missing tool: ${dep.name} (${dep.desc})${colors.reset}`);
     }
+  }
+
+  if (missingTools.length > 0 || toolsNotInPath.length > 0) {
+    if (missingTools.length > 0) {
+      const installIds = missingTools.map(name => {
+        const dep = REGISTRY.windows.find(d => d.name === name);
+        return dep?.install?.windows?.split(" ").pop() || name;
+      });
+
+      console.log(`\n${colors.yellow}Please install the missing tools with:${colors.reset}`);
+      console.log(`${colors.bright}${colors.cyan}winget install ${installIds.join(" ")}${colors.reset}`);
+      console.log(`${colors.yellow}Note: You MUST restart your terminal after installation.${colors.reset}`);
+    }
+
+    if (toolsNotInPath.length > 0) {
+      console.log(`\n${colors.yellow}The following tools are installed but not in your PATH:${colors.reset}`);
+      for (const tool of toolsNotInPath) {
+        console.log(`${colors.cyan}- ${tool.name}: ${tool.path}${colors.reset}`);
+        console.log(`  Add this to PATH: ${colors.bright}${tool.binDir}${colors.reset}`);
+      }
+      console.log(`${colors.yellow}Then restart your terminal session.${colors.reset}`);
+    }
+    
+    Deno.exit(1);
   }
 }
 

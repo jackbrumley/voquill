@@ -23,6 +23,16 @@ function logStep(step: string, message: string) {
   log(`\n${colors.bright}[${step}]${colors.reset} ${colors.cyan}${message}${colors.reset}`);
 }
 
+async function isWsl(): Promise<boolean> {
+  if (Deno.build.os !== "linux") return false;
+  try {
+    const version = await Deno.readTextFile("/proc/version");
+    return version.toLowerCase().includes("microsoft");
+  } catch {
+    return false;
+  }
+}
+
 async function runCommand(cmd: string[], cwd: string = Deno.cwd()) {
   log(`   ${colors.blue}$ ${cmd.join(" ")}${colors.reset}`);
   
@@ -31,6 +41,13 @@ async function runCommand(cmd: string[], cwd: string = Deno.cwd()) {
     // Force a short build path to avoid MAX_PATH (260 char) issues
     // Folder is verified/created in scripts/deps.ts
     env["CARGO_TARGET_DIR"] = "C:\\v-target";
+  }
+
+  if (await isWsl()) {
+    // WSL 2 doesn't support FUSE by default, which AppImages (like linuxdeploy) need.
+    // This env var tells them to extract themselves to a temp dir instead.
+    env["APPIMAGE_EXTRACT_AND_RUN"] = "1";
+    log(`${colors.yellow}ℹ️ WSL detected, setting APPIMAGE_EXTRACT_AND_RUN=1${colors.reset}`);
   }
 
   const command = new Deno.Command(cmd[0], {
