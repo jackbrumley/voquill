@@ -198,6 +198,17 @@ const REGISTRY: Record<string, Dependency[]> = {
       desc: "File utility (required for AppImage bundling)",
     },
     {
+      name: "squashfs-tools",
+      cmd: "mksquashfs",
+      apt: "squashfs-tools",
+      pacman: "squashfs-tools",
+      install: {
+        apt: "sudo apt install squashfs-tools",
+        pacman: "sudo pacman -S squashfs-tools",
+      },
+      desc: "SquashFS utilities (required for AppImage bundling)",
+    },
+    {
       name: "alsa",
       apt: "libasound2-dev",
       pacman: "alsa-lib",
@@ -239,6 +250,15 @@ const REGISTRY: Record<string, Dependency[]> = {
         pacman: "sudo pacman -S rustup && rustup default stable",
         windows: "https://rustup.rs/",
       },
+    },
+    {
+      name: "libxcrypt-compat",
+      pacman: "libxcrypt-compat",
+      install: {
+        apt: "",
+        pacman: "sudo pacman -S libxcrypt-compat",
+      },
+      desc: "Backward compatibility for libcrypt.so.1 (required for linuxdeploy on modern Arch/CachyOS)",
     },
     {
       name: "nodejs",

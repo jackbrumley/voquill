@@ -1081,6 +1081,11 @@ fn main() {
         gtk::glib::set_prgname(Some("com.voquill.voquill"));
         gtk::glib::set_application_name("Voquill Dev");
         
+        // Fix for WebKitGTK crashes on Arch-based systems (like CachyOS/Manjaro)
+        // This addresses the "Could not create default EGL display: EGL_BAD_PARAMETER" error.
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        std::env::set_var("WEBKIT_DISABLE_GPU_SANDBOX", "1");
+        
         // Pre-flight check: Ensure we are in a Wayland session
         // Voquill strictly requires Wayland for Layer Shell positioning and security protocols.
         let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok();

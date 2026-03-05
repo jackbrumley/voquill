@@ -43,11 +43,22 @@ async function runCommand(cmd: string[], cwd: string = Deno.cwd()) {
     env["CARGO_TARGET_DIR"] = "C:\\v-target";
   }
 
-  if (await isWsl()) {
-    // WSL 2 doesn't support FUSE by default, which AppImages (like linuxdeploy) need.
+  if (Deno.build.os === "linux") {
+    // Modern Linux distros (and WSL) often have issues with AppImages mounting via FUSE.
     // This env var tells them to extract themselves to a temp dir instead.
     env["APPIMAGE_EXTRACT_AND_RUN"] = "1";
-    log(`${colors.yellow}ℹ️ WSL detected, setting APPIMAGE_EXTRACT_AND_RUN=1${colors.reset}`);
+    
+    // linuxdeploy's internal 'strip' fails on modern Arch/CachyOS RELR libraries
+    env["NO_STRIP"] = "1";
+    
+    // Sometimes Arch's 'strip' utility fails on the bundled AppImage structure
+    env["TAURI_SKIP_STRIP"] = "true";
+
+    if (await isWsl()) {
+      log(`${colors.yellow}ℹ️ WSL detected, setting APPIMAGE_EXTRACT_AND_RUN=1${colors.reset}`);
+    } else {
+      log(`${colors.cyan}ℹ️ Linux detected, setting APPIMAGE_EXTRACT_AND_RUN=1 for compatibility${colors.reset}`);
+    }
   }
 
   const command = new Deno.Command(cmd[0], {
