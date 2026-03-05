@@ -152,6 +152,10 @@ function App() {
     const unlistenHistory = listen('history-updated', () => {
       loadHistory();
     });
+
+    const unlistenConfigUpdated = listen('config-updated', () => {
+      loadConfig();
+    });
     
     const unlistenMicTestStarted = listen('mic-test-playback-started', () => {
       setMicTestStatus('playing');
@@ -182,6 +186,7 @@ function App() {
       unlistenSetup.then((fn: any) => fn());
       unlistenStatus.then((fn: any) => fn());
       unlistenHistory.then((fn: any) => fn());
+      unlistenConfigUpdated.then((fn: any) => fn());
       unlistenMicTestStarted.then((fn: any) => fn());
       unlistenMicTestFinished.then((fn: any) => fn());
       unlistenMicVolume.then((fn: any) => fn());
@@ -475,7 +480,18 @@ function App() {
     return [...modifiers.sort(), primaryKey].filter(Boolean).join('+');
   };
 
-  const startRecordingHotkey = () => {
+  const startRecordingHotkey = async () => {
+    // On Linux, we use the Portal's native shortcut recording interface
+    if (navigator.userAgent.includes('Linux')) {
+      try {
+        await invoke('manual_register_hotkey');
+        showToast('System shortcut request sent', 'info');
+      } catch (e) {
+        showToast(`Failed to trigger portal: ${e}`, 'error');
+      }
+      return;
+    }
+
     setIsRecordingHotkey(true);
     setRecordedKeys(new Set());
   };
@@ -783,7 +799,7 @@ function App() {
                         {isDownloading && (
                           <div className="download-progress-container" style={{ marginTop: '-8px', marginBottom: '16px' }}>
                             <div className="volume-meter-container" style={{ height: '4px' }}>
-                               <div className="volume-meter-bar" style={{ width: `${downloadProgress}%`, background: 'var(--color-primary)' }}></div>
+                               <div className="volume-meter-bar" style={{ width: `${Math.min(downloadProgress, 100)}%`, background: 'var(--colors-accent-primary)' }}></div>
                             </div>
                             <div style={{ fontSize: '10px', color: 'var(--color-text-dim)', textAlign: 'right', marginTop: '2px' }}>Downloading model... {Math.round(downloadProgress)}%</div>
                           </div>
@@ -797,13 +813,9 @@ function App() {
                           type="text" 
                           value={isRecordingHotkey ? 'Press keys...' : config.hotkey} 
                           readOnly
-                          style={{ 
-                            flex: 1,
-                            backgroundColor: isRecordingHotkey ? 'var(--color-primary-dim)' : undefined,
-                            color: isRecordingHotkey ? 'var(--color-primary)' : undefined,
-                            fontWeight: isRecordingHotkey ? 'bold' : undefined,
-                            cursor: 'default'
-                          }}
+                          onClick={() => setIsRecordingHotkey(true)}
+                          placeholder="Click to record..."
+                          className={`hotkey-input ${isRecordingHotkey ? 'recording' : ''}`}
                         />
                         <Button 
                           size="sm" 

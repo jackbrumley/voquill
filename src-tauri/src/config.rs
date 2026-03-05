@@ -155,8 +155,23 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
     if config_path.exists() {
         let config_str = fs::read_to_string(&config_path)?;
 
-        // Try to parse as current Config struct - serde(default) handles missing fields
-        let config = serde_json::from_str::<Config>(&config_str)?;
+        // Migrate legacy linux_portal_hotkey into hotkey, then drop the legacy field
+        let mut config_value: serde_json::Value = serde_json::from_str(&config_str)?;
+        if let Some(portal_hotkey) = config_value
+            .get("linux_portal_hotkey")
+            .and_then(|value| value.as_str())
+        {
+            if !portal_hotkey.trim().is_empty() {
+                config_value["hotkey"] = serde_json::Value::String(portal_hotkey.to_string());
+            }
+        }
+        if let Some(obj) = config_value.as_object_mut() {
+            obj.remove("linux_portal_hotkey");
+        }
+
+        let config = serde_json::from_value::<Config>(config_value)?;
+        // Persist migration to disk to keep config clean
+        save_config(&config)?;
         Ok(config)
     } else {
         // Create default config file

@@ -93,7 +93,7 @@ async fn run_linux_setup(app_handle: tauri::AppHandle) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
         log_info!("✅ Setup complete! Restarting Wayland Global Shortcuts Engine...");
-        tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle.clone(), true));
+        tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle.clone(), true, false));
     }
     
     Ok(())
@@ -116,23 +116,25 @@ async fn manual_register_hotkey(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let hotkey_string = {
-        let config = state.config.lock().unwrap();
-        config.hotkey.clone()
-    };
-    
-    log_info!("Manual hotkey registration requested: {}", hotkey_string);
-    
-    if let Err(e) = re_register_hotkey(&app_handle, &hotkey_string).await {
-        let mut error_lock = state.hotkey_error.lock().unwrap();
-        *error_lock = Some(e.clone());
-        return Err(e);
-    } else {
-        let mut error_lock = state.hotkey_error.lock().unwrap();
-        *error_lock = None;
+    #[cfg(target_os = "linux")]
+    {
+        log_info!("Manual hotkey registration requested via Portal");
+        
+        // Use force=true to ensure the Portal UI actually opens
+        tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle, true, true));
+        Ok(())
     }
-    
-    Ok(())
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        // On Windows, the UI still handles the "Recording" phase, 
+        // so this command is just a placeholder or could be used to re-sync.
+        let hotkey_string = {
+            let config = state.config.lock().unwrap();
+            config.hotkey.clone()
+        };
+        re_register_hotkey(&app_handle, &hotkey_string).await
+    }
 }
 
 #[tauri::command]
@@ -441,7 +443,8 @@ async fn re_register_hotkey(app_handle: &tauri::AppHandle, hotkey_string: &str) 
         
         if has_token {
             log_info!("🔄 Registering hotkey '{}' with Global Shortcuts Engine...", hotkey_string);
-            tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle.clone(), false));
+            
+            tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle.clone(), false, false));
         }
         Ok(())
     }
@@ -858,6 +861,22 @@ async fn record_and_transcribe(
 }
 
 #[cfg(target_os = "linux")]
+fn denormalize_wayland_trigger(trigger: &str) -> String {
+    // Converts PORTAL+FORMAT (CTRL+SHIFT+space) to user-friendly format (ctrl+shift+space)
+    let parts: Vec<&str> = trigger.split('+').collect();
+    let mut normalized_parts: Vec<String> = Vec::new();
+    
+    for part in parts {
+        let lower = part.to_lowercase();
+        match lower.as_str() {
+            "logo" => normalized_parts.push("super".to_string()),
+            _ => normalized_parts.push(lower),
+        }
+    }
+    
+    normalized_parts.join("+")
+}
+
 fn normalize_wayland_trigger(hotkey: &str) -> String {
     // Freedesktop Shortcuts Specification format: MOD+MOD+KeySymName
     // https://specifications.freedesktop.org/shortcuts-spec/latest/
@@ -900,7 +919,7 @@ fn normalize_wayland_trigger(hotkey: &str) -> String {
 }
 
 #[cfg(target_os = "linux")]
-async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle, force: bool) {
+async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle, force: bool, manual_prompt: bool) {
     use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
     use futures_util::StreamExt;
 
@@ -965,8 +984,13 @@ async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle, force: b
     log_info!("🔑 Attempting to bind trigger: '{}'", normalized_trigger);
 
     // Bind shortcuts
-    let shortcut = NewShortcut::new("record", "Dictation Hotkey")
-        .preferred_trigger(Some(normalized_trigger.as_str()));
+    let shortcut = if manual_prompt {
+        log_info!("🧭 Manual shortcut selection requested; prompting portal UI");
+        NewShortcut::new("record", "Dictation Hotkey")
+    } else {
+        NewShortcut::new("record", "Dictation Hotkey")
+            .preferred_trigger(Some(normalized_trigger.as_str()))
+    };
 
     let bind_result = match proxy.bind_shortcuts(&session, &[shortcut], None).await {
         Ok(r) => r,
@@ -1007,12 +1031,18 @@ async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle, force: b
     } else {
         log_info!("🎉 Trigger successfully bound: '{}'", actual_trigger);
         
-        // Save the token now that we've successfully bound a trigger
+        let friendly_hotkey = denormalize_wayland_trigger(&actual_trigger);
+        
+        // Save the token and the actual bound hotkey
         {
             let mut config = state.config.lock().unwrap();
             config.shortcuts_token = Some("granted".to_string());
+            config.hotkey = friendly_hotkey;
             let _ = crate::config::save_config(&config);
         }
+        
+        // Notify the frontend to refresh its config
+        let _ = app_handle.emit("config-updated", ());
     }
 
     let mut activated_stream = match proxy.receive_activated().await {
