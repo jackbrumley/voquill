@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voquill | Free & Private Dictation Tool</title>
-    <meta name="description" content="Voquill is a free, open-source offline dictation app for Windows and Linux. Voice-to-text runs locally so your data never leaves your device.">
-    <meta property="og:title" content="Voquill | Free & Private Dictation Tool">
-    <meta property="og:description" content="Free, open-source offline dictation for Windows and Linux. Voice-to-text runs locally, no accounts or data collection.">
+    <title>FOSS Voquill | Free & Private Dictation</title>
+    <meta name="description" content="FOSS, truly free & open-source offline dictation for Windows and Linux. Types directly into any app—voice-to-text runs locally so your data never leaves your device. No subscriptions.">
+    <meta property="og:title" content="FOSS Voquill | Free & Private Dictation">
+    <meta property="og:description" content="FOSS, truly free & open-source offline dictation that types into any app. Local voice-to-text keeps your data on your device. No subscriptions.">
+    <meta property="og:site_name" content="FOSS Voquill">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://voquill.org/">
     <meta property="og:image" content="https://voquill.org/screenshots/screenshot-status.png">
@@ -80,6 +81,25 @@
             font-weight: 300;
             letter-spacing: -0.02em;
             line-height: 1.1;
+        }
+
+        .foss-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            padding: 0.3rem 0.7rem;
+            border-radius: 999px;
+            border: 1px solid rgba(88, 101, 242, 0.4);
+            background: rgba(88, 101, 242, 0.15);
+            color: var(--colors-text-primary);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin: 0.75rem auto 0.25rem auto;
+            width: fit-content;
+            box-shadow: 0 8px 20px rgba(88, 101, 242, 0.2);
         }
 
         .tagline {
@@ -308,14 +328,21 @@
     <div class="container">
         <header>
             <img src="logo.png" alt="Voquill Logo" class="logo">
-            <h1>Voquill</h1>
-            <p class="tagline">Free, open-source offline dictation. Press a hotkey to talk and type into any app&mdash;voice-to-text runs locally so your data never leaves your device.</p>
+            <h1>FOSS Voquill</h1>
+            <p class="tagline">Truly free & open-source offline dictation that types into any app. Voice-to-text runs locally so your data never leaves your device.</p>
             <div class="platform-support">
                 <span class="platform-label">Linux</span>
                 <div class="platform-divider"></div>
                 <span class="platform-label">Windows</span>
             </div>
         </header>
+
+        <div class="download-section">
+            <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn">Download Latest Version</a>
+            <br>
+            <a href="donate.html" class="btn btn-secondary">Support the Project</a>
+            <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">View Code on GitHub</a>
+        </div>
 
         <div class="hero-container" id="hero-content">
             <video autoplay muted loop playsinline poster="screenshots/screenshot-status.png">
@@ -324,6 +351,8 @@
             </video>
         </div>
         <a href="screenshots.html" class="view-gallery-link">View Screenshots →</a>
+
+        <div class="foss-badge">FOSS</div>
 
         <section class="philosophy-grid">
             <div class="card">
@@ -336,21 +365,13 @@
             </div>
             <div class="card">
                 <h3>Open Source</h3>
-                <p>Transparent, secure, and community-driven. Built with high-performance technology to ensure Voquill stays fast and entirely under your control.</p>
+                <p>Transparent, secure, and community-driven. Built with high-performance technology to ensure FOSS Voquill stays fast and entirely under your control.</p>
             </div>
         </section>
 
-
-        <div class="download-section">
-            <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn">Download Latest Version</a>
-            <br>
-            <a href="donate.html" class="btn btn-secondary">Support the Project</a>
-            <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">View Code on GitHub</a>
-        </div>
-
     <footer>
-        <p class="provenance">Founded July 2025 by Jack Brumley</p>
-        <p>&copy; 2026 Voquill Project. Free and Open Source (MIT).</p>
+        <p class="provenance">FOSS Voquill is the original project, first published in July 2025 by Jack Brumley and built to give back to the open-source community.</p>
+        <p>&copy; 2026 FOSS Voquill Project. (MIT License).</p>
     </footer>
 
     <div class="lightbox-overlay" id="lightbox">

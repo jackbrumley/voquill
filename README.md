@@ -2,9 +2,9 @@
 
 ![Voquill Logo](src-tauri/icons/128x128.png)
 
-# Voquill
+# FOSS Voquill
 
-**Free, and private system-wide push-to-talk dictation tool.**
+**Truly free, private system-wide push-to-talk dictation tool.**
 
 [voquill.org](https://voquill.org)
 
@@ -12,7 +12,9 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)](https://github.com/jackbrumley/voquill)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri-24C8DB)](https://tauri.app/)
 
-*Accurate voice dictation that works in any application, anywhere on your system. 100% local, 100% private, and open source under the MIT license.*
+*FOSS dictation that works in any application, anywhere on your system. 100% local, 100% private, and truly free.*
+
+**[Download Latest Release](https://github.com/jackbrumley/voquill/releases/latest)**
 
 </div>
 
@@ -20,13 +22,13 @@
 
 ## The Philosophy
 
-Voquill was created with a simple premise: **voice dictation should be a basic utility, not a subscription service.** 
+FOSS Voquill was created with a simple premise: **voice dictation should be a basic utility, not a subscription service.** 
 
-In an era of cloud-first AI, Voquill stands apart by prioritizing the user:
-- **Zero Backend**: No remote servers, no cloud services, and no data collection.
-- **Zero Accounts**: No login required. No tracking, no onboarding, and no "Free Tiers."
-- **Zero Cost**: Truly free and open source under the MIT license.
-- **Privacy First**: Your voice never leaves your computer. Transcription happens 100% on your device.
+In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and freedom first:
+- **No Backend**: No servers, no cloud, no data collection.
+- **No Accounts**: No logins, no tracking, no onboarding.
+- **Truly Free**: No subscriptions, no paid tiers. Free to use and build on.
+- **Privacy First**: Your voice stays on your device. Transcription runs locally.
 
 ---
 
@@ -45,10 +47,8 @@ In an era of cloud-first AI, Voquill stands apart by prioritizing the user:
 
 Ready-to-use binaries are available for supported platforms:
 
-**[Download Latest Release](https://github.com/jackbrumley/voquill/releases/latest)**
-
-- **Windows**: `.msi` installer or standalone `.exe`
-- **Linux**: `.deb` package, `.rpm` package, or universal `.AppImage`
+- **Windows**: setup `.exe`, portable `.exe`, or `.msi` installer
+- **Linux**: `linux-x64` tarball, `.AppImage`, `.deb`, or `.rpm`
 
 ### Setup Guide
 
@@ -57,9 +57,11 @@ Ensure you have a working microphone set as your default audio device before sta
 #### Local Mode (Recommended)
 
 Voquill is designed to work offline. Simply launch the app and:
-1. Select your preferred model size from the **Config tab** (the **base** model is recommended for most users).
+1. Select your preferred model size from the **Config tab** (the **Distil-Small** model is recommended for most users).
 2. Click the **Download** button to fetch the model to your device.
 3. Start dictating immediately.
+
+**Turbo Mode (GPU)**: If you have a dedicated graphics card (AMD or NVIDIA), enable Turbo Mode in Advanced settings. With Turbo Mode, the **Small** model is a great accuracy upgrade while still feeling fast.
 
 #### Cloud Mode (Optional)
 
@@ -104,7 +106,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 ### Project Provenance
-*Voquill was founded in July 2025 by Jack Brumley as a minimalist, privacy-first alternative to cloud-based dictation services. It remains committed to the principle that utility tools should be free, open, and local.*
+*FOSS Voquill is the original project, first published in July 2025. Built to give back to the open-source community. Truly free. No subscriptions or paid tiers.*
 
 <div align="center">
 

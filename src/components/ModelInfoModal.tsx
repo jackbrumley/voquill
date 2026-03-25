@@ -30,7 +30,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
               </div>
               <div className="feature-info">
                 <h3>Lightning Fast</h3>
-                <p><strong>Tiny / Distil-Small</strong>: Best for older laptops. Very fast, uses minimal battery.</p>
+                <p><strong>Tiny / Distil-Small</strong>: Fastest and lightest, great for older laptops.</p>
               </div>
             </div>
 
@@ -40,7 +40,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
               </div>
               <div className="feature-info">
                 <h3>Perfect Balance</h3>
-                <p><strong>Base / Distil-Small</strong>: The recommended choice. High accuracy with great speed.</p>
+                <p><strong>Distil-Small</strong>: Recommended for most people. Great accuracy with excellent speed.</p>
               </div>
             </div>
 
@@ -50,7 +50,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
               </div>
               <div className="feature-info">
                 <h3>Highest Accuracy</h3>
-                <p><strong>Medium</strong>: Best for complex vocabulary or thick accents. Requires a modern PC or GPU.</p>
+                <p><strong>Small / Medium</strong>: Best for complex vocabulary or accents. Requires a modern PC or a GPU.</p>
               </div>
             </div>
           </div>
@@ -61,7 +61,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
               <h3>Turbo Mode (GPU)</h3>
             </div>
             <p>
-              If you have a dedicated graphics card (AMD or NVIDIA), enabling **Turbo Mode** in Advanced settings will significantly speed up transcription, allowing you to use larger models comfortably.
+              If you have a dedicated graphics card (AMD or NVIDIA), enabling **Turbo Mode** in Advanced settings will dramatically speed up transcription. With Turbo Mode, the **Small** model is a great accuracy upgrade while still feeling fast.
             </p>
           </div>
         </div>

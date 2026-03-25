@@ -760,7 +760,7 @@ function App() {
                           </div>
                         </ConfigField>
 
-                        <ConfigField label="Local Model" description="Choose the Whisper model size. Larger models are more accurate but slower.">
+                        <ConfigField label="Local Model" description="Choose the Whisper model size. Distil-Small is recommended for most users.">
                           <div className="select-wrapper">
                             {availableModels.length > 0 ? (
                               <>
