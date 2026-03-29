@@ -25,11 +25,13 @@ mod transcription;
 mod typing;
 mod model_manager;
 mod local_whisper;
-mod permissions;
+pub mod platform;
 
 use config::{Config, TranscriptionMode};
 use hotkey::HardwareHotkey;
-use permissions::{LinuxPermissions, check_linux_permissions, request_linux_permissions};
+#[cfg(target_os = "linux")]
+use platform::linux::wayland::env::{enforce_wayland, check_wayland_display};
+use platform::permissions::LinuxPermissions;
 
 #[cfg(target_os = "linux")]
 // Application state
@@ -52,6 +54,7 @@ pub struct AppState {
     pub audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
     #[cfg(target_os = "linux")]
     pub hotkey_engine_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
+    pub display_backend: Arc<dyn platform::traits::DisplayBackend>,
 }
 
 impl Default for AppState {
@@ -70,6 +73,7 @@ impl Default for AppState {
             audio_engine: Arc::new(Mutex::new(None)),
             #[cfg(target_os = "linux")]
             hotkey_engine_cancel: Arc::new(Mutex::new(None)),
+            display_backend: platform::initialize(),
         }
     }
 }
@@ -81,19 +85,21 @@ async fn get_linux_setup_status(state: tauri::State<'_, AppState>) -> Result<Lin
         let guard = state.config.lock().unwrap();
         guard.clone()
     };
-    Ok(check_linux_permissions(&config).await)
+    Ok(state.display_backend.check_permissions(&config).await)
 }
 
 #[tauri::command]
-async fn run_linux_setup(app_handle: tauri::AppHandle) -> Result<(), String> {
+async fn run_linux_setup(state: tauri::State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<(), String> {
     log_info!("📡 Tauri Command: run_linux_setup invoked");
-    request_linux_permissions(app_handle.clone()).await?;
+    state.display_backend.request_permissions(app_handle.clone()).await?;
     
-    // On Linux, immediately restart the hotkey engine now that we have tokens
-    #[cfg(target_os = "linux")]
+    // Use backend to apply overlay hints
     {
-        log_info!("✅ Setup complete! Restarting Wayland Global Shortcuts Engine...");
-        tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle.clone(), true, false));
+        log_info!("✅ Setup complete! Restarting Global Shortcuts Engine...");
+        let backend = state.display_backend.clone();
+        tauri::async_runtime::spawn(async move {
+            backend.start_engine(app_handle.clone(), true, false).await;
+        });
     }
     
     Ok(())
@@ -116,25 +122,13 @@ async fn manual_register_hotkey(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    #[cfg(target_os = "linux")]
-    {
-        log_info!("Manual hotkey registration requested via Portal");
-        
-        // Use force=true to ensure the Portal UI actually opens
-        tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle, true, true));
-        Ok(())
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        // On Windows, the UI still handles the "Recording" phase, 
-        // so this command is just a placeholder or could be used to re-sync.
-        let hotkey_string = {
-            let config = state.config.lock().unwrap();
-            config.hotkey.clone()
-        };
-        re_register_hotkey(&app_handle, &hotkey_string).await
-    }
+    log_info!("Manual hotkey registration requested");
+    
+    let backend = state.display_backend.clone();
+    tauri::async_runtime::spawn(async move {
+        backend.start_engine(app_handle, true, true).await;
+    });
+    Ok(())
 }
 
 #[tauri::command]
@@ -432,37 +426,16 @@ async fn save_config(
 }
 
 async fn re_register_hotkey(app_handle: &tauri::AppHandle, hotkey_string: &str) -> Result<(), String> {
-    #[cfg(target_os = "linux")]
-    {
-        // On Linux, restart the Portal hotkey engine with the new key
-        let state = app_handle.state::<AppState>();
-        let has_token = {
-            let config = state.config.lock().unwrap();
-            config.shortcuts_token.is_some()
-        };
-        
-        if has_token {
-            log_info!("🔄 Registering hotkey '{}' with Global Shortcuts Engine...", hotkey_string);
-            
-            tauri::async_runtime::spawn(start_linux_portal_hotkey_engine(app_handle.clone(), false, false));
-        }
-        Ok(())
-    }
+    let state = app_handle.state::<AppState>();
+    log_info!("🔄 Re-registering hotkey '{}'...", hotkey_string);
+    
+    let app_handle_clone = app_handle.clone();
+    let backend = state.display_backend.clone();
+    tauri::async_runtime::spawn(async move {
+        backend.start_engine(app_handle_clone, false, false).await;
+    });
 
-    #[cfg(not(target_os = "linux"))]
-    {
-        use tauri_plugin_global_shortcut::GlobalShortcutExt;
-        log_info!("Re-registering hotkey: {}", hotkey_string);
-        let _ = app_handle.global_shortcut().unregister_all();
-        match hotkey::parse_hotkey_string(hotkey_string) {
-            Ok(shortcut) => {
-                app_handle.global_shortcut().register(shortcut).map_err(|e| e.to_string())?;
-                log_info!("✅ Global hotkey registered: {}", hotkey_string);
-                Ok(())
-            }
-            Err(e) => Err(e.to_string())
-        }
-    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -533,88 +506,10 @@ async fn position_overlay_window(overlay_window: &WebviewWindow, app_handle: &Ap
         config.pixels_from_bottom
     };
     
-    #[cfg(target_os = "linux")]
-    {
-        use gtk_layer_shell::LayerShell;
-        let window_clone = overlay_window.clone();
-        
-        // Dispatch to main thread for GTK operations
-        gtk::glib::MainContext::default().invoke(move || {
-            if let Ok(gtk_window) = window_clone.gtk_window() {
-                // Resolution: Use fully qualified syntax and the correct method name 'set_layer_shell_margin'
-                // to resolve the conflict with WidgetExt::set_margin
-                gtk_window.set_anchor(gtk_layer_shell::Edge::Bottom, true);
-                LayerShell::set_layer_shell_margin(&gtk_window, gtk_layer_shell::Edge::Bottom, pixels_from_bottom_logical);
-            }
-        });
-        
-        Ok(())
-    }
-    
-    #[cfg(not(target_os = "linux"))]
-    {
-        use tauri::Position;
-        // Standardized: Always use the OS-reported Primary Monitor for the status overlay.
-        let monitor = overlay_window.primary_monitor()
-            .map_err(|e| e.to_string())?
-            .or_else(|| overlay_window.available_monitors().ok().and_then(|m| m.first().cloned()))
-            .ok_or("No monitors found")?;
-        
-        let monitor_size = monitor.size();
-        let monitor_position = monitor.position();
-        let scale_factor = monitor.scale_factor();
-        
-        // Physical Pixel calculations for high-DPI accuracy
-        let pixels_from_bottom_physical = (pixels_from_bottom_logical as f64 * scale_factor) as i32;
-        let window_width_logical = 140.0;
-        let window_height_logical = 140.0;
-        
-        let window_width_physical = (window_width_logical * scale_factor) as i32;
-        let window_height_physical = (window_height_logical * scale_factor) as i32;
-        
-        let x = monitor_position.x + (monitor_size.width as i32 - window_width_physical) / 2;
-        let y = monitor_position.y + monitor_size.height as i32 - window_height_physical - pixels_from_bottom_physical;
-        
-        log_info!("📍 Positioning overlay at Physical: {}, {} (Monitor: {:?}x{:?} at {:?}, Scale: {})", 
-            x, y, monitor_size.width, monitor_size.height, monitor_position, scale_factor);
-        
-        overlay_window.set_position(Position::Physical(tauri::PhysicalPosition::new(x, y))).map_err(|e| e.to_string())?;
-        overlay_window.set_size(tauri::LogicalSize::new(window_width_logical, window_height_logical)).map_err(|e| e.to_string())?;
-        
-        Ok(())
-    }
+    app_state.display_backend.position_overlay_window(overlay_window, pixels_from_bottom_logical)?;
+    Ok(())
 }
 
-#[cfg(target_os = "linux")]
-fn apply_linux_unfocusable_hints(window: &WebviewWindow) {
-    use gtk::prelude::*;
-    use gtk_layer_shell::LayerShell;
-
-    if let Ok(gtk_window) = window.gtk_window() {
-        log_info!("🛠️  Initializing Wayland Layer Shell for overlay...");
-
-        gtk_window.init_layer_shell();
-        gtk_window.set_layer(gtk_layer_shell::Layer::Overlay);
-        gtk_window.set_anchor(gtk_layer_shell::Edge::Bottom, true);
-        
-        // Use set_keyboard_mode (requires v0_6 feature)
-        gtk_window.set_keyboard_mode(gtk_layer_shell::KeyboardMode::None);
-
-        // Set initial margin from config
-        let app_handle = window.app_handle();
-        let app_state = app_handle.state::<AppState>();
-        let pixels_from_bottom_logical = {
-            let config = app_state.config.lock().unwrap();
-            config.pixels_from_bottom
-        };
-        LayerShell::set_layer_shell_margin(&gtk_window, gtk_layer_shell::Edge::Bottom, pixels_from_bottom_logical);
-
-        // Standard GTK properties
-        gtk_window.set_decorated(false);
-        gtk_window.set_skip_taskbar_hint(true);
-        gtk_window.set_skip_pager_hint(true);
-    }
-}
 
 async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
     log_info!("🔍 show_overlay_window called");
@@ -631,18 +526,9 @@ async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
     // Use Tauri native show() to maintain reference count stability
     overlay_window.show().map_err(|e| e.to_string())?;
     
-    // Ghost Mode: Ensure it never takes focus or blocks clicks
-    // Only applied on non-linux platforms to avoid crashes with Layer Shell
-    #[cfg(not(target_os = "linux"))]
-    {
-        let overlay_clone = overlay_window.clone();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-            log_info!("👻 Applying Ghost Mode attributes...");
-            let _ = overlay_clone.set_focusable(false);
-            let _ = overlay_clone.set_ignore_cursor_events(true);
-        });
-    }
+    // Ghost Mode handled by display backend
+    let state = app_handle.state::<AppState>();
+    state.display_backend.apply_overlay_hints(&overlay_window);
     
     log_info!("✅ Overlay visibility commanded");
     Ok(())
@@ -841,7 +727,8 @@ async fn record_and_transcribe(
                     }
                 }
                 log_info!("⌨️  Forwarding text to hardware typing engine...");
-                if let Err(e) = typing::type_text_hardware(&text, typing_speed, hold_duration, virtual_keyboard) {
+                let state = app_handle.state::<AppState>();
+                if let Err(e) = state.display_backend.type_text_hardware(&text, typing_speed, hold_duration, virtual_keyboard) {
                     log_info!("❌ TYPING ENGINE ERROR: {}", e);
                 }
             },
@@ -860,283 +747,11 @@ async fn record_and_transcribe(
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
-fn denormalize_wayland_trigger(trigger: &str) -> String {
-    // Converts PORTAL+FORMAT (CTRL+SHIFT+space) to user-friendly format (ctrl+shift+space)
-    let parts: Vec<&str> = trigger.split('+').collect();
-    let mut normalized_parts: Vec<String> = Vec::new();
-    
-    for part in parts {
-        let lower = part.to_lowercase();
-        match lower.as_str() {
-            "logo" => normalized_parts.push("super".to_string()),
-            _ => normalized_parts.push(lower),
-        }
-    }
-    
-    normalized_parts.join("+")
-}
-
-fn normalize_wayland_trigger(hotkey: &str) -> String {
-    // Freedesktop Shortcuts Specification format: MOD+MOD+KeySymName
-    // https://specifications.freedesktop.org/shortcuts-spec/latest/
-    // Modifiers: CTRL, ALT, SHIFT, LOGO (for Super/Meta)
-    // Keys: lowercase xkbcommon keysym names (e.g., space, h, Return)
-    
-    let parts: Vec<&str> = hotkey.split('+').collect();
-    let mut modifiers: Vec<&str> = Vec::new();
-    let mut primary = String::new();
-    
-    for part in parts {
-        let lower = part.to_lowercase();
-        match lower.as_str() {
-            "ctrl" | "control" => modifiers.push("CTRL"),
-            "alt" => modifiers.push("ALT"),
-            "shift" => modifiers.push("SHIFT"),
-            "super" | "meta" => modifiers.push("LOGO"),
-            _ => {
-                // Map to xkbcommon keysym names (lowercase, special handling)
-                primary = match lower.as_str() {
-                    "space" => "space".to_string(),
-                    "enter" | "return" => "Return".to_string(),
-                    "backspace" => "BackSpace".to_string(),
-                    "tab" => "Tab".to_string(),
-                    "escape" | "esc" => "Escape".to_string(),
-                    _ => lower,
-                };
-            }
-        }
-    }
-    
-    // Build the final trigger: MOD+MOD+Key
-    let mut result = modifiers.join("+");
-    if !result.is_empty() && !primary.is_empty() {
-        result.push('+');
-    }
-    result.push_str(&primary);
-    
-    result
-}
-
-#[cfg(target_os = "linux")]
-async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle, force: bool, manual_prompt: bool) {
-    use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
-    use futures_util::StreamExt;
-
-    // Cancel any existing engine before starting a new one
-    let state = app_handle.state::<AppState>();
-    
-    // First, cancel the old engine and WAIT for it to finish
-    let has_previous = {
-        let mut cancel_lock = state.hotkey_engine_cancel.lock().unwrap();
-        if let Some(sender) = cancel_lock.take() {
-            log_info!("🔄 Cancelling previous hotkey engine...");
-            let _ = sender.send(());
-            true
-        } else {
-            false
-        }
-    };
-    
-    if has_previous {
-        // Give the old engine more time to shut down to avoid race conditions
-        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
-    }
-    
-    // Create a cancellation channel for this new engine
-    let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel::<()>();
-    {
-        let mut cancel_lock = state.hotkey_engine_cancel.lock().unwrap();
-        *cancel_lock = Some(cancel_tx);
-    }
-
-    log_info!("🚀 Wayland Global Shortcuts Engine starting...");
-
-    let (shortcuts_token, hotkey_str) = {
-        let config = state.config.lock().unwrap();
-        (config.shortcuts_token.clone(), config.hotkey.clone())
-    };
-
-    if shortcuts_token.is_none() && !force {
-        log_info!("⚠️ No shortcuts token found and force=false. Skipping hotkey registration until setup is run.");
-        return;
-    }
-
-    let proxy = match GlobalShortcuts::new().await {
-        Ok(p) => p,
-        Err(e) => {
-            log_info!("❌ Failed to connect to Global Shortcuts Portal: {}", e);
-            return;
-        }
-    };
-
-    // Restore session
-    let session = match proxy.create_session().await {
-        Ok(s) => s,
-        Err(e) => {
-            log_info!("❌ Failed to create shortcuts session: {}", e);
-            return;
-        }
-    };
-
-    // Normalize the hotkey to XDG/Portal format
-    let normalized_trigger = normalize_wayland_trigger(&hotkey_str);
-    log_info!("🔑 Attempting to bind trigger: '{}'", normalized_trigger);
-
-    // Bind shortcuts
-    let shortcut = if manual_prompt {
-        log_info!("🧭 Manual shortcut selection requested; prompting portal UI");
-        NewShortcut::new("record", "Dictation Hotkey")
-    } else {
-        NewShortcut::new("record", "Dictation Hotkey")
-            .preferred_trigger(Some(normalized_trigger.as_str()))
-    };
-
-    let bind_result = match proxy.bind_shortcuts(&session, &[shortcut], None).await {
-        Ok(r) => r,
-        Err(e) => {
-            log_info!("❌ Failed to bind shortcuts: {}", e);
-            return;
-        }
-    };
-
-    // Verify what the OS actually bound
-    let bound = match bind_result.response() {
-        Ok(shortcuts) => shortcuts,
-        Err(e) => {
-            log_info!("❌ Failed to get bind response: {}", e);
-            return;
-        }
-    };
-
-    if bound.shortcuts().is_empty() {
-        log_info!("⚠️ OS rejected the shortcut request. No shortcuts were bound.");
-        log_info!("💡 This may mean the key combination is already in use by the system.");
-        return;
-    }
-    
-    let mut actual_trigger = String::new();
-    for s in bound.shortcuts() {
-        log_info!("✅ Wayland Global Shortcuts bound: ID='{}', Description='{}', Trigger='{}'", 
-            s.id(), s.description(), s.trigger_description());
-        if s.id() == "record" {
-            actual_trigger = s.trigger_description().to_string();
-        }
-    }
-
-    if actual_trigger.is_empty() {
-        log_info!("⚠️ OS accepted the registration but didn't assign a trigger.");
-        log_info!("💡 KDE Plasma: You may need to manually assign the shortcut in System Settings → Shortcuts");
-        log_info!("💡 Or check: journalctl --user -u xdg-desktop-portal-kde -n 50");
-    } else {
-        log_info!("🎉 Trigger successfully bound: '{}'", actual_trigger);
-        
-        let friendly_hotkey = denormalize_wayland_trigger(&actual_trigger);
-        
-        // Save the token and the actual bound hotkey
-        {
-            let mut config = state.config.lock().unwrap();
-            config.shortcuts_token = Some("granted".to_string());
-            config.hotkey = friendly_hotkey;
-            let _ = crate::config::save_config(&config);
-        }
-        
-        // Notify the frontend to refresh its config
-        let _ = app_handle.emit("config-updated", ());
-    }
-
-    let mut activated_stream = match proxy.receive_activated().await {
-        Ok(s) => s,
-        Err(e) => {
-            log_info!("❌ Failed to listen for shortcut activation: {}", e);
-            return;
-        }
-    };
-
-    let mut deactivated_stream = match proxy.receive_deactivated().await {
-        Ok(s) => s,
-        Err(e) => {
-            log_info!("❌ Failed to listen for shortcut deactivation: {}", e);
-            return;
-        }
-    };
-
-    let h_handle = app_handle.clone();
-    tauri::async_runtime::spawn(async move {
-        log_info!("👂 Listening for shortcut events...");
-        loop {
-            tokio::select! {
-                _ = &mut cancel_rx => {
-                    log_info!("🛑 Hotkey engine cancelled. Shutting down...");
-                    break;
-                }
-                Some(event) = activated_stream.next() => {
-                    log_info!("🔔 Portal event received: Activated shortcut_id='{}'", event.shortcut_id());
-                    if event.shortcut_id() == "record" {
-                        log_info!("🎤 Portal: Hotkey Pressed");
-                        let state = h_handle.state::<AppState>();
-                        let _ = start_recording(state, h_handle.clone()).await;
-                        if let Some(w) = h_handle.get_webview_window("main") {
-                            let _ = w.emit("hotkey-pressed", ());
-                        }
-                    } else {
-                        log_info!("⚠️ Unknown shortcut activated: {}", event.shortcut_id());
-                    }
-                }
-                Some(event) = deactivated_stream.next() => {
-                    log_info!("🔔 Portal event received: Deactivated shortcut_id='{}'", event.shortcut_id());
-                    if event.shortcut_id() == "record" {
-                        log_info!("⏹️  Portal: Hotkey Released");
-                        let state = h_handle.state::<AppState>();
-                        let _ = stop_recording(state).await;
-                        if let Some(w) = h_handle.get_webview_window("main") {
-                            let _ = w.emit("hotkey-released", ());
-                        }
-                    } else {
-                        log_info!("⚠️ Unknown shortcut deactivated: {}", event.shortcut_id());
-                    }
-                }
-            }
-        }
-        log_info!("✅ Hotkey engine stopped cleanly.");
-    });
-}
 
 fn main() {
     #[cfg(target_os = "linux")]
     {
-        // CRITICAL: Set app identity BEFORE any GTK/Portal operations
-        // This must happen at the very start so all D-Bus calls are signed with the correct app_id
-        std::env::set_var("WAYLAND_APP_ID", "com.voquill.voquill");
-        gtk::glib::set_prgname(Some("com.voquill.voquill"));
-        gtk::glib::set_application_name("Voquill Dev");
-        
-        // Fix for WebKitGTK crashes on Arch-based systems (like CachyOS/Manjaro)
-        // This addresses the "Could not create default EGL display: EGL_BAD_PARAMETER" error.
-        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-        std::env::set_var("WEBKIT_DISABLE_GPU_SANDBOX", "1");
-        
-        // Pre-flight check: Ensure we are in a Wayland session
-        // Voquill strictly requires Wayland for Layer Shell positioning and security protocols.
-        let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok();
-        
-        if !is_wayland {
-            let is_x11 = std::env::var("DISPLAY").is_ok();
-            if is_x11 {
-                eprintln!("\n\x1b[1;31m[Voquill Error] Wayland Session Required\x1b[0m");
-                eprintln!("Voquill is built strictly for Wayland to ensure proper window positioning (via Layer Shell) and secure hardware access.");
-                eprintln!("Your current session appears to be X11/XWayland, which is not supported.");
-                eprintln!("Please log into a native Wayland session (GNOME, KDE, or Hyprland) to use this application.\n");
-            } else {
-                eprintln!("\n\x1b[1;31m[Voquill Error] No Wayland Display Detected\x1b[0m");
-                eprintln!("Voquill requires a Wayland session to run. If you are in a Wayland session, ensure WAYLAND_DISPLAY is set.\n");
-            }
-            std::process::exit(1);
-        }
-
-        // Strictly Wayland: Enforce the Wayland backend for GTK.
-        // This prevents fallbacks to XWayland/X11 which break Layer Shell positioning.
-        std::env::set_var("GDK_BACKEND", "wayland");
+        enforce_wayland();
     }
 
     env_logger::init();
@@ -1191,24 +806,14 @@ fn main() {
 
             #[cfg(target_os = "linux")]
             {
-                // Diagnostic: Confirm we are running on Wayland
-                if let Some(display) = gdk::Display::default() {
-                    use gtk::glib::prelude::ObjectExt;
-                    let type_name = display.type_().name();
-                    let backend = if type_name.contains("Wayland") {
-                        "Wayland ✅"
-                    } else {
-                        "X11/Unknown ❌ (Positioning will likely fail)"
-                    };
-                    log_info!("🖥️  GDK Backend: {} ({})", backend, type_name);
-                }
+                check_wayland_display();
             }
             
             if let Some(w) = app.get_webview_window("overlay") { 
                 log_info!("🔍 Overlay window found in setup");
                 let _ = w.hide(); 
-                #[cfg(target_os = "linux")]
-                apply_linux_unfocusable_hints(&w);
+                let state = app.state::<AppState>();
+                state.display_backend.apply_overlay_hints(&w);
             } else {
                 log_info!("❌ Overlay window NOT FOUND in setup!");
             }

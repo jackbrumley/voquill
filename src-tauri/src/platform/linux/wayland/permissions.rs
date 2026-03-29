@@ -1,22 +1,12 @@
-use serde::Serialize;
-#[cfg(target_os = "linux")]
+use crate::config::Config;
+use crate::AppState;
+use tauri::{AppHandle, Manager};
 use ashpd::desktop::camera::Camera;
-#[cfg(target_os = "linux")]
 use ashpd::desktop::remote_desktop::{RemoteDesktop, DeviceType};
-#[cfg(target_os = "linux")]
 use ashpd::desktop::PersistMode;
-use tauri::AppHandle;
+use crate::platform::permissions::LinuxPermissions;
 
-
-#[derive(Serialize, Clone, Debug)]
-pub struct LinuxPermissions {
-    pub audio: bool,
-    pub shortcuts: bool,
-    pub input_emulation: bool,
-}
-
-#[cfg(target_os = "linux")]
-pub async fn check_linux_permissions(config: &crate::config::Config) -> LinuxPermissions {
+pub async fn check_linux_permissions(config: &Config) -> LinuxPermissions {
     // Modern Wayland: We check if tokens exist as a proxy for "user has gone through setup"
     // The actual enforcement happens at runtime when we try to use the portals
     
@@ -34,20 +24,7 @@ pub async fn check_linux_permissions(config: &crate::config::Config) -> LinuxPer
     }
 }
 
-#[cfg(not(target_os = "linux"))]
-pub async fn check_linux_permissions(_config: &crate::config::Config) -> LinuxPermissions {
-    LinuxPermissions {
-        audio: true,
-        shortcuts: true,
-        input_emulation: true,
-    }
-}
-
-#[cfg(target_os = "linux")]
 pub async fn request_linux_permissions(app_handle: AppHandle) -> Result<(), String> {
-    use crate::AppState;
-    use tauri::Manager;
-
     // 1. Request Audio (Mic) via Camera Portal
     let camera = Camera::new().await.map_err(|e| format!("Audio Portal not available: {}. Is xdg-desktop-portal-gtk/kde installed?", e))?;
     camera.request_access().await.map_err(|e| format!("Audio access denied: {}", e))?;
@@ -82,10 +59,5 @@ pub async fn request_linux_permissions(app_handle: AppHandle) -> Result<(), Stri
         let _ = crate::config::save_config(&config);
     }
 
-    Ok(())
-}
-
-#[cfg(not(target_os = "linux"))]
-pub async fn request_linux_permissions(_app_handle: AppHandle) -> Result<(), String> {
     Ok(())
 }

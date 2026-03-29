@@ -1,20 +1,20 @@
 :root {
-  background-color: transparent;
+  background-color: rgba(0, 0, 0, 0);
 }
 
 html {
-  background: transparent;
+  background-color: rgba(0, 0, 0, 0);
 }
 
 body {
-  background: transparent;
+  background-color: rgba(0, 0, 0, 0);
   text-align: center;
   margin: 0;
   padding: 0;
 }
 
 #root {
-  background: transparent;
+  background-color: rgba(0, 0, 0, 0);
 }
 
 .status-container {
@@ -23,7 +23,7 @@ body {
   justify-content: center;
   height: 100vh;
   width: 100vw;
-  background: transparent;
+  background-color: rgba(0, 0, 0, 0);
 }
 
 .overlay-content {
@@ -40,22 +40,21 @@ body {
   font-size: 16px;
   font-weight: 300;
   text-align: center;
-  background: rgba(54, 57, 63, 0.3);
+  background: rgba(54, 57, 63, 0.55);
   padding: 2px 6px;
   border-radius: 8px;
-  backdrop-filter: blur(12px) saturate(180%);
 }
 
 
 /* Override the light mode media query from index.css */
 @media (prefers-color-scheme: light) {
   :root {
-    background-color: transparent;
+    background-color: rgba(0, 0, 0, 0);
   }
   html {
-    background: transparent;
+    background-color: rgba(0, 0, 0, 0);
   }
   body {
-    background: transparent;
+    background-color: rgba(0, 0, 0, 0);
   }
 }
