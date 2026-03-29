@@ -74,10 +74,20 @@
     },
     "linux": {
       "deb": {
-        "depends": []
+        "depends": [
+          "libgtk-layer-shell0",
+          "webkit2gtk-4.1",
+          "libpulse0",
+          "libappindicator3-1"
+        ]
       },
       "rpm": {
-        "depends": []
+        "depends": [
+          "gtk-layer-shell",
+          "webkit2gtk4.1",
+          "pulseaudio-libs",
+          "libappindicator-gtk3"
+        ]
       },
       "appimage": {
         "bundleMediaFramework": false
