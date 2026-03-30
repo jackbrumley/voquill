@@ -44,6 +44,12 @@ async function runCommand(cmd: string[], cwd: string = Deno.cwd()) {
   }
 
   if (Deno.build.os === "linux") {
+    // Add cargo bin to PATH
+    const home = Deno.env.get("HOME");
+    if (home) {
+      env["PATH"] = `${env["PATH"]}:${home}/.cargo/bin`;
+    }
+
     // Modern Linux distros (and WSL) often have issues with AppImages mounting via FUSE.
     // This env var tells them to extract themselves to a temp dir instead.
     env["APPIMAGE_EXTRACT_AND_RUN"] = "1";

@@ -9,6 +9,13 @@ macro_rules! log_info {
     };
 }
 
+#[macro_export]
+macro_rules! log_warn {
+    ($($arg:tt)*) => {
+        eprintln!("[{}] WARNING: {}", ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"), format!($($arg)*))
+    };
+}
+
 use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{
     Manager, WebviewWindow, Emitter, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}, AppHandle,
@@ -784,6 +791,10 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new()
             .with_handler(|app, _shortcut, event| {
+                // Ignore plugin hotkeys on Wayland, use Portal instead
+                if std::env::var("WAYLAND_DISPLAY").is_ok() {
+                    return;
+                }
                 if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
                     let app_handle = app.clone();
                     tauri::async_runtime::spawn(async move {
@@ -836,12 +847,12 @@ fn main() {
                     let input_id = InputId::new(BusType::BUS_USB, 0x6666, 0x8888, 0x0111);
 
                     match VirtualDevice::builder()
-                        .unwrap()
-                        .name("Voquill Virtual Keyboard")
-                        .input_id(input_id)
-                        .with_keys(&keys)
-                        .unwrap()
-                        .build() 
+                        .map_err(|e| e.to_string())
+                        .and_then(|b| b.name("Voquill Virtual Keyboard")
+                                     .input_id(input_id)
+                                     .with_keys(&keys)
+                                     .map_err(|e| e.to_string()))
+                        .and_then(|b| b.build().map_err(|e| e.to_string()))
                     {
                         Ok(mut device) => {
                             if let Ok(path) = device.get_syspath() {
@@ -853,7 +864,7 @@ fn main() {
                             *lock = Some(device);
                         },
                         Err(e) => {
-                            log_info!("❌ Virtual keyboard initialization failed: {}", e);
+                            log_info!("❌ Virtual keyboard initialization failed: {}. Input emulation may not work.", e);
                         }
                     }
                 });
