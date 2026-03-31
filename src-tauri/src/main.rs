@@ -88,6 +88,27 @@ impl Default for AppState {
 }
 
 #[tauri::command]
+async fn get_wayland_portal_version() -> Result<u32, String> {
+    #[cfg(target_os = "linux")]
+    {
+        if std::env::var("WAYLAND_DISPLAY").is_ok() {
+            use ashpd::desktop::global_shortcuts::GlobalShortcuts;
+            if let Ok(proxy) = GlobalShortcuts::new().await {
+                // In ashpd 0.12, GlobalShortcuts implements Deref to zbus::Proxy directly,
+                // but the high-level `Proxy::version()` is not accessible since `self.0` is private
+                // However, we can just query the property manually
+                use std::ops::Deref;
+                if let Ok(version) = proxy.deref().get_property::<u32>("version").await {
+                    return Ok(version);
+                }
+            }
+            return Ok(1); // Default to 1 on Wayland if we can't fetch it
+        }
+    }
+    Ok(0)
+}
+
+#[tauri::command]
 async fn get_linux_setup_status(state: tauri::State<'_, AppState>) -> Result<LinuxPermissions, String> {
     log_info!("📡 Tauri Command: get_linux_setup_status invoked");
     let config = {
@@ -976,7 +997,7 @@ fn main() {
             check_hotkey_status, manual_register_hotkey, get_audio_devices,
             start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder,
             log_ui_event, get_available_engines, get_available_models, check_model_status, download_model,
-            get_linux_setup_status, request_audio_permission, request_input_permission, set_configuring_hotkey
+            get_linux_setup_status, request_audio_permission, request_input_permission, set_configuring_hotkey, get_wayland_portal_version
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
