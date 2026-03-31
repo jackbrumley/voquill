@@ -33,8 +33,8 @@ impl InputSimulation for WaylandBackend {
 
 #[async_trait]
 impl GlobalShortcutEngine for WaylandBackend {
-    async fn start_engine(&self, app_handle: tauri::AppHandle, force: bool, manual_prompt: bool) {
-        shortcuts::start_linux_portal_hotkey_engine(app_handle, force, manual_prompt).await;
+    async fn start_engine(&self, app_handle: tauri::AppHandle, force: bool) -> Result<(), String> {
+        shortcuts::start_linux_portal_hotkey_engine(app_handle, force).await
     }
 }
 

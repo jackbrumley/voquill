@@ -222,19 +222,38 @@ function App() {
     }
   };
 
-  const handleLinuxSetup = async () => {
-    logUI('🖱️ Button clicked: Initialize System Access');
-    setLinuxSetupStatus('configuring');
+  const handleAudioSetup = async () => {
     try {
-      await invoke('run_linux_setup');
-      setLinuxSetupStatus('idle');
-      showToast('Permissions granted successfully!', 'success');
-      // Immediately refresh the permission status
+      await invoke('request_audio_permission');
+      showToast('Audio permission granted!', 'success');
       await checkSetupStatus();
     } catch (error) {
-      console.error('Linux setup failed:', error);
-      setLinuxSetupStatus('idle');
-      showToast(`Setup failed: ${error}`, 'error');
+      showToast(`Failed to get audio permission: ${error}`, 'error');
+    }
+  };
+
+  const handleInputSetup = async () => {
+    try {
+      await invoke('request_input_permission');
+      showToast('Input permission granted!', 'success');
+      await checkSetupStatus();
+    } catch (error) {
+      showToast(`Failed to get input permission: ${error}`, 'error');
+    }
+  };
+
+  const handleShortcutSetup = async () => {
+    try {
+      showToast('System shortcut request sent!', 'info');
+      await invoke('manual_register_hotkey', { newHotkey: config.hotkey });
+      showToast('Shortcut bound successfully!', 'success');
+      // Update local state to immediately hide the Bind button
+      if (permissions) {
+        setPermissions({ ...permissions, shortcuts: true });
+      }
+      setTimeout(checkSetupStatus, 500);
+    } catch (error) {
+      showToast(`Failed to register shortcut: ${error}`, 'error');
     }
   };
 
@@ -484,10 +503,12 @@ function App() {
     // On Linux, we use the Portal's native shortcut recording interface
     if (navigator.userAgent.includes('Linux')) {
       try {
-        await invoke('manual_register_hotkey');
+        await invoke('manual_register_hotkey', { newHotkey: null });
         showToast('System shortcut request sent', 'info');
       } catch (e) {
-        showToast(`Failed to trigger portal: ${e}`, 'error');
+        // Fallback to manual UI recording if portal recording fails
+        setIsRecordingHotkey(true);
+        setRecordedKeys(new Set());
       }
       return;
     }
@@ -561,8 +582,10 @@ function App() {
             <div className="setup-body">
               <p style={{ textAlign: 'center' }}>Voquill needs standard Wayland portal permissions to operate:</p>
               <div className="setup-list" style={{ width: '100%' }}>
+                
+                {/* Audio Permission */}
                 <div className={`permission-item ${permissions?.audio ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
                     <div className="permission-icon">
                       <IconMicrophone size={20} />
                     </div>
@@ -571,28 +594,60 @@ function App() {
                       <div className="permission-desc">Required for dictation</div>
                     </div>
                   </div>
-                  <div className="permission-status">
-                    {permissions?.audio ? <IconCheck color="var(--colors-success)" size={20} /> : <IconX color="var(--colors-error)" size={20} />}
+                  <div className="permission-status" style={{ marginLeft: 'auto' }}>
+                    {permissions?.audio ? (
+                      <IconCheck color="var(--colors-success)" size={20} />
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={handleAudioSetup}>Request</Button>
+                    )}
                   </div>
                 </div>
 
+                {/* Shortcuts Permission */}
                 <div className={`permission-item ${permissions?.shortcuts ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
                     <div className="permission-icon">
                       <IconKeyboard size={20} />
                     </div>
-                    <div className="permission-info">
-                      <div className="permission-title">Global Shortcuts</div>
+                    <div className="permission-info" style={{ width: '100%', paddingRight: '10px' }}>
+                      <div className="permission-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        Global Shortcuts
+                        {!permissions?.shortcuts && (
+                          <input 
+                            type="text" 
+                            className="hotkey-input setup-hotkey-input"
+                            value={isRecordingHotkey ? 'Press keys...' : config.hotkey}
+                            onKeyDown={handleHotkeyKeyDown}
+                            onKeyUp={handleHotkeyKeyUp}
+                            onFocus={startRecordingHotkey}
+                            onBlur={() => setIsRecordingHotkey(false)}
+                            readOnly
+                            placeholder="Click to set"
+                            style={{ 
+                              width: '140px', padding: '4px 8px', fontSize: '12px', 
+                              backgroundColor: 'var(--colors-surface-active)', 
+                              border: '1px solid var(--colors-border)', 
+                              borderRadius: '4px', cursor: 'pointer', textAlign: 'center',
+                              color: isRecordingHotkey ? 'var(--colors-primary)' : 'var(--colors-text)'
+                            }}
+                          />
+                        )}
+                      </div>
                       <div className="permission-desc">Required for the hotkey</div>
                     </div>
                   </div>
                   <div className="permission-status">
-                    {permissions?.shortcuts ? <IconCheck color="var(--colors-success)" size={20} /> : <IconX color="var(--colors-error)" size={20} />}
+                    {permissions?.shortcuts ? (
+                      <IconCheck color="var(--colors-success)" size={20} />
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={handleShortcutSetup}>Bind</Button>
+                    )}
                   </div>
                 </div>
 
+                {/* Input Simulation Permission */}
                 <div className={`permission-item ${permissions?.input_emulation ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
                     <div className="permission-icon">
                       <IconTextRecognition size={20} />
                     </div>
@@ -601,30 +656,28 @@ function App() {
                       <div className="permission-desc">Required to type into other apps</div>
                     </div>
                   </div>
-                  <div className="permission-status">
-                    {permissions?.input_emulation ? <IconCheck color="var(--colors-success)" size={20} /> : <IconX color="var(--colors-error)" size={20} />}
+                  <div className="permission-status" style={{ marginLeft: 'auto' }}>
+                    {permissions?.input_emulation ? (
+                      <IconCheck color="var(--colors-success)" size={20} />
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={handleInputSetup}>Request</Button>
+                    )}
                   </div>
                 </div>
+
               </div>
-              <p className="setup-note">Click the button below to trigger the OS permission prompts. You may need to "Allow" several popups.</p>
+              <p className="setup-note">Click "Request" or "Bind" for each item to trigger the OS permission prompts.</p>
             </div>
 
             <div className="setup-actions setup-button-container">
-              <Button 
-                variant="primary" 
-                onClick={handleLinuxSetup} 
-                disabled={linuxSetupStatus === 'configuring'}
-                className="setup-button"
-              >
-                {linuxSetupStatus === 'configuring' ? 'Requesting...' : 'Initialize System Access'}
-              </Button>
               <Button 
                 variant="ghost" 
                 onClick={checkSetupStatus} 
                 size="sm"
                 className="setup-button"
+                style={{ width: '100%', marginTop: '10px' }}
               >
-                Check Again
+                Refresh Status
               </Button>
             </div>
           </Card>

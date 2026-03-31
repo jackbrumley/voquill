@@ -10,7 +10,7 @@ pub trait InputSimulation: Send + Sync {
 
 #[async_trait]
 pub trait GlobalShortcutEngine: Send + Sync {
-    async fn start_engine(&self, app_handle: AppHandle, force: bool, manual_prompt: bool);
+    async fn start_engine(&self, app_handle: AppHandle, force: bool) -> Result<(), String>;
 }
 
 #[async_trait]

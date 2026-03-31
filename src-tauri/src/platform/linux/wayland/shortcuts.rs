@@ -9,7 +9,11 @@ pub fn normalize_wayland_trigger(hotkey: &str) -> String {
     let mut parts: Vec<String> = hotkey.split('+').map(|s| s.to_string()).collect();
     if parts.len() < 2 { return hotkey.to_string(); }
     
-    let key = parts.pop().unwrap();
+    let mut key = parts.pop().unwrap();
+    // Portal keysyms are usually capitalized standard names like "Space", "Return", "A"
+    if key.to_lowercase() == "space" { key = "space".to_string(); }
+    else if key.to_lowercase() == "enter" || key.to_lowercase() == "return" { key = "Return".to_string(); }
+    
     let mut modifiers = parts;
     for m in &mut modifiers {
         *m = m.to_uppercase();
@@ -22,7 +26,7 @@ pub fn denormalize_wayland_trigger(trigger: &str) -> String {
     trigger.to_lowercase()
 }
 
-pub async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle, force: bool, manual_prompt: bool) {
+pub async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle, force: bool) -> Result<(), String> {
     let state = app_handle.state::<AppState>();
     
     let has_previous = {
@@ -54,81 +58,47 @@ pub async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle, forc
     };
 
     if shortcuts_token.is_none() && !force {
-        crate::log_info!("⚠️ No shortcuts token found. Skipping hotkey registration.");
-        return;
+        return Err("No shortcuts token found. Setup is required.".to_string());
     }
 
-    let proxy = match GlobalShortcuts::new().await {
-        Ok(p) => p,
-        Err(e) => {
-            crate::log_info!("❌ Failed to connect to Global Shortcuts Portal: {}", e);
-            return;
-        }
-    };
+    let proxy = GlobalShortcuts::new().await
+        .map_err(|e| format!("Failed to connect to Portal: {}", e))?;
 
-    let session = match proxy.create_session().await {
-        Ok(s) => s,
-        Err(e) => {
-            crate::log_info!("❌ Failed to create shortcuts session: {}", e);
-            return;
-        }
-    };
+    let session = proxy.create_session().await
+        .map_err(|e| format!("Failed to create portal session: {}", e))?;
 
     let normalized_trigger = normalize_wayland_trigger(&hotkey_str);
     crate::log_info!("🔑 Attempting to bind trigger: '{}' (normalized: '{}')", hotkey_str, normalized_trigger);
 
-    let shortcut = NewShortcut::new("record", "Dictation Hotkey");
-    let shortcut = if !manual_prompt {
-        shortcut.preferred_trigger(Some(normalized_trigger.as_str()))
-    } else {
-        shortcut
-    };
+    let shortcut = NewShortcut::new("record", "Dictation Hotkey")
+        .preferred_trigger(Some(normalized_trigger.as_str()));
 
-    let bind_result = match proxy.bind_shortcuts(&session, &[shortcut], None).await {
-        Ok(r) => r,
-        Err(e) => {
-            crate::log_info!("❌ Failed to bind shortcuts: {}", e);
-            if manual_prompt {
-                if let Err(e2) = proxy.configure_shortcuts(&session, None, None).await {
-                    crate::log_info!("❌ Portal does not support manual configuration: {}", e2);
-                }
-            }
-            return;
-        }
-    };
+    let bind_result = proxy.bind_shortcuts(&session, &[shortcut], None).await
+        .map_err(|e| format!("Failed to call portal BindShortcuts: {}", e))?;
 
-    let bound = match bind_result.response() {
-        Ok(shortcuts) => shortcuts,
-        Err(e) => {
-            crate::log_info!("❌ Failed to get bind response: {}", e);
-            return;
-        }
-    };
+    let bound = bind_result.response()
+        .map_err(|e| format!("Portal rejected shortcut: {}", e))?;
 
     if bound.shortcuts().is_empty() {
-        crate::log_info!("⚠️ OS rejected the shortcut request. No shortcuts were bound.");
-        return;
+        return Err("OS rejected the shortcut request. The hotkey may be in use by another application or the system.".to_string());
     }
     
     for s in bound.shortcuts() {
         crate::log_info!("✅ Wayland Global Shortcuts bound: ID='{}', Trigger='{}'", s.id(), s.trigger_description());
     }
 
-    let mut activated_stream = match proxy.receive_activated().await {
-        Ok(s) => s,
-        Err(e) => {
-            crate::log_info!("❌ Failed to listen for shortcut activation: {}", e);
-            return;
-        }
-    };
+    {
+        let mut config = state.config.lock().unwrap();
+        config.shortcuts_token = Some("granted".to_string());
+        let _ = crate::config::save_config(&config);
+    }
+    let _ = app_handle.emit("config-updated", ());
 
-    let mut deactivated_stream = match proxy.receive_deactivated().await {
-        Ok(s) => s,
-        Err(e) => {
-            crate::log_info!("❌ Failed to listen for shortcut deactivation: {}", e);
-            return;
-        }
-    };
+    let mut activated_stream = proxy.receive_activated().await
+        .map_err(|e| format!("Failed to listen for shortcut activation: {}", e))?;
+
+    let mut deactivated_stream = proxy.receive_deactivated().await
+        .map_err(|e| format!("Failed to listen for shortcut deactivation: {}", e))?;
 
     let h_handle = app_handle.clone();
     tauri::async_runtime::spawn(async move {
@@ -156,4 +126,6 @@ pub async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle, forc
             }
         }
     });
+
+    Ok(())
 }

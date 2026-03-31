@@ -51,7 +51,6 @@ pub async fn request_linux_permissions(app_handle: AppHandle) -> Result<(), Stri
         .map(|t| t.to_string())
         .or(Some("session".to_string()));
 
-    // Save tokens to config ONLY if we got here (meaning user granted everything)
     {
         let state = app_handle.state::<AppState>();
         let mut config = state.config.lock().unwrap();

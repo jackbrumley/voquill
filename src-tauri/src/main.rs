@@ -96,20 +96,55 @@ async fn get_linux_setup_status(state: tauri::State<'_, AppState>) -> Result<Lin
 }
 
 #[tauri::command]
-async fn run_linux_setup(state: tauri::State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<(), String> {
-    log_info!("📡 Tauri Command: run_linux_setup invoked");
-    state.display_backend.request_permissions(app_handle.clone()).await?;
-    
-    // Use backend to apply overlay hints
+async fn request_audio_permission() -> Result<(), String> {
+    log_info!("📡 Tauri Command: request_audio_permission invoked");
+    #[cfg(target_os = "linux")]
     {
-        log_info!("✅ Setup complete! Restarting Global Shortcuts Engine...");
-        let backend = state.display_backend.clone();
-        tauri::async_runtime::spawn(async move {
-            backend.start_engine(app_handle.clone(), true, false).await;
-        });
+        use ashpd::desktop::camera::Camera;
+        let camera = Camera::new().await.map_err(|e| format!("Audio Portal not available: {}. Is xdg-desktop-portal installed?", e))?;
+        camera.request_access().await.map_err(|e| format!("Audio access denied: {}", e))?;
+        return Ok(());
     }
-    
-    Ok(())
+    #[cfg(not(target_os = "linux"))]
+    {
+        Ok(())
+    }
+}
+
+#[tauri::command]
+async fn request_input_permission(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    log_info!("📡 Tauri Command: request_input_permission invoked");
+    #[cfg(target_os = "linux")]
+    {
+        if std::env::var("WAYLAND_DISPLAY").is_ok() {
+            use ashpd::desktop::remote_desktop::{RemoteDesktop, DeviceType};
+            use ashpd::desktop::PersistMode;
+
+            let remote_desktop = RemoteDesktop::new().await.map_err(|e| format!("Remote Desktop Portal not available: {}", e))?;
+            let rd_session = remote_desktop.create_session().await.map_err(|e| format!("Failed to create remote desktop session: {}", e))?;
+            
+            let select_request = remote_desktop.select_devices(&rd_session, DeviceType::Keyboard.into(), None, PersistMode::DoNot).await.map_err(|e| format!("Failed to select devices: {}", e))?;
+            select_request.response().map_err(|e| format!("Device selection cancelled: {}", e))?;
+            
+            let start_request = remote_desktop.start(&rd_session, None).await.map_err(|e| format!("Failed to start remote desktop session: {}", e))?;
+            let selected_devices = start_request.response().map_err(|e| format!("Input emulation request cancelled or denied: {}", e))?;
+            
+            let i_token = selected_devices.restore_token()
+                .map(|t| t.to_string())
+                .or(Some("session".to_string()));
+
+            {
+                let mut config = state.config.lock().unwrap();
+                config.input_token = i_token;
+                let _ = crate::config::save_config(&config);
+            }
+        }
+        return Ok(());
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Ok(())
+    }
 }
 
 // Tauri commands
@@ -126,16 +161,21 @@ async fn check_hotkey_status(state: tauri::State<'_, AppState>) -> Result<Option
 
 #[tauri::command]
 async fn manual_register_hotkey(
+    new_hotkey: String,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    log_info!("Manual hotkey registration requested");
+    log_info!("Manual hotkey registration requested for: {}", new_hotkey);
     
+    // Save to config first
+    {
+        let mut config = state.config.lock().unwrap();
+        config.hotkey = new_hotkey.clone();
+        let _ = crate::config::save_config(&config);
+    }
+
     let backend = state.display_backend.clone();
-    tauri::async_runtime::spawn(async move {
-        backend.start_engine(app_handle, true, true).await;
-    });
-    Ok(())
+    backend.start_engine(app_handle, true).await
 }
 
 #[tauri::command]
@@ -439,7 +479,7 @@ async fn re_register_hotkey(app_handle: &tauri::AppHandle, hotkey_string: &str) 
     let app_handle_clone = app_handle.clone();
     let backend = state.display_backend.clone();
     tauri::async_runtime::spawn(async move {
-        backend.start_engine(app_handle_clone, false, false).await;
+        backend.start_engine(app_handle_clone, false).await;
     });
 
     Ok(())
@@ -918,7 +958,7 @@ fn main() {
             check_hotkey_status, manual_register_hotkey, get_audio_devices,
             start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder,
             log_ui_event, get_available_engines, get_available_models, check_model_status, download_model,
-            get_linux_setup_status, run_linux_setup
+            get_linux_setup_status, request_audio_permission, request_input_permission
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
