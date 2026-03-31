@@ -124,6 +124,11 @@ async fn request_audio_permission() -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
         use ashpd::desktop::camera::Camera;
+
+
+        // On Wayland, the app id is inferred via matching the desktop file name and WM class.
+        // It relies on the environment or StartupWMClass in the desktop file.
+
         let camera = Camera::new().await.map_err(|e| format!("Audio Portal not available: {}. Is xdg-desktop-portal installed?", e))?;
         camera.request_access().await.map_err(|e| format!("Audio access denied: {}", e))?;
         return Ok(());
@@ -142,6 +147,9 @@ async fn request_input_permission(state: tauri::State<'_, AppState>) -> Result<(
         if std::env::var("WAYLAND_DISPLAY").is_ok() {
             use ashpd::desktop::remote_desktop::{RemoteDesktop, DeviceType};
             use ashpd::desktop::PersistMode;
+
+
+            // Implicit mapping
 
             let remote_desktop = RemoteDesktop::new().await.map_err(|e| format!("Remote Desktop Portal not available: {}", e))?;
             let rd_session = remote_desktop.create_session().await.map_err(|e| format!("Failed to create remote desktop session: {}", e))?;
@@ -518,7 +526,7 @@ async fn re_register_hotkey(app_handle: &tauri::AppHandle, hotkey_string: &str) 
     let app_handle_clone = app_handle.clone();
     let backend = state.display_backend.clone();
     tauri::async_runtime::spawn(async move {
-        backend.start_engine(app_handle_clone, false).await;
+        let _ = backend.start_engine(app_handle_clone, false).await;
     });
 
     Ok(())

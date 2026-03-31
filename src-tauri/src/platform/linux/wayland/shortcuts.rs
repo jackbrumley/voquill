@@ -3,6 +3,8 @@ use tauri::{Manager, Emitter};
 use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
 use futures_util::StreamExt;
 
+
+
 pub fn normalize_wayland_trigger(hotkey: &str) -> String {
     // Input example: "ctrl+shift+space"
     // Portal expects: "CTRL+SHIFT+space"
@@ -61,6 +63,8 @@ pub async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle, forc
         return Err("No shortcuts token found. Setup is required.".to_string());
     }
 
+    // Implicit matching via Desktop file
+
     let proxy = GlobalShortcuts::new().await
         .map_err(|e| format!("Failed to connect to Portal: {}", e))?;
 
@@ -83,13 +87,20 @@ pub async fn start_linux_portal_hotkey_engine(app_handle: tauri::AppHandle, forc
         return Err("OS rejected the shortcut request. The hotkey may be in use by another application or the system.".to_string());
     }
     
+    let mut actual_trigger = String::new();
     for s in bound.shortcuts() {
         crate::log_info!("✅ Wayland Global Shortcuts bound: ID='{}', Trigger='{}'", s.id(), s.trigger_description());
+        if s.id() == "record" {
+            actual_trigger = s.trigger_description().to_string();
+        }
     }
 
     {
         let mut config = state.config.lock().unwrap();
         config.shortcuts_token = Some("granted".to_string());
+        if !actual_trigger.is_empty() {
+            config.hotkey = denormalize_wayland_trigger(&actual_trigger);
+        }
         let _ = crate::config::save_config(&config);
     }
     let _ = app_handle.emit("config-updated", ());

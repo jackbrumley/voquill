@@ -106,6 +106,13 @@ function App() {
   const [isRecordingHotkey, setIsRecordingHotkey] = useState(false);
   const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
   const [showModelGuide, setShowModelGuide] = useState(false);
+  const [portalVersion, setPortalVersion] = useState<number>(0);
+
+  useEffect(() => {
+    invoke<number>('get_wayland_portal_version')
+      .then(setPortalVersion)
+      .catch(e => console.log("Not running Wayland portal version check:", e));
+  }, []);
 
   const logUI = (msg: string) => {
     // Log Toasts and Clicks always, drop other spam unless debug mode
@@ -508,7 +515,22 @@ function App() {
     }
   };
 
-  const startRecordingHotkey = () => {
+  const startRecordingHotkey = async () => {
+    if (portalVersion >= 2) {
+      try {
+        await invoke('manual_register_hotkey', { newHotkey: null });
+        showToast('System shortcut request sent', 'info');
+      } catch (e) {
+        showToast(`Failed to trigger portal: ${e}`, 'error');
+      }
+      return;
+    }
+
+    if (portalVersion === 1) {
+      showToast('Shortcut is managed by the OS. Change it in System Settings.', 'info');
+      return;
+    }
+
     setRecordingState(true);
     setRecordedKeys(new Set());
   };
@@ -612,17 +634,19 @@ function App() {
                             value={isRecordingHotkey ? 'Press keys...' : config.hotkey}
                             onKeyDown={handleHotkeyKeyDown}
                             onKeyUp={handleHotkeyKeyUp}
-                            onFocus={startRecordingHotkey}
+                            onFocus={() => portalVersion === 1 ? null : startRecordingHotkey()}
                             onBlur={() => setRecordingState(false)}
                             readOnly
-                            placeholder="Click to set"
+                            placeholder={portalVersion >= 1 ? "Managed by OS" : "Click to set"}
                             style={{ 
                               width: '140px', padding: '4px 8px', fontSize: '12px', 
                               backgroundColor: 'var(--colors-surface-active)', 
                               border: '1px solid var(--colors-border)', 
-                              borderRadius: '4px', cursor: 'pointer', textAlign: 'center',
-                              color: isRecordingHotkey ? 'var(--colors-primary)' : 'var(--colors-text)'
+                              borderRadius: '4px', cursor: portalVersion === 1 ? 'not-allowed' : 'pointer', textAlign: 'center',
+                              color: isRecordingHotkey ? 'var(--colors-primary)' : 'var(--colors-text)',
+                              opacity: portalVersion === 1 ? 0.7 : 1
                             }}
+                            title={portalVersion === 1 ? 'Shortcut is managed by the OS. Bind to continue.' : ''}
                           />
                         )}
                       </div>
@@ -859,18 +883,27 @@ function App() {
                           type="text" 
                           value={isRecordingHotkey ? 'Press keys...' : config.hotkey} 
                           readOnly
-                          onClick={() => setIsRecordingHotkey(true)}
+                          onClick={() => portalVersion === 1 ? null : startRecordingHotkey()}
                           placeholder="Click to record..."
                           className={`hotkey-input ${isRecordingHotkey ? 'recording' : ''}`}
+                          style={{ opacity: portalVersion === 1 ? 0.7 : 1, cursor: portalVersion === 1 ? 'not-allowed' : 'pointer' }}
+                          title={portalVersion === 1 ? 'Shortcut is managed by the OS. Change it in System Settings.' : ''}
                         />
-                        <Button 
-                          size="sm" 
-                          variant={isRecordingHotkey ? 'primary' : 'secondary'}
-                          onClick={isRecordingHotkey ? () => setIsRecordingHotkey(false) : startRecordingHotkey}
-                        >
-                          {isRecordingHotkey ? 'Cancel' : 'Record'}
-                        </Button>
+                        {portalVersion !== 1 && (
+                          <Button 
+                            size="sm" 
+                            variant={isRecordingHotkey ? 'primary' : 'secondary'}
+                            onClick={isRecordingHotkey ? () => setRecordingState(false) : startRecordingHotkey}
+                          >
+                            {isRecordingHotkey ? 'Cancel' : portalVersion >= 2 ? 'Configure in OS' : 'Record'}
+                          </Button>
+                        )}
                       </div>
+                      {portalVersion === 1 && (
+                        <div style={{ fontSize: '11px', color: 'var(--colors-text-muted)', marginTop: '4px' }}>
+                          Shortcut is managed by the OS. Change in System Settings → Keyboard → Shortcuts.
+                        </div>
+                      )}
                     </ConfigField>
 
                     <ConfigField label="Always Copy to Clipboard" description="Automatically copies the transcription to your clipboard even when in Typewriter mode.">

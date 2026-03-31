@@ -25,5 +25,6 @@ commands.allow = [
     "get_linux_setup_status",
     "request_audio_permission",
     "request_input_permission",
-    "set_configuring_hotkey"
+    "set_configuring_hotkey",
+    "get_wayland_portal_version"
 ]
