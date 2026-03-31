@@ -24,5 +24,6 @@ commands.allow = [
     "download_model",
     "get_linux_setup_status",
     "request_audio_permission",
-    "request_input_permission"
+    "request_input_permission",
+    "set_configuring_hotkey"
 ]

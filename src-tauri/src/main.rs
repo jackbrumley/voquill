@@ -51,6 +51,7 @@ pub struct AppState {
     pub config: Arc<Mutex<Config>>,
     pub is_recording: Arc<Mutex<bool>>,
     pub is_mic_test_active: Arc<Mutex<bool>>,
+    pub is_configuring_hotkey: Arc<Mutex<bool>>,
     pub hotkey_error: Arc<Mutex<Option<String>>>,
     pub setup_status: Arc<Mutex<Option<String>>>,
     pub hardware_hotkey: Arc<Mutex<HardwareHotkey>>,
@@ -70,6 +71,7 @@ impl Default for AppState {
             config: Arc::new(Mutex::new(Config::default())),
             is_recording: Arc::new(Mutex::new(false)),
             is_mic_test_active: Arc::new(Mutex::new(false)),
+            is_configuring_hotkey: Arc::new(Mutex::new(false)),
             hotkey_error: Arc::new(Mutex::new(None)),
             setup_status: Arc::new(Mutex::new(None)),
             hardware_hotkey: Arc::new(Mutex::new(HardwareHotkey::default())),
@@ -185,10 +187,26 @@ async fn get_audio_devices() -> Result<Vec<audio::AudioDevice>, String> {
 }
 
 #[tauri::command]
+async fn set_configuring_hotkey(
+    is_configuring: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut config_flag = state.is_configuring_hotkey.lock().unwrap();
+    *config_flag = is_configuring;
+    log_info!("🔧 set_configuring_hotkey: {}", is_configuring);
+    Ok(())
+}
+
+#[tauri::command]
 async fn start_recording(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    if *state.is_configuring_hotkey.lock().unwrap() {
+        log_info!("⚠️ Ignoring start_recording because hotkey configuration is active");
+        return Err("Currently configuring hotkey".to_string());
+    }
+
     let mut recording_flag = state.is_recording.lock().unwrap();
     if *recording_flag {
         return Err("Already recording".to_string());
@@ -958,7 +976,7 @@ fn main() {
             check_hotkey_status, manual_register_hotkey, get_audio_devices,
             start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder,
             log_ui_event, get_available_engines, get_available_models, check_model_status, download_model,
-            get_linux_setup_status, request_audio_permission, request_input_permission
+            get_linux_setup_status, request_audio_permission, request_input_permission, set_configuring_hotkey
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

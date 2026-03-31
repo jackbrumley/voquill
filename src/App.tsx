@@ -499,21 +499,17 @@ function App() {
     return [...modifiers.sort(), primaryKey].filter(Boolean).join('+');
   };
 
-  const startRecordingHotkey = async () => {
-    // On Linux, we use the Portal's native shortcut recording interface
-    if (navigator.userAgent.includes('Linux')) {
-      try {
-        await invoke('manual_register_hotkey', { newHotkey: null });
-        showToast('System shortcut request sent', 'info');
-      } catch (e) {
-        // Fallback to manual UI recording if portal recording fails
-        setIsRecordingHotkey(true);
-        setRecordedKeys(new Set());
-      }
-      return;
+  const setRecordingState = async (isRecording: boolean) => {
+    setIsRecordingHotkey(isRecording);
+    try {
+      await invoke('set_configuring_hotkey', { isConfiguring: isRecording });
+    } catch (e) {
+      console.error('Failed to sync configuring hotkey state', e);
     }
+  };
 
-    setIsRecordingHotkey(true);
+  const startRecordingHotkey = () => {
+    setRecordingState(true);
     setRecordedKeys(new Set());
   };
 
@@ -529,16 +525,13 @@ function App() {
     if (e.altKey) newKeys.add('Alt');
     if (e.metaKey) newKeys.add('Meta');
     
-    // Use e.code for more reliable key identification
     const code = e.code;
     
-    // Add the primary key (not a modifier)
     if (!['ControlLeft', 'ControlRight', 'ShiftLeft', 'ShiftRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight'].includes(code)) {
       newKeys.add(code);
-      // Stop recording once we have a primary key
       const normalized = normalizeHotkey(newKeys);
       updateConfig('hotkey', normalized);
-      setIsRecordingHotkey(false);
+      setRecordingState(false);
       setRecordedKeys(new Set());
     } else {
       setRecordedKeys(newKeys);
@@ -620,7 +613,7 @@ function App() {
                             onKeyDown={handleHotkeyKeyDown}
                             onKeyUp={handleHotkeyKeyUp}
                             onFocus={startRecordingHotkey}
-                            onBlur={() => setIsRecordingHotkey(false)}
+                            onBlur={() => setRecordingState(false)}
                             readOnly
                             placeholder="Click to set"
                             style={{ 
