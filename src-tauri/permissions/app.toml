@@ -23,5 +23,6 @@ commands.allow = [
     "check_model_status",
     "download_model",
     "get_linux_setup_status",
-    "run_linux_setup"
+    "request_audio_permission",
+    "request_input_permission"
 ]
