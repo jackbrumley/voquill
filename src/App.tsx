@@ -1,22 +1,20 @@
 
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
-import { open } from '@tauri-apps/plugin-shell';
-import { IconBrandGithub, IconHeart, IconMicrophone, IconKeyboard, IconTextRecognition, IconCheck, IconX, IconInfoCircle, IconRocket, IconRefresh, IconCopy, IconShieldLock } from '@tabler/icons-preact';
-import StatusIcon from './StatusIcon.tsx';
+import { IconMicrophone, IconKeyboard, IconTextRecognition, IconCheck, IconShieldLock, IconInfoCircle, IconRocket } from '@tabler/icons-preact';
 import { tokens } from './design-tokens.ts';
 import { Card } from './components/Card.tsx';
 import { Button } from './components/Button.tsx';
 import { ConfigField } from './components/ConfigField.tsx';
-import { Switch } from './components/Switch.tsx';
-import { CollapsibleSection } from './components/CollapsibleSection.tsx';
-import { ModeSwitcher } from './components/ModeSwitcher.tsx';
 import { ActionFooter } from './components/ActionFooter.tsx';
 import { ModelInfoModal } from './components/ModelInfoModal.tsx';
 import { MicSetupPanel } from './components/MicSetupPanel.tsx';
+import { StatusPage } from './pages/StatusPage.tsx';
+import { ConfigPage } from './pages/ConfigPage.tsx';
+import { HistoryPage } from './pages/HistoryPage.tsx';
 import './App.css';
 
 interface Config {
@@ -137,6 +135,7 @@ function App() {
   const [hotkeyBindingState, setHotkeyBindingState] = useState<HotkeyBindingState | null>(null);
   const [showHotkeyCaptureModal, setShowHotkeyCaptureModal] = useState(false);
   const [isApplyingHotkey, setIsApplyingHotkey] = useState(false);
+  const tabContentRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     invoke<number>('get_wayland_portal_version')
@@ -263,6 +262,12 @@ function App() {
       loadModels();
     }
   }, [config.transcription_mode]);
+
+  useEffect(() => {
+    if (tabContentRef.current) {
+      tabContentRef.current.scrollTop = 0;
+    }
+  }, [activeTab]);
 
   const checkSetupStatus = async () => {
     try {
@@ -461,8 +466,8 @@ function App() {
     }
   }, [config.local_engine, availableModels]);
 
-  const updateConfig = (key: keyof Config, value: any) => {
-    setConfig(prev => ({ ...prev, [key]: value }));
+  const updateConfig = (key: string, value: any) => {
+    setConfig(prev => ({ ...prev, [key]: value } as Config));
   };
 
   const toggleOutputMethod = (method: 'Typewriter' | 'Clipboard') => {
@@ -892,288 +897,51 @@ function App() {
             <button className={`tab ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}>Config</button>
           </div>
 
-          <div className="tab-content">
+          <div className="tab-content" ref={tabContentRef}>
             {activeTab === 'status' && (
-              <div className="tab-panel" key="status">
-                <div className="tab-panel-padded">
-                  <div className="status-display">
-                    <StatusIcon status={currentStatus} large />
-                    <div className="status-text-app" key={`text-${currentStatus}`}>
-                      {currentStatus === 'Transcribing' ? `Transcribing (${config.transcription_mode})` : currentStatus}
-                    </div>
-                    <div className="mode-selection-group">
-                      <ModeSwitcher 
-                        value={config.output_method} 
-                        onToggle={toggleOutputMethod} 
-                        options={[
-                          { value: 'Typewriter', label: 'Typewriter', title: 'Typewriter Mode: Simulates key presses' },
-                          { value: 'Clipboard', label: 'Clipboard', title: 'Clipboard Mode: Fast copy-paste' }
-                        ]}
-                      />
-                      <div className="mode-description" key={`desc-${config.output_method}`}>
-                        {config.output_method === 'Typewriter' 
-                          ? 'Types directly into your active cursor.' 
-                          : 'Copies results to your clipboard.'}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <Card className="help-content">
-                    <h3>How to Use Voquill</h3>
-                    <ol className="instructions">
-                      {config.transcription_mode === 'Local' ? (
-                        modelStatus[config.local_model_size] ? (
-                          <li>Local Whisper model is <strong>Ready</strong>.</li>
-                        ) : (
-                          <li>Download a <strong>Whisper model</strong> in Config.</li>
-                        )
-                      ) : (
-                        <li>Enter your <strong>OpenAI API key</strong> in Config.</li>
-                      )}
-                      <li>Position cursor in any text field.</li>
-                      <li>Hold <strong>{config.hotkey}</strong> and speak.</li>
-                      <li>Release keys to transcribe and type.</li>
-                    </ol>
-                    </Card>
-
-                    <div className="status-footer">
-                      <div className="status-footer-links">
-                        <Button variant="icon" className="github-link" onClick={() => open('https://github.com/jackbrumley/voquill')} title="GitHub Repository">
-                          <IconBrandGithub size={18} />
-                        </Button>
-                        <Button variant="icon" className="github-link" onClick={() => open('https://voquill.org/donate')} title="Support the project">
-                          <IconHeart size={18} color="#ff6b6b" fill="#ff6b6b" fillOpacity={0.2} />
-                        </Button>
-                      </div>
-                      <div className="version-text">v{appVersion}</div>
-                    </div>
-                  </div>
-                </div>
-
+              <StatusPage
+                currentStatus={currentStatus}
+                appVersion={appVersion}
+                modelStatus={modelStatus}
+                config={config}
+                onToggleOutputMethod={toggleOutputMethod}
+              />
             )}
 
             {activeTab === 'config' && (
-              <div className="tab-panel config-panel" key="config">
-                <div className="tab-panel-content">
-                  <CollapsibleSection title="Basic" isOpen={activeConfigSection === 'basic'} onToggle={() => setActiveConfigSection(activeConfigSection === 'basic' ? null : 'basic')}>
-                    <ConfigField label="Transcription Method" description="Choose between cloud-based API or fully local processing.">
-                      <ModeSwitcher 
-                        value={config.transcription_mode} 
-                        onToggle={(val) => updateConfig('transcription_mode', val)} 
-                        options={[
-                          { value: 'Local', label: 'Local', title: 'Run Whisper locally' },
-                          { value: 'API', label: 'Cloud API', title: 'Use OpenAI API' }
-                        ]}
-                      />
-                    </ConfigField>
-
-                    <ConfigField label="Language" description="Hint the dialect or hard-set the output language.">
-                      <div className="select-wrapper">
-                        <select value={config.language} onChange={(e: any) => updateConfig('language', e.target.value)}>
-                          <option value="auto">Automatic Detection</option>
-                          <option value="en-AU">English (Australia)</option>
-                          <option value="en-GB">English (United Kingdom)</option>
-                          <option value="en-US">English (United States)</option>
-                          <option value="fr">French</option>
-                          <option value="es">Spanish</option>
-                          <option value="de">German</option>
-                          <option value="it">Italian</option>
-                          <option value="pt">Portuguese</option>
-                          <option value="nl">Dutch</option>
-                          <option value="ja">Japanese</option>
-                          <option value="zh">Chinese</option>
-                        </select>
-                      </div>
-                    </ConfigField>
-
-                    {config.transcription_mode === 'API' ? (
-                      <>
-                        <ConfigField label="API Key" description="Used to authenticate with the transcription service (OpenAI).">
-                          <div className="input-with-button" style={{ display: 'flex', gap: '8px' }}>
-                            <input type="text" value={config.openai_api_key} onChange={(e: any) => updateConfig('openai_api_key', e.target.value)} placeholder="sk-..." />
-                            <Button onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? '...' : 'Test'}</Button>
-                          </div>
-                        </ConfigField>
-
-                        <ConfigField label="API URL" description="The endpoint that processes audio (OpenAI or Local Whisper).">
-                          <input type="url" value={config.api_url} onChange={(e: any) => updateConfig('api_url', e.target.value)} />
-                        </ConfigField>
-                        
-                        <ConfigField label="API Model" description="The model name to use with the API provider.">
-                          <input type="text" value={config.api_model} onChange={(e: any) => updateConfig('api_model', e.target.value)} />
-                        </ConfigField>
-                      </>
-                    ) : (
-                      <>
-                        <ConfigField label="Local Engine" description="The core technology used to process your voice locally.">
-                          <div className="select-wrapper">
-                            <select value={config.local_engine} onChange={(e: any) => updateConfig('local_engine', e.target.value)}>
-                              {availableEngines.map(engine => (
-                                <option key={engine} value={engine}>{engine}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </ConfigField>
-
-                        <ConfigField label="Local Model" description="Choose the Whisper model size. Distil-Small is recommended for most users.">
-                          <div className="select-wrapper">
-                            {availableModels.length > 0 ? (
-                              <>
-                                <select value={config.local_model_size} onChange={(e: any) => updateConfig('local_model_size', e.target.value)}>
-                                  {availableModels
-                                    .filter(m => m.engine === config.local_engine)
-                                    .map(m => (
-                                      <option key={m.size} value={m.size}>
-                                        {m.label} {m.recommended ? '(Recommended)' : ''} ({Math.round(m.file_size / 1024 / 1024)}MB)
-                                      </option>
-                                    ))
-                                  }
-                                </select>
-                                <Button variant="ghost" className="icon-button" onClick={() => setShowModelGuide(true)} title="Model Guide">
-                                  <IconInfoCircle size={20} />
-                                </Button>
-                                {!modelStatus[config.local_model_size] && (
-                                  <Button size="sm" onClick={() => downloadModel(config.local_model_size)} disabled={isDownloading}>
-                                    {isDownloading ? '...' : 'Download'}
-                                  </Button>
-                                )}
-                              </>
-                            ) : (
-                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
-                                <div style={{ fontSize: '12px', color: 'var(--color-text-dim)', flex: 1 }}>Loading models...</div>
-                                <Button size="sm" onClick={loadModels}>Retry</Button>
-                              </div>
-                            )}
-                          </div>
-                          {availableModels.length > 0 && (
-                            <div className="mode-description" style={{ textAlign: 'left', marginTop: '4px' }}>
-                              {availableModels.find(m => m.size === config.local_model_size)?.description}
-                            </div>
-                          )}
-                        </ConfigField>
-                        {isDownloading && (
-                          <div className="download-progress-container" style={{ marginTop: '-8px', marginBottom: '16px' }}>
-                            <div className="volume-meter-container" style={{ height: '4px' }}>
-                               <div className="volume-meter-bar" style={{ width: `${Math.min(downloadProgress, 100)}%`, background: 'var(--colors-accent-primary)' }}></div>
-                            </div>
-                            <div style={{ fontSize: '10px', color: 'var(--color-text-dim)', textAlign: 'right', marginTop: '2px' }}>Downloading model... {Math.round(downloadProgress)}%</div>
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    <ConfigField label="Global Hotkey" description="Hold these keys to record, release to transcribe.">
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <input 
-                          type="text" 
-                          value={isRecordingHotkey ? 'Press keys...' : config.hotkey} 
-                          readOnly
-                          onClick={() => {}}
-                          placeholder="Configure using button"
-                          className={`hotkey-input ${isRecordingHotkey ? 'recording' : ''}`}
-                          style={{ opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default' }}
-                          title={portalVersion >= 1 ? 'Use Configure Hotkey to request binding through the system portal.' : ''}
-                        />
-                        <Button size="sm" variant="secondary" onClick={handleConfigureHotkey} disabled={isApplyingHotkey}>
-                          Configure Hotkey
-                        </Button>
-                      </div>
-                      {portalVersion >= 1 && (
-                        <div style={{ fontSize: '11px', color: 'var(--colors-text-muted)', marginTop: '4px' }}>
-                          Shortcut registration uses the Wayland GlobalShortcuts portal.
-                          {portalDiagnostics?.active_trigger ? ` Active shortcut: ${portalDiagnostics.active_trigger}.` : ''}
-                          {hotkeyBindingState?.bound ? ' Listener is active.' : ''}
-                        </div>
-                      )}
-                    </ConfigField>
-
-                    <ConfigField label="Always Copy to Clipboard" description="Automatically copies the transcription to your clipboard even when in Typewriter mode.">
-                      <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} label="Enabled" />
-                    </ConfigField>
-                  </CollapsibleSection>
-
-                  <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
-                    <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
-                      <div className="select-wrapper">
-                        <select value={config.audio_device || 'default'} onChange={(e: any) => updateConfig('audio_device', e.target.value)}>
-                          {availableMics.map((mic: any) => <option key={mic.id} value={mic.id}>{mic.label}</option>)}
-                        </select>
-                        <Button variant="ghost" className="icon-button" onClick={loadMics} title="Refresh Devices">
-                          <IconRefresh size={16} />
-                        </Button>
-                      </div>
-                    </ConfigField>
-                      
-                    <ConfigField label="Mic Test & Sensitivity" description="Adjust capture gain and verify your microphone playback.">
-                      <MicSetupPanel
-                        inputSensitivity={config.input_sensitivity}
-                        onInputSensitivityChange={(value) => updateConfig('input_sensitivity', value)}
-                        micTestStatus={micTestStatus}
-                        micVolume={micVolume}
-                        onStartMicTest={() => void startMicTest()}
-                        onStopMicTest={() => void stopMicTest()}
-                        onStopMicPlayback={() => void stopMicPlayback()}
-                      />
-                    </ConfigField>
-                  </CollapsibleSection>
-
-                  <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>
-                    <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
-                      <input type="number" value={config.typing_speed_interval} onChange={(e: any) => updateConfig('typing_speed_interval', parseInt(e.target.value))} />
-                    </ConfigField>
-
-                    <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
-                      <input type="number" value={config.key_press_duration_ms} onChange={(e: any) => updateConfig('key_press_duration_ms', parseInt(e.target.value))} />
-                    </ConfigField>
-                  </CollapsibleSection>
-
-                  <CollapsibleSection title="Advanced" isOpen={activeConfigSection === 'advanced'} onToggle={() => setActiveConfigSection(activeConfigSection === 'advanced' ? null : 'advanced')}>
-                    <ConfigField label="Popup Position (px)" description="Vertical offset for the status overlay from the screen bottom.">
-                      <input type="number" value={config.pixels_from_bottom} onChange={(e: any) => updateConfig('pixels_from_bottom', parseInt(e.target.value))} />
-                    </ConfigField>
-
-                    <ConfigField label="Debug Mode" description="Master switch for advanced diagnostic settings.">
-                      <Switch checked={config.debug_mode} onChange={(checked) => updateConfig('debug_mode', checked)} label="Enable Debug Settings" />
-                    </ConfigField>
-
-                    <ConfigField label="Turbo Mode (GPU)" description="Uses your graphics card to speed up transcription. Recommended for 'Medium' models.">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} label="Enabled" />
-                        <IconRocket size={20} style={{ color: config.enable_gpu ? '#f1c40f' : 'var(--colors-text-muted)', opacity: config.enable_gpu ? 1 : 0.5, transition: 'all 0.3s ease' }} />
-                      </div>
-                    </ConfigField>
-
-                    {config.debug_mode && (
-                      <ConfigField label="Recording Logs" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} label="Enable Recording Logs" />
-                          <Button size="sm" variant="ghost" onClick={openDebugFolder}>Open Folder</Button>
-                        </div>
-                      </ConfigField>
-                    )}
-                  </CollapsibleSection>
-                </div>
-              </div>
+              <ConfigPage
+                config={config}
+                activeConfigSection={activeConfigSection}
+                setActiveConfigSection={setActiveConfigSection}
+                availableEngines={availableEngines}
+                availableModels={availableModels}
+                modelStatus={modelStatus}
+                downloadProgress={downloadProgress}
+                isDownloading={isDownloading}
+                isTestingApi={isTestingApi}
+                portalVersion={portalVersion}
+                portalDiagnostics={portalDiagnostics}
+                hotkeyBindingState={hotkeyBindingState}
+                isApplyingHotkey={isApplyingHotkey}
+                availableMics={availableMics}
+                micTestStatus={micTestStatus}
+                micVolume={micVolume}
+                updateConfig={updateConfig}
+                testApiKey={testApiKey}
+                downloadModel={downloadModel}
+                loadModels={loadModels}
+                loadMics={loadMics}
+                handleConfigureHotkey={handleConfigureHotkey}
+                setShowModelGuide={setShowModelGuide}
+                startMicTest={() => void startMicTest()}
+                stopMicTest={() => void stopMicTest()}
+                stopMicPlayback={() => void stopMicPlayback()}
+                openDebugFolder={openDebugFolder}
+              />
             )}
 
             {activeTab === 'history' && (
-              <div className="tab-panel" key="history">
-                <div className="tab-panel-padded">
-                  <div className="history-list">
-                    {history.length === 0 ? <Card className="empty-history"><p>No transcriptions yet.</p></Card> :
-                      history.map((item) => (
-                        <Card key={item.id} className="history-item">
-                          <div className="history-text">{item.text}</div>
-                          <Button variant="ghost" size="sm" className="copy-button" onClick={() => copyToClipboard(item.text)} title="Copy to clipboard">
-                            <IconCopy size={14} />
-                          </Button>
-                          <div className="history-timestamp">{new Date(item.timestamp).toLocaleString()}</div>
-                        </Card>
-                      ))
-                    }
-                  </div>
-                </div>
-              </div>
+              <HistoryPage history={history} onCopyToClipboard={copyToClipboard} />
             )}
           </div>
 
