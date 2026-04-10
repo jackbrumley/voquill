@@ -42,19 +42,45 @@ Artifacts will be in `src-tauri/target/release/bundle/msi/` and `src-tauri/targe
    ```
 
 2. **Draft the Release on GitHub**:
-   - Go to the "Releases" section of the repository.
-   - Click "Draft a new release".
-   - Select the tag you just pushed.
-   - Set the title (e.g., `Voquill vX.Y.Z`).
-   - Describe the changes in the release notes.
+    - Go to the "Releases" section of the repository.
+    - Click "Draft a new release".
+    - Select the tag you just pushed.
+    - Set the title (e.g., `Voquill vX.Y.Z`).
+    - Describe the changes in the release notes.
+
+### GitHub Asset Naming Convention
+
+Release assets uploaded to GitHub must follow this naming scheme:
+
+`voquill-<version>-<os>-<architecture>[ -<variant> ].<extension>`
+
+Supported Voquill asset names:
+- `voquill-<version>-linux-x64`
+- `voquill-<version>-linux-x64.AppImage`
+- `voquill-<version>-linux-x64.deb`
+- `voquill-<version>-linux-x64.rpm`
+- `voquill-<version>-windows-x64-portable.exe`
+- `voquill-<version>-windows-x64-setup.exe`
+- `voquill-<version>-windows-x64.msi`
+
+Rules:
+- Use lowercase `voquill`.
+- Use SemVer for `<version>` (example: `1.2.6`).
+- Use OS token values: `linux`, `windows`.
+- Use architecture token value: `x64`.
+- Use the optional `<variant>` only when needed (example: `portable`, `setup`).
+
+Example for v1.2.6:
+- `voquill-1.2.6-linux-x64`
+- `voquill-1.2.6-linux-x64.AppImage`
+- `voquill-1.2.6-linux-x64.deb`
+- `voquill-1.2.6-linux-x64.rpm`
+- `voquill-1.2.6-windows-x64-portable.exe`
+- `voquill-1.2.6-windows-x64-setup.exe`
+- `voquill-1.2.6-windows-x64.msi`
 
 3. **Upload Assets**:
-   Manually upload the following files from your build outputs:
-   - `voquill_X.Y.Z_amd64.deb`
-   - `voquill_X.Y.Z_amd64.rpm`
-   - `voquill_X.Y.Z_amd64.AppImage`
-   - `Voquill_X.Y.Z_x64_en-US.msi`
-   - `voquill.exe` (Standalone Windows binary)
+   Manually upload assets using the naming convention above.
 
 4. **Publish**:
    Review the release and click "Publish release".
