@@ -403,6 +403,89 @@ async fn get_hotkey_binding_state(
     Ok(binding_state.clone())
 }
 
+#[cfg(target_os = "linux")]
+async fn is_status_notifier_watcher_available() -> bool {
+    use zbus::names::BusName;
+
+    let connection = match zbus::Connection::session().await {
+        Ok(connection) => connection,
+        Err(error) => {
+            log_warn!("Failed to open session DBus for tray check: {}", error);
+            return false;
+        }
+    };
+
+    let proxy = match zbus::fdo::DBusProxy::new(&connection).await {
+        Ok(proxy) => proxy,
+        Err(error) => {
+            log_warn!("Failed to create DBus proxy for tray check: {}", error);
+            return false;
+        }
+    };
+
+    let kde_watcher = match BusName::try_from("org.kde.StatusNotifierWatcher") {
+        Ok(name) => name,
+        Err(error) => {
+            log_warn!("Invalid KDE watcher bus name: {}", error);
+            return false;
+        }
+    };
+    let freedesktop_watcher = match BusName::try_from("org.freedesktop.StatusNotifierWatcher") {
+        Ok(name) => name,
+        Err(error) => {
+            log_warn!("Invalid freedesktop watcher bus name: {}", error);
+            return false;
+        }
+    };
+
+    match proxy.name_has_owner(kde_watcher).await
+    {
+        Ok(true) => true,
+        Ok(false) => match proxy.name_has_owner(freedesktop_watcher).await
+        {
+            Ok(value) => value,
+            Err(error) => {
+                log_warn!("Failed to check freedesktop tray watcher: {}", error);
+                false
+            }
+        },
+        Err(error) => {
+            log_warn!("Failed to check KDE tray watcher: {}", error);
+            false
+        }
+    }
+}
+
+#[tauri::command]
+async fn minimize_to_tray_or_taskbar(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let window = app_handle
+        .get_webview_window("main")
+        .ok_or_else(|| "Main window not found".to_string())?;
+
+    #[cfg(target_os = "linux")]
+    {
+        if is_status_notifier_watcher_available().await {
+            window.hide().map_err(|error| error.to_string())?;
+            return Ok("tray".to_string());
+        }
+
+        window.minimize().map_err(|error| error.to_string())?;
+        return Ok("taskbar".to_string());
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        window.minimize().map_err(|error| error.to_string())?;
+        Ok("taskbar".to_string())
+    }
+}
+
+#[tauri::command]
+async fn quit_application(app_handle: tauri::AppHandle) -> Result<(), String> {
+    app_handle.exit(0);
+    Ok(())
+}
+
 #[tauri::command]
 async fn get_audio_devices() -> Result<Vec<audio::AudioDevice>, String> {
     log_info!("📡 Tauri Command: get_audio_devices invoked");
@@ -1212,6 +1295,13 @@ fn main() {
                         Ok(()) => log_info!("✅ Registered host app ID with portal registry"),
                         Err(error) => log_warn!("⚠️ Host app registration failed: {}", error),
                     }
+
+                    let tray_watcher_available =
+                        tauri::async_runtime::block_on(is_status_notifier_watcher_available());
+                    log_info!(
+                        "🧭 StatusNotifier watcher available: {}",
+                        tray_watcher_available
+                    );
                 }
             }
             if let Some(w) = app.get_webview_window("overlay") {
@@ -1315,7 +1405,7 @@ fn main() {
             start_recording, stop_recording, get_config, save_config,
             test_api_key, get_current_status, get_history, clear_history,
             check_hotkey_status, manual_register_hotkey, configure_hotkey, apply_captured_hotkey,
-            get_hotkey_binding_state, get_audio_devices,
+            get_hotkey_binding_state, minimize_to_tray_or_taskbar, quit_application, get_audio_devices,
             start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder,
             log_ui_event, get_available_engines, get_available_models, check_model_status, download_model,
             get_linux_setup_status, request_audio_permission, request_input_permission, set_configuring_hotkey,

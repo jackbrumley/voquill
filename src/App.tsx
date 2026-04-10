@@ -139,6 +139,7 @@ function App() {
   const [showInitialSetup, setShowInitialSetup] = useState(true);
   const [setupTouched, setSetupTouched] = useState(false);
   const tabContentRef = useRef<HTMLDivElement | null>(null);
+  const trayFallbackNotifiedRef = useRef(false);
 
   useEffect(() => {
     invoke<number>('get_wayland_portal_version')
@@ -575,11 +576,23 @@ function App() {
   };
 
   const handleClose = async () => {
-    await getCurrentWindow().hide();
+    try {
+      await invoke('quit_application');
+    } catch {
+      await getCurrentWindow().close();
+    }
   };
 
   const handleMinimize = async () => {
-    await getCurrentWindow().minimize();
+    try {
+      const target = await invoke<string>('minimize_to_tray_or_taskbar');
+      if (target === 'taskbar' && !trayFallbackNotifiedRef.current) {
+        trayFallbackNotifiedRef.current = true;
+        showToast('System tray is unavailable on this desktop. Minimized to taskbar instead.', 'info');
+      }
+    } catch {
+      await getCurrentWindow().minimize();
+    }
   };
 
   const normalizeHotkey = (keys: Set<string>): string => {
@@ -667,6 +680,13 @@ function App() {
   const handleTitleBarMouseDown = async (e: any) => {
     if (e.buttons === 1 && !e.target.closest('button')) {
       await getCurrentWindow().startDragging();
+    }
+  };
+
+  const handleSetActiveConfigSection = (value: string | null) => {
+    setActiveConfigSection(value);
+    if (tabContentRef.current) {
+      tabContentRef.current.scrollTop = 0;
     }
   };
 
@@ -955,7 +975,7 @@ function App() {
               <ConfigPage
                 config={config}
                 activeConfigSection={activeConfigSection}
-                setActiveConfigSection={setActiveConfigSection}
+                setActiveConfigSection={handleSetActiveConfigSection}
                 availableEngines={availableEngines}
                 availableModels={availableModels}
                 modelStatus={modelStatus}
