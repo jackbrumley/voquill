@@ -23,7 +23,12 @@ impl std::error::Error for TranscriptionError {}
 
 #[async_trait]
 pub trait TranscriptionService {
-    async fn transcribe(&self, audio_data: &[u8], language: Option<&str>, prompt: Option<&str>) -> Result<String, TranscriptionError>;
+    async fn transcribe(
+        &self,
+        audio_data: &[u8],
+        language: Option<&str>,
+        prompt: Option<&str>,
+    ) -> Result<String, TranscriptionError>;
     fn service_name(&self) -> &'static str;
 }
 
@@ -35,9 +40,14 @@ pub struct APITranscriptionService {
 
 #[async_trait]
 impl TranscriptionService for APITranscriptionService {
-    async fn transcribe(&self, audio_data: &[u8], language: Option<&str>, prompt: Option<&str>) -> Result<String, TranscriptionError> {
+    async fn transcribe(
+        &self,
+        audio_data: &[u8],
+        language: Option<&str>,
+        prompt: Option<&str>,
+    ) -> Result<String, TranscriptionError> {
         let client = reqwest::Client::new();
-        
+
         let mut form = multipart::Form::new()
             .part(
                 "file",
@@ -64,20 +74,23 @@ impl TranscriptionService for APITranscriptionService {
             .await
             .map_err(|e| TranscriptionError::NetworkError(e.to_string()))?;
 
-
         if !response.status().is_success() {
-            let error_text = response.text().await
+            let error_text = response
+                .text()
+                .await
                 .map_err(|e| TranscriptionError::NetworkError(e.to_string()))?;
-            return Err(TranscriptionError::NetworkError(format!("API error: {}", error_text)));
+            return Err(TranscriptionError::NetworkError(format!(
+                "API error: {}",
+                error_text
+            )));
         }
 
-        let json: Value = response.json().await
+        let json: Value = response
+            .json()
+            .await
             .map_err(|e| TranscriptionError::NetworkError(e.to_string()))?;
-        
-        let text = json["text"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
+
+        let text = json["text"].as_str().unwrap_or("").to_string();
 
         Ok(text)
     }
@@ -87,12 +100,15 @@ impl TranscriptionService for APITranscriptionService {
     }
 }
 
-pub async fn test_api_key(api_key: &str, api_url: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn test_api_key(
+    api_key: &str,
+    api_url: &str,
+) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
     let client = reqwest::Client::new();
-    
+
     // Create a minimal test audio file (silence)
     let test_audio = create_test_audio();
-    
+
     let form = multipart::Form::new()
         .part(
             "file",
@@ -118,15 +134,15 @@ fn create_test_audio() -> Vec<u8> {
     let channels = 1u16;
     let bits_per_sample = 16u16;
     let duration_samples = sample_rate; // 1 second
-    
+
     let mut wav_data = Vec::new();
-    
+
     // WAV header
     wav_data.extend_from_slice(b"RIFF");
     let file_size = 36 + duration_samples * channels as u32 * bits_per_sample as u32 / 8;
     wav_data.extend_from_slice(&(file_size - 8).to_le_bytes());
     wav_data.extend_from_slice(b"WAVE");
-    
+
     // Format chunk
     wav_data.extend_from_slice(b"fmt ");
     wav_data.extend_from_slice(&16u32.to_le_bytes()); // Chunk size
@@ -138,16 +154,16 @@ fn create_test_audio() -> Vec<u8> {
     let block_align = channels * bits_per_sample / 8;
     wav_data.extend_from_slice(&block_align.to_le_bytes());
     wav_data.extend_from_slice(&bits_per_sample.to_le_bytes());
-    
+
     // Data chunk
     wav_data.extend_from_slice(b"data");
     let data_size = duration_samples * channels as u32 * bits_per_sample as u32 / 8;
     wav_data.extend_from_slice(&data_size.to_le_bytes());
-    
+
     // Silent audio data (zeros)
     for _ in 0..duration_samples {
         wav_data.extend_from_slice(&0i16.to_le_bytes());
     }
-    
+
     wav_data
 }

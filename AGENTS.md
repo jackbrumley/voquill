@@ -135,6 +135,7 @@ Any agent working on this repo should prioritize the following cleanups:
 - **Trace the Data:** Before proposing a fix for any data-related issue, trace the information back to its origin. Propose a fix for the source logic rather than a filter for the consumer.
 - **Status Updates:** Use the centralized `emit_status_update` in Rust as the single source of truth for UI state. Avoid emitting ad-hoc events for standard states.
 - **Platform Parity:** When adding a feature, ensure it is considered for Windows and Linux (Wayland). If a platform requires specific logic, isolate it in a platform-specific module.
+- **UI Consistency First:** Keep the UI behavior, structure, and interaction flow identical across systems whenever possible. Only diverge at the exact point where an OS/backend capability requires it (for example, system-managed shortcut configuration vs in-app configuration).
 - **Documentation:** Proactively update `AGENTS.md` or other docs if you introduce a new architectural pattern or a major dependency.
 - **Self-Verification:** Always run `cargo check` and `deno task check` before declaring a task complete.
 - **Git Commits:** Do not perform git commits without explicit user approval. Always ask for confirmation before running `git commit`.

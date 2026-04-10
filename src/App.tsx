@@ -5,10 +5,10 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { tokens } from './design-tokens.ts';
-import { Card } from './components/Card.tsx';
 import { Button } from './components/Button.tsx';
 import { ActionFooter } from './components/ActionFooter.tsx';
 import { ModelInfoModal } from './components/ModelInfoModal.tsx';
+import { Modal } from './components/Modal.tsx';
 import { StatusPage } from './pages/StatusPage.tsx';
 import { ConfigPage } from './pages/ConfigPage.tsx';
 import { HistoryPage } from './pages/HistoryPage.tsx';
@@ -85,6 +85,12 @@ interface HotkeyBindingState {
   active_trigger?: string;
 }
 
+interface SystemShortcutContext {
+  distro?: string;
+  desktop?: string;
+  settings_path: string;
+}
+
 function App() {
   const [config, setConfig] = useState<Config>({
     openai_api_key: '',
@@ -131,7 +137,9 @@ function App() {
   const [portalVersion, setPortalVersion] = useState<number>(0);
   const [portalDiagnostics, setPortalDiagnostics] = useState<PortalDiagnostics | null>(null);
   const [hotkeyBindingState, setHotkeyBindingState] = useState<HotkeyBindingState | null>(null);
+  const [systemShortcutContext, setSystemShortcutContext] = useState<SystemShortcutContext | null>(null);
   const [showHotkeyCaptureModal, setShowHotkeyCaptureModal] = useState(false);
+  const [showSystemShortcutModal, setShowSystemShortcutModal] = useState(false);
   const [isApplyingHotkey, setIsApplyingHotkey] = useState(false);
   const [showInitialSetup, setShowInitialSetup] = useState(true);
   const [setupTouched, setSetupTouched] = useState(false);
@@ -150,6 +158,10 @@ function App() {
     invoke<HotkeyBindingState>('get_hotkey_binding_state')
       .then(setHotkeyBindingState)
       .catch(e => console.log('Hotkey binding state unavailable:', e));
+
+    invoke<SystemShortcutContext>('get_system_shortcut_context')
+      .then(setSystemShortcutContext)
+      .catch(e => console.log('System shortcut context unavailable:', e));
   }, []);
 
   const logUI = (msg: string) => {
@@ -308,6 +320,11 @@ function App() {
   const handleConfigureHotkey = async () => {
     if (isApplyingHotkey) return;
     setSetupTouched(true);
+
+    if (isSystemManagedShortcut) {
+      setShowSystemShortcutModal(true);
+      return;
+    }
 
     try {
       setIsApplyingHotkey(true);
@@ -516,6 +533,10 @@ function App() {
   const isAudioDeviceReady = availableMics.length > 0 && !!config.audio_device;
   const isPortalSetupReady =
     !!permissions && permissions.audio && permissions.shortcuts && permissions.input_emulation;
+  const isSystemManagedShortcut =
+    !!portalDiagnostics?.available &&
+    portalDiagnostics.version >= 1 &&
+    !portalDiagnostics.supports_configure_shortcuts;
 
   const openDebugFolder = async () => {
     logUI('🖱️ Button clicked: Open Debug Folder');
@@ -611,7 +632,7 @@ function App() {
       if (lower === 'control' || lower === 'controlleft' || lower === 'controlright') modifiers.push('Ctrl');
       else if (lower === 'shift' || lower === 'shiftleft' || lower === 'shiftright') modifiers.push('Shift');
       else if (lower === 'alt' || lower === 'altleft' || lower === 'altright') modifiers.push('Alt');
-      else if (lower === 'meta' || lower === 'metaleft' || lower === 'metaright') modifiers.push('Super');
+      else if (lower === 'meta' || lower === 'metaleft' || lower === 'metaright' || lower === 'osleft' || lower === 'osright') modifiers.push('Super');
       else if (key.startsWith('Key')) {
         // Handle KeyA, KeyB, etc.
         primaryKey = key.slice(3); // "KeyA" -> "A"
@@ -644,9 +665,11 @@ function App() {
 
   const handleHotkeyKeyDown = (e: KeyboardEvent) => {
     if (!isRecordingHotkey) return;
-    
+
     e.preventDefault();
     e.stopPropagation();
+
+    if (e.repeat) return;
 
     if (e.key === 'Escape') {
       void cancelHotkeyCapture();
@@ -660,10 +683,27 @@ function App() {
     if (e.metaKey) newKeys.add('Meta');
     
     const code = e.code;
-    
-    if (!['ControlLeft', 'ControlRight', 'ShiftLeft', 'ShiftRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight'].includes(code)) {
+    const modifierCodes = [
+      'ControlLeft',
+      'ControlRight',
+      'ShiftLeft',
+      'ShiftRight',
+      'AltLeft',
+      'AltRight',
+      'MetaLeft',
+      'MetaRight',
+      'OSLeft',
+      'OSRight',
+    ];
+
+    if (!modifierCodes.includes(code)) {
       newKeys.add(code);
       const normalized = normalizeHotkey(newKeys).toLowerCase();
+      if (!normalized || ['ctrl', 'shift', 'alt', 'super'].includes(normalized)) {
+        showToast('Please include a non-modifier key in the shortcut.', 'error');
+        setRecordedKeys(newKeys);
+        return;
+      }
       void applyCapturedHotkey(normalized);
     } else {
       setRecordedKeys(newKeys);
@@ -717,6 +757,8 @@ function App() {
           isDownloading={isDownloading}
           portalVersion={portalVersion}
           portalDiagnostics={portalDiagnostics}
+          isSystemManagedShortcut={isSystemManagedShortcut}
+          systemShortcutContext={systemShortcutContext}
           isApplyingHotkey={isApplyingHotkey}
           availableMics={availableMics}
           micTestStatus={micTestStatus}
@@ -760,6 +802,7 @@ function App() {
                 appVersion={appVersion}
                 modelStatus={modelStatus}
                 config={config}
+                isSystemManagedShortcut={isSystemManagedShortcut}
                 onToggleOutputMethod={toggleOutputMethod}
               />
             )}
@@ -777,6 +820,8 @@ function App() {
                 isTestingApi={isTestingApi}
                 portalVersion={portalVersion}
                 portalDiagnostics={portalDiagnostics}
+                isSystemManagedShortcut={isSystemManagedShortcut}
+                systemShortcutContext={systemShortcutContext}
                 hotkeyBindingState={hotkeyBindingState}
                 isApplyingHotkey={isApplyingHotkey}
                 availableMics={availableMics}
@@ -829,28 +874,64 @@ function App() {
       </div>
 
       {showHotkeyCaptureModal && (
-        <div className="hotkey-capture-overlay">
-          <Card className="hotkey-capture-card">
-            <div className="hotkey-capture-content">
-              <h3 className="hotkey-capture-title">Configure Hotkey</h3>
-              <p className="hotkey-capture-subtitle">
-                Press your desired key combination, or press Escape to cancel.
-              </p>
-              <div className="hotkey-capture-display">
-                {isRecordingHotkey ? 'Listening for keys...' : config.hotkey}
-              </div>
-              <div className="hotkey-capture-actions">
-                <Button
-                  variant="ghost"
-                  onClick={() => void cancelHotkeyCapture()}
-                  disabled={isApplyingHotkey}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
+        <Modal
+          title="Configure Hotkey"
+          onClose={() => void cancelHotkeyCapture()}
+          maxWidth="440px"
+          footer={
+            <Button
+              variant="ghost"
+              onClick={() => void cancelHotkeyCapture()}
+              disabled={isApplyingHotkey}
+            >
+              Cancel
+            </Button>
+          }
+        >
+          <p className="hotkey-capture-subtitle">
+            Press your desired key combination, or press Escape to cancel.
+          </p>
+          <div className="hotkey-capture-display">
+            {isRecordingHotkey ? 'Listening for keys...' : config.hotkey}
+          </div>
+        </Modal>
+      )}
+
+      {showSystemShortcutModal && (
+        <Modal
+          title="Change Shortcut"
+          onClose={() => setShowSystemShortcutModal(false)}
+          maxWidth="560px"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setShowSystemShortcutModal(false)}>
+                Close
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  void (async () => {
+                    setShowSystemShortcutModal(false);
+                    await checkSetupStatus();
+                    await loadConfig();
+                  })();
+                }}
+              >
+                I changed it
+              </Button>
+            </>
+          }
+        >
+          <p className="modal-intro">
+            Looks like your distro manages your shortcut. In order to change it, you will need to do so in your system settings.
+          </p>
+          <p className="modal-shortcut-path">
+            {systemShortcutContext?.settings_path || 'Settings -> Apps -> Voquill -> Global Shortcuts'}
+          </p>
+          <p className="modal-shortcut-note">
+            If you can&apos;t find it, you may need to search through your system settings for &quot;Voquill&quot; or &quot;shortcuts&quot;.
+          </p>
+        </Modal>
       )}
 
       {showModelGuide && <ModelInfoModal onClose={() => setShowModelGuide(false)} />}

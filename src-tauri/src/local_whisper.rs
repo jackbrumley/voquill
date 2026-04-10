@@ -1,9 +1,9 @@
-use std::path::PathBuf;
-use async_trait::async_trait;
-use whisper_rs::{WhisperContext, WhisperContextParameters, FullParams, SamplingStrategy};
-use crate::transcription::{TranscriptionService, TranscriptionError};
 use crate::model_manager::ModelManager;
+use crate::transcription::{TranscriptionError, TranscriptionService};
+use async_trait::async_trait;
 use hound;
+use std::path::PathBuf;
+use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 pub struct LocalWhisperService {
     model_path: PathBuf,
@@ -12,17 +12,17 @@ pub struct LocalWhisperService {
 
 impl LocalWhisperService {
     pub fn new(model_size: &str, use_gpu: bool) -> Result<Self, TranscriptionError> {
-        let model_manager = ModelManager::new()
-            .map_err(|e| TranscriptionError::ModelError(e))?;
-        
+        let model_manager = ModelManager::new().map_err(|e| TranscriptionError::ModelError(e))?;
+
         let model_path = model_manager.get_model_path(model_size);
-        
+
         if !model_path.exists() {
-            return Err(TranscriptionError::ModelError(
-                format!("Model {} not found. Please download it in settings.", model_size)
-            ));
+            return Err(TranscriptionError::ModelError(format!(
+                "Model {} not found. Please download it in settings.",
+                model_size
+            )));
         }
-        
+
         Ok(Self {
             model_path,
             use_gpu,
@@ -32,16 +32,22 @@ impl LocalWhisperService {
 
 #[async_trait]
 impl TranscriptionService for LocalWhisperService {
-    async fn transcribe(&self, audio_data: &[u8], language: Option<&str>, prompt: Option<&str>) -> Result<String, TranscriptionError> {
+    async fn transcribe(
+        &self,
+        audio_data: &[u8],
+        language: Option<&str>,
+        prompt: Option<&str>,
+    ) -> Result<String, TranscriptionError> {
         // Convert WAV bytes to f32 samples
         let mut reader = hound::WavReader::new(std::io::Cursor::new(audio_data))
             .map_err(|e| TranscriptionError::AudioError(e.to_string()))?;
-        
+
         let spec = reader.spec();
         if spec.channels != 1 || spec.sample_rate != 16000 {
-            return Err(TranscriptionError::AudioError(
-                format!("Unsupported audio format: {} channels, {}Hz. Expected 1 channel, 16000Hz.", spec.channels, spec.sample_rate)
-            ));
+            return Err(TranscriptionError::AudioError(format!(
+                "Unsupported audio format: {} channels, {}Hz. Expected 1 channel, 16000Hz.",
+                spec.channels, spec.sample_rate
+            )));
         }
 
         let samples: Vec<f32> = reader
@@ -59,11 +65,16 @@ impl TranscriptionService for LocalWhisperService {
         }
 
         let ctx = WhisperContext::new_with_params(
-            self.model_path.to_str().ok_or_else(|| TranscriptionError::ModelError("Invalid model path".to_string()))?,
+            self.model_path
+                .to_str()
+                .ok_or_else(|| TranscriptionError::ModelError("Invalid model path".to_string()))?,
             context_params,
-        ).map_err(|e| TranscriptionError::ModelError(e.to_string()))?;
-        
-        let mut state = ctx.create_state().map_err(|e| TranscriptionError::ModelError(e.to_string()))?;
+        )
+        .map_err(|e| TranscriptionError::ModelError(e.to_string()))?;
+
+        let mut state = ctx
+            .create_state()
+            .map_err(|e| TranscriptionError::ModelError(e.to_string()))?;
 
         // Configure transcription parameters
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
@@ -76,14 +87,15 @@ impl TranscriptionService for LocalWhisperService {
         params.set_print_realtime(false);
         params.set_print_special(false);
         params.set_print_timestamps(false);
-        
+
         // Run transcription
-        state.full(params, &samples)
+        state
+            .full(params, &samples)
             .map_err(|e| TranscriptionError::ModelError(e.to_string()))?;
-        
+
         // Extract text
         let num_segments = state.full_n_segments();
-        
+
         let mut result = String::new();
         for i in 0..num_segments {
             if let Some(segment) = state.get_segment(i) {
@@ -92,10 +104,10 @@ impl TranscriptionService for LocalWhisperService {
                 }
             }
         }
-        
+
         Ok(result.trim().to_string())
     }
-    
+
     fn service_name(&self) -> &'static str {
         "Local Whisper"
     }

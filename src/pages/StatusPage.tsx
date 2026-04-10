@@ -9,6 +9,7 @@ interface StatusPageProps {
   currentStatus: string;
   appVersion: string;
   modelStatus: Record<string, boolean>;
+  isSystemManagedShortcut: boolean;
   config: {
     transcription_mode: 'API' | 'Local';
     output_method: 'Typewriter' | 'Clipboard';
@@ -22,6 +23,7 @@ export function StatusPage({
   currentStatus,
   appVersion,
   modelStatus,
+  isSystemManagedShortcut,
   config,
   onToggleOutputMethod,
 }: StatusPageProps) {
@@ -63,7 +65,11 @@ export function StatusPage({
               <li>Enter your <strong>OpenAI API key</strong> in Config.</li>
             )}
             <li>Position cursor in any text field.</li>
-            <li>Hold <strong>{config.hotkey}</strong> and speak.</li>
+            <li>
+              {isSystemManagedShortcut
+                ? 'Hold your system shortcut and speak.'
+                : <><span>Hold </span><strong>{config.hotkey}</strong><span> and speak.</span></>}
+            </li>
             <li>Release keys to transcribe and type.</li>
           </ol>
         </Card>

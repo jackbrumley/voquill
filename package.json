@@ -8,7 +8,8 @@
     "tauri": "deno task tauri"
   },
   "dependencies": {
-    "@tabler/icons-preact": "^3.36.1"
+    "@tabler/icons-preact": "^3.36.1",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.6"

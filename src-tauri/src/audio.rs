@@ -1,28 +1,33 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, StreamConfig};
 use hound::{WavSpec, WavWriter};
-use std::sync::{Arc, Mutex, mpsc};
-use std::time::Duration;
 use ringbuf::traits::*;
-use ringbuf::{HeapRb, CachingCons};
+use ringbuf::{CachingCons, HeapRb};
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
 
 #[cfg(target_os = "linux")]
 use pulsectl::controllers::DeviceControl;
 
 #[cfg(target_os = "windows")]
+use windows::Win32::Devices::FunctionDiscovery::{
+    PKEY_Device_DeviceDesc, PKEY_Device_FriendlyName,
+};
+#[cfg(target_os = "windows")]
 use windows::Win32::Foundation::PROPERTYKEY;
 #[cfg(target_os = "windows")]
-use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
-#[cfg(target_os = "windows")]
-use windows::Win32::Devices::FunctionDiscovery::{PKEY_Device_FriendlyName, PKEY_Device_DeviceDesc};
-#[cfg(target_os = "windows")]
-use windows::Win32::Media::Audio::{eCapture, DEVICE_STATE_ACTIVE, MMDeviceEnumerator, IMMDeviceEnumerator};
-#[cfg(target_os = "windows")]
-use windows::Win32::System::Com::{STGM_READ, CoInitializeEx, CoCreateInstance, COINIT_APARTMENTTHREADED, CLSCTX_ALL, CoTaskMemFree};
+use windows::Win32::Media::Audio::{
+    eCapture, IMMDeviceEnumerator, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
+};
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToStringAlloc};
-
-
+#[cfg(target_os = "windows")]
+use windows::Win32::System::Com::{
+    CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_ALL, COINIT_APARTMENTTHREADED,
+    STGM_READ,
+};
+#[cfg(target_os = "windows")]
+use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
 
 #[derive(serde::Serialize, Clone, Debug)]
 pub struct AudioDevice {
@@ -54,27 +59,30 @@ unsafe fn get_string_property(props: &IPropertyStore, key: *const PROPERTYKEY) -
     result.filter(|s| !s.trim().is_empty())
 }
 
-
 #[cfg(target_os = "windows")]
 fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
     let mut devices = Vec::new();
     unsafe {
         let hr = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
-        if hr.is_err() && hr.0 != 0x00040101 { // RPC_E_CHANGED_MODE
-             crate::log_info!("⚠️ Windows Audio: CoInitializeEx failed: {:?}", hr);
+        if hr.is_err() && hr.0 != 0x00040101 {
+            // RPC_E_CHANGED_MODE
+            crate::log_info!("⚠️ Windows Audio: CoInitializeEx failed: {:?}", hr);
         }
 
-        let enumerator: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
-            .map_err(|e| format!("Failed to create MMDeviceEnumerator: {}", e))?;
-        
-        let collection = enumerator.EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE)
+        let enumerator: IMMDeviceEnumerator =
+            CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
+                .map_err(|e| format!("Failed to create MMDeviceEnumerator: {}", e))?;
+
+        let collection = enumerator
+            .EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE)
             .map_err(|e| format!("Failed to enum audio endpoints: {}", e))?;
-        
-        let count = collection.GetCount()
+
+        let count = collection
+            .GetCount()
             .map_err(|e| format!("Failed to get device count: {}", e))?;
-        
+
         crate::log_info!("📡 Windows Audio: Found {} active capture endpoints", count);
-        
+
         for i in 0..count {
             if let Ok(device) = collection.Item(i) {
                 let id_pwstr = match device.GetId() {
@@ -83,7 +91,7 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
                 };
                 let id = id_pwstr.to_string().unwrap_or_default();
                 CoTaskMemFree(Some(id_pwstr.0 as *const _));
-                
+
                 if let Ok(props) = device.OpenPropertyStore(STGM_READ) {
                     let friendly_name = get_string_property(&props, &PKEY_Device_FriendlyName);
                     let device_desc = get_string_property(&props, &PKEY_Device_DeviceDesc);
@@ -95,7 +103,12 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
                                 let mut pk = PROPERTYKEY::default();
 
                                 if props.GetAt(j, &mut pk).is_ok() {
-                                    crate::log_info!("   Property {}: GUID={:?}, PID={}", j, pk.fmtid, pk.pid);
+                                    crate::log_info!(
+                                        "   Property {}: GUID={:?}, PID={}",
+                                        j,
+                                        pk.fmtid,
+                                        pk.pid
+                                    );
                                 }
                             }
                         }
@@ -105,7 +118,7 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
                     let label = if let Some(desc) = device_desc {
                         let f_lower = friendly.to_lowercase();
                         let d_lower = desc.to_lowercase();
-                        
+
                         if f_lower.contains(&d_lower) {
                             friendly
                         } else if d_lower.contains(&f_lower) {
@@ -138,11 +151,17 @@ pub struct PersistentAudioEngine {
 
 impl PersistentAudioEngine {
     pub fn new(device: &cpal::Device, sensitivity: f32) -> Result<Self, String> {
-        let config = device.default_input_config().map_err(|e| format!("Failed to get default input config: {}", e))?;
+        let config = device
+            .default_input_config()
+            .map_err(|e| format!("Failed to get default input config: {}", e))?;
         let sample_rate = u32::from(config.sample_rate());
         let channels = config.channels();
-        
-        crate::log_info!("🎤 Audio Engine: Opening native stream ({}Hz, {} channels)", sample_rate, channels);
+
+        crate::log_info!(
+            "🎤 Audio Engine: Opening native stream ({}Hz, {} channels)",
+            sample_rate,
+            channels
+        );
 
         let pre_roll_size = (sample_rate as f32 * 0.2) as usize;
         let pre_roll_rb = HeapRb::<f32>::new(pre_roll_size);
@@ -152,15 +171,15 @@ impl PersistentAudioEngine {
         let recording_tx_clone = recording_tx.clone();
 
         let err_fn = |err| crate::log_info!("❌ Audio stream error: {}", err);
-        
+
         let stream_config: cpal::StreamConfig = config.clone().into();
         let channels_usize = channels as usize;
 
         let mut audio_callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
             for frame in data.chunks(channels_usize) {
-                // Sum all channels to mono. 
-                // Note: We don't divide by channel count here to preserve volume from single-channel mics 
-                // reporting as stereo. Clipping is handled by the soft-clipper later for Whisper, 
+                // Sum all channels to mono.
+                // Note: We don't divide by channel count here to preserve volume from single-channel mics
+                // reporting as stereo. Clipping is handled by the soft-clipper later for Whisper,
                 // but for raw testing we want the full energy.
                 let sample_raw: f32 = frame.iter().sum();
 
@@ -177,15 +196,26 @@ impl PersistentAudioEngine {
         };
 
         let stream = match config.sample_format() {
-            SampleFormat::F32 => device.build_input_stream(&stream_config, audio_callback, err_fn, None),
-            SampleFormat::I16 => device.build_input_stream(&stream_config, move |data: &[i16], info| {
-                let f32_data: Vec<f32> = data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
-                audio_callback(&f32_data, info);
-            }, err_fn, None),
+            SampleFormat::F32 => {
+                device.build_input_stream(&stream_config, audio_callback, err_fn, None)
+            }
+            SampleFormat::I16 => device.build_input_stream(
+                &stream_config,
+                move |data: &[i16], info| {
+                    let f32_data: Vec<f32> =
+                        data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
+                    audio_callback(&f32_data, info);
+                },
+                err_fn,
+                None,
+            ),
             _ => return Err("Unsupported sample format".into()),
-        }.map_err(|e| format!("Failed to build input stream: {}", e))?;
+        }
+        .map_err(|e| format!("Failed to build input stream: {}", e))?;
 
-        stream.play().map_err(|e| format!("Failed to start stream: {}", e))?;
+        stream
+            .play()
+            .map_err(|e| format!("Failed to start stream: {}", e))?;
 
         Ok(Self {
             stream,
@@ -202,14 +232,22 @@ fn get_linux_pulse_devices() -> Result<Vec<AudioDevice>, String> {
     let mut devices = Vec::new();
     let mut handler = pulsectl::controllers::SourceController::create()
         .map_err(|e| format!("Failed to connect to PulseAudio: {}", e))?;
-    let sources = handler.list_devices()
+    let sources = handler
+        .list_devices()
         .map_err(|e| format!("Failed to list PulseAudio sources: {}", e))?;
 
     for source in sources {
         let name = source.name.clone().unwrap_or_default();
         let description = source.description.clone().unwrap_or_default();
-        if name.to_lowercase().contains(".monitor") || description.to_lowercase().contains("monitor") { continue; }
-        devices.push(AudioDevice { id: format!("pulse:{}", name), label: description });
+        if name.to_lowercase().contains(".monitor")
+            || description.to_lowercase().contains("monitor")
+        {
+            continue;
+        }
+        devices.push(AudioDevice {
+            id: format!("pulse:{}", name),
+            label: description,
+        });
     }
     Ok(devices)
 }
@@ -217,10 +255,18 @@ fn get_linux_pulse_devices() -> Result<Vec<AudioDevice>, String> {
 pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
     let mut final_devices = Vec::new();
     #[cfg(target_os = "linux")]
-    { if let Ok(devices) = get_linux_pulse_devices() { final_devices = devices; } }
-    
+    {
+        if let Ok(devices) = get_linux_pulse_devices() {
+            final_devices = devices;
+        }
+    }
+
     #[cfg(target_os = "windows")]
-    { if let Ok(devices) = get_windows_audio_devices() { final_devices = devices; } }
+    {
+        if let Ok(devices) = get_windows_audio_devices() {
+            final_devices = devices;
+        }
+    }
 
     if final_devices.is_empty() {
         let mut seen_labels = std::collections::HashMap::new();
@@ -228,18 +274,25 @@ pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
             if let Ok(host) = cpal::host_from_id(host_id) {
                 if let Ok(devices) = host.input_devices() {
                     for dev in devices {
-                        let id = match dev.id() { Ok(id) => id.1, Err(_) => continue };
+                        let id = match dev.id() {
+                            Ok(id) => id.1,
+                            Err(_) => continue,
+                        };
                         #[cfg(target_os = "linux")]
-                        if !id.starts_with("default:") && id != "pulse" && id != "default" { continue; }
-                        
-                        let mut label = match dev.description() { 
-                            Ok(desc) => desc.name().to_string(), 
-                            Err(_) => id.clone() 
+                        if !id.starts_with("default:") && id != "pulse" && id != "default" {
+                            continue;
+                        }
+
+                        let mut label = match dev.description() {
+                            Ok(desc) => desc.name().to_string(),
+                            Err(_) => id.clone(),
                         };
 
                         let count = seen_labels.entry(label.clone()).or_insert(0);
                         *count += 1;
-                        if *count > 1 { label = format!("{} ({})", label, *count); }
+                        if *count > 1 {
+                            label = format!("{} ({})", label, *count);
+                        }
                         final_devices.push(AudioDevice { id, label });
                     }
                 }
@@ -248,7 +301,13 @@ pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
     }
 
     final_devices.sort_by(|a, b| a.label.cmp(&b.label));
-    final_devices.insert(0, AudioDevice { id: "default".to_string(), label: "System Default".to_string() });
+    final_devices.insert(
+        0,
+        AudioDevice {
+            id: "default".to_string(),
+            label: "System Default".to_string(),
+        },
+    );
     Ok(final_devices)
 }
 
@@ -259,10 +318,20 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
     if let Some(name) = target {
         if let Some(_stripped) = name.strip_prefix("pulse:") {
             #[cfg(target_os = "linux")]
-            { std::env::set_var("PULSE_SOURCE", _stripped); }
-            host.input_devices().map_err(|e| e.to_string())?.into_iter().find(|d| d.id().map(|id| id.1 == "pulse").unwrap_or(false)).ok_or_else(|| "Pulse ALSA device not found".to_string())
+            {
+                std::env::set_var("PULSE_SOURCE", _stripped);
+            }
+            host.input_devices()
+                .map_err(|e| e.to_string())?
+                .into_iter()
+                .find(|d| d.id().map(|id| id.1 == "pulse").unwrap_or(false))
+                .ok_or_else(|| "Pulse ALSA device not found".to_string())
         } else {
-            host.input_devices().map_err(|e| e.to_string())?.into_iter().find(|d| d.id().map(|id| id.1 == name).unwrap_or(false)).ok_or_else(|| format!("Device '{}' not found", name))
+            host.input_devices()
+                .map_err(|e| e.to_string())?
+                .into_iter()
+                .find(|d| d.id().map(|id| id.1 == name).unwrap_or(false))
+                .ok_or_else(|| format!("Device '{}' not found", name))
         }
     } else {
         #[cfg(target_os = "linux")]
@@ -270,12 +339,15 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
             if let Ok(devices) = host.input_devices() {
                 for dev in devices {
                     if let Ok(id) = dev.id() {
-                        if id.1 == "pulse" || id.1.starts_with("default") { return Ok(dev); }
+                        if id.1 == "pulse" || id.1.starts_with("default") {
+                            return Ok(dev);
+                        }
                     }
                 }
             }
         }
-        host.default_input_device().ok_or_else(|| "No input device available".to_string())
+        host.default_input_device()
+            .ok_or_else(|| "No input device available".to_string())
     }
 }
 
@@ -283,6 +355,7 @@ pub async fn record_audio_while_flag(
     is_recording: &Arc<Mutex<bool>>,
     engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    crate::log_info!("🎙️ record_audio_while_flag: enter");
     let (tx, rx) = mpsc::sync_channel::<f32>(65536);
     let mut samples = Vec::new();
     let sample_rate;
@@ -291,7 +364,9 @@ pub async fn record_audio_while_flag(
         let eng = guard.as_mut().ok_or("Audio engine not initialized")?;
         sample_rate = eng.sample_rate;
         if let Ok(mut cons) = eng.pre_roll_consumer.lock() {
-            while let Some(s) = cons.try_pop() { samples.push(s); }
+            while let Some(s) = cons.try_pop() {
+                samples.push(s);
+            }
         }
         *eng.recording_tx.lock().unwrap() = Some(tx);
     }
@@ -299,18 +374,39 @@ pub async fn record_audio_while_flag(
     let (data_tx, data_rx) = mpsc::channel::<Vec<u8>>();
     std::thread::spawn(move || {
         let mut all = samples;
-        while let Ok(s) = rx.recv() { all.push(s); }
+        while let Ok(s) = rx.recv() {
+            all.push(s);
+        }
         let mut out = Vec::new();
-        if let Ok(mut w) = WavWriter::new(std::io::Cursor::new(&mut out), WavSpec { channels: 1, sample_rate, bits_per_sample: 16, sample_format: hound::SampleFormat::Int }) {
-            for s in all { let _ = w.write_sample(process_sample(s)); }
+        if let Ok(mut w) = WavWriter::new(
+            std::io::Cursor::new(&mut out),
+            WavSpec {
+                channels: 1,
+                sample_rate,
+                bits_per_sample: 16,
+                sample_format: hound::SampleFormat::Int,
+            },
+        ) {
+            for s in all {
+                let _ = w.write_sample(process_sample(s));
+            }
             let _ = w.finalize();
         }
         let _ = data_tx.send(out);
     });
 
-    while *is_recording.lock().unwrap() { tokio::time::sleep(Duration::from_millis(10)).await; }
-    if let Some(eng) = engine.lock().unwrap().as_ref() { *eng.recording_tx.lock().unwrap() = None; }
+    while *is_recording.lock().unwrap() {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    crate::log_info!("🎙️ record_audio_while_flag: flag observed false, finalizing capture");
+    if let Some(eng) = engine.lock().unwrap().as_ref() {
+        *eng.recording_tx.lock().unwrap() = None;
+    }
     let final_wav = data_rx.recv()?;
+    crate::log_info!(
+        "🎙️ record_audio_while_flag: captured {} bytes of wav before whisper conversion",
+        final_wav.len()
+    );
     convert_audio_for_whisper(&final_wav, sample_rate, 1)
 }
 
@@ -318,8 +414,9 @@ pub async fn record_mic_test<F>(
     is_mic_test: &Arc<Mutex<bool>>,
     engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
     on_volume: F,
-) -> Result<Vec<f32>, Box<dyn std::error::Error + Send + Sync>> 
-where F: Fn(f32) + Send + 'static
+) -> Result<Vec<f32>, Box<dyn std::error::Error + Send + Sync>>
+where
+    F: Fn(f32) + Send + 'static,
 {
     let (tx, rx) = mpsc::sync_channel::<f32>(65536);
     let sample_rate;
@@ -335,10 +432,12 @@ where F: Fn(f32) + Send + 'static
         let mut samples = Vec::new();
         let mut peak = 0.0f32;
         let mut count = 0;
-        let throttle_window = 800; 
+        let throttle_window = 800;
         while let Ok(s) = rx.recv() {
             let abs_s = s.abs();
-            if abs_s > peak { peak = abs_s; }
+            if abs_s > peak {
+                peak = abs_s;
+            }
             count += 1;
             if count >= throttle_window {
                 on_volume(peak);
@@ -350,17 +449,30 @@ where F: Fn(f32) + Send + 'static
         let _ = data_tx.send(samples);
     });
 
-    while *is_mic_test.lock().unwrap() { tokio::time::sleep(Duration::from_millis(10)).await; }
-    if let Some(eng) = engine.lock().unwrap().as_ref() { *eng.recording_tx.lock().unwrap() = None; }
+    while *is_mic_test.lock().unwrap() {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    if let Some(eng) = engine.lock().unwrap().as_ref() {
+        *eng.recording_tx.lock().unwrap() = None;
+    }
     let final_samples = data_rx.recv()?;
-    
-    crate::log_info!("✅ Mic test: Finished with {} samples at {}Hz", final_samples.len(), sample_rate);
-    
+
+    crate::log_info!(
+        "✅ Mic test: Finished with {} samples at {}Hz",
+        final_samples.len(),
+        sample_rate
+    );
+
     Ok(final_samples)
 }
 
-pub fn play_audio<F>(samples: Vec<f32>, sample_rate: u32, on_done: F) -> Result<cpal::Stream, Box<dyn std::error::Error + Send + Sync>> 
-where F: FnOnce() + Send + 'static
+pub fn play_audio<F>(
+    samples: Vec<f32>,
+    sample_rate: u32,
+    on_done: F,
+) -> Result<cpal::Stream, Box<dyn std::error::Error + Send + Sync>>
+where
+    F: FnOnce() + Send + 'static,
 {
     let host = cpal::default_host();
     let device = {
@@ -369,80 +481,146 @@ where F: FnOnce() + Send + 'static
             for dev in devices {
                 if let Ok(id) = dev.id() {
                     #[cfg(target_os = "linux")]
-                    if id.1 == "pulse" || id.1.starts_with("default") { selected = Some(dev); break; }
+                    if id.1 == "pulse" || id.1.starts_with("default") {
+                        selected = Some(dev);
+                        break;
+                    }
                     #[cfg(not(target_os = "linux"))]
-                    if id.1.starts_with("default") { selected = Some(dev); break; }
+                    if id.1.starts_with("default") {
+                        selected = Some(dev);
+                        break;
+                    }
                 }
             }
         }
         selected.or_else(|| host.default_output_device())
-    }.ok_or("No output device available")?;
+    }
+    .ok_or("No output device available")?;
 
     let config = device.default_output_config()?;
     let stream_config: StreamConfig = config.clone().into();
-    let resampled = Arc::new(resample_audio_f32(&samples, sample_rate, stream_config.sample_rate));
+    let resampled = Arc::new(resample_audio_f32(
+        &samples,
+        sample_rate,
+        stream_config.sample_rate,
+    ));
     let chans = stream_config.channels as usize;
-    
+
     let err_fn = |err| crate::log_info!("🔊 Playback error: {}", err);
     let mut done = Some(on_done);
-    
+
     let stream = match config.sample_format() {
         SampleFormat::F32 => {
             let resampled_clone = resampled.clone();
             let mut idx = 0;
-            device.build_output_stream(&stream_config, move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                for frame in data.chunks_mut(chans) {
-                    if idx < resampled_clone.len() {
-                        let s = resampled_clone[idx];
-                        for out in frame.iter_mut() { *out = s; }
-                        idx += 1;
-                    } else {
-                        for out in frame.iter_mut() { *out = 0.0; }
-                        if let Some(cb) = done.take() { cb(); }
+            device.build_output_stream(
+                &stream_config,
+                move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                    for frame in data.chunks_mut(chans) {
+                        if idx < resampled_clone.len() {
+                            let s = resampled_clone[idx];
+                            for out in frame.iter_mut() {
+                                *out = s;
+                            }
+                            idx += 1;
+                        } else {
+                            for out in frame.iter_mut() {
+                                *out = 0.0;
+                            }
+                            if let Some(cb) = done.take() {
+                                cb();
+                            }
+                        }
                     }
-                }
-            }, err_fn, None)?
-        },
+                },
+                err_fn,
+                None,
+            )?
+        }
         SampleFormat::I16 => {
             let resampled_clone = resampled.clone();
             let mut idx = 0;
-            device.build_output_stream(&stream_config, move |data: &mut [i16], _| {
-                for frame in data.chunks_mut(chans) {
-                    if idx < resampled_clone.len() {
-                        let s = (resampled_clone[idx] * i16::MAX as f32) as i16;
-                        for out in frame.iter_mut() { *out = s; }
-                        idx += 1;
-                    } else {
-                        for out in frame.iter_mut() { *out = 0; }
-                        if let Some(cb) = done.take() { cb(); }
+            device.build_output_stream(
+                &stream_config,
+                move |data: &mut [i16], _| {
+                    for frame in data.chunks_mut(chans) {
+                        if idx < resampled_clone.len() {
+                            let s = (resampled_clone[idx] * i16::MAX as f32) as i16;
+                            for out in frame.iter_mut() {
+                                *out = s;
+                            }
+                            idx += 1;
+                        } else {
+                            for out in frame.iter_mut() {
+                                *out = 0;
+                            }
+                            if let Some(cb) = done.take() {
+                                cb();
+                            }
+                        }
                     }
-                }
-            }, err_fn, None)?
-        },
+                },
+                err_fn,
+                None,
+            )?
+        }
         _ => return Err("Unsupported format".into()),
     };
     stream.play()?;
     Ok(stream)
 }
 
-fn convert_audio_for_whisper(data: &[u8], rate: u32, _chans: u16) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-    if rate == 16000 { return Ok(data.to_vec()); }
+fn convert_audio_for_whisper(
+    data: &[u8],
+    rate: u32,
+    _chans: u16,
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    if rate == 16000 {
+        return Ok(data.to_vec());
+    }
     let mut reader = hound::WavReader::new(std::io::Cursor::new(data))?;
     let samples: Vec<i16> = reader.samples::<i16>().map(|s| s.unwrap_or(0)).collect();
-    let mut mono = if reader.spec().channels == 2 { samples.chunks(2).map(|c| if c.len()==2 {((c[0] as i32 + c[1] as i32)/2) as i16} else {c[0]}).collect() } else { samples };
-    if reader.spec().sample_rate != 16000 { mono = resample_audio(&mono, reader.spec().sample_rate, 16000); }
+    let mut mono = if reader.spec().channels == 2 {
+        samples
+            .chunks(2)
+            .map(|c| {
+                if c.len() == 2 {
+                    ((c[0] as i32 + c[1] as i32) / 2) as i16
+                } else {
+                    c[0]
+                }
+            })
+            .collect()
+    } else {
+        samples
+    };
+    if reader.spec().sample_rate != 16000 {
+        mono = resample_audio(&mono, reader.spec().sample_rate, 16000);
+    }
     let mut out = Vec::new();
     {
-        let mut w = WavWriter::new(std::io::Cursor::new(&mut out), WavSpec { channels: 1, sample_rate: 16000, bits_per_sample: 16, sample_format: hound::SampleFormat::Int })?;
-        for s in mono { w.write_sample(s)?; }
+        let mut w = WavWriter::new(
+            std::io::Cursor::new(&mut out),
+            WavSpec {
+                channels: 1,
+                sample_rate: 16000,
+                bits_per_sample: 16,
+                sample_format: hound::SampleFormat::Int,
+            },
+        )?;
+        for s in mono {
+            w.write_sample(s)?;
+        }
         w.finalize()?;
     }
     Ok(out)
 }
 
 pub fn resample_audio(samples: &[i16], from: u32, to: u32) -> Vec<i16> {
-    if from == to { return samples.to_vec(); }
-    
+    if from == to {
+        return samples.to_vec();
+    }
+
     if from > to && from % to == 0 {
         let ratio = (from / to) as usize;
         let mut out = Vec::with_capacity(samples.len() / ratio);
@@ -462,7 +640,7 @@ pub fn resample_audio(samples: &[i16], from: u32, to: u32) -> Vec<i16> {
         let frac = pos - idx as f64;
         if idx + 1 < samples.len() {
             let s1 = samples[idx] as f64;
-            let s2 = samples[idx+1] as f64;
+            let s2 = samples[idx + 1] as f64;
             out.push((s1 + (s2 - s1) * frac) as i16);
         } else if idx < samples.len() {
             out.push(samples[idx]);
@@ -472,7 +650,9 @@ pub fn resample_audio(samples: &[i16], from: u32, to: u32) -> Vec<i16> {
 }
 
 pub fn resample_audio_f32(samples: &[f32], from: u32, to: u32) -> Vec<f32> {
-    if from == to { return samples.to_vec(); }
+    if from == to {
+        return samples.to_vec();
+    }
     let ratio = from as f64 / to as f64;
     let len = (samples.len() as f64 / ratio) as usize;
     let mut out = Vec::with_capacity(len);
@@ -482,7 +662,7 @@ pub fn resample_audio_f32(samples: &[f32], from: u32, to: u32) -> Vec<f32> {
         let frac = pos - idx as f64;
         if idx + 1 < samples.len() {
             let s1 = samples[idx] as f64;
-            let s2 = samples[idx+1] as f64;
+            let s2 = samples[idx + 1] as f64;
             out.push((s1 + (s2 - s1) * frac) as f32);
         } else if idx < samples.len() {
             out.push(samples[idx]);
@@ -497,7 +677,11 @@ fn process_sample(s: f32) -> i16 {
 }
 
 fn soft_clip(x: f32) -> f32 {
-    if x.abs() <= 0.7 { x }
-    else if x > 0.7 { 0.7 + 0.3 * ((x - 0.7) / 0.3).tanh() }
-    else { -0.7 - 0.3 * ((-x - 0.7) / 0.3).tanh() }
+    if x.abs() <= 0.7 {
+        x
+    } else if x > 0.7 {
+        0.7 + 0.3 * ((x - 0.7) / 0.3).tanh()
+    } else {
+        -0.7 - 0.3 * ((-x - 0.7) / 0.3).tanh()
+    }
 }

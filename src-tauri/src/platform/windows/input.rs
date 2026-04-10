@@ -51,25 +51,40 @@ fn char_to_vks(ch: char) -> (Vec<VIRTUAL_KEY>, bool) {
 }
 
 pub fn type_text_hardware(
-    text: &str, 
+    text: &str,
     typing_speed_interval: f64,
     key_press_duration_ms: u64,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let interval_ms = (typing_speed_interval * 1000.0) as u64;
     let hold_duration = Duration::from_millis(key_press_duration_ms);
-    
-    crate::log_info!("⌨️  [Hardware Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)", text, interval_ms, key_press_duration_ms);
+
+    crate::log_info!(
+        "⌨️  [Hardware Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)",
+        text,
+        interval_ms,
+        key_press_duration_ms
+    );
 
     for ch in text.chars() {
         let (vk_codes, needs_shift) = char_to_vks(ch);
         unsafe {
-            if needs_shift { emit_vk(VK_SHIFT, true); }
-            for vk in &vk_codes { emit_vk(*vk, true); }
+            if needs_shift {
+                emit_vk(VK_SHIFT, true);
+            }
+            for vk in &vk_codes {
+                emit_vk(*vk, true);
+            }
             thread::sleep(hold_duration);
-            for vk in &vk_codes { emit_vk(*vk, false); }
-            if needs_shift { emit_vk(VK_SHIFT, false); }
+            for vk in &vk_codes {
+                emit_vk(*vk, false);
+            }
+            if needs_shift {
+                emit_vk(VK_SHIFT, false);
+            }
         }
-        if interval_ms > 0 { thread::sleep(Duration::from_millis(interval_ms)); }
+        if interval_ms > 0 {
+            thread::sleep(Duration::from_millis(interval_ms));
+        }
     }
 
     crate::log_info!("✅ Hardware typing complete");
@@ -82,7 +97,11 @@ unsafe fn emit_vk(vk: VIRTUAL_KEY, is_down: bool) {
     input.Anonymous.ki = KEYBDINPUT {
         wVk: vk,
         wScan: 0,
-        dwFlags: if is_down { KEYBD_EVENT_FLAGS(0) } else { KEYEVENTF_KEYUP },
+        dwFlags: if is_down {
+            KEYBD_EVENT_FLAGS(0)
+        } else {
+            KEYEVENTF_KEYUP
+        },
         time: 0,
         dwExtraInfo: 0,
     };

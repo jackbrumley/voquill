@@ -23,11 +23,23 @@ pub async fn establish_input_session(
 
     let requested_restore_token = {
         let state = app_handle.state::<AppState>();
-        let config = state.config.lock().unwrap();
+        let mut config = state.config.lock().unwrap();
         if force_rebind {
             None
         } else {
-            config.input_token.clone()
+            match config.input_token.clone() {
+                Some(token) if is_valid_restore_token(&token) => Some(token),
+                Some(token) => {
+                    crate::log_warn!(
+                        "Ignoring invalid stored input restore token '{}'; requesting fresh portal session",
+                        token
+                    );
+                    config.input_token = None;
+                    let _ = crate::config::save_config(&config);
+                    None
+                }
+                None => None,
+            }
         }
     };
 
@@ -62,8 +74,7 @@ pub async fn establish_input_session(
 
     let input_token = selected_devices
         .restore_token()
-        .map(|token| token.to_string())
-        .or(Some("session".to_string()));
+        .map(|token| token.to_string());
 
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<WaylandTypeRequest>();
     let (cancel_sender, mut cancel_receiver) = tokio::sync::oneshot::channel::<()>();
@@ -239,4 +250,23 @@ fn keysym_for_char(ch: char) -> u32 {
         '…' => '.' as u32,
         _ => ch as u32,
     }
+}
+
+fn is_valid_restore_token(token: &str) -> bool {
+    if token.len() != 36 {
+        return false;
+    }
+
+    for (index, character) in token.chars().enumerate() {
+        let is_hyphen_slot = matches!(index, 8 | 13 | 18 | 23);
+        if is_hyphen_slot {
+            if character != '-' {
+                return false;
+            }
+        } else if !character.is_ascii_hexdigit() {
+            return false;
+        }
+    }
+
+    true
 }

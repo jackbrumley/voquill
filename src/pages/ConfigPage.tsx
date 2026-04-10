@@ -12,6 +12,12 @@ interface AudioDevice {
   label: string;
 }
 
+interface SystemShortcutContext {
+  distro?: string;
+  desktop?: string;
+  settings_path: string;
+}
+
 interface ConfigPageProps {
   config: {
     transcription_mode: 'API' | 'Local';
@@ -42,6 +48,8 @@ interface ConfigPageProps {
   isTestingApi: boolean;
   portalVersion: number;
   portalDiagnostics: { active_trigger?: string } | null;
+  isSystemManagedShortcut: boolean;
+  systemShortcutContext: SystemShortcutContext | null;
   hotkeyBindingState: { bound: boolean } | null;
   isApplyingHotkey: boolean;
   availableMics: AudioDevice[];
@@ -75,6 +83,8 @@ export function ConfigPage(props: ConfigPageProps) {
     isTestingApi,
     portalVersion,
     portalDiagnostics,
+    isSystemManagedShortcut,
+    systemShortcutContext,
     hotkeyBindingState,
     isApplyingHotkey,
     availableMics,
@@ -175,23 +185,41 @@ export function ConfigPage(props: ConfigPageProps) {
             </>
           )}
 
-          <ConfigField label="Global Hotkey" description="Hold these keys to record, release to transcribe.">
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <input
-                type="text"
-                value={config.hotkey}
-                readOnly
-                onClick={() => {}}
-                placeholder="Configure using button"
-                className="hotkey-input"
-                style={{ opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default' }}
-                title={portalVersion >= 1 ? 'Use Configure Hotkey to request binding through the system portal.' : ''}
-              />
-              <Button size="sm" variant="secondary" onClick={handleConfigureHotkey} disabled={isApplyingHotkey}>
-                Configure Hotkey
+          <ConfigField
+            label="Global Hotkey"
+            description={isSystemManagedShortcut ? 'Use your system shortcut to record and release to transcribe.' : 'Hold these keys to record, release to transcribe.'}
+          >
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: isSystemManagedShortcut ? 'center' : 'flex-start' }}>
+              {!isSystemManagedShortcut && (
+                <input
+                  type="text"
+                  value={config.hotkey}
+                  readOnly
+                  onClick={() => {}}
+                  placeholder="Configure using button"
+                  className="hotkey-input"
+                  style={{ opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default' }}
+                  title={portalVersion >= 1 ? 'Use Configure Hotkey to request binding through the system portal.' : ''}
+                />
+              )}
+              <Button
+                size={isSystemManagedShortcut ? 'md' : 'sm'}
+                variant="secondary"
+                onClick={handleConfigureHotkey}
+                disabled={isApplyingHotkey}
+                style={isSystemManagedShortcut ? { minWidth: '220px', padding: '10px 20px', fontWeight: 600 } : undefined}
+              >
+                Change Shortcut
               </Button>
             </div>
-            {portalVersion >= 1 && (
+            {isSystemManagedShortcut ? (
+              <div style={{ fontSize: '11px', color: 'var(--colors-text-muted)', marginTop: '4px' }}>
+                {systemShortcutContext?.distro
+                  ? `Your ${systemShortcutContext.distro} system manages this shortcut. To change it, open ${systemShortcutContext.settings_path}.`
+                  : `Your system manages this shortcut. To change it, open ${systemShortcutContext?.settings_path || 'System Settings -> Keyboard Shortcuts'}.`}
+                {portalDiagnostics?.active_trigger ? ` Current shortcut: ${portalDiagnostics.active_trigger}.` : ''}
+              </div>
+            ) : portalVersion >= 1 && (
               <div style={{ fontSize: '11px', color: 'var(--colors-text-muted)', marginTop: '4px' }}>
                 Shortcut registration uses the Wayland GlobalShortcuts portal.
                 {portalDiagnostics?.active_trigger ? ` Active shortcut: ${portalDiagnostics.active_trigger}.` : ''}

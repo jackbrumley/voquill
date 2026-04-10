@@ -264,6 +264,49 @@ async fn get_portal_diagnostics() -> Result<PortalDiagnostics, String> {
     })
 }
 
+#[derive(Serialize)]
+struct SystemShortcutContext {
+    distro: Option<String>,
+    desktop: Option<String>,
+    settings_path: String,
+}
+
+#[tauri::command]
+async fn get_system_shortcut_context() -> Result<SystemShortcutContext, String> {
+    #[cfg(target_os = "linux")]
+    {
+        let distro = read_linux_distribution_name();
+        let desktop = std::env::var("XDG_CURRENT_DESKTOP")
+            .ok()
+            .and_then(|value| value.split(':').next().map(|segment| segment.to_string()));
+
+        let settings_path = match desktop.as_deref() {
+            Some(value) if value.eq_ignore_ascii_case("GNOME") => {
+                "System Settings -> Apps -> Voquill -> Global Shortcuts".to_string()
+            }
+            Some(value) if value.eq_ignore_ascii_case("KDE") => {
+                "System Settings -> Keyboard -> Shortcuts -> Voquill".to_string()
+            }
+            _ => "System Settings -> search for 'Voquill' or 'Keyboard Shortcuts'".to_string(),
+        };
+
+        return Ok(SystemShortcutContext {
+            distro,
+            desktop,
+            settings_path,
+        });
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        Ok(SystemShortcutContext {
+            distro: None,
+            desktop: None,
+            settings_path: "System Settings -> Keyboard Shortcuts".to_string(),
+        })
+    }
+}
+
 #[tauri::command]
 async fn get_linux_setup_status(
     state: tauri::State<'_, AppState>,
@@ -552,10 +595,53 @@ async fn get_audio_devices() -> Result<Vec<audio::AudioDevice>, String> {
 async fn set_configuring_hotkey(
     is_configuring: bool,
     state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let mut config_flag = state.is_configuring_hotkey.lock().unwrap();
-    *config_flag = is_configuring;
+    {
+        let mut config_flag = state.is_configuring_hotkey.lock().unwrap();
+        *config_flag = is_configuring;
+    }
     log_info!("🔧 set_configuring_hotkey: {}", is_configuring);
+
+    #[cfg(target_os = "linux")]
+    {
+        if is_wayland_session() {
+            if is_configuring {
+                let cancelled = {
+                    let mut cancel_lock = state.hotkey_engine_cancel.lock().unwrap();
+                    if let Some(sender) = cancel_lock.take() {
+                        let _ = sender.send(());
+                        true
+                    } else {
+                        false
+                    }
+                };
+                if cancelled {
+                    log_info!("⏸️  Paused Wayland hotkey engine while configuring shortcut");
+                }
+            } else {
+                let should_resume = {
+                    let binding_state = state.hotkey_binding_state.lock().unwrap();
+                    !(binding_state.bound && binding_state.listening)
+                };
+
+                if should_resume {
+                    let backend = state.display_backend.clone();
+                    if let Err(error) = backend.start_engine(app_handle.clone(), false).await {
+                        log_warn!(
+                            "Failed to resume Wayland hotkey engine after configuration: {}",
+                            error
+                        );
+                    }
+                } else {
+                    log_info!(
+                        "▶️ Wayland hotkey engine already active after capture; skipping resume"
+                    );
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -564,6 +650,13 @@ async fn start_recording(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    let recording_before = *state.is_recording.lock().unwrap();
+    log_info!(
+        "🎤 start_recording invoked: is_recording_before={}, configuring_hotkey={}",
+        recording_before,
+        *state.is_configuring_hotkey.lock().unwrap()
+    );
+
     if *state.is_configuring_hotkey.lock().unwrap() {
         log_info!("⚠️ Ignoring start_recording because hotkey configuration is active");
         return Err("Currently configuring hotkey".to_string());
@@ -575,7 +668,11 @@ async fn start_recording(
     }
 
     *recording_flag = true;
-    log_info!("🎤 start_recording command - Flag set to true immediately");
+    log_info!(
+        "🎤 start_recording command - Flag set true (before={}, after={})",
+        recording_before,
+        *recording_flag
+    );
 
     let is_recording_clone = state.is_recording.clone();
     let config = state.config.clone();
@@ -614,8 +711,13 @@ async fn start_recording(
 #[tauri::command]
 async fn stop_recording(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let mut recording = state.is_recording.lock().unwrap();
+    let before = *recording;
     *recording = false;
-    log_info!("⏹️  stop_recording command - Flag set to false");
+    log_info!(
+        "⏹️  stop_recording command - Flag set false (before={}, after={})",
+        before,
+        *recording
+    );
     Ok(())
 }
 
@@ -1457,7 +1559,7 @@ fn main() {
             start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder, get_session_log_text,
             log_ui_event, get_available_engines, get_available_models, check_model_status, download_model,
             get_linux_setup_status, request_audio_permission, request_input_permission, set_configuring_hotkey,
-            get_wayland_portal_version, get_portal_diagnostics
+            get_wayland_portal_version, get_portal_diagnostics, get_system_shortcut_context
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -30,6 +30,12 @@ interface PortalDiagnostics {
   supports_configure_shortcuts: boolean;
 }
 
+interface SystemShortcutContext {
+  distro?: string;
+  desktop?: string;
+  settings_path: string;
+}
+
 interface SetupConfig {
   transcription_mode: 'API' | 'Local';
   local_model_size: string;
@@ -48,6 +54,8 @@ interface InitialSetupPageProps {
   isDownloading: boolean;
   portalVersion: number;
   portalDiagnostics: PortalDiagnostics | null;
+  isSystemManagedShortcut: boolean;
+  systemShortcutContext: SystemShortcutContext | null;
   isApplyingHotkey: boolean;
   availableMics: AudioDevice[];
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
@@ -87,6 +95,8 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
     isDownloading,
     portalVersion,
     portalDiagnostics,
+    isSystemManagedShortcut,
+    systemShortcutContext,
     isApplyingHotkey,
     availableMics,
     micTestStatus,
@@ -158,7 +168,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                 <div className="permission-info" style={{ width: '100%', paddingRight: '10px' }}>
                   <div className="permission-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     Global Shortcuts
-                    {!permissions?.shortcuts && (
+                    {!permissions?.shortcuts && !isSystemManagedShortcut && (
                       <input
                         type="text"
                         className="hotkey-input setup-hotkey-input"
@@ -186,6 +196,13 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                     )}
                   </div>
                   <div className="permission-desc">Required for the hotkey</div>
+                  {isSystemManagedShortcut && (
+                    <div className="permission-desc" style={{ marginTop: '4px' }}>
+                      {systemShortcutContext?.distro
+                        ? `Your ${systemShortcutContext.distro} system manages this shortcut. Change it in ${systemShortcutContext.settings_path}.`
+                        : `Your system manages this shortcut. Change it in ${systemShortcutContext?.settings_path || 'System Settings -> Keyboard Shortcuts'}.`}
+                    </div>
+                  )}
                   {!permissions?.shortcuts && permissions?.shortcuts_detail && (
                     <div className="permission-desc" style={{ marginTop: '2px', color: 'var(--colors-warning)' }}>
                       {permissions.shortcuts_detail}
@@ -197,7 +214,9 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                 {permissions?.shortcuts ? (
                   <IconCheck color="var(--colors-success)" size={20} />
                 ) : (
-                  <Button variant="ghost" size="sm" onClick={onConfigureHotkey} disabled={isApplyingHotkey}>Configure Hotkey</Button>
+                  <Button variant="ghost" size="sm" onClick={onConfigureHotkey} disabled={isApplyingHotkey}>
+                    Change Shortcut
+                  </Button>
                 )}
               </div>
             </div>
@@ -337,8 +356,8 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
 
           <p className="setup-note">
             Complete required checks to unlock the app. Mic Test is optional but recommended.
-            {portalDiagnostics && portalDiagnostics.available && (
-              <> Portal v{portalDiagnostics.version} ({portalDiagnostics.supports_configure_shortcuts ? 'configure supported' : 'bind/list only'}).</>
+            {isSystemManagedShortcut && (
+              <> To change your shortcut later, use {systemShortcutContext?.settings_path || 'System Settings -> Keyboard Shortcuts'}.</>
             )}
           </p>
         </div>

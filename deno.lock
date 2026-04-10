@@ -10,6 +10,8 @@
     "npm:@tauri-apps/api@2": "2.9.1",
     "npm:@tauri-apps/cli@*": "2.9.6",
     "npm:@tauri-apps/cli@^2.9.6": "2.9.6",
+    "npm:@tauri-apps/plugin-clipboard-manager@*": "2.3.2",
+    "npm:@tauri-apps/plugin-clipboard-manager@^2.3.2": "2.3.2",
     "npm:@tauri-apps/plugin-shell@2": "2.3.4",
     "npm:esbuild@*": "0.25.12",
     "npm:preact@^10.28.2": "10.28.2",
@@ -602,6 +604,12 @@
       ],
       "bin": true
     },
+    "@tauri-apps/plugin-clipboard-manager@2.3.2": {
+      "integrity": "sha512-CUlb5Hqi2oZbcZf4VUyUH53XWPPdtpw43EUpCza5HWZJwxEoDowFzNUDt1tRUXA8Uq+XPn17Ysfptip33sG4eQ==",
+      "dependencies": [
+        "@tauri-apps/api"
+      ]
+    },
     "@tauri-apps/plugin-shell@2.3.4": {
       "integrity": "sha512-ktsRWf8wHLD17aZEyqE8c5x98eNAuTizR1FSX475zQ4TxaiJnhwksLygQz+AGwckJL5bfEP13nWrlTNQJUpKpA==",
       "dependencies": [
@@ -933,7 +941,8 @@
     "packageJson": {
       "dependencies": [
         "npm:@tabler/icons-preact@^3.36.1",
-        "npm:@tauri-apps/cli@^2.9.6"
+        "npm:@tauri-apps/cli@^2.9.6",
+        "npm:@tauri-apps/plugin-clipboard-manager@^2.3.2"
       ]
     }
   }
