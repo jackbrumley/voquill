@@ -47,6 +47,7 @@ Artifacts will be in `src-tauri/target/release/bundle/msi/` and `src-tauri/targe
     - Select the tag you just pushed.
     - Set the title (e.g., `Voquill vX.Y.Z`).
     - Describe the changes in the release notes.
+    - Use the corresponding release notes file in `docs/release-notes/` (for example, `docs/release-notes/v1.3.0.md`).
 
 ### GitHub Asset Naming Convention
 
