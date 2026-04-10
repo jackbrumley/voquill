@@ -77,12 +77,15 @@ In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and fr
    - Run: `npm run tauri:build`
    - This creates installable app packages.
 5. **Find your built files**
-   - Location: `src-tauri/target/release/bundle/`
+   - Windows location: `C:\voquill-build\release\bundle\`
+   - Linux location: `src-tauri/target/release/bundle/`
    - This folder contains installer/package files (such as `.msi`, `.deb`, `.rpm`, `.AppImage`).
 6. **Optional: Run in development mode**
    - Run: `npm run tauri:dev`
    - This is for live testing while developing.
    - It is not the final packaged release build.
+
+On Windows, all Tauri/Cargo build artifacts are written to `C:\voquill-build` to avoid long-path build failures.
 
 ---
 
