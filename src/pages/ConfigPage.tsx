@@ -58,6 +58,8 @@ interface ConfigPageProps {
   stopMicTest: () => void;
   stopMicPlayback: () => void;
   openDebugFolder: () => void;
+  onReopenInitialSetup: () => void;
+  onCopySessionLogs: () => void;
 }
 
 export function ConfigPage(props: ConfigPageProps) {
@@ -89,6 +91,8 @@ export function ConfigPage(props: ConfigPageProps) {
     stopMicTest,
     stopMicPlayback,
     openDebugFolder,
+    onReopenInitialSetup,
+    onCopySessionLogs,
   } = props;
 
   return (
@@ -241,15 +245,25 @@ export function ConfigPage(props: ConfigPageProps) {
             <input type="number" value={config.pixels_from_bottom} onChange={(e: Event) => updateConfig('pixels_from_bottom', parseInt((e.target as HTMLInputElement).value))} />
           </ConfigField>
 
-          <ConfigField label="Debug Mode" description="Master switch for advanced diagnostic settings.">
-            <Switch checked={config.debug_mode} onChange={(checked) => updateConfig('debug_mode', checked)} label="Enable Debug Settings" />
-          </ConfigField>
-
           <ConfigField label="Turbo Mode (GPU)" description="Uses your graphics card to speed up transcription. Recommended for 'Medium' models.">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} label="Enabled" />
               <IconRocket size={20} style={{ color: config.enable_gpu ? '#f1c40f' : 'var(--colors-text-muted)', opacity: config.enable_gpu ? 1 : 0.5, transition: 'all 0.3s ease' }} />
             </div>
+          </ConfigField>
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Debug" isOpen={activeConfigSection === 'debug'} onToggle={() => setActiveConfigSection(activeConfigSection === 'debug' ? null : 'debug')}>
+          <ConfigField label="Debug Mode" description="Enables additional diagnostics and debug-focused controls.">
+            <Switch checked={config.debug_mode} onChange={(checked) => updateConfig('debug_mode', checked)} label="Enable Debug Settings" />
+          </ConfigField>
+
+          <ConfigField label="Session Logs" description="Copies current launch logs (without secrets) for issue reports.">
+            <Button size="sm" variant="secondary" onClick={onCopySessionLogs}>Copy Session Logs</Button>
+          </ConfigField>
+
+          <ConfigField label="Initial Setup" description="Re-open onboarding checks for permissions, model, and hotkey setup.">
+            <Button size="sm" variant="secondary" onClick={onReopenInitialSetup}>Re-run Initial Setup</Button>
           </ConfigField>
 
           {config.debug_mode && (

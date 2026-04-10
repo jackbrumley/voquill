@@ -5,18 +5,31 @@
 #[macro_export]
 macro_rules! log_info {
     ($($arg:tt)*) => {
-        println!("[{}] {}", ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"), format!($($arg)*))
+        {
+            let __timestamp = ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
+            let __message = format!($($arg)*);
+            println!("[{}] {}", __timestamp, __message);
+            crate::append_session_log("INFO", &__timestamp, &__message);
+        }
     };
 }
 
 #[macro_export]
 macro_rules! log_warn {
     ($($arg:tt)*) => {
-        eprintln!("[{}] WARNING: {}", ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"), format!($($arg)*))
+        {
+            let __timestamp = ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
+            let __message = format!($($arg)*);
+            eprintln!("[{}] WARNING: {}", __timestamp, __message);
+            crate::append_session_log("WARN", &__timestamp, &__message);
+        }
     };
 }
 
 use serde::Serialize;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -26,6 +39,69 @@ use tauri::{
 
 // Global app handle for emitting events - using OnceLock for thread safety
 static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
+static SESSION_LOG_FILE: OnceLock<Mutex<Option<std::fs::File>>> = OnceLock::new();
+static SESSION_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
+
+fn get_session_log_path() -> Result<PathBuf, String> {
+    let debug_dir = dirs::config_dir()
+        .ok_or_else(|| "Could not find config directory".to_string())?
+        .join("foss-voquill")
+        .join("debug");
+    fs::create_dir_all(&debug_dir).map_err(|error| error.to_string())?;
+    Ok(debug_dir.join("session.log"))
+}
+
+fn initialize_session_logging() {
+    let log_path = match get_session_log_path() {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!("Failed to initialize session log path: {}", error);
+            return;
+        }
+    };
+
+    match OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&log_path)
+    {
+        Ok(mut file) => {
+            let startup_header = format!(
+                "[{}] SESSION START | version={}\n",
+                chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"),
+                env!("CARGO_PKG_VERSION")
+            );
+            let _ = file.write_all(startup_header.as_bytes());
+            let _ = SESSION_LOG_PATH.set(log_path);
+            let _ = SESSION_LOG_FILE.set(Mutex::new(Some(file)));
+        }
+        Err(error) => {
+            eprintln!("Failed to open session log file: {}", error);
+        }
+    }
+}
+
+pub fn append_session_log(level: &str, timestamp: &str, message: &str) {
+    if let Some(lock) = SESSION_LOG_FILE.get() {
+        if let Ok(mut maybe_file) = lock.lock() {
+            if let Some(file) = maybe_file.as_mut() {
+                let _ = writeln!(file, "[{}] {}: {}", timestamp, level, message);
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn read_linux_distribution_name() -> Option<String> {
+    let contents = std::fs::read_to_string("/etc/os-release").ok()?;
+    for line in contents.lines() {
+        if let Some(value) = line.strip_prefix("PRETTY_NAME=") {
+            return Some(value.trim_matches('"').to_string());
+        }
+    }
+    None
+}
 
 mod audio;
 mod config;
@@ -200,6 +276,15 @@ async fn get_linux_setup_status(
         permissions.shortcuts_status = "bound".to_string();
         permissions.shortcuts_detail = binding_state.detail;
     }
+    log_info!(
+        "🧭 Setup readiness: audio={}, shortcuts={} (status={}), input_emulation={}, runtime_hotkey_bound={}, runtime_hotkey_listening={}",
+        permissions.audio,
+        permissions.shortcuts,
+        permissions.shortcuts_status,
+        permissions.input_emulation,
+        binding_state.bound,
+        binding_state.listening
+    );
     Ok(permissions)
 }
 
@@ -748,6 +833,17 @@ async fn open_debug_folder() -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn get_session_log_text() -> Result<String, String> {
+    let log_path = SESSION_LOG_PATH
+        .get()
+        .cloned()
+        .or_else(|| get_session_log_path().ok())
+        .ok_or_else(|| "Session log path unavailable".to_string())?;
+
+    std::fs::read_to_string(&log_path).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 async fn get_config(state: tauri::State<'_, AppState>) -> Result<Config, String> {
     let config = state.config.lock().unwrap();
     Ok(config.clone())
@@ -1214,6 +1310,8 @@ async fn record_and_transcribe(
 }
 
 fn main() {
+    initialize_session_logging();
+
     #[cfg(target_os = "linux")]
     {
         enforce_wayland();
@@ -1295,6 +1393,10 @@ fn main() {
                     desktop,
                     prg_name
                 );
+                log_info!("🧭 App version: {}", env!("CARGO_PKG_VERSION"));
+                if let Some(distro_name) = read_linux_distribution_name() {
+                    log_info!("🧭 Linux distro: {}", distro_name);
+                }
 
                 if is_wayland_session() {
                     let host_app_registration = tauri::async_runtime::block_on(async {
@@ -1420,7 +1522,7 @@ fn main() {
             test_api_key, get_current_status, get_history, clear_history,
             check_hotkey_status, manual_register_hotkey, configure_hotkey, apply_captured_hotkey,
             get_hotkey_binding_state, minimize_to_tray_or_taskbar, quit_application, get_audio_devices,
-            start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder,
+            start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder, get_session_log_text,
             log_ui_event, get_available_engines, get_available_models, check_model_status, download_model,
             get_linux_setup_status, request_audio_permission, request_input_permission, set_configuring_hotkey,
             get_wayland_portal_version, get_portal_diagnostics

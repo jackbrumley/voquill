@@ -4,18 +4,15 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
-import { IconMicrophone, IconKeyboard, IconTextRecognition, IconCheck, IconShieldLock, IconInfoCircle, IconRocket } from '@tabler/icons-preact';
 import { tokens } from './design-tokens.ts';
 import { Card } from './components/Card.tsx';
 import { Button } from './components/Button.tsx';
-import { ConfigField } from './components/ConfigField.tsx';
 import { ActionFooter } from './components/ActionFooter.tsx';
 import { ModelInfoModal } from './components/ModelInfoModal.tsx';
-import { MicSetupPanel } from './components/MicSetupPanel.tsx';
-import { ModelSelectionPanel } from './components/ModelSelectionPanel.tsx';
 import { StatusPage } from './pages/StatusPage.tsx';
 import { ConfigPage } from './pages/ConfigPage.tsx';
 import { HistoryPage } from './pages/HistoryPage.tsx';
+import { InitialSetupPage } from './pages/InitialSetupPage.tsx';
 import './App.css';
 
 interface Config {
@@ -575,6 +572,16 @@ function App() {
     }
   };
 
+  const copySessionLogs = async () => {
+    try {
+      const logs = await invoke<string>('get_session_log_text');
+      await navigator.clipboard.writeText(logs);
+      showToast('Session logs copied to clipboard.', 'success');
+    } catch (error) {
+      showToast(`Failed to copy session logs: ${error}`, 'error');
+    }
+  };
+
   const handleClose = async () => {
     try {
       await invoke('quit_application');
@@ -701,257 +708,43 @@ function App() {
       </div>
 
       {showInitialSetup ? (
-        <div className="setup-required-shell">
-          <Card className="setup-required-card">
-            <div className="setup-header">
-              <div className="setup-icon-container">
-                <IconShieldLock size={32} className="setup-icon" />
-              </div>
-              <h2>Initial Setup</h2>
-            </div>
-            
-            <div className="setup-body">
-              <p style={{ textAlign: 'center' }}>Complete these required checks before first use:</p>
-              <div className="setup-list" style={{ width: '100%' }}>
-                <div className="setup-section-label">Required</div>
-                
-                {/* Audio Permission */}
-                <div className={`permission-item ${permissions?.audio ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
-                    <div className="permission-icon">
-                      <IconMicrophone size={20} />
-                    </div>
-                    <div className="permission-info">
-                      <div className="permission-title">Audio Access</div>
-                      <div className="permission-desc">Required for dictation</div>
-                    </div>
-                  </div>
-                  <div className="permission-status" style={{ marginLeft: 'auto' }}>
-                    {permissions?.audio ? (
-                      <IconCheck color="var(--colors-success)" size={20} />
-                    ) : (
-                      <Button variant="ghost" size="sm" onClick={handleAudioSetup}>Request</Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Shortcuts Permission */}
-                <div className={`permission-item ${permissions?.shortcuts ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
-                    <div className="permission-icon">
-                      <IconKeyboard size={20} />
-                    </div>
-                    <div className="permission-info" style={{ width: '100%', paddingRight: '10px' }}>
-                      <div className="permission-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        Global Shortcuts
-                        {!permissions?.shortcuts && (
-                          <input 
-                            type="text" 
-                            className="hotkey-input setup-hotkey-input"
-                            value={isRecordingHotkey ? 'Press keys...' : config.hotkey}
-                            onKeyDown={handleHotkeyKeyDown}
-                            onKeyUp={handleHotkeyKeyUp}
-                            onFocus={() => null}
-                            onBlur={() => setRecordingState(false)}
-                            readOnly
-                            placeholder={portalVersion >= 1 ? "Bind with button" : "Click to set"}
-                            style={{ 
-                              width: '140px', padding: '4px 8px', fontSize: '12px', 
-                              backgroundColor: 'var(--colors-surface-active)', 
-                              border: '1px solid var(--colors-border)', 
-                              borderRadius: '4px', cursor: portalVersion >= 1 ? 'default' : 'pointer', textAlign: 'center',
-                              color: isRecordingHotkey ? 'var(--colors-primary)' : 'var(--colors-text)',
-                              opacity: portalVersion >= 1 ? 0.8 : 1
-                            }}
-                            title={portalVersion >= 1 ? 'Use Configure Hotkey to request a system shortcut.' : ''}
-                          />
-                        )}
-                      </div>
-                      <div className="permission-desc">Required for the hotkey</div>
-                      {!permissions?.shortcuts && permissions?.shortcuts_detail && (
-                        <div className="permission-desc" style={{ marginTop: '2px', color: 'var(--colors-warning)' }}>
-                          {permissions.shortcuts_detail}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="permission-status">
-                    {permissions?.shortcuts ? (
-                      <IconCheck color="var(--colors-success)" size={20} />
-                    ) : (
-                      <Button variant="ghost" size="sm" onClick={handleConfigureHotkey} disabled={isApplyingHotkey}>Configure Hotkey</Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Input Simulation Permission */}
-                <div className={`permission-item ${permissions?.input_emulation ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
-                    <div className="permission-icon">
-                      <IconTextRecognition size={20} />
-                    </div>
-                    <div className="permission-info">
-                      <div className="permission-title">Input Simulation</div>
-                      <div className="permission-desc">Required to type into other apps</div>
-                    </div>
-                  </div>
-                  <div className="permission-status" style={{ marginLeft: 'auto' }}>
-                    {permissions?.input_emulation ? (
-                      <IconCheck color="var(--colors-success)" size={20} />
-                    ) : (
-                      <Button variant="ghost" size="sm" onClick={handleInputSetup}>Request</Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Transcription Backend Readiness */}
-                <div className={`permission-item ${isLocalModelReady ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', textAlign: 'left', flex: 1 }}>
-                    <div className="permission-icon">
-                      <IconRocket size={20} />
-                    </div>
-                    <div className="permission-info" style={{ width: '100%' }}>
-                      <div className="permission-title">Transcription Backend</div>
-                      <div className="permission-desc">
-                        {config.transcription_mode === 'Local'
-                          ? `Model ${config.local_model_size} is required for local transcription.`
-                          : 'API mode selected.'}
-                      </div>
-                      {config.transcription_mode === 'Local' && (
-                        <ModelSelectionPanel
-                          availableModels={availableModels}
-                          localEngine={config.local_engine}
-                          localModelSize={config.local_model_size}
-                          modelStatus={modelStatus}
-                          isDownloading={isDownloading}
-                          downloadProgress={downloadProgress}
-                          onChangeModel={(size) => {
-                            setSetupTouched(true);
-                            updateConfig('local_model_size', size);
-                          }}
-                          onShowModelGuide={() => setShowModelGuide(true)}
-                          onDownloadModel={(size) => {
-                            setSetupTouched(true);
-                            void downloadModel(size);
-                          }}
-                          onRetryModels={() => {
-                            setSetupTouched(true);
-                            void loadModels();
-                          }}
-                        />
-                      )}
-                    </div>
-                  </div>
-                  <div className="permission-status" style={{ marginLeft: 'auto' }}>
-                    {isLocalModelReady && <IconCheck color="var(--colors-success)" size={20} />}
-                  </div>
-                </div>
-
-                {/* Audio Device Selection */}
-                <div className={`permission-item ${isAudioDeviceReady ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
-                    <div className="permission-icon">
-                      <IconMicrophone size={20} />
-                    </div>
-                    <div className="permission-info" style={{ width: '100%', paddingRight: '10px' }}>
-                      <div className="permission-title">Audio Device</div>
-                      <div className="permission-desc">Select the microphone Voquill should use.</div>
-                      <select
-                        value={config.audio_device || 'default'}
-                        onChange={(e) => {
-                          setSetupTouched(true);
-                          updateConfig('audio_device', (e.target as HTMLSelectElement).value);
-                        }}
-                        style={{
-                          marginTop: '6px',
-                          width: '100%',
-                          maxWidth: '240px',
-                          padding: '6px 8px',
-                          fontSize: '12px',
-                          backgroundColor: 'var(--colors-surface-active)',
-                          border: '1px solid var(--colors-border)',
-                          borderRadius: '4px',
-                          color: 'var(--colors-text)'
-                        }}
-                      >
-                        <option value="default">Default microphone</option>
-                        {availableMics.map((mic) => (
-                          <option key={mic.id} value={mic.id}>{mic.label || mic.id}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="permission-status" style={{ marginLeft: 'auto' }}>
-                    {isAudioDeviceReady ? (
-                      <IconCheck color="var(--colors-success)" size={20} />
-                    ) : (
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        setSetupTouched(true);
-                        void loadMics();
-                      }}>Refresh</Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="setup-section-label setup-section-recommended">Recommended</div>
-
-                {/* Mic Test (Recommended) */}
-                <div className={`permission-item ${micTestPassed ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', textAlign: 'left', flex: 1 }}>
-                    <div className="permission-icon">
-                      <IconInfoCircle size={20} />
-                    </div>
-                    <div className="permission-info" style={{ width: '100%' }}>
-                      <div className="permission-title">Mic Test (Recommended)</div>
-                      <div className="permission-desc">Record a short sample and play it back to verify your setup.</div>
-                      <MicSetupPanel
-                        compact
-                        inputSensitivity={config.input_sensitivity}
-                        onInputSensitivityChange={(value) => updateConfig('input_sensitivity', value)}
-                        micTestStatus={micTestStatus}
-                        micVolume={micVolume}
-                        onStartMicTest={() => void startMicTest()}
-                        onStopMicTest={() => void stopMicTest()}
-                        onStopMicPlayback={() => void stopMicPlayback()}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-              <p className="setup-note">
-                Complete required checks to unlock the app. Mic Test is optional but recommended.
-                {portalDiagnostics && portalDiagnostics.available && (
-                  <> Portal v{portalDiagnostics.version} ({portalDiagnostics.supports_configure_shortcuts ? 'configure supported' : 'bind/list only'}).</>
-                )}
-              </p>
-            </div>
-
-            <div className="setup-actions setup-button-container">
-              <div style={{ width: '100%', display: 'flex', gap: '8px', marginTop: '10px' }}>
-                <Button
-                  variant="ghost"
-                  onClick={checkSetupStatus}
-                  size="sm"
-                  className="setup-button"
-                  style={{ flex: 1 }}
-                >
-                  Refresh Status
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="setup-button"
-                  style={{ flex: 1 }}
-                  disabled={!isAllReady}
-                  onClick={() => setShowInitialSetup(false)}
-                >
-                  Finish Setup
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
+        <InitialSetupPage
+          permissions={permissions}
+          config={config}
+          availableModels={availableModels}
+          modelStatus={modelStatus}
+          downloadProgress={downloadProgress}
+          isDownloading={isDownloading}
+          portalVersion={portalVersion}
+          portalDiagnostics={portalDiagnostics}
+          isApplyingHotkey={isApplyingHotkey}
+          availableMics={availableMics}
+          micTestStatus={micTestStatus}
+          micVolume={micVolume}
+          micTestPassed={micTestPassed}
+          isLocalModelReady={isLocalModelReady}
+          isAudioDeviceReady={isAudioDeviceReady}
+          isAllReady={isAllReady}
+          isRecordingHotkey={isRecordingHotkey}
+          setupTouched={setupTouched}
+          onTouchSetup={() => setSetupTouched(true)}
+          onAudioSetup={() => void handleAudioSetup()}
+          onInputSetup={() => void handleInputSetup()}
+          onConfigureHotkey={() => void handleConfigureHotkey()}
+          onHotkeyKeyDown={handleHotkeyKeyDown}
+          onHotkeyKeyUp={handleHotkeyKeyUp}
+          onHotkeyBlur={() => void setRecordingState(false)}
+          onChangeConfig={updateConfig}
+          onShowModelGuide={() => setShowModelGuide(true)}
+          onDownloadModel={(size) => void downloadModel(size)}
+          onRetryModels={() => void loadModels()}
+          onLoadMics={() => void loadMics()}
+          onStartMicTest={() => void startMicTest()}
+          onStopMicTest={() => void stopMicTest()}
+          onStopMicPlayback={() => void stopMicPlayback()}
+          onRefreshStatus={() => void checkSetupStatus()}
+          onFinishSetup={() => setShowInitialSetup(false)}
+        />
       ) : (
         <>
           <div className="tab-nav">
@@ -1000,6 +793,11 @@ function App() {
                 stopMicTest={() => void stopMicTest()}
                 stopMicPlayback={() => void stopMicPlayback()}
                 openDebugFolder={openDebugFolder}
+                onReopenInitialSetup={() => {
+                  setSetupTouched(true);
+                  setShowInitialSetup(true);
+                }}
+                onCopySessionLogs={() => void copySessionLogs()}
               />
             )}
 

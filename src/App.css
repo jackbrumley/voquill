@@ -837,6 +837,26 @@ input:checked + .switch-slider:before { transform: translateX(18px); }
 }
 
 /* Setup Required Card */
+.initial-setup-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  padding: var(--spacing-md);
+}
+
+.initial-setup-content {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-lg);
+}
+
 .setup-required-card {
   margin: 0;
   display: flex;

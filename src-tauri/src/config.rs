@@ -246,7 +246,17 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     log_info!("Attempting to save config to: {:?}", config_path);
 
     let config_str = serde_json::to_string_pretty(config)?;
-    log_info!("Config JSON: {}", config_str);
+    log_info!(
+        "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, gpu={}",
+        config.transcription_mode,
+        config.local_engine,
+        config.local_model_size,
+        config.hotkey,
+        config.audio_device,
+        config.debug_mode,
+        config.enable_recording_logs,
+        config.enable_gpu
+    );
 
     fs::write(&config_path, config_str)?;
     log_info!("Config saved successfully to: {:?}", config_path);
