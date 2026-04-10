@@ -1013,6 +1013,59 @@ async fn get_session_log_text() -> Result<String, String> {
 }
 
 #[tauri::command]
+async fn copy_session_log_to_clipboard() -> Result<(), String> {
+    let logs = get_session_log_text().await?;
+    typing::copy_to_clipboard(&logs).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn open_session_log() -> Result<(), String> {
+    let log_path = SESSION_LOG_PATH
+        .get()
+        .cloned()
+        .or_else(|| get_session_log_path().ok())
+        .ok_or_else(|| "Session log path unavailable".to_string())?;
+
+    #[cfg(target_os = "linux")]
+    {
+        log_info!("🚀 Executing: xdg-open {:?}", log_path);
+        std::process::Command::new("xdg-open")
+            .arg(&log_path)
+            .spawn()
+            .map_err(|error| {
+                log_info!("❌ Failed to execute xdg-open for session log: {}", error);
+                error.to_string()
+            })?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        log_info!("🚀 Executing: explorer {:?}", log_path);
+        std::process::Command::new("explorer")
+            .arg(&log_path)
+            .spawn()
+            .map_err(|error| {
+                log_info!("❌ Failed to execute explorer for session log: {}", error);
+                error.to_string()
+            })?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        log_info!("🚀 Executing: open {:?}", log_path);
+        std::process::Command::new("open")
+            .arg(&log_path)
+            .spawn()
+            .map_err(|error| {
+                log_info!("❌ Failed to execute open for session log: {}", error);
+                error.to_string()
+            })?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 async fn get_config(state: tauri::State<'_, AppState>) -> Result<Config, String> {
     let config = state.config.lock().unwrap();
     Ok(config.clone())
@@ -1516,6 +1569,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new()
             .with_handler(|app, _shortcut, event| {
                 // Ignore plugin hotkeys on Wayland, use Portal instead
@@ -1660,6 +1714,7 @@ fn main() {
             check_hotkey_status, manual_register_hotkey, configure_hotkey, apply_captured_hotkey,
             get_hotkey_binding_state, minimize_to_tray_or_taskbar, quit_application, get_audio_devices,
             start_mic_test, stop_mic_test, stop_mic_playback, open_debug_folder, get_session_log_text,
+            copy_session_log_to_clipboard, open_session_log,
             log_ui_event, get_available_engines, get_available_models, check_model_status, download_model,
             get_linux_setup_status, request_audio_permission, request_input_permission, set_configuring_hotkey,
             get_wayland_portal_version, get_portal_diagnostics, get_system_shortcut_context

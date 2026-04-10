@@ -66,6 +66,7 @@ interface ConfigPageProps {
   stopMicTest: () => void;
   stopMicPlayback: () => void;
   openDebugFolder: () => void;
+  openSessionLog: () => void;
   onReopenInitialSetup: () => void;
   onCopySessionLogs: () => void;
 }
@@ -101,6 +102,7 @@ export function ConfigPage(props: ConfigPageProps) {
     stopMicTest,
     stopMicPlayback,
     openDebugFolder,
+    openSessionLog,
     onReopenInitialSetup,
     onCopySessionLogs,
   } = props;
@@ -120,31 +122,12 @@ export function ConfigPage(props: ConfigPageProps) {
             />
           </ConfigField>
 
-          <ConfigField label="Language" description="Hint the dialect or hard-set the output language.">
-            <div className="select-wrapper">
-              <select value={config.language} onChange={(e: Event) => updateConfig('language', (e.target as HTMLSelectElement).value)}>
-                <option value="auto">Automatic Detection</option>
-                <option value="en-AU">English (Australia)</option>
-                <option value="en-GB">English (United Kingdom)</option>
-                <option value="en-US">English (United States)</option>
-                <option value="fr">French</option>
-                <option value="es">Spanish</option>
-                <option value="de">German</option>
-                <option value="it">Italian</option>
-                <option value="pt">Portuguese</option>
-                <option value="nl">Dutch</option>
-                <option value="ja">Japanese</option>
-                <option value="zh">Chinese</option>
-              </select>
-            </div>
-          </ConfigField>
-
           {config.transcription_mode === 'API' ? (
             <>
               <ConfigField label="API Key" description="Used to authenticate with the transcription service (OpenAI).">
-                <div className="input-with-button" style={{ display: 'flex', gap: '8px' }}>
+                <div className="config-inline-actions input-with-button">
                   <input type="text" value={config.openai_api_key} onChange={(e: Event) => updateConfig('openai_api_key', (e.target as HTMLInputElement).value)} placeholder="sk-..." />
-                  <Button onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? '...' : 'Test'}</Button>
+                  <Button variant="configAction" onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? '...' : 'Test'}</Button>
                 </div>
               </ConfigField>
 
@@ -189,7 +172,7 @@ export function ConfigPage(props: ConfigPageProps) {
             label="Global Hotkey"
             description={isSystemManagedShortcut ? 'Use your system shortcut to record and release to transcribe.' : 'Hold these keys to record, release to transcribe.'}
           >
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: isSystemManagedShortcut ? 'center' : 'flex-start' }}>
+            <div className={`config-hotkey-row ${isSystemManagedShortcut ? 'is-system-managed' : ''}`}>
               {!isSystemManagedShortcut && (
                 <input
                   type="text"
@@ -203,24 +186,23 @@ export function ConfigPage(props: ConfigPageProps) {
                 />
               )}
               <Button
-                size={isSystemManagedShortcut ? 'md' : 'sm'}
-                variant="secondary"
+                size="md"
+                variant="configAction"
                 onClick={handleConfigureHotkey}
                 disabled={isApplyingHotkey}
-                style={isSystemManagedShortcut ? { minWidth: '220px', padding: '10px 20px', fontWeight: 600 } : undefined}
               >
-                Change Shortcut
+                Modify
               </Button>
             </div>
             {isSystemManagedShortcut ? (
-              <div style={{ fontSize: '11px', color: 'var(--colors-text-muted)', marginTop: '4px' }}>
+              <div className="config-inline-note">
                 {systemShortcutContext?.distro
                   ? `Your ${systemShortcutContext.distro} system manages this shortcut. To change it, open ${systemShortcutContext.settings_path}.`
                   : `Your system manages this shortcut. To change it, open ${systemShortcutContext?.settings_path || 'System Settings -> Keyboard Shortcuts'}.`}
                 {portalDiagnostics?.active_trigger ? ` Current shortcut: ${portalDiagnostics.active_trigger}.` : ''}
               </div>
             ) : portalVersion >= 1 && (
-              <div style={{ fontSize: '11px', color: 'var(--colors-text-muted)', marginTop: '4px' }}>
+              <div className="config-inline-note">
                 Shortcut registration uses the Wayland GlobalShortcuts portal.
                 {portalDiagnostics?.active_trigger ? ` Active shortcut: ${portalDiagnostics.active_trigger}.` : ''}
                 {hotkeyBindingState?.bound ? ' Listener is active.' : ''}
@@ -274,34 +256,52 @@ export function ConfigPage(props: ConfigPageProps) {
           </ConfigField>
 
           <ConfigField label="Turbo Mode (GPU)" description="Uses your graphics card to speed up transcription. Recommended for 'Medium' models.">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="config-inline-actions config-inline-actions-between">
               <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} label="Enabled" />
-              <IconRocket size={20} style={{ color: config.enable_gpu ? '#f1c40f' : 'var(--colors-text-muted)', opacity: config.enable_gpu ? 1 : 0.5, transition: 'all 0.3s ease' }} />
+              <IconRocket size={20} className={`turbo-icon-indicator ${config.enable_gpu ? 'is-enabled' : ''}`} />
             </div>
           </ConfigField>
         </CollapsibleSection>
 
         <CollapsibleSection title="Debug" isOpen={activeConfigSection === 'debug'} onToggle={() => setActiveConfigSection(activeConfigSection === 'debug' ? null : 'debug')}>
-          <ConfigField label="Debug Mode" description="Enables additional diagnostics and debug-focused controls.">
-            <Switch checked={config.debug_mode} onChange={(checked) => updateConfig('debug_mode', checked)} label="Enable Debug Settings" />
+          <ConfigField label="Session Logs" description="Copies current launch logs (without secrets) for issue reports.">
+            <div className="config-inline-actions">
+              <Button variant="configAction" onClick={onCopySessionLogs}>Copy Session Logs</Button>
+              <Button variant="ghost" onClick={openSessionLog}>Open Session Log</Button>
+            </div>
           </ConfigField>
 
-          <ConfigField label="Session Logs" description="Copies current launch logs (without secrets) for issue reports.">
-            <Button size="sm" variant="secondary" onClick={onCopySessionLogs}>Copy Session Logs</Button>
+          <ConfigField label="Recording Logs" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
+            <div className="config-inline-actions config-inline-actions-between">
+              <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} label="Enable Recording Logs" />
+              <Button variant="ghost" onClick={openDebugFolder}>Open Folder</Button>
+            </div>
           </ConfigField>
 
           <ConfigField label="Initial Setup" description="Re-open onboarding checks for permissions, model, and hotkey setup.">
-            <Button size="sm" variant="secondary" onClick={onReopenInitialSetup}>Re-run Initial Setup</Button>
+            <Button variant="configAction" onClick={onReopenInitialSetup}>Re-run Initial Setup</Button>
           </ConfigField>
+        </CollapsibleSection>
 
-          {config.debug_mode && (
-            <ConfigField label="Recording Logs" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} label="Enable Recording Logs" />
-                <Button size="sm" variant="ghost" onClick={openDebugFolder}>Open Folder</Button>
-              </div>
-            </ConfigField>
-          )}
+        <CollapsibleSection title="Experimental" isOpen={activeConfigSection === 'experimental'} onToggle={() => setActiveConfigSection(activeConfigSection === 'experimental' ? null : 'experimental')}>
+          <ConfigField label="Language Hint" description="Best-effort language hint for transcription. Some engines/models may ignore this setting or apply it inconsistently.">
+            <div className="select-wrapper">
+              <select value={config.language} onChange={(e: Event) => updateConfig('language', (e.target as HTMLSelectElement).value)}>
+                <option value="auto">Automatic Detection</option>
+                <option value="en-AU">English (Australia)</option>
+                <option value="en-GB">English (United Kingdom)</option>
+                <option value="en-US">English (United States)</option>
+                <option value="fr">French</option>
+                <option value="es">Spanish</option>
+                <option value="de">German</option>
+                <option value="it">Italian</option>
+                <option value="pt">Portuguese</option>
+                <option value="nl">Dutch</option>
+                <option value="ja">Japanese</option>
+                <option value="zh">Chinese</option>
+              </select>
+            </div>
+          </ConfigField>
         </CollapsibleSection>
       </div>
     </div>

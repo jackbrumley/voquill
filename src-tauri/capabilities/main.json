@@ -16,6 +16,7 @@
     "core:app:allow-version",
     "shell:default",
     "global-shortcut:default",
+    "clipboard-manager:allow-write-text",
     "allow-app-commands"
   ]
 }

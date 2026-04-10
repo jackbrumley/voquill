@@ -9,6 +9,7 @@ interface MicSetupPanelProps {
   onStopMicTest: () => void;
   onStopMicPlayback: () => void;
   compact?: boolean;
+  actionButtonSize?: 'sm' | 'md' | 'lg';
 }
 
 export function MicSetupPanel({
@@ -20,6 +21,7 @@ export function MicSetupPanel({
   onStopMicTest,
   onStopMicPlayback,
   compact = false,
+  actionButtonSize = 'md',
 }: MicSetupPanelProps) {
   return (
     <div className={`mic-setup-panel ${compact ? 'compact' : ''}`}>
@@ -41,9 +43,9 @@ export function MicSetupPanel({
 
       <div className="mic-test-row">
         <Button
-          className="mic-test-button"
           disabled={micTestStatus === 'processing'}
-          variant={micTestStatus !== 'idle' ? 'primary' : 'secondary'}
+          variant="configAction"
+          size={actionButtonSize}
           onClick={() => {
             if (micTestStatus === 'idle') {
               onStartMicTest();

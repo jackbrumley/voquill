@@ -23,6 +23,8 @@ commands.allow = [
     "stop_mic_playback",
     "open_debug_folder",
     "get_session_log_text",
+    "copy_session_log_to_clipboard",
+    "open_session_log",
     "log_ui_event",
     "get_available_engines",
     "get_available_models",
@@ -33,5 +35,6 @@ commands.allow = [
     "request_input_permission",
     "set_configuring_hotkey",
     "get_wayland_portal_version",
-    "get_portal_diagnostics"
+    "get_portal_diagnostics",
+    "get_system_shortcut_context"
 ]

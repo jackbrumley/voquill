@@ -163,13 +163,44 @@ function App() {
   }, []);
 
   const logUI = (msg: string) => {
-    // Log Toasts and Clicks always, drop other spam unless debug mode
-    if (!config.debug_mode && !msg.includes('Button clicked') && !msg.includes('Toast')) return;
+    // Log key interaction traces always; drop other spam unless debug mode
+    if (
+      !config.debug_mode &&
+      !msg.includes('Button clicked') &&
+      !msg.includes('Toast') &&
+      !msg.includes('Setting changed') &&
+      !msg.includes('Switch toggled')
+    ) {
+      return;
+    }
     const timestamp = new Date().toLocaleTimeString();
     console.log(`[${timestamp}] ${msg}`);
     invoke('log_ui_event', { message: msg }).catch((err) => {
       console.error(`Failed to send log to backend: ${err}`);
     });
+  };
+
+  const lastCommittedConfigRef = useRef<Config | null>(null);
+
+  const formatConfigValueForLog = (key: keyof Config, value: Config[keyof Config]) => {
+    if (key === 'openai_api_key') {
+      const length = typeof value === 'string' ? value.length : 0;
+      return length > 0 ? `[redacted:${length} chars]` : '[empty]';
+    }
+
+    if (key === 'shortcuts_token' || key === 'input_token') {
+      return '[redacted-token]';
+    }
+
+    if (value === null || value === undefined) {
+      return 'null';
+    }
+
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    return String(value);
   };
 
   // Initialize app data once on mount
@@ -416,7 +447,6 @@ function App() {
   };
 
   const downloadModel = async (size: string) => {
-    logUI(`🖱️ Button clicked: Download Model (${size})`);
     setSetupTouched(true);
     setIsDownloading(true);
     setDownloadProgress(0);
@@ -433,7 +463,6 @@ function App() {
   };
 
   const clearHistory = async () => {
-    logUI('🖱️ Button clicked: Clear History');
     try {
       await invoke('clear_history');
       setHistory([]);
@@ -468,6 +497,17 @@ function App() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
+      const previousConfig = lastCommittedConfigRef.current;
+      if (previousConfig) {
+        (Object.keys(config) as (keyof Config)[]).forEach((key) => {
+          if (previousConfig[key] !== config[key]) {
+            const formattedValue = formatConfigValueForLog(key, config[key]);
+            logUI(`⚙️ Setting changed: ${key} -> ${formattedValue}`);
+          }
+        });
+      }
+
+      lastCommittedConfigRef.current = { ...config };
       persistConfig(config);
     }, 500);
     return () => clearTimeout(timer);
@@ -496,7 +536,6 @@ function App() {
   };
 
   const startMicTest = async () => {
-    logUI('🖱️ Button clicked: Test Microphone (Start)');
     try {
       setMicTestStatus('recording');
       await invoke('start_mic_test');
@@ -507,7 +546,6 @@ function App() {
   };
 
   const stopMicTest = async () => {
-    logUI('🖱️ Button clicked: Stop & Play Back');
     setMicTestStatus('processing');
     try {
       await invoke('stop_mic_test');
@@ -518,7 +556,6 @@ function App() {
   };
 
   const stopMicPlayback = async () => {
-    logUI('🖱️ Button clicked: Stop Playback');
     try {
       await invoke('stop_mic_playback');
       setMicTestStatus('idle');
@@ -537,7 +574,6 @@ function App() {
     !portalDiagnostics.supports_configure_shortcuts;
 
   const openDebugFolder = async () => {
-    logUI('🖱️ Button clicked: Open Debug Folder');
     try {
       await invoke('open_debug_folder');
     } catch (error) {
@@ -546,7 +582,6 @@ function App() {
   };
 
   const testApiKey = async () => {
-    logUI('🖱️ Button clicked: Test Key');
     setIsTestingApi(true);
     try {
       const isValid = await invoke<boolean>('test_api_key', { 
@@ -593,11 +628,18 @@ function App() {
 
   const copySessionLogs = async () => {
     try {
-      const logs = await invoke<string>('get_session_log_text');
-      await invoke('plugin:clipboard-manager|write_text', { text: logs });
+      await invoke('copy_session_log_to_clipboard');
       showToast('Session logs copied to clipboard.', 'success');
     } catch (error) {
       showToast(`Failed to copy session logs: ${error}`, 'error');
+    }
+  };
+
+  const openSessionLog = async () => {
+    try {
+      await invoke('open_session_log');
+    } catch (error) {
+      showToast(`Failed to open session log: ${error}`, 'error');
     }
   };
 
@@ -788,9 +830,9 @@ function App() {
       ) : (
         <>
           <div className="tab-nav">
-            <button className={`tab ${activeTab === 'status' ? 'active' : ''}`} onClick={() => setActiveTab('status')}>Status</button>
-            <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>History</button>
-            <button className={`tab ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}>Config</button>
+            <button className={`tab ${activeTab === 'status' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Button clicked: Status Tab'); setActiveTab('status'); }}>Status</button>
+            <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Button clicked: History Tab'); setActiveTab('history'); }}>History</button>
+            <button className={`tab ${activeTab === 'config' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Button clicked: Config Tab'); setActiveTab('config'); }}>Config</button>
           </div>
 
           <div className="tab-content" ref={tabContentRef}>
@@ -836,6 +878,7 @@ function App() {
                 stopMicTest={() => void stopMicTest()}
                 stopMicPlayback={() => void stopMicPlayback()}
                 openDebugFolder={openDebugFolder}
+                openSessionLog={() => void openSessionLog()}
                 onReopenInitialSetup={() => {
                   setSetupTouched(true);
                   setShowInitialSetup(true);

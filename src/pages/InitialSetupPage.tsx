@@ -3,6 +3,7 @@ import {
   IconInfoCircle,
   IconKeyboard,
   IconMicrophone,
+  IconRefresh,
   IconRocket,
   IconShieldLock,
   IconTextRecognition,
@@ -136,12 +137,12 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
         </div>
 
         <div className="setup-body">
-          <p style={{ textAlign: 'center' }}>Complete these required checks before first use:</p>
-          <div className="setup-list" style={{ width: '100%' }}>
+          <p className="setup-intro">Complete these required checks before first use:</p>
+          <div className="setup-list">
             <div className="setup-section-label">Required</div>
 
             <div className={`permission-item ${permissions?.audio ? 'ready' : ''}`}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
+              <div className="permission-main">
                 <div className="permission-icon">
                   <IconMicrophone size={20} />
                 </div>
@@ -150,7 +151,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                   <div className="permission-desc">Required for dictation</div>
                 </div>
               </div>
-              <div className="permission-status" style={{ marginLeft: 'auto' }}>
+              <div className="permission-status">
                 {permissions?.audio ? (
                   <IconCheck color="var(--colors-success)" size={20} />
                 ) : (
@@ -160,17 +161,16 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
             </div>
 
             <div className={`permission-item ${permissions?.shortcuts ? 'ready' : ''}`}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
+              <div className="permission-main">
                 <div className="permission-icon">
                   <IconKeyboard size={20} />
                 </div>
-                <div className="permission-info" style={{ width: '100%', paddingRight: '10px' }}>
-                  <div className="permission-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="permission-info permission-info-wide permission-info-padded">
+                  <div className="permission-title permission-title-with-control">
                     Global Shortcuts
                     {!permissions?.shortcuts && !isSystemManagedShortcut && (
                       <input
                         type="text"
-                        className="hotkey-input setup-hotkey-input"
                         value={isRecordingHotkey ? 'Press keys...' : config.hotkey}
                         onKeyDown={onHotkeyKeyDown}
                         onKeyUp={onHotkeyKeyUp}
@@ -178,15 +178,9 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                         onBlur={onHotkeyBlur}
                         readOnly
                         placeholder={portalVersion >= 1 ? 'Bind with button' : 'Click to set'}
+                        className="hotkey-input setup-hotkey-input setup-hotkey-input-field"
                         style={{
-                          width: '140px',
-                          padding: '4px 8px',
-                          fontSize: '12px',
-                          backgroundColor: 'var(--colors-surface-active)',
-                          border: '1px solid var(--colors-border)',
-                          borderRadius: '4px',
                           cursor: portalVersion >= 1 ? 'default' : 'pointer',
-                          textAlign: 'center',
                           color: isRecordingHotkey ? 'var(--colors-primary)' : 'var(--colors-text)',
                           opacity: portalVersion >= 1 ? 0.8 : 1,
                         }}
@@ -196,14 +190,14 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                   </div>
                   <div className="permission-desc">Required for the hotkey</div>
                   {isSystemManagedShortcut && (
-                    <div className="permission-desc" style={{ marginTop: '4px' }}>
+                    <div className="permission-desc permission-desc-note">
                       {systemShortcutContext?.distro
                         ? `Your ${systemShortcutContext.distro} system manages this shortcut. Change it in ${systemShortcutContext.settings_path}.`
                         : `Your system manages this shortcut. Change it in ${systemShortcutContext?.settings_path || 'System Settings -> Keyboard Shortcuts'}.`}
                     </div>
                   )}
                   {!permissions?.shortcuts && permissions?.shortcuts_detail && (
-                    <div className="permission-desc" style={{ marginTop: '2px', color: 'var(--colors-warning)' }}>
+                    <div className="permission-desc permission-desc-warning">
                       {permissions.shortcuts_detail}
                     </div>
                   )}
@@ -221,7 +215,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
             </div>
 
             <div className={`permission-item ${permissions?.input_emulation ? 'ready' : ''}`}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
+              <div className="permission-main">
                 <div className="permission-icon">
                   <IconTextRecognition size={20} />
                 </div>
@@ -230,7 +224,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                   <div className="permission-desc">Required to type into other apps</div>
                 </div>
               </div>
-              <div className="permission-status" style={{ marginLeft: 'auto' }}>
+              <div className="permission-status">
                 {permissions?.input_emulation ? (
                   <IconCheck color="var(--colors-success)" size={20} />
                 ) : (
@@ -240,11 +234,11 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
             </div>
 
             <div className={`permission-item ${isLocalModelReady ? 'ready' : ''}`}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', textAlign: 'left', flex: 1 }}>
+              <div className="permission-main permission-main-top">
                 <div className="permission-icon">
                   <IconRocket size={20} />
                 </div>
-                <div className="permission-info" style={{ width: '100%' }}>
+                <div className="permission-info permission-info-wide">
                   <div className="permission-title">Transcription Backend</div>
                   <div className="permission-desc">
                     {config.transcription_mode === 'Local'
@@ -259,6 +253,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                       modelStatus={modelStatus}
                       isDownloading={isDownloading}
                       downloadProgress={downloadProgress}
+                      actionButtonSize="sm"
                       onChangeModel={(size) => {
                         onTouchSetup();
                         onChangeConfig('local_model_size', size);
@@ -276,17 +271,17 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                   )}
                 </div>
               </div>
-              <div className="permission-status" style={{ marginLeft: 'auto' }}>
+              <div className="permission-status">
                 {isLocalModelReady && <IconCheck color="var(--colors-success)" size={20} />}
               </div>
             </div>
 
             <div className={`permission-item ${isAudioDeviceReady ? 'ready' : ''}`}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
+              <div className="permission-main">
                 <div className="permission-icon">
                   <IconMicrophone size={20} />
                 </div>
-                <div className="permission-info" style={{ width: '100%', paddingRight: '10px' }}>
+                <div className="permission-info permission-info-wide permission-info-padded">
                   <div className="permission-title">Audio Device</div>
                   <div className="permission-desc">Select the microphone Voquill should use.</div>
                   <select
@@ -295,17 +290,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                       onTouchSetup();
                       onChangeConfig('audio_device', (event.target as HTMLSelectElement).value);
                     }}
-                    style={{
-                      marginTop: '6px',
-                      width: '100%',
-                      maxWidth: '240px',
-                      padding: '6px 8px',
-                      fontSize: '12px',
-                      backgroundColor: 'var(--colors-surface-active)',
-                      border: '1px solid var(--colors-border)',
-                      borderRadius: '4px',
-                      color: 'var(--colors-text)',
-                    }}
+                    className="setup-audio-select"
                   >
                     <option value="default">Default microphone</option>
                     {availableMics.map((mic) => (
@@ -314,7 +299,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                   </select>
                 </div>
               </div>
-              <div className="permission-status" style={{ marginLeft: 'auto' }}>
+              <div className="permission-status">
                 {isAudioDeviceReady ? (
                   <IconCheck color="var(--colors-success)" size={20} />
                 ) : (
@@ -331,16 +316,17 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
             <div className="setup-section-label setup-section-recommended">Recommended</div>
 
             <div className={`permission-item ${micTestPassed ? 'ready' : ''}`}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', textAlign: 'left', flex: 1 }}>
+              <div className="permission-main permission-main-top">
                 <div className="permission-icon">
                   <IconInfoCircle size={20} />
                 </div>
-                <div className="permission-info" style={{ width: '100%' }}>
+                <div className="permission-info permission-info-wide">
                   <div className="permission-title">Mic Test (Recommended)</div>
                   <div className="permission-desc">Record a short sample and play it back to verify your setup.</div>
                   <MicSetupPanel
                     compact
                     inputSensitivity={config.input_sensitivity}
+                    actionButtonSize="sm"
                     onInputSensitivityChange={(value) => onChangeConfig('input_sensitivity', value)}
                     micTestStatus={micTestStatus}
                     micVolume={micVolume}
@@ -362,15 +348,13 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
         </div>
 
         <div className="setup-actions setup-button-container">
-          <div style={{ width: '100%', display: 'flex', gap: '8px', marginTop: '10px' }}>
-            <Button variant="ghost" onClick={onRefreshStatus} size="sm" className="setup-button" style={{ flex: 1 }}>
-              Refresh Status
+          <div className="setup-actions-row">
+            <Button variant="ghost" onClick={onRefreshStatus} className="setup-refresh-button" title="Refresh Status">
+              <IconRefresh size={16} />
             </Button>
             <Button
-              variant="primary"
-              size="sm"
-              className="setup-button"
-              style={{ flex: 1 }}
+              variant="configAction"
+              className="setup-finish-button"
               disabled={!isAllReady}
               onClick={onFinishSetup}
             >
@@ -379,7 +363,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
           </div>
 
           {!isAllReady && setupTouched && (
-            <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--colors-text-muted)' }}>
+            <div className="setup-actions-note">
               Complete all required items to finish setup.
             </div>
           )}
