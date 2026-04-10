@@ -1,4 +1,5 @@
 pub mod env;
+pub mod input;
 pub mod overlay;
 pub mod permissions;
 pub mod portal;
@@ -21,19 +22,20 @@ impl WaylandBackend {
 
 #[async_trait]
 impl InputSimulation for WaylandBackend {
-    fn type_text_hardware(
+    async fn type_text_hardware(
         &self,
+        app_handle: &tauri::AppHandle,
         text: &str,
         typing_speed_interval: f64,
         key_press_duration_ms: u64,
-        virtual_keyboard: std::sync::Arc<std::sync::Mutex<Option<crate::VirtualKeyboardHandle>>>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        crate::typing::type_text_hardware(
+    ) -> Result<(), String> {
+        input::type_text_hardware(
+            app_handle,
             text,
             typing_speed_interval,
             key_press_duration_ms,
-            virtual_keyboard,
         )
+        .await
     }
 }
 

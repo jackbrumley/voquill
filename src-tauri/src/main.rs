@@ -113,10 +113,10 @@ pub mod platform;
 mod transcription;
 mod typing;
 
-use config::{Config, TranscriptionMode};
-use hotkey::HardwareHotkey;
 #[cfg(target_os = "linux")]
 use ashpd::{register_host_app, AppID};
+use config::{Config, TranscriptionMode};
+use hotkey::HardwareHotkey;
 #[cfg(target_os = "linux")]
 use platform::linux::detection::is_wayland_session;
 #[cfg(target_os = "linux")]
@@ -126,13 +126,6 @@ use platform::linux::wayland::portal::capabilities::{
     detect_global_shortcuts_capabilities, PortalDiagnostics,
 };
 use platform::permissions::LinuxPermissions;
-
-#[cfg(target_os = "linux")]
-// Application state
-#[cfg(target_os = "linux")]
-pub type VirtualKeyboardHandle = evdev::uinput::VirtualDevice;
-#[cfg(not(target_os = "linux"))]
-pub type VirtualKeyboardHandle = ();
 
 pub struct AppState {
     pub config: Arc<Mutex<Config>>,
@@ -144,12 +137,18 @@ pub struct AppState {
     pub setup_status: Arc<Mutex<Option<String>>>,
     pub hardware_hotkey: Arc<Mutex<HardwareHotkey>>,
     pub cached_device: Arc<Mutex<Option<cpal::Device>>>,
-    pub virtual_keyboard: Arc<Mutex<Option<VirtualKeyboardHandle>>>,
     pub playback_stream: Arc<Mutex<Option<cpal::Stream>>>,
     pub mic_test_samples: Arc<Mutex<Vec<f32>>>,
     pub audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
     #[cfg(target_os = "linux")]
     pub hotkey_engine_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
+    #[cfg(target_os = "linux")]
+    pub wayland_input_sender:
+        Arc<Mutex<Option<platform::linux::wayland::input::WaylandTypeSender>>>,
+    #[cfg(target_os = "linux")]
+    pub wayland_input_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
+    #[cfg(target_os = "linux")]
+    pub wayland_input_ready: Arc<Mutex<bool>>,
     pub display_backend: Arc<dyn platform::traits::DisplayBackend>,
 }
 
@@ -184,12 +183,17 @@ impl Default for AppState {
             setup_status: Arc::new(Mutex::new(None)),
             hardware_hotkey: Arc::new(Mutex::new(HardwareHotkey::default())),
             cached_device: Arc::new(Mutex::new(None)),
-            virtual_keyboard: Arc::new(Mutex::new(None)),
             playback_stream: Arc::new(Mutex::new(None)),
             mic_test_samples: Arc::new(Mutex::new(Vec::new())),
             audio_engine: Arc::new(Mutex::new(None)),
             #[cfg(target_os = "linux")]
             hotkey_engine_cancel: Arc::new(Mutex::new(None)),
+            #[cfg(target_os = "linux")]
+            wayland_input_sender: Arc::new(Mutex::new(None)),
+            #[cfg(target_os = "linux")]
+            wayland_input_cancel: Arc::new(Mutex::new(None)),
+            #[cfg(target_os = "linux")]
+            wayland_input_ready: Arc::new(Mutex::new(false)),
             display_backend: platform::initialize(),
         }
     }
@@ -276,6 +280,11 @@ async fn get_linux_setup_status(
         permissions.shortcuts_status = "bound".to_string();
         permissions.shortcuts_detail = binding_state.detail;
     }
+    #[cfg(target_os = "linux")]
+    if is_wayland_session() {
+        let input_ready = *state.wayland_input_ready.lock().unwrap();
+        permissions.input_emulation = input_ready;
+    }
     log_info!(
         "🧭 Setup readiness: audio={}, shortcuts={} (status={}), input_emulation={}, runtime_hotkey_bound={}, runtime_hotkey_listening={}",
         permissions.audio,
@@ -317,60 +326,24 @@ async fn request_audio_permission() -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn request_input_permission(state: tauri::State<'_, AppState>) -> Result<(), String> {
+async fn request_input_permission(
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
     log_info!("📡 Tauri Command: request_input_permission invoked");
     #[cfg(target_os = "linux")]
     {
         if is_wayland_session() {
-            use ashpd::desktop::remote_desktop::{DeviceType, RemoteDesktop};
-            use ashpd::desktop::PersistMode;
-
-            // Implicit mapping
-
-            let remote_desktop = RemoteDesktop::new()
-                .await
-                .map_err(|e| format!("Remote Desktop Portal not available: {}", e))?;
-            let rd_session = remote_desktop
-                .create_session()
-                .await
-                .map_err(|e| format!("Failed to create remote desktop session: {}", e))?;
-
-            let select_request = remote_desktop
-                .select_devices(
-                    &rd_session,
-                    DeviceType::Keyboard.into(),
-                    None,
-                    PersistMode::DoNot,
-                )
-                .await
-                .map_err(|e| format!("Failed to select devices: {}", e))?;
-            select_request
-                .response()
-                .map_err(|e| format!("Device selection cancelled: {}", e))?;
-
-            let start_request = remote_desktop
-                .start(&rd_session, None)
-                .await
-                .map_err(|e| format!("Failed to start remote desktop session: {}", e))?;
-            let selected_devices = start_request
-                .response()
-                .map_err(|e| format!("Input emulation request cancelled or denied: {}", e))?;
-
-            let i_token = selected_devices
-                .restore_token()
-                .map(|t| t.to_string())
-                .or(Some("session".to_string()));
-
-            {
-                let mut config = state.config.lock().unwrap();
-                config.input_token = i_token;
-                let _ = crate::config::save_config(&config);
-            }
+            platform::linux::wayland::input::establish_input_session(&app_handle, true).await?;
+        } else {
+            let _ = state;
         }
         return Ok(());
     }
     #[cfg(not(target_os = "linux"))]
     {
+        let _ = state;
+        let _ = app_handle;
         Ok(())
     }
 }
@@ -523,11 +496,9 @@ async fn is_status_notifier_watcher_available() -> bool {
         }
     };
 
-    match proxy.name_has_owner(kde_watcher).await
-    {
+    match proxy.name_has_owner(kde_watcher).await {
         Ok(true) => true,
-        Ok(false) => match proxy.name_has_owner(freedesktop_watcher).await
-        {
+        Ok(false) => match proxy.name_has_owner(freedesktop_watcher).await {
             Ok(value) => value,
             Err(error) => {
                 log_warn!("Failed to check freedesktop tray watcher: {}", error);
@@ -610,7 +581,6 @@ async fn start_recording(
     let config = state.config.clone();
     let app_handle_clone = app_handle.clone();
     let audio_engine = state.audio_engine.clone();
-    let virtual_keyboard = state.virtual_keyboard.clone();
 
     // Ensure engine is initialized
     {
@@ -630,14 +600,8 @@ async fn start_recording(
 
     tokio::spawn(async move {
         emit_status_update("Recording").await;
-        let result = record_and_transcribe(
-            config,
-            is_recording_clone,
-            app_handle_clone,
-            audio_engine,
-            virtual_keyboard,
-        )
-        .await;
+        let result =
+            record_and_transcribe(config, is_recording_clone, app_handle_clone, audio_engine).await;
 
         if let Err(e) = result {
             log_info!("❌ Global Recording error: {}", e);
@@ -1133,7 +1097,6 @@ async fn record_and_transcribe(
     is_recording: Arc<Mutex<bool>>,
     app_handle: AppHandle,
     audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
-    virtual_keyboard: Arc<Mutex<Option<VirtualKeyboardHandle>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let reset_status_on_exit = || async {
         emit_status_to_frontend("Ready").await;
@@ -1285,12 +1248,11 @@ async fn record_and_transcribe(
                 }
                 log_info!("⌨️  Forwarding text to hardware typing engine...");
                 let state = app_handle.state::<AppState>();
-                if let Err(e) = state.display_backend.type_text_hardware(
-                    &text,
-                    typing_speed,
-                    hold_duration,
-                    virtual_keyboard,
-                ) {
+                if let Err(e) = state
+                    .display_backend
+                    .type_text_hardware(&app_handle, &text, typing_speed, hold_duration)
+                    .await
+                {
                     log_info!("❌ TYPING ENGINE ERROR: {}", e);
                 }
             }
@@ -1430,46 +1392,6 @@ fn main() {
             }
             let _ = audio::get_input_devices();
 
-            #[cfg(target_os = "linux")]
-            {
-                let state = app.state::<AppState>();
-                let virtual_keyboard = state.virtual_keyboard.clone();
-                std::thread::spawn(move || {
-                    use evdev::uinput::VirtualDevice;
-                    use evdev::{AttributeSet, KeyCode, InputId, BusType};
-                    log_info!("🔄 Starting virtual hardware keyboard initialization...");
-
-                    let mut keys = AttributeSet::<KeyCode>::new();
-                    for i in 0..564 {
-                        keys.insert(KeyCode::new(i as u16));
-                    }
-
-                    let input_id = InputId::new(BusType::BUS_USB, 0x6666, 0x8888, 0x0111);
-
-                    match VirtualDevice::builder()
-                        .map_err(|e| e.to_string())
-                        .and_then(|b| b.name("Voquill Virtual Keyboard")
-                                     .input_id(input_id)
-                                     .with_keys(&keys)
-                                     .map_err(|e| e.to_string()))
-                        .and_then(|b| b.build().map_err(|e| e.to_string()))
-                    {
-                        Ok(mut device) => {
-                            if let Ok(path) = device.get_syspath() {
-                                log_info!("✅ Virtual hardware keyboard initialized at: {}", path.display());
-                            } else {
-                                log_info!("✅ Virtual hardware keyboard initialized");
-                            }
-                            let mut lock = virtual_keyboard.lock().unwrap();
-                            *lock = Some(device);
-                        },
-                        Err(e) => {
-                            log_info!("❌ Virtual keyboard initialization failed: {}. Input emulation may not work.", e);
-                        }
-                    }
-                });
-            }
-
             let menu = create_tray_menu(app.handle())?;
             let _tray = TrayIconBuilder::with_id("main-tray")
                 .menu(&menu)
@@ -1512,7 +1434,17 @@ fn main() {
 
             #[cfg(target_os = "linux")]
             {
-                // No automatic setup anymore
+                if is_wayland_session() {
+                    let app_handle = app.handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(error) =
+                            platform::linux::wayland::input::establish_input_session(&app_handle, false)
+                                .await
+                        {
+                            log_warn!("Wayland input session restore failed: {}", error);
+                        }
+                    });
+                }
             }
 
             Ok(())

@@ -430,7 +430,7 @@ function App() {
 
   const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await invoke('plugin:clipboard-manager|write_text', { text });
       showToast('Copied to clipboard', 'success');
     } catch (error) {
       showToast('Failed to copy', 'error');
@@ -564,7 +564,7 @@ function App() {
 
   const handleToastClick = async (toast: Toast) => {
     try {
-      await navigator.clipboard.writeText(toast.message);
+      await invoke('plugin:clipboard-manager|write_text', { text: toast.message });
     } catch (error) {
       console.error('Failed to copy toast message:', error);
     } finally {
@@ -575,7 +575,7 @@ function App() {
   const copySessionLogs = async () => {
     try {
       const logs = await invoke<string>('get_session_log_text');
-      await navigator.clipboard.writeText(logs);
+      await invoke('plugin:clipboard-manager|write_text', { text: logs });
       showToast('Session logs copied to clipboard.', 'success');
     } catch (error) {
       showToast(`Failed to copy session logs: ${error}`, 'error');

@@ -20,14 +20,15 @@ impl X11Backend {
 
 #[async_trait]
 impl InputSimulation for X11Backend {
-    fn type_text_hardware(
+    async fn type_text_hardware(
         &self,
+        _app_handle: &tauri::AppHandle,
         text: &str,
         typing_speed_interval: f64,
         key_press_duration_ms: u64,
-        _virtual_keyboard: std::sync::Arc<std::sync::Mutex<Option<crate::VirtualKeyboardHandle>>>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(), String> {
         input::type_text_hardware(text, typing_speed_interval, key_press_duration_ms)
+            .map_err(|error| error.to_string())
     }
 }
 
