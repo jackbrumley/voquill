@@ -1,10 +1,11 @@
-import { IconInfoCircle, IconRefresh, IconRocket } from '@tabler/icons-preact';
+import { IconRefresh, IconRocket } from '@tabler/icons-preact';
 import { ConfigField } from '../components/ConfigField.tsx';
 import { Switch } from '../components/Switch.tsx';
 import { CollapsibleSection } from '../components/CollapsibleSection.tsx';
 import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
 import { Button } from '../components/Button.tsx';
 import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
+import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
 
 interface AudioDevice {
   id: string;
@@ -154,48 +155,19 @@ export function ConfigPage(props: ConfigPageProps) {
               </ConfigField>
 
               <ConfigField label="Local Model" description="Choose the Whisper model size. Distil-Small is recommended for most users.">
-                <div className="select-wrapper">
-                  {availableModels.length > 0 ? (
-                    <>
-                      <select value={config.local_model_size} onChange={(e: Event) => updateConfig('local_model_size', (e.target as HTMLSelectElement).value)}>
-                        {availableModels
-                          .filter((m) => m.engine === config.local_engine)
-                          .map((m) => (
-                            <option key={m.size} value={m.size}>
-                              {m.label} {m.recommended ? '(Recommended)' : ''} ({Math.round(m.file_size / 1024 / 1024)}MB)
-                            </option>
-                          ))}
-                      </select>
-                      <Button variant="ghost" className="icon-button" onClick={() => setShowModelGuide(true)} title="Model Guide">
-                        <IconInfoCircle size={20} />
-                      </Button>
-                      {!modelStatus[config.local_model_size] && (
-                        <Button size="sm" onClick={() => downloadModel(config.local_model_size)} disabled={isDownloading}>
-                          {isDownloading ? '...' : 'Download'}
-                        </Button>
-                      )}
-                    </>
-                  ) : (
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
-                      <div style={{ fontSize: '12px', color: 'var(--color-text-dim)', flex: 1 }}>Loading models...</div>
-                      <Button size="sm" onClick={loadModels}>Retry</Button>
-                    </div>
-                  )}
-                </div>
-                {availableModels.length > 0 && (
-                  <div className="mode-description" style={{ textAlign: 'left', marginTop: '4px' }}>
-                    {availableModels.find((m) => m.size === config.local_model_size)?.description}
-                  </div>
-                )}
+                <ModelSelectionPanel
+                  availableModels={availableModels}
+                  localEngine={config.local_engine}
+                  localModelSize={config.local_model_size}
+                  modelStatus={modelStatus}
+                  isDownloading={isDownloading}
+                  downloadProgress={downloadProgress}
+                  onChangeModel={(size) => updateConfig('local_model_size', size)}
+                  onShowModelGuide={() => setShowModelGuide(true)}
+                  onDownloadModel={downloadModel}
+                  onRetryModels={loadModels}
+                />
               </ConfigField>
-              {isDownloading && (
-                <div className="download-progress-container" style={{ marginTop: '-8px', marginBottom: '16px' }}>
-                  <div className="volume-meter-container" style={{ height: '4px' }}>
-                    <div className="volume-meter-bar" style={{ width: `${Math.min(downloadProgress, 100)}%`, background: 'var(--colors-accent-primary)' }}></div>
-                  </div>
-                  <div style={{ fontSize: '10px', color: 'var(--color-text-dim)', textAlign: 'right', marginTop: '2px' }}>Downloading model... {Math.round(downloadProgress)}%</div>
-                </div>
-              )}
             </>
           )}
 

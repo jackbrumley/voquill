@@ -12,6 +12,7 @@ import { ConfigField } from './components/ConfigField.tsx';
 import { ActionFooter } from './components/ActionFooter.tsx';
 import { ModelInfoModal } from './components/ModelInfoModal.tsx';
 import { MicSetupPanel } from './components/MicSetupPanel.tsx';
+import { ModelSelectionPanel } from './components/ModelSelectionPanel.tsx';
 import { StatusPage } from './pages/StatusPage.tsx';
 import { ConfigPage } from './pages/ConfigPage.tsx';
 import { HistoryPage } from './pages/HistoryPage.tsx';
@@ -118,7 +119,7 @@ function App() {
   const [micTestStatus, setMicTestStatus] = useState<'idle' | 'recording' | 'playing' | 'processing'>('idle');
   const [micVolume, setMicVolume] = useState<number>(0);
   const [micTestPassed, setMicTestPassed] = useState(false);
-  const [activeConfigSection, setActiveConfigSection] = useState<string | null>('basic');
+  const [activeConfigSection, setActiveConfigSection] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState<string>('');
   const [availableEngines, setAvailableEngines] = useState<string[]>([]);
   const [availableModels, setAvailableModels] = useState<any[]>([]);
@@ -135,6 +136,8 @@ function App() {
   const [hotkeyBindingState, setHotkeyBindingState] = useState<HotkeyBindingState | null>(null);
   const [showHotkeyCaptureModal, setShowHotkeyCaptureModal] = useState(false);
   const [isApplyingHotkey, setIsApplyingHotkey] = useState(false);
+  const [showInitialSetup, setShowInitialSetup] = useState(true);
+  const [setupTouched, setSetupTouched] = useState(false);
   const tabContentRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -283,6 +286,7 @@ function App() {
   };
 
   const handleAudioSetup = async () => {
+    setSetupTouched(true);
     try {
       await invoke('request_audio_permission');
       showToast('Audio permission granted!', 'success');
@@ -293,6 +297,7 @@ function App() {
   };
 
   const handleInputSetup = async () => {
+    setSetupTouched(true);
     try {
       await invoke('request_input_permission');
       showToast('Input permission granted!', 'success');
@@ -304,6 +309,7 @@ function App() {
 
   const handleConfigureHotkey = async () => {
     if (isApplyingHotkey) return;
+    setSetupTouched(true);
 
     try {
       setIsApplyingHotkey(true);
@@ -398,6 +404,7 @@ function App() {
 
   const downloadModel = async (size: string) => {
     logUI(`🖱️ Button clicked: Download Model (${size})`);
+    setSetupTouched(true);
     setIsDownloading(true);
     setDownloadProgress(0);
     try {
@@ -651,6 +658,12 @@ function App() {
 
   const isAllReady = isPortalSetupReady && isAudioDeviceReady && isLocalModelReady;
 
+  useEffect(() => {
+    if (permissions && isAllReady && !setupTouched) {
+      setShowInitialSetup(false);
+    }
+  }, [permissions, isAllReady, setupTouched]);
+
   const handleTitleBarMouseDown = async (e: any) => {
     if (e.buttons === 1 && !e.target.closest('button')) {
       await getCurrentWindow().startDragging();
@@ -667,7 +680,7 @@ function App() {
         </div>
       </div>
 
-      {!isAllReady ? (
+      {showInitialSetup ? (
         <div className="setup-required-shell">
           <Card className="setup-required-card">
             <div className="setup-header">
@@ -773,32 +786,44 @@ function App() {
 
                 {/* Transcription Backend Readiness */}
                 <div className={`permission-item ${isLocalModelReady ? 'ready' : ''}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', textAlign: 'left', flex: 1 }}>
                     <div className="permission-icon">
                       <IconRocket size={20} />
                     </div>
-                    <div className="permission-info">
+                    <div className="permission-info" style={{ width: '100%' }}>
                       <div className="permission-title">Transcription Backend</div>
                       <div className="permission-desc">
                         {config.transcription_mode === 'Local'
                           ? `Model ${config.local_model_size} is required for local transcription.`
                           : 'API mode selected.'}
                       </div>
+                      {config.transcription_mode === 'Local' && (
+                        <ModelSelectionPanel
+                          availableModels={availableModels}
+                          localEngine={config.local_engine}
+                          localModelSize={config.local_model_size}
+                          modelStatus={modelStatus}
+                          isDownloading={isDownloading}
+                          downloadProgress={downloadProgress}
+                          onChangeModel={(size) => {
+                            setSetupTouched(true);
+                            updateConfig('local_model_size', size);
+                          }}
+                          onShowModelGuide={() => setShowModelGuide(true)}
+                          onDownloadModel={(size) => {
+                            setSetupTouched(true);
+                            void downloadModel(size);
+                          }}
+                          onRetryModels={() => {
+                            setSetupTouched(true);
+                            void loadModels();
+                          }}
+                        />
+                      )}
                     </div>
                   </div>
                   <div className="permission-status" style={{ marginLeft: 'auto' }}>
-                    {isLocalModelReady ? (
-                      <IconCheck color="var(--colors-success)" size={20} />
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => void downloadModel(config.local_model_size)}
-                        disabled={isDownloading}
-                      >
-                        {isDownloading ? `Downloading ${Math.round(downloadProgress)}%` : 'Download Model'}
-                      </Button>
-                    )}
+                    {isLocalModelReady && <IconCheck color="var(--colors-success)" size={20} />}
                   </div>
                 </div>
 
@@ -813,7 +838,10 @@ function App() {
                       <div className="permission-desc">Select the microphone Voquill should use.</div>
                       <select
                         value={config.audio_device || 'default'}
-                        onChange={(e) => updateConfig('audio_device', (e.target as HTMLSelectElement).value)}
+                        onChange={(e) => {
+                          setSetupTouched(true);
+                          updateConfig('audio_device', (e.target as HTMLSelectElement).value);
+                        }}
                         style={{
                           marginTop: '6px',
                           width: '100%',
@@ -837,7 +865,10 @@ function App() {
                     {isAudioDeviceReady ? (
                       <IconCheck color="var(--colors-success)" size={20} />
                     ) : (
-                      <Button variant="ghost" size="sm" onClick={loadMics}>Refresh</Button>
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        setSetupTouched(true);
+                        void loadMics();
+                      }}>Refresh</Button>
                     )}
                   </div>
                 </div>
@@ -877,15 +908,27 @@ function App() {
             </div>
 
             <div className="setup-actions setup-button-container">
-              <Button 
-                variant="ghost" 
-                onClick={checkSetupStatus} 
-                size="sm"
-                className="setup-button"
-                style={{ width: '100%', marginTop: '10px' }}
-              >
-                Refresh Status
-              </Button>
+              <div style={{ width: '100%', display: 'flex', gap: '8px', marginTop: '10px' }}>
+                <Button
+                  variant="ghost"
+                  onClick={checkSetupStatus}
+                  size="sm"
+                  className="setup-button"
+                  style={{ flex: 1 }}
+                >
+                  Refresh Status
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="setup-button"
+                  style={{ flex: 1 }}
+                  disabled={!isAllReady}
+                  onClick={() => setShowInitialSetup(false)}
+                >
+                  Finish Setup
+                </Button>
+              </div>
             </div>
           </Card>
         </div>
