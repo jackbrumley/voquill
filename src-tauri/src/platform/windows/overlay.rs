@@ -1,4 +1,3 @@
-use crate::log_info;
 use tauri::WebviewWindow;
 
 pub fn apply_overlay_hints(window: &WebviewWindow) {

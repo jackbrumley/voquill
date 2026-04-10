@@ -127,6 +127,18 @@ use platform::linux::wayland::portal::capabilities::{
 };
 use platform::permissions::LinuxPermissions;
 
+#[cfg(not(target_os = "linux"))]
+#[derive(Clone, Debug, Serialize)]
+pub struct PortalDiagnostics {
+    pub available: bool,
+    pub version: u32,
+    pub supports_configure_shortcuts: bool,
+    pub has_record_shortcut: bool,
+    pub active_trigger: Option<String>,
+    pub status: String,
+    pub detail: Option<String>,
+}
+
 pub struct AppState {
     pub config: Arc<Mutex<Config>>,
     pub is_recording: Arc<Mutex<bool>>,
@@ -439,35 +451,42 @@ async fn apply_hotkey_registration(
     }
 }
 
+#[cfg(target_os = "linux")]
 #[tauri::command]
 async fn configure_hotkey(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<ConfigureHotkeyResult, String> {
-    #[cfg(target_os = "linux")]
-    {
-        if is_wayland_session() {
-            let capabilities = detect_global_shortcuts_capabilities().await?;
-            if capabilities.supports_configure_shortcuts {
-                let hotkey = {
-                    let config = state.config.lock().unwrap();
-                    config.hotkey.clone()
-                };
+    if is_wayland_session() {
+        let capabilities = detect_global_shortcuts_capabilities().await?;
+        if capabilities.supports_configure_shortcuts {
+            let hotkey = {
+                let config = state.config.lock().unwrap();
+                config.hotkey.clone()
+            };
 
-                apply_hotkey_registration(hotkey, state, app_handle).await?;
-                return Ok(ConfigureHotkeyResult {
-                    outcome: "configured".to_string(),
-                    detail: None,
-                });
-            }
-
+            apply_hotkey_registration(hotkey, state, app_handle).await?;
             return Ok(ConfigureHotkeyResult {
-                outcome: "requires_in_app_capture".to_string(),
-                detail: Some("Portal backend does not provide native shortcut picker.".to_string()),
+                outcome: "configured".to_string(),
+                detail: None,
             });
         }
+
+        return Ok(ConfigureHotkeyResult {
+            outcome: "requires_in_app_capture".to_string(),
+            detail: Some("Portal backend does not provide native shortcut picker.".to_string()),
+        });
     }
 
+    Ok(ConfigureHotkeyResult {
+        outcome: "requires_in_app_capture".to_string(),
+        detail: None,
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+#[tauri::command]
+async fn configure_hotkey() -> Result<ConfigureHotkeyResult, String> {
     Ok(ConfigureHotkeyResult {
         outcome: "requires_in_app_capture".to_string(),
         detail: None,
@@ -591,6 +610,7 @@ async fn get_audio_devices() -> Result<Vec<audio::AudioDevice>, String> {
     audio::get_input_devices()
 }
 
+#[cfg(target_os = "linux")]
 #[tauri::command]
 async fn set_configuring_hotkey(
     is_configuring: bool,
@@ -603,45 +623,54 @@ async fn set_configuring_hotkey(
     }
     log_info!("🔧 set_configuring_hotkey: {}", is_configuring);
 
-    #[cfg(target_os = "linux")]
-    {
-        if is_wayland_session() {
-            if is_configuring {
-                let cancelled = {
-                    let mut cancel_lock = state.hotkey_engine_cancel.lock().unwrap();
-                    if let Some(sender) = cancel_lock.take() {
-                        let _ = sender.send(());
-                        true
-                    } else {
-                        false
-                    }
-                };
-                if cancelled {
-                    log_info!("⏸️  Paused Wayland hotkey engine while configuring shortcut");
-                }
-            } else {
-                let should_resume = {
-                    let binding_state = state.hotkey_binding_state.lock().unwrap();
-                    !(binding_state.bound && binding_state.listening)
-                };
-
-                if should_resume {
-                    let backend = state.display_backend.clone();
-                    if let Err(error) = backend.start_engine(app_handle.clone(), false).await {
-                        log_warn!(
-                            "Failed to resume Wayland hotkey engine after configuration: {}",
-                            error
-                        );
-                    }
+    if is_wayland_session() {
+        if is_configuring {
+            let cancelled = {
+                let mut cancel_lock = state.hotkey_engine_cancel.lock().unwrap();
+                if let Some(sender) = cancel_lock.take() {
+                    let _ = sender.send(());
+                    true
                 } else {
-                    log_info!(
-                        "▶️ Wayland hotkey engine already active after capture; skipping resume"
+                    false
+                }
+            };
+            if cancelled {
+                log_info!("⏸️  Paused Wayland hotkey engine while configuring shortcut");
+            }
+        } else {
+            let should_resume = {
+                let binding_state = state.hotkey_binding_state.lock().unwrap();
+                !(binding_state.bound && binding_state.listening)
+            };
+
+            if should_resume {
+                let backend = state.display_backend.clone();
+                if let Err(error) = backend.start_engine(app_handle.clone(), false).await {
+                    log_warn!(
+                        "Failed to resume Wayland hotkey engine after configuration: {}",
+                        error
                     );
                 }
+            } else {
+                log_info!("▶️ Wayland hotkey engine already active after capture; skipping resume");
             }
         }
     }
 
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+#[tauri::command]
+async fn set_configuring_hotkey(
+    is_configuring: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    {
+        let mut config_flag = state.is_configuring_hotkey.lock().unwrap();
+        *config_flag = is_configuring;
+    }
+    log_info!("🔧 set_configuring_hotkey: {}", is_configuring);
     Ok(())
 }
 

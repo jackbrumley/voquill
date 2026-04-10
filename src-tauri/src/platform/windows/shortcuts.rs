@@ -1,3 +1,4 @@
+use tauri::Manager;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 pub async fn start_windows_hotkey_engine(app_handle: tauri::AppHandle) -> Result<(), String> {

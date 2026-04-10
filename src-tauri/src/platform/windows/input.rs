@@ -105,5 +105,5 @@ unsafe fn emit_vk(vk: VIRTUAL_KEY, is_down: bool) {
         time: 0,
         dwExtraInfo: 0,
     };
-    SendInput(&[input], std::size_of::<INPUT>() as i32);
+    SendInput(&[input], std::mem::size_of::<INPUT>() as i32);
 }
