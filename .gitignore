@@ -37,7 +37,7 @@ src-tauri/debug
 
 # Local Strategy/Temp
 temp/
+reference-systems/
 src-tauri/tauri.*-dev.json
 src-tauri/tauri.linux.conf.json
 session-ses_*.md
-
