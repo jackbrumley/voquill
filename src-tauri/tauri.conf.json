@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
-  "productName": "org.voquill.foss",
+  "productName": "Voquill",
   "version": "1.2.8",
   "identifier": "org.voquill.foss",
   "build": {
