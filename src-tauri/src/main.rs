@@ -428,25 +428,99 @@ async fn apply_hotkey_registration(
 ) -> Result<(), String> {
     log_info!("Manual hotkey registration requested for: {}", new_hotkey);
 
+    let previous_hotkey = {
+        let config = state.config.lock().unwrap();
+        config.hotkey.clone()
+    };
+
     {
         let mut config = state.config.lock().unwrap();
-        config.hotkey = new_hotkey;
-        let _ = crate::config::save_config(&config);
+        config.hotkey = new_hotkey.clone();
     }
 
     let backend = state.display_backend.clone();
     match backend.start_engine(app_handle.clone(), true).await {
         Ok(()) => {
+            let save_result = {
+                let config = state.config.lock().unwrap();
+                crate::config::save_config(&config)
+            };
+
+            let save_error = save_result.err().map(|error| error.to_string());
+            if let Some(save_error) = save_error {
+                log_warn!(
+                    "Failed to persist new hotkey '{}': {}. Restoring previous hotkey '{}'.",
+                    new_hotkey,
+                    save_error,
+                    previous_hotkey
+                );
+
+                {
+                    let mut config = state.config.lock().unwrap();
+                    config.hotkey = previous_hotkey.clone();
+                }
+
+                let restore_error = backend.start_engine(app_handle.clone(), true).await.err();
+                if let Some(error) = restore_error {
+                    set_hotkey_binding_state(
+                        &app_handle,
+                        false,
+                        false,
+                        Some(error.clone()),
+                        None,
+                    );
+                    let mut hotkey_error = state.hotkey_error.lock().unwrap();
+                    *hotkey_error = Some(error.clone());
+                    return Err(format!(
+                        "Failed to save hotkey change: {}. Also failed to restore previous hotkey: {}",
+                        save_error, error
+                    ));
+                }
+
+                set_hotkey_binding_state(&app_handle, true, true, None, None);
+                let mut hotkey_error = state.hotkey_error.lock().unwrap();
+                *hotkey_error = None;
+                return Err(format!(
+                    "Failed to save hotkey change: {}. Previous hotkey was restored.",
+                    save_error
+                ));
+            }
+
             set_hotkey_binding_state(&app_handle, true, true, None, None);
             let mut error = state.hotkey_error.lock().unwrap();
             *error = None;
             Ok(())
         }
         Err(error) => {
-            set_hotkey_binding_state(&app_handle, false, false, Some(error.clone()), None);
-            let mut hotkey_error = state.hotkey_error.lock().unwrap();
-            *hotkey_error = Some(error.clone());
-            Err(error)
+            {
+                let mut config = state.config.lock().unwrap();
+                config.hotkey = previous_hotkey.clone();
+            }
+
+            let restore_result = backend.start_engine(app_handle.clone(), true).await;
+            match restore_result {
+                Ok(()) => {
+                    set_hotkey_binding_state(&app_handle, true, true, None, None);
+                    let mut hotkey_error = state.hotkey_error.lock().unwrap();
+                    *hotkey_error = None;
+                    Err(error)
+                }
+                Err(restore_error) => {
+                    set_hotkey_binding_state(
+                        &app_handle,
+                        false,
+                        false,
+                        Some(restore_error.clone()),
+                        None,
+                    );
+                    let mut hotkey_error = state.hotkey_error.lock().unwrap();
+                    *hotkey_error = Some(restore_error.clone());
+                    Err(format!(
+                        "{} Also failed to restore previous hotkey: {}",
+                        error, restore_error
+                    ))
+                }
+            }
         }
     }
 }
