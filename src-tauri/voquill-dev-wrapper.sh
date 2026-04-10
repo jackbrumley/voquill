@@ -3,9 +3,9 @@
 # This script sets the Wayland app_id BEFORE launching the binary
 # to ensure KDE Plasma's GlobalShortcuts portal correctly attributes the app.
 
-export WAYLAND_APP_ID="com.voquill.voquill"
+export WAYLAND_APP_ID="org.voquill.foss"
 export GDK_BACKEND="wayland"
-export DESKTOP_ENTRY="com.voquill.voquill"
+export DESKTOP_ENTRY="org.voquill.foss"
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,9 +31,9 @@ else
 fi
 
 # Launch via systemd-run to break the terminal process tree link
-# This ensures KDE sees the app_id as "com.voquill.voquill" instead of "org.kde.konsole"
-exec systemd-run --user --scope --unit=voquill-dev \
-    --setenv=WAYLAND_APP_ID="com.voquill.voquill" \
+# This ensures KDE sees the app_id as "org.voquill.foss" instead of "org.kde.konsole"
+exec systemd-run --user --scope --unit=foss-voquill-dev \
+    --setenv=WAYLAND_APP_ID="org.voquill.foss" \
     --setenv=GDK_BACKEND="wayland" \
-    --setenv=DESKTOP_ENTRY="com.voquill.voquill" \
+    --setenv=DESKTOP_ENTRY="org.voquill.foss" \
     "$TARGET_BIN" "$@"

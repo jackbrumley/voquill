@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
-  "productName": "Voquill",
+  "productName": "org.voquill.foss",
   "version": "1.2.6",
-  "identifier": "com.voquill.voquill",
+  "identifier": "org.voquill.foss",
   "build": {
     "beforeBuildCommand": "deno task build:ui",
     "beforeDevCommand": "deno task dev:ui",
@@ -10,6 +10,7 @@
     "devUrl": "http://localhost:1420"
   },
   "app": {
+    "enableGTKAppId": true,
     "windows": [
       {
         "label": "main",
@@ -74,20 +75,28 @@
     },
     "linux": {
       "deb": {
+        "desktopTemplate": "packaging/org.voquill.foss.desktop.hbs",
         "depends": [
           "libgtk-layer-shell0",
           "webkit2gtk-4.1",
           "libpulse0",
           "libappindicator3-1"
-        ]
+        ],
+        "files": {
+          "/usr/share/metainfo/org.voquill.foss.metainfo.xml": "org.voquill.foss.metainfo.xml"
+        }
       },
       "rpm": {
+        "desktopTemplate": "packaging/org.voquill.foss.desktop.hbs",
         "depends": [
           "gtk-layer-shell",
           "webkit2gtk4.1",
           "pulseaudio-libs",
           "libappindicator-gtk3"
-        ]
+        ],
+        "files": {
+          "/usr/share/metainfo/org.voquill.foss.metainfo.xml": "org.voquill.foss.metainfo.xml"
+        }
       },
       "appimage": {
         "bundleMediaFramework": false

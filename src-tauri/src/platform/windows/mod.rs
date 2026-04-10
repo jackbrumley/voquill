@@ -4,8 +4,8 @@ pub mod permissions;
 pub mod shortcuts;
 
 use async_trait::async_trait;
-use tauri::WebviewWindow;
 use std::sync::Arc;
+use tauri::WebviewWindow;
 
 use crate::platform::traits::{
     DisplayBackend, GlobalShortcutEngine, InputSimulation, PermissionManager, WindowManagement,
@@ -39,8 +39,7 @@ impl InputSimulation for WindowsBackend {
 #[async_trait]
 impl GlobalShortcutEngine for WindowsBackend {
     async fn start_engine(&self, app_handle: tauri::AppHandle, _force: bool) -> Result<(), String> {
-        shortcuts::start_windows_hotkey_engine(app_handle).await;
-        Ok(())
+        shortcuts::start_windows_hotkey_engine(app_handle).await
     }
 }
 
@@ -50,7 +49,10 @@ impl PermissionManager for WindowsBackend {
         Ok(())
     }
 
-    async fn check_permissions(&self, _config: &crate::config::Config) -> crate::platform::permissions::LinuxPermissions {
+    async fn check_permissions(
+        &self,
+        _config: &crate::config::Config,
+    ) -> crate::platform::permissions::LinuxPermissions {
         permissions::check_windows_permissions().await
     }
 }
@@ -61,7 +63,11 @@ impl WindowManagement for WindowsBackend {
         overlay::apply_overlay_hints(window);
     }
 
-    fn position_overlay_window(&self, window: &WebviewWindow, pixels_from_bottom: i32) -> Result<(), String> {
+    fn position_overlay_window(
+        &self,
+        window: &WebviewWindow,
+        pixels_from_bottom: i32,
+    ) -> Result<(), String> {
         overlay::position_overlay_window(window, pixels_from_bottom)
     }
 }

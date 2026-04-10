@@ -1,6 +1,6 @@
-use std::path::PathBuf;
-use serde::Serialize;
 use dirs;
+use serde::Serialize;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ModelInfo {
@@ -22,16 +22,16 @@ impl ModelManager {
     pub fn new() -> Result<Self, String> {
         let models_dir = dirs::config_dir()
             .ok_or("Could not find config directory")?
-            .join("voquill")
+            .join("foss-voquill")
             .join("models");
-        
+
         if !models_dir.exists() {
             std::fs::create_dir_all(&models_dir).map_err(|e| e.to_string())?;
         }
-        
+
         Ok(Self { models_dir })
     }
-    
+
     pub fn get_available_models() -> Vec<ModelInfo> {
         vec![
             ModelInfo {
@@ -96,11 +96,11 @@ impl ModelManager {
         engines.dedup();
         engines
     }
-    
+
     pub fn get_model_path(&self, model_size: &str) -> PathBuf {
         self.models_dir.join(format!("ggml-{}.bin", model_size))
     }
-    
+
     pub fn is_model_downloaded(&self, model_size: &str) -> bool {
         self.get_model_path(model_size).exists()
     }
@@ -109,36 +109,40 @@ impl ModelManager {
         &self,
         model_size: &str,
         progress_callback: F,
-    ) -> Result<PathBuf, String> 
-    where 
-        F: Fn(f64) + Send + 'static
+    ) -> Result<PathBuf, String>
+    where
+        F: Fn(f64) + Send + 'static,
     {
         let models = Self::get_available_models();
-        let model_info = models.iter()
+        let model_info = models
+            .iter()
             .find(|m| m.size == model_size)
             .ok_or_else(|| format!("Model size {} not found", model_size))?;
-        
+
         let path = self.get_model_path(model_size);
-        
+
         let client = reqwest::Client::new();
-        let mut response = client.get(&model_info.download_url)
+        let mut response = client
+            .get(&model_info.download_url)
             .send()
             .await
             .map_err(|e| e.to_string())?;
-        
+
         let total_size = response.content_length().unwrap_or(model_info.file_size);
         let mut downloaded: u64 = 0;
         let mut last_reported_progress: f64 = -1.0;
-        
-        let mut file = tokio::fs::File::create(&path).await.map_err(|e| e.to_string())?;
-        
+
+        let mut file = tokio::fs::File::create(&path)
+            .await
+            .map_err(|e| e.to_string())?;
+
         use tokio::io::AsyncWriteExt;
         while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
             file.write_all(&chunk).await.map_err(|e| e.to_string())?;
             downloaded += chunk.len() as u64;
-            
+
             let progress = (downloaded as f64 / total_size as f64) * 100.0;
-            
+
             // Only report progress if it has increased by at least 0.5%
             // to prevent saturating the Tauri IPC bridge and freezing the UI
             if progress - last_reported_progress >= 0.5 || progress >= 100.0 {
@@ -146,9 +150,8 @@ impl ModelManager {
                 last_reported_progress = progress;
             }
         }
-        
+
         file.flush().await.map_err(|e| e.to_string())?;
         Ok(path)
-
     }
 }

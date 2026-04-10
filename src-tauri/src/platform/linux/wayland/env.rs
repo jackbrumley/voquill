@@ -1,8 +1,8 @@
 pub fn enforce_wayland() {
     // CRITICAL: Set app identity BEFORE any GTK/Portal operations
     // This must happen at the very start so all D-Bus calls are signed with the correct app_id
-    std::env::set_var("WAYLAND_APP_ID", "com.voquill.voquill");
-    gtk::glib::set_prgname(Some("com.voquill.voquill"));
+    std::env::set_var("WAYLAND_APP_ID", "org.voquill.foss");
+    gtk::glib::set_prgname(Some("org.voquill.foss"));
     gtk::glib::set_application_name("Voquill Dev");
 
     // Fix for WebKitGTK crashes on Arch-based systems (like CachyOS/Manjaro)

@@ -28,6 +28,22 @@ Linux support is strictly Wayland.
 ### 4. Root Cause First
 We solve problems at their origin. If data is messy, redundant, or incorrect, do not "clean it up" at the consumer level (e.g., in the UI or intermediate wrappers). Trace the data back to its absolute source of truth and fix the generation/fetching logic there. A workaround is technical debt; a root-cause fix is engineering.
 
+### 5. Lean, Durable Architecture (No Bloat)
+We design for long-term maintainability as a solo-developed project. Architecture must remain clean and scalable without over-engineering.
+- **Capability-Driven, Not Distro-Driven:** Organize by platform and protocol capabilities, not by distro names. Prefer runtime capability detection over hardcoded Fedora/GNOME/KDE branching.
+- **One Owner Per Concern:** Session lifecycle, portal API integration, state transitions, and UI mapping should each have a clear single owner.
+- **No Abstraction Without Payoff:** New modules or traits must reduce duplication, simplify reasoning, or improve reliability. Avoid "future-proof" layers that are unused.
+- **Small, Localized Change Surface:** Future platform changes (portal updates, new compositor behavior) should require minor edits in capability/adapter modules, not architectural rewrites.
+- **State Machines Over Ad-Hoc Flags:** For non-trivial flows (permissions, hotkeys, portal sessions), prefer explicit state transitions over scattered booleans.
+
+### 6. Platform Adaptation Pattern
+When implementing platform-sensitive features, follow this structure:
+1. **Platform Boundary First:** Keep OS/display boundaries (`linux/wayland`, `linux/x11`, `windows`) as top-level separations.
+2. **Provider Layer Second:** Within a platform, isolate backend/provider behavior (e.g., portal capabilities and session handling).
+3. **Quirks Last:** Only add DE/provider-specific quirk modules when a real incompatibility is confirmed and cannot be solved generically.
+
+This pattern keeps the codebase clean as new distros, compositor versions, or portal changes appear.
+
 ---
 
 ## 🛠️ Essential Commands
@@ -122,6 +138,13 @@ Any agent working on this repo should prioritize the following cleanups:
 - **Documentation:** Proactively update `AGENTS.md` or other docs if you introduce a new architectural pattern or a major dependency.
 - **Self-Verification:** Always run `cargo check` and `deno task check` before declaring a task complete.
 - **Git Commits:** Do not perform git commits without explicit user approval. Always ask for confirmation before running `git commit`.
+
+### Solo-Scale Guardrails
+- **Prefer Simplicity by Default:** Use the simplest clean solution that meets current requirements and known near-term needs.
+- **Delay Splits Until Needed:** Do not create DE-specific files/folders until at least one concrete, recurring incompatibility exists.
+- **Keep Files Focused:** A file should answer one question clearly. Split only when readability materially improves.
+- **No Silent Failure Paths:** Always surface actionable errors in logs and, when relevant, to UI status.
+- **Diagnostics Before Guesswork:** Add clear capability/version/runtime diagnostics before introducing conditional behavior.
 
 ---
 

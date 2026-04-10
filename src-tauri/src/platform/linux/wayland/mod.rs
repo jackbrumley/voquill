@@ -1,13 +1,14 @@
 pub mod env;
-pub mod permissions;
-pub mod shortcuts;
 pub mod overlay;
+pub mod permissions;
+pub mod portal;
+pub mod shortcuts;
 
 use async_trait::async_trait;
-use tauri::{WebviewWindow, Manager};
+use tauri::{Manager, WebviewWindow};
 
 use crate::platform::traits::{
-    GlobalShortcutEngine, InputSimulation, PermissionManager, WindowManagement
+    GlobalShortcutEngine, InputSimulation, PermissionManager, WindowManagement,
 };
 
 pub struct WaylandBackend;
@@ -21,13 +22,18 @@ impl WaylandBackend {
 #[async_trait]
 impl InputSimulation for WaylandBackend {
     fn type_text_hardware(
-        &self, 
-        text: &str, 
-        typing_speed_interval: f64, 
+        &self,
+        text: &str,
+        typing_speed_interval: f64,
         key_press_duration_ms: u64,
-        virtual_keyboard: std::sync::Arc<std::sync::Mutex<Option<crate::VirtualKeyboardHandle>>>
+        virtual_keyboard: std::sync::Arc<std::sync::Mutex<Option<crate::VirtualKeyboardHandle>>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        crate::typing::type_text_hardware(text, typing_speed_interval, key_press_duration_ms, virtual_keyboard)
+        crate::typing::type_text_hardware(
+            text,
+            typing_speed_interval,
+            key_press_duration_ms,
+            virtual_keyboard,
+        )
     }
 }
 
@@ -44,7 +50,10 @@ impl PermissionManager for WaylandBackend {
         permissions::request_linux_permissions(app_handle).await
     }
 
-    async fn check_permissions(&self, config: &crate::config::Config) -> crate::platform::permissions::LinuxPermissions {
+    async fn check_permissions(
+        &self,
+        config: &crate::config::Config,
+    ) -> crate::platform::permissions::LinuxPermissions {
         permissions::check_linux_permissions(config).await
     }
 }
@@ -61,7 +70,11 @@ impl WindowManagement for WaylandBackend {
         overlay::apply_linux_unfocusable_hints(window, pixels_from_bottom_logical);
     }
 
-    fn position_overlay_window(&self, window: &WebviewWindow, pixels_from_bottom: i32) -> Result<(), String> {
+    fn position_overlay_window(
+        &self,
+        window: &WebviewWindow,
+        pixels_from_bottom: i32,
+    ) -> Result<(), String> {
         overlay::position_overlay_window(window, pixels_from_bottom)
     }
 }

@@ -113,6 +113,44 @@ fn default_enable_gpu() -> bool {
     false
 }
 
+fn normalize_legacy_portal_hotkey(hotkey: &str) -> Option<String> {
+    let trimmed = hotkey.trim();
+    let lower = trimmed.to_lowercase();
+
+    if !lower.starts_with("press <") {
+        return None;
+    }
+
+    let mut modifiers: Vec<&str> = Vec::new();
+    if lower.contains("<control>") {
+        modifiers.push("ctrl");
+    }
+    if lower.contains("<shift>") {
+        modifiers.push("shift");
+    }
+    if lower.contains("<alt>") {
+        modifiers.push("alt");
+    }
+    if lower.contains("<super>") || lower.contains("<logo>") {
+        modifiers.push("super");
+    }
+
+    let key_start_index = lower.rfind('>').map(|index| index + 1).unwrap_or(0);
+    let key = lower[key_start_index..].trim();
+
+    if key.is_empty() {
+        return None;
+    }
+
+    let mut normalized = modifiers
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<String>>();
+    normalized.push(key.to_string());
+
+    Some(normalized.join("+"))
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -143,7 +181,7 @@ impl Default for Config {
 pub fn get_config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let config_dir = dirs::config_dir()
         .ok_or("Could not find config directory")?
-        .join("voquill");
+        .join("foss-voquill");
 
     fs::create_dir_all(&config_dir)?;
     Ok(config_dir.join("config.json"))
@@ -167,6 +205,15 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
         }
         if let Some(obj) = config_value.as_object_mut() {
             obj.remove("linux_portal_hotkey");
+
+            if let Some(hotkey) = obj.get("hotkey").and_then(|value| value.as_str()) {
+                if let Some(normalized_hotkey) = normalize_legacy_portal_hotkey(hotkey) {
+                    obj.insert(
+                        "hotkey".to_string(),
+                        serde_json::Value::String(normalized_hotkey),
+                    );
+                }
+            }
         }
 
         let config = serde_json::from_value::<Config>(config_value)?;

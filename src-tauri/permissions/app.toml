@@ -12,6 +12,9 @@ commands.allow = [
     "clear_history",
     "check_hotkey_status",
     "manual_register_hotkey",
+    "configure_hotkey",
+    "apply_captured_hotkey",
+    "get_hotkey_binding_state",
     "get_audio_devices",
     "start_mic_test",
     "stop_mic_test",
@@ -26,5 +29,6 @@ commands.allow = [
     "request_audio_permission",
     "request_input_permission",
     "set_configuring_hotkey",
-    "get_wayland_portal_version"
+    "get_wayland_portal_version",
+    "get_portal_diagnostics"
 ]

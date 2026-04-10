@@ -62,6 +62,30 @@ interface LinuxPermissions {
   audio: boolean;
   shortcuts: boolean;
   input_emulation: boolean;
+  shortcuts_status: string;
+  shortcuts_detail?: string;
+}
+
+interface PortalDiagnostics {
+  available: boolean;
+  version: number;
+  supports_configure_shortcuts: boolean;
+  has_record_shortcut: boolean;
+  active_trigger?: string;
+  status: string;
+  detail?: string;
+}
+
+interface ConfigureHotkeyResult {
+  outcome: 'configured' | 'requires_in_app_capture';
+  detail?: string;
+}
+
+interface HotkeyBindingState {
+  bound: boolean;
+  listening: boolean;
+  detail?: string;
+  active_trigger?: string;
 }
 
 function App() {
@@ -107,11 +131,23 @@ function App() {
   const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
   const [showModelGuide, setShowModelGuide] = useState(false);
   const [portalVersion, setPortalVersion] = useState<number>(0);
+  const [portalDiagnostics, setPortalDiagnostics] = useState<PortalDiagnostics | null>(null);
+  const [hotkeyBindingState, setHotkeyBindingState] = useState<HotkeyBindingState | null>(null);
+  const [showHotkeyCaptureModal, setShowHotkeyCaptureModal] = useState(false);
+  const [isApplyingHotkey, setIsApplyingHotkey] = useState(false);
 
   useEffect(() => {
     invoke<number>('get_wayland_portal_version')
       .then(setPortalVersion)
       .catch(e => console.log("Not running Wayland portal version check:", e));
+
+    invoke<PortalDiagnostics>('get_portal_diagnostics')
+      .then(setPortalDiagnostics)
+      .catch(e => console.log('Portal diagnostics unavailable:', e));
+
+    invoke<HotkeyBindingState>('get_hotkey_binding_state')
+      .then(setHotkeyBindingState)
+      .catch(e => console.log('Hotkey binding state unavailable:', e));
   }, []);
 
   const logUI = (msg: string) => {
@@ -163,6 +199,10 @@ function App() {
     const unlistenConfigUpdated = listen('config-updated', () => {
       loadConfig();
     });
+
+    const unlistenHotkeyBindingState = listen<HotkeyBindingState>('hotkey-binding-state', (event) => {
+      setHotkeyBindingState(event.payload);
+    });
     
     const unlistenMicTestStarted = listen('mic-test-playback-started', () => {
       setMicTestStatus('playing');
@@ -194,6 +234,7 @@ function App() {
       unlistenStatus.then((fn: any) => fn());
       unlistenHistory.then((fn: any) => fn());
       unlistenConfigUpdated.then((fn: any) => fn());
+      unlistenHotkeyBindingState.then((fn: any) => fn());
       unlistenMicTestStarted.then((fn: any) => fn());
       unlistenMicTestFinished.then((fn: any) => fn());
       unlistenMicVolume.then((fn: any) => fn());
@@ -224,6 +265,10 @@ function App() {
     try {
       const perms = await invoke<LinuxPermissions>('get_linux_setup_status');
       setPermissions(perms);
+      const diagnostics = await invoke<PortalDiagnostics>('get_portal_diagnostics');
+      setPortalDiagnostics(diagnostics);
+      const bindingState = await invoke<HotkeyBindingState>('get_hotkey_binding_state');
+      setHotkeyBindingState(bindingState);
     } catch (error) {
       console.error('Failed to check setup status:', error);
     }
@@ -249,18 +294,43 @@ function App() {
     }
   };
 
-  const handleShortcutSetup = async () => {
+  const handleConfigureHotkey = async () => {
+    if (isApplyingHotkey) return;
+
     try {
-      showToast('System shortcut request sent!', 'info');
-      await invoke('manual_register_hotkey', { newHotkey: config.hotkey });
-      showToast('Shortcut bound successfully!', 'success');
-      // Update local state to immediately hide the Bind button
-      if (permissions) {
-        setPermissions({ ...permissions, shortcuts: true });
+      setIsApplyingHotkey(true);
+      const result = await invoke<ConfigureHotkeyResult>('configure_hotkey');
+
+      if (result.outcome === 'requires_in_app_capture') {
+        setShowHotkeyCaptureModal(true);
+        await setRecordingState(true);
+        setRecordedKeys(new Set());
+        showToast('Press your desired key combination in the modal.', 'info');
+      } else {
+        showToast('Shortcut configured successfully!', 'success');
+        await checkSetupStatus();
       }
-      setTimeout(checkSetupStatus, 500);
     } catch (error) {
-      showToast(`Failed to register shortcut: ${error}`, 'error');
+      showToast(`Failed to configure shortcut: ${error}`, 'error');
+    } finally {
+      setIsApplyingHotkey(false);
+    }
+  };
+
+  const applyCapturedHotkey = async (capturedHotkey: string) => {
+    try {
+      setIsApplyingHotkey(true);
+      updateConfig('hotkey', capturedHotkey);
+      await invoke<ConfigureHotkeyResult>('apply_captured_hotkey', { newHotkey: capturedHotkey });
+      showToast('Shortcut configured successfully!', 'success');
+      await checkSetupStatus();
+    } catch (error) {
+      showToast(`Failed to apply captured shortcut: ${error}`, 'error');
+    } finally {
+      await setRecordingState(false);
+      setRecordedKeys(new Set());
+      setShowHotkeyCaptureModal(false);
+      setIsApplyingHotkey(false);
     }
   };
 
@@ -474,6 +544,16 @@ function App() {
     }, duration);
   };
 
+  const handleToastClick = async (toast: Toast) => {
+    try {
+      await navigator.clipboard.writeText(toast.message);
+    } catch (error) {
+      console.error('Failed to copy toast message:', error);
+    } finally {
+      setToasts(prev => prev.filter(t => t.id !== toast.id));
+    }
+  };
+
   const handleClose = async () => {
     await getCurrentWindow().hide();
   };
@@ -515,24 +595,11 @@ function App() {
     }
   };
 
-  const startRecordingHotkey = async () => {
-    if (portalVersion >= 2) {
-      try {
-        await invoke('manual_register_hotkey', { newHotkey: null });
-        showToast('System shortcut request sent', 'info');
-      } catch (e) {
-        showToast(`Failed to trigger portal: ${e}`, 'error');
-      }
-      return;
-    }
-
-    if (portalVersion === 1) {
-      showToast('Shortcut is managed by the OS. Change it in System Settings.', 'info');
-      return;
-    }
-
-    setRecordingState(true);
+  const cancelHotkeyCapture = async () => {
+    await setRecordingState(false);
     setRecordedKeys(new Set());
+    setShowHotkeyCaptureModal(false);
+    showToast('Hotkey configuration cancelled.', 'info');
   };
 
   const handleHotkeyKeyDown = (e: KeyboardEvent) => {
@@ -540,6 +607,11 @@ function App() {
     
     e.preventDefault();
     e.stopPropagation();
+
+    if (e.key === 'Escape') {
+      void cancelHotkeyCapture();
+      return;
+    }
 
     const newKeys = new Set(recordedKeys);
     if (e.ctrlKey) newKeys.add('Control');
@@ -551,10 +623,8 @@ function App() {
     
     if (!['ControlLeft', 'ControlRight', 'ShiftLeft', 'ShiftRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight'].includes(code)) {
       newKeys.add(code);
-      const normalized = normalizeHotkey(newKeys);
-      updateConfig('hotkey', normalized);
-      setRecordingState(false);
-      setRecordedKeys(new Set());
+      const normalized = normalizeHotkey(newKeys).toLowerCase();
+      void applyCapturedHotkey(normalized);
     } else {
       setRecordedKeys(newKeys);
     }
@@ -634,30 +704,35 @@ function App() {
                             value={isRecordingHotkey ? 'Press keys...' : config.hotkey}
                             onKeyDown={handleHotkeyKeyDown}
                             onKeyUp={handleHotkeyKeyUp}
-                            onFocus={() => portalVersion === 1 ? null : startRecordingHotkey()}
+                            onFocus={() => null}
                             onBlur={() => setRecordingState(false)}
                             readOnly
-                            placeholder={portalVersion >= 1 ? "Managed by OS" : "Click to set"}
+                            placeholder={portalVersion >= 1 ? "Bind with button" : "Click to set"}
                             style={{ 
                               width: '140px', padding: '4px 8px', fontSize: '12px', 
                               backgroundColor: 'var(--colors-surface-active)', 
                               border: '1px solid var(--colors-border)', 
-                              borderRadius: '4px', cursor: portalVersion === 1 ? 'not-allowed' : 'pointer', textAlign: 'center',
+                              borderRadius: '4px', cursor: portalVersion >= 1 ? 'default' : 'pointer', textAlign: 'center',
                               color: isRecordingHotkey ? 'var(--colors-primary)' : 'var(--colors-text)',
-                              opacity: portalVersion === 1 ? 0.7 : 1
+                              opacity: portalVersion >= 1 ? 0.8 : 1
                             }}
-                            title={portalVersion === 1 ? 'Shortcut is managed by the OS. Bind to continue.' : ''}
+                            title={portalVersion >= 1 ? 'Use Configure Hotkey to request a system shortcut.' : ''}
                           />
                         )}
                       </div>
                       <div className="permission-desc">Required for the hotkey</div>
+                      {!permissions?.shortcuts && permissions?.shortcuts_detail && (
+                        <div className="permission-desc" style={{ marginTop: '2px', color: 'var(--colors-warning)' }}>
+                          {permissions.shortcuts_detail}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="permission-status">
                     {permissions?.shortcuts ? (
                       <IconCheck color="var(--colors-success)" size={20} />
                     ) : (
-                      <Button variant="ghost" size="sm" onClick={handleShortcutSetup}>Bind</Button>
+                      <Button variant="ghost" size="sm" onClick={handleConfigureHotkey} disabled={isApplyingHotkey}>Configure Hotkey</Button>
                     )}
                   </div>
                 </div>
@@ -683,7 +758,12 @@ function App() {
                 </div>
 
               </div>
-              <p className="setup-note">Click "Request" or "Bind" for each item to trigger the OS permission prompts.</p>
+              <p className="setup-note">
+                Click "Request" or "Configure Hotkey" for each item to trigger the OS permission prompts.
+                {portalDiagnostics && portalDiagnostics.available && (
+                  <> Portal v{portalDiagnostics.version} ({portalDiagnostics.supports_configure_shortcuts ? 'configure supported' : 'bind/list only'}).</>
+                )}
+              </p>
             </div>
 
             <div className="setup-actions setup-button-container">
@@ -883,25 +963,21 @@ function App() {
                           type="text" 
                           value={isRecordingHotkey ? 'Press keys...' : config.hotkey} 
                           readOnly
-                          onClick={() => portalVersion === 1 ? null : startRecordingHotkey()}
-                          placeholder="Click to record..."
+                          onClick={() => {}}
+                          placeholder="Configure using button"
                           className={`hotkey-input ${isRecordingHotkey ? 'recording' : ''}`}
-                          style={{ opacity: portalVersion === 1 ? 0.7 : 1, cursor: portalVersion === 1 ? 'not-allowed' : 'pointer' }}
-                          title={portalVersion === 1 ? 'Shortcut is managed by the OS. Change it in System Settings.' : ''}
+                          style={{ opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default' }}
+                          title={portalVersion >= 1 ? 'Use Configure Hotkey to request binding through the system portal.' : ''}
                         />
-                        {portalVersion !== 1 && (
-                          <Button 
-                            size="sm" 
-                            variant={isRecordingHotkey ? 'primary' : 'secondary'}
-                            onClick={isRecordingHotkey ? () => setRecordingState(false) : startRecordingHotkey}
-                          >
-                            {isRecordingHotkey ? 'Cancel' : portalVersion >= 2 ? 'Configure in OS' : 'Record'}
-                          </Button>
-                        )}
+                        <Button size="sm" variant="secondary" onClick={handleConfigureHotkey} disabled={isApplyingHotkey}>
+                          Configure Hotkey
+                        </Button>
                       </div>
-                      {portalVersion === 1 && (
+                      {portalVersion >= 1 && (
                         <div style={{ fontSize: '11px', color: 'var(--colors-text-muted)', marginTop: '4px' }}>
-                          Shortcut is managed by the OS. Change in System Settings → Keyboard → Shortcuts.
+                          Shortcut registration uses the Wayland GlobalShortcuts portal.
+                          {portalDiagnostics?.active_trigger ? ` Active shortcut: ${portalDiagnostics.active_trigger}.` : ''}
+                          {hotkeyBindingState?.bound ? ' Listener is active.' : ''}
                         </div>
                       )}
                     </ConfigField>
@@ -1009,12 +1085,42 @@ function App() {
 
       <div className="toast-container">
         {toasts.map(toast => (
-          <div key={toast.id} className={`toast ${toast.type}`} onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}>
+          <div
+            key={toast.id}
+            className={`toast ${toast.type}`}
+            title="Click to copy"
+            onClick={() => void handleToastClick(toast)}
+          >
             <span className="toast-dot"></span>
             <span className="toast-message">{toast.message}</span>
           </div>
         ))}
       </div>
+
+      {showHotkeyCaptureModal && (
+        <div className="hotkey-capture-overlay">
+          <Card className="hotkey-capture-card">
+            <div className="hotkey-capture-content">
+              <h3 className="hotkey-capture-title">Configure Hotkey</h3>
+              <p className="hotkey-capture-subtitle">
+                Press your desired key combination, or press Escape to cancel.
+              </p>
+              <div className="hotkey-capture-display">
+                {isRecordingHotkey ? 'Listening for keys...' : config.hotkey}
+              </div>
+              <div className="hotkey-capture-actions">
+                <Button
+                  variant="ghost"
+                  onClick={() => void cancelHotkeyCapture()}
+                  disabled={isApplyingHotkey}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {showModelGuide && <ModelInfoModal onClose={() => setShowModelGuide(false)} />}
     </div>

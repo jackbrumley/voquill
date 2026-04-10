@@ -1,13 +1,13 @@
+pub mod input;
+pub mod overlay;
 pub mod permissions;
 pub mod shortcuts;
-pub mod overlay;
-pub mod input;
 
 use async_trait::async_trait;
-use tauri::{WebviewWindow, Manager};
+use tauri::{Manager, WebviewWindow};
 
 use crate::platform::traits::{
-    GlobalShortcutEngine, InputSimulation, PermissionManager, WindowManagement
+    GlobalShortcutEngine, InputSimulation, PermissionManager, WindowManagement,
 };
 
 pub struct X11Backend;
@@ -21,11 +21,11 @@ impl X11Backend {
 #[async_trait]
 impl InputSimulation for X11Backend {
     fn type_text_hardware(
-        &self, 
-        text: &str, 
-        typing_speed_interval: f64, 
+        &self,
+        text: &str,
+        typing_speed_interval: f64,
         key_press_duration_ms: u64,
-        _virtual_keyboard: std::sync::Arc<std::sync::Mutex<Option<crate::VirtualKeyboardHandle>>>
+        _virtual_keyboard: std::sync::Arc<std::sync::Mutex<Option<crate::VirtualKeyboardHandle>>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         input::type_text_hardware(text, typing_speed_interval, key_press_duration_ms)
     }
@@ -34,8 +34,7 @@ impl InputSimulation for X11Backend {
 #[async_trait]
 impl GlobalShortcutEngine for X11Backend {
     async fn start_engine(&self, app_handle: tauri::AppHandle, _force: bool) -> Result<(), String> {
-        shortcuts::start_x11_hotkey_engine(app_handle).await;
-        Ok(())
+        shortcuts::start_x11_hotkey_engine(app_handle).await
     }
 }
 
@@ -46,12 +45,17 @@ impl PermissionManager for X11Backend {
         Ok(())
     }
 
-    async fn check_permissions(&self, _config: &crate::config::Config) -> crate::platform::permissions::LinuxPermissions {
+    async fn check_permissions(
+        &self,
+        _config: &crate::config::Config,
+    ) -> crate::platform::permissions::LinuxPermissions {
         // All "true" because X11 is open
         crate::platform::permissions::LinuxPermissions {
             audio: true,
             shortcuts: true,
             input_emulation: true,
+            shortcuts_status: "ready".to_string(),
+            shortcuts_detail: None,
         }
     }
 }
@@ -68,7 +72,11 @@ impl WindowManagement for X11Backend {
         overlay::apply_linux_unfocusable_hints(window, pixels_from_bottom_logical);
     }
 
-    fn position_overlay_window(&self, window: &WebviewWindow, pixels_from_bottom: i32) -> Result<(), String> {
+    fn position_overlay_window(
+        &self,
+        window: &WebviewWindow,
+        pixels_from_bottom: i32,
+    ) -> Result<(), String> {
         overlay::position_overlay_window(window, pixels_from_bottom)
     }
 }

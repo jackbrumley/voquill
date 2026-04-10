@@ -1105,3 +1105,58 @@ input:checked + .switch-slider:before { transform: translateX(18px); }
   justify-content: flex-end;
   background: rgba(0, 0, 0, 0.1);
 }
+
+.hotkey-capture-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 12, 0.78);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  padding: var(--spacing-lg);
+}
+
+.hotkey-capture-card {
+  width: min(440px, 92vw);
+  background: rgba(19, 22, 27, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 24px 52px rgba(0, 0, 0, 0.52);
+}
+
+.hotkey-capture-content {
+  text-align: center;
+}
+
+.hotkey-capture-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--colors-text-primary);
+}
+
+.hotkey-capture-subtitle {
+  margin: 8px 0 0 0;
+  color: var(--colors-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.hotkey-capture-display {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--colors-text-primary);
+}
+
+.hotkey-capture-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
