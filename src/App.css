@@ -552,6 +552,21 @@ body.status-typing .status-icon { animation: bounce 1s ease-in-out infinite; }
   gap: var(--spacing-sm);
 }
 
+.mic-setup-panel {
+  width: 100%;
+}
+
+.mic-setup-panel.compact .mic-test-row {
+  margin-top: var(--spacing-sm);
+}
+
+.mic-sensitivity-label {
+  font-size: var(--typography-size-xs);
+  color: var(--colors-text-muted);
+  margin-bottom: 4px;
+  text-align: left;
+}
+
 .mic-test-button { width: 100%; }
 
 /* Mic Test volume bar */
@@ -819,12 +834,23 @@ input:checked + .switch-slider:before { transform: translateX(18px); }
 
 /* Setup Required Card */
 .setup-required-card {
-  margin: var(--spacing-md) 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
   border: 1px solid rgba(255, 255, 255, 0.05);
   animation: tab-enter 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  overflow: hidden;
+}
+
+.setup-required-shell {
+  flex: 1;
+  display: flex;
+  padding: var(--spacing-md);
+  min-height: 0;
 }
 
 .setup-required-card.success {
@@ -897,6 +923,23 @@ input:checked + .switch-slider:before { transform: translateX(18px); }
   line-height: 1.6;
   align-items: flex-start;
   text-align: left;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.setup-section-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--colors-text-muted);
+  margin: 2px 0 6px;
+}
+
+.setup-section-recommended {
+  margin-top: 10px;
 }
 
 .setup-body p {
@@ -960,6 +1003,8 @@ input:checked + .switch-slider:before { transform: translateX(18px); }
   display: flex;
   justify-content: center;
   margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .setup-button {

@@ -16,6 +16,7 @@ import { CollapsibleSection } from './components/CollapsibleSection.tsx';
 import { ModeSwitcher } from './components/ModeSwitcher.tsx';
 import { ActionFooter } from './components/ActionFooter.tsx';
 import { ModelInfoModal } from './components/ModelInfoModal.tsx';
+import { MicSetupPanel } from './components/MicSetupPanel.tsx';
 import './App.css';
 
 interface Config {
@@ -118,6 +119,7 @@ function App() {
   const [availableMics, setAvailableMics] = useState<AudioDevice[]>([]);
   const [micTestStatus, setMicTestStatus] = useState<'idle' | 'recording' | 'playing' | 'processing'>('idle');
   const [micVolume, setMicVolume] = useState<number>(0);
+  const [micTestPassed, setMicTestPassed] = useState(false);
   const [activeConfigSection, setActiveConfigSection] = useState<string | null>('basic');
   const [appVersion, setAppVersion] = useState<string>('');
   const [availableEngines, setAvailableEngines] = useState<string[]>([]);
@@ -211,6 +213,7 @@ function App() {
     const unlistenMicTestFinished = listen('mic-test-playback-finished', () => {
       setMicTestStatus('idle');
       setMicVolume(0);
+      setMicTestPassed(true);
     });
 
     const unlistenMicVolume = listen<number>('mic-test-volume', (event: any) => {
@@ -499,6 +502,11 @@ function App() {
     }
   };
 
+  const isLocalModelReady = config.transcription_mode !== 'Local' || !!modelStatus[config.local_model_size];
+  const isAudioDeviceReady = availableMics.length > 0 && !!config.audio_device;
+  const isPortalSetupReady =
+    !!permissions && permissions.audio && permissions.shortcuts && permissions.input_emulation;
+
   const openDebugFolder = async () => {
     logUI('🖱️ Button clicked: Open Debug Folder');
     try {
@@ -636,7 +644,7 @@ function App() {
     e.stopPropagation();
   };
 
-  const isAllReady = permissions && permissions.audio && permissions.shortcuts && permissions.input_emulation;
+  const isAllReady = isPortalSetupReady && isAudioDeviceReady && isLocalModelReady;
 
   const handleTitleBarMouseDown = async (e: any) => {
     if (e.buttons === 1 && !e.target.closest('button')) {
@@ -655,18 +663,19 @@ function App() {
       </div>
 
       {!isAllReady ? (
-        <div className="tab-panel-padded" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="setup-required-shell">
           <Card className="setup-required-card">
             <div className="setup-header">
               <div className="setup-icon-container">
                 <IconShieldLock size={32} className="setup-icon" />
               </div>
-              <h2>System Access Required</h2>
+              <h2>Initial Setup</h2>
             </div>
             
             <div className="setup-body">
-              <p style={{ textAlign: 'center' }}>Voquill needs standard Wayland portal permissions to operate:</p>
+              <p style={{ textAlign: 'center' }}>Complete these required checks before first use:</p>
               <div className="setup-list" style={{ width: '100%' }}>
+                <div className="setup-section-label">Required</div>
                 
                 {/* Audio Permission */}
                 <div className={`permission-item ${permissions?.audio ? 'ready' : ''}`}>
@@ -757,9 +766,105 @@ function App() {
                   </div>
                 </div>
 
+                {/* Transcription Backend Readiness */}
+                <div className={`permission-item ${isLocalModelReady ? 'ready' : ''}`}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
+                    <div className="permission-icon">
+                      <IconRocket size={20} />
+                    </div>
+                    <div className="permission-info">
+                      <div className="permission-title">Transcription Backend</div>
+                      <div className="permission-desc">
+                        {config.transcription_mode === 'Local'
+                          ? `Model ${config.local_model_size} is required for local transcription.`
+                          : 'API mode selected.'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="permission-status" style={{ marginLeft: 'auto' }}>
+                    {isLocalModelReady ? (
+                      <IconCheck color="var(--colors-success)" size={20} />
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void downloadModel(config.local_model_size)}
+                        disabled={isDownloading}
+                      >
+                        {isDownloading ? `Downloading ${Math.round(downloadProgress)}%` : 'Download Model'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Audio Device Selection */}
+                <div className={`permission-item ${isAudioDeviceReady ? 'ready' : ''}`}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: 1 }}>
+                    <div className="permission-icon">
+                      <IconMicrophone size={20} />
+                    </div>
+                    <div className="permission-info" style={{ width: '100%', paddingRight: '10px' }}>
+                      <div className="permission-title">Audio Device</div>
+                      <div className="permission-desc">Select the microphone Voquill should use.</div>
+                      <select
+                        value={config.audio_device || 'default'}
+                        onChange={(e) => updateConfig('audio_device', (e.target as HTMLSelectElement).value)}
+                        style={{
+                          marginTop: '6px',
+                          width: '100%',
+                          maxWidth: '240px',
+                          padding: '6px 8px',
+                          fontSize: '12px',
+                          backgroundColor: 'var(--colors-surface-active)',
+                          border: '1px solid var(--colors-border)',
+                          borderRadius: '4px',
+                          color: 'var(--colors-text)'
+                        }}
+                      >
+                        <option value="default">Default microphone</option>
+                        {availableMics.map((mic) => (
+                          <option key={mic.id} value={mic.id}>{mic.label || mic.id}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="permission-status" style={{ marginLeft: 'auto' }}>
+                    {isAudioDeviceReady ? (
+                      <IconCheck color="var(--colors-success)" size={20} />
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={loadMics}>Refresh</Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="setup-section-label setup-section-recommended">Recommended</div>
+
+                {/* Mic Test (Recommended) */}
+                <div className={`permission-item ${micTestPassed ? 'ready' : ''}`}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', textAlign: 'left', flex: 1 }}>
+                    <div className="permission-icon">
+                      <IconInfoCircle size={20} />
+                    </div>
+                    <div className="permission-info" style={{ width: '100%' }}>
+                      <div className="permission-title">Mic Test (Recommended)</div>
+                      <div className="permission-desc">Record a short sample and play it back to verify your setup.</div>
+                      <MicSetupPanel
+                        compact
+                        inputSensitivity={config.input_sensitivity}
+                        onInputSensitivityChange={(value) => updateConfig('input_sensitivity', value)}
+                        micTestStatus={micTestStatus}
+                        micVolume={micVolume}
+                        onStartMicTest={() => void startMicTest()}
+                        onStopMicTest={() => void stopMicTest()}
+                        onStopMicPlayback={() => void stopMicPlayback()}
+                      />
+                    </div>
+                  </div>
+                </div>
+
               </div>
               <p className="setup-note">
-                Click "Request" or "Configure Hotkey" for each item to trigger the OS permission prompts.
+                Complete required checks to unlock the app. Mic Test is optional but recommended.
                 {portalDiagnostics && portalDiagnostics.available && (
                   <> Portal v{portalDiagnostics.version} ({portalDiagnostics.supports_configure_shortcuts ? 'configure supported' : 'bind/list only'}).</>
                 )}
@@ -999,20 +1104,17 @@ function App() {
                       </div>
                     </ConfigField>
                       
-                    <ConfigField label={`Mic Sensitivity (${Math.round(config.input_sensitivity * 100)}%)`} description="Adjust the gain levels. Higher values pick up quieter sounds.">
-                      <input type="range" min="0.1" max="2.0" step="0.05" value={config.input_sensitivity} onChange={(e: any) => updateConfig('input_sensitivity', parseFloat(e.target.value))} className="slider" />
+                    <ConfigField label="Mic Test & Sensitivity" description="Adjust capture gain and verify your microphone playback.">
+                      <MicSetupPanel
+                        inputSensitivity={config.input_sensitivity}
+                        onInputSensitivityChange={(value) => updateConfig('input_sensitivity', value)}
+                        micTestStatus={micTestStatus}
+                        micVolume={micVolume}
+                        onStartMicTest={() => void startMicTest()}
+                        onStopMicTest={() => void stopMicTest()}
+                        onStopMicPlayback={() => void stopMicPlayback()}
+                      />
                     </ConfigField>
-
-                    <div className="mic-test-row">
-                      <Button className="mic-test-button" disabled={micTestStatus === 'processing'} variant={micTestStatus !== 'idle' ? 'primary' : 'secondary'} onClick={() => { if (micTestStatus === 'idle') startMicTest(); else if (micTestStatus === 'recording') stopMicTest(); else if (micTestStatus === 'playing') stopMicPlayback(); }}>
-                        {micTestStatus === 'idle' ? 'Test Microphone' : micTestStatus === 'recording' ? 'Stop & Play Back' : micTestStatus === 'playing' ? 'Stop Playback' : 'Processing...'}
-                      </Button>
-                      {micTestStatus === 'recording' && (
-                        <div className="volume-meter-container">
-                          <div className={`volume-meter-bar ${micVolume > 0.9 ? 'clipping' : micVolume > 0.7 ? 'warning' : ''}`} style={{ width: `${Math.min(micVolume * 100, 100)}%` }}></div>
-                        </div>
-                      )}
-                    </div>
                   </CollapsibleSection>
 
                   <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>

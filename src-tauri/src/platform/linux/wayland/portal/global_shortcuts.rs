@@ -218,6 +218,7 @@ pub async fn start_linux_portal_hotkey_engine(
     let app_handle_for_task = app_handle.clone();
     tauri::async_runtime::spawn(async move {
         crate::log_info!("👂 Listening for shortcut events...");
+        let mut shortcut_pressed = false;
         loop {
             tokio::select! {
                 _ = &mut cancel_rx => {
@@ -232,14 +233,16 @@ pub async fn start_linux_portal_hotkey_engine(
                     break;
                 }
                 Some(event) = activated_stream.next() => {
-                    if event.shortcut_id() == RECORD_SHORTCUT_ID {
+                    if event.shortcut_id() == RECORD_SHORTCUT_ID && !shortcut_pressed {
+                        shortcut_pressed = true;
                         crate::log_info!("🎤 Portal: Hotkey Pressed");
                         let state = app_handle_for_task.state::<AppState>();
                         let _ = crate::start_recording(state, app_handle_for_task.clone()).await;
                     }
                 }
                 Some(event) = deactivated_stream.next() => {
-                    if event.shortcut_id() == RECORD_SHORTCUT_ID {
+                    if event.shortcut_id() == RECORD_SHORTCUT_ID && shortcut_pressed {
+                        shortcut_pressed = false;
                         crate::log_info!("⏹️  Portal: Hotkey Released");
                         let state = app_handle_for_task.state::<AppState>();
                         let _ = crate::stop_recording(state).await;
