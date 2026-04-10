@@ -607,6 +607,11 @@ async fn start_mic_test(
                 }
             }
         }
+
+        if engine_guard.is_none() {
+            *mic_test_flag = false;
+            return Err("Audio engine not initialized".to_string());
+        }
     }
 
     tokio::spawn(async move {
@@ -660,6 +665,12 @@ async fn start_mic_test(
                 log_info!("❌ Mic test recording error: {}", e);
                 let _ = app_handle_clone.emit("mic-test-playback-finished", ());
             }
+        }
+
+        let mut mic_test_flag = is_mic_test_clone.lock().unwrap();
+        if *mic_test_flag {
+            *mic_test_flag = false;
+            log_info!("🔧 Mic test active flag reset after mic test completion");
         }
     });
 
@@ -773,7 +784,8 @@ async fn save_config(
         (audio_changed, hotkey_changed)
     };
 
-    if restart_engine {
+    let is_mic_test_active = *state.is_mic_test_active.lock().unwrap();
+    if restart_engine && !is_mic_test_active {
         log_info!("🔧 Audio config changed, restarting persistent engine...");
         let cached_device = state.cached_device.lock().unwrap().clone();
         let sensitivity = new_config.input_sensitivity;
@@ -785,6 +797,8 @@ async fn save_config(
                 log_info!("✅ Persistent engine restarted");
             }
         }
+    } else if restart_engine {
+        log_info!("🔧 Audio config changed during active mic test, deferring engine restart");
     }
 
     if let Err(e) = config::save_config(&new_config) {
