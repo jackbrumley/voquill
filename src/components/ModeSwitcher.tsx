@@ -20,7 +20,7 @@ export function ModeSwitcher<T extends string>({ value, options, onToggle, class
     <div className={`mode-switcher-container ${className}`}>
       <div className={`mode-switcher ${modeClass}`}>
         <div className="mode-switcher-slider"></div>
-        {options.map((option, index) => (
+        {options.map((option) => (
           <button 
             key={option.value}
             className={value === option.value ? 'active' : ''} 

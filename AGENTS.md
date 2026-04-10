@@ -16,7 +16,7 @@ We do not value "quick hacks" that work today but create technical debt for tomo
 Code is for humans to read, and only secondarily for machines to execute.
 - **Semantic Clarity:** Variable names must be descriptive and intentional. Avoid abbreviations like `amt` for `amount` or `idx` for `index`.
 - **Single Responsibility:** Functions and modules must do one thing and do it well. Large functions should be decomposed into logical units.
-- **Formatting:** Strict adherence to `cargo fmt` and `deno task check`.
+- **Formatting:** Strict adherence to `cargo fmt` and `npm run typecheck`.
 - **Proactive Cleanup:** If you see messy code, redundant nesting, or illogical organization, you are expected to suggest a cleanup or fix it immediately (after confirming with the user).
 
 ### 3. The "Wayland-Only" Mandate
@@ -49,15 +49,14 @@ This pattern keeps the codebase clean as new distros, compositor versions, or po
 ## 🛠️ Essential Commands
 
 ### Project-wide (Root)
-Managed via **Deno**. Entry points are in the `/scripts` directory.
-- **Dev:** `deno task dev`
-  - Performs environment checks (e.g., `libpulse-dev` on Linux).
-  - Installs frontend dependencies if missing.
-  - Starts the Tauri development server.
-- **Build:** `deno task build`
-  - Runs the full production build pipeline for both UI and Rust.
-  - Generates optimized binaries in `src/target/release`.
-- **Tauri CLI:** `deno task tauri <command>`
+Managed via **npm** scripts and the Tauri CLI.
+- **Dependency Check:** `npm run deps:check`
+  - Verifies required system dependencies and prints install commands when missing.
+- **Dev:** `npm run tauri:dev`
+  - Runs dependency checks and starts the Tauri development server.
+- **Build:** `npm run tauri:build`
+  - Runs dependency checks, builds the frontend, and packages the app.
+- **Tauri CLI:** `npm run tauri -- <command>`
   - Use for tauri-specific tasks like `tauri icon` or `tauri info`.
 
 ### Backend (src/)
@@ -68,7 +67,7 @@ Managed via **Deno**. Entry points are in the `/scripts` directory.
 - **Doc:** `cargo doc --open` (Generate and view crate documentation).
 
 ### Frontend (src/ui/)
-- **Type Check:** `deno task check`
+- **Type Check:** `npm run typecheck`
   - Essential for verifying TypeScript integrity.
 - **Lint:** `npm run lint`
   - Uses ESLint to enforce project styling rules.
@@ -115,7 +114,7 @@ When adding a new feature, follow this sequence:
 2.  **Scaffold Backend:** Implement the logic in a new or existing Rust module.
 3.  **Expose Command:** Create a `#[tauri::command]` and register it in `main.rs`.
 4.  **Implement UI:** Create the Preact component and hook it up to the command using `invoke`.
-5.  **Verify Integrity:** Run `cargo clippy`, `deno task check`, and `npm run lint`.
+5.  **Verify Integrity:** Run `cargo clippy`, `npm run typecheck`, and `npm run lint`.
 6.  **Test Platform Parity:** Verify the feature works on Linux (Wayland) and Windows.
 
 ---
@@ -124,7 +123,7 @@ When adding a new feature, follow this sequence:
 
 Any agent working on this repo should prioritize the following cleanups:
 1.  **Redundant Nesting:** The `src/src` structure is messy and redundant. We aim to flatten this into a logical `/backend` and `/frontend` structure while keeping the Tauri root clean.
-2.  **Deno/NPM Synergy:** Ensure the split between Deno (task runner/scripts) and NPM (UI dependencies) remains clean. Do not mix lockfiles unnecessarily. Keep `node_modules` strictly for the UI.
+2.  **NPM/Cargo Synergy:** Keep frontend and Tauri script orchestration in npm, and Rust build logic in Cargo/Tauri.
 3.  **Local Whisper Integration:** Follow the roadmap in `src/LOCAL_WHISPER_INTEGRATION_PLAN.md` if working on transcription features. Ensure model management is clean and asynchronous.
 
 ---
@@ -137,7 +136,7 @@ Any agent working on this repo should prioritize the following cleanups:
 - **Platform Parity:** When adding a feature, ensure it is considered for Windows and Linux (Wayland). If a platform requires specific logic, isolate it in a platform-specific module.
 - **UI Consistency First:** Keep the UI behavior, structure, and interaction flow identical across systems whenever possible. Only diverge at the exact point where an OS/backend capability requires it (for example, system-managed shortcut configuration vs in-app configuration).
 - **Documentation:** Proactively update `AGENTS.md` or other docs if you introduce a new architectural pattern or a major dependency.
-- **Self-Verification:** Always run `cargo check` and `deno task check` before declaring a task complete.
+- **Self-Verification:** Always run `cargo check` and `npm run typecheck` before declaring a task complete.
 - **Git Commits:** Do not perform git commits without explicit user approval. Always ask for confirmation before running `git commit`.
 
 ### Solo-Scale Guardrails

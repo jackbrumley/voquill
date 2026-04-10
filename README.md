@@ -37,57 +37,72 @@ In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and fr
 - **Private by Default** - High-performance offline transcription ensures total data sovereignty.
 - **Global Push-to-Talk** - Hold a customizable shortcut to record and release to transcribe instantly.
 - **Universal Input** - Transcribed text is injected directly into your active window as keystrokes.
-- **Windows and Linux Support** - Native support for Windows and Linux (Wayland).
+- **Windows and Linux Support** - Native support for Windows and Linux (Wayland + X11).
 - **Minimalist Design** - An unobtrusive overlay provides status updates without getting in your way.
 - **History Management** - Quickly access, copy, and manage your previous transcriptions.
 
+---
+
 ## Getting Started
 
-### Download
+**Set Up (Local Recommended)**
+- Open **Config**, choose a model size (start with **Distil-Small**).
+- Click **Download** to install the model locally.
+- Optional: enable **Turbo Mode** in Advanced settings if you have a dedicated GPU.
+- Cloud mode optional: add your OpenAI API key and switch transcription mode to **Cloud**.
 
-Ready-to-use binaries are available for supported platforms:
+**Use It**
+- Focus any text field (email, docs, browser, editor).
+- Hold `Ctrl + Shift + Space` (default), speak, then release to transcribe.
 
-- **Windows**: setup `.exe`, portable `.exe`, or `.msi` installer
-- **Linux**: `linux-x64` tarball, `.AppImage`, `.deb`, or `.rpm`
+**Audio Quick Check**
+- Select the correct microphone.
+- Adjust mic sensitivity so voice is clear without clipping.
+- Use **Test Microphone** + playback to verify quality.
 
-### Setup Guide
+---
 
-Ensure you have a working microphone set as your default audio device before starting (see **Audio Optimization** below).
+## How to Build It Yourself
 
-#### Local Mode (Recommended)
+1. **Open Terminal in the project folder**
+   - On Windows: open PowerShell in the Voquill folder.
+   - On Linux: open your Terminal in the Voquill folder.
+2. **Install required project files**
+   - Run: `npm install`
+   - This downloads everything needed to build Voquill.
+3. **Check your system is ready**
+   - Run: `npm run deps:check`
+   - If anything is missing, it will print the install commands.
+4. **Build the full app**
+   - Run: `npm run tauri:build`
+   - This creates installable app packages.
+5. **Find your built files**
+   - Location: `src-tauri/target/release/bundle/`
+   - This folder contains installer/package files (such as `.msi`, `.deb`, `.rpm`, `.AppImage`).
+6. **Optional: Run in development mode**
+   - Run: `npm run tauri:dev`
+   - This is for live testing while developing.
+   - It is not the final packaged release build.
 
-Voquill is designed to work offline. Simply launch the app and:
-1. Select your preferred model size from the **Config tab** (the **Distil-Small** model is recommended for most users).
-2. Click the **Download** button to fetch the model to your device.
-3. Start dictating immediately.
+---
 
-**Turbo Mode (GPU)**: If you have a dedicated graphics card (AMD or NVIDIA), enable Turbo Mode in Advanced settings. With Turbo Mode, the **Small** model is a great accuracy upgrade while still feeling fast.
+## Platform Support, Downloads & Known Issues
 
-#### Cloud Mode (Optional)
+| System | Display Server | Recommended Downloads | Status | Known Issues |
+| :-- | :-- | :-- | :--: | :-- |
+| Windows 10/11 | Native Windows desktop | `.msi`, setup `.exe`, portable `.exe` | ✅ | None |
+| Ubuntu / Debian / Linux Mint | Wayland | `.deb`, `.AppImage` | ✅ | None |
+| Fedora / RHEL-based distros | Wayland | `.rpm`, `.AppImage` | ✅ | None |
+| KDE-based distros (Kubuntu, KDE Neon) | Wayland | distro package (`.deb`/`.rpm`), `.AppImage` | ✅ | None |
+| Linux (general compatibility) | X11 | distro package (`.deb`/`.rpm`), `.AppImage` | ✅ | None |
 
-If you prefer using the OpenAI Whisper API for cloud-based transcription:
-1. Enter your OpenAI API key in the settings.
-2. Ensure your account has a balance.
-3. Switch the transcription mode to "Cloud".
+`✅` = tested and supported, `⚠️` = supported with caveats, `❌` = not supported
 
-#### Audio Optimization
+**General Known Issues**
+- Linux input is currently limited to standard English characters. Non-English characters and broader Unicode support are planned.
+- Language selection acts as a transcription hint and may not always be followed by every model.
 
-To ensure the highest transcription accuracy, take a moment to calibrate your audio in the **Config > Audio** section:
-1. **Select Microphone**: Ensure the correct device is selected.
-2. **Adjust Sensitivity**: Use the **Mic Sensitivity** slider so your voice is clear but not clipping.
-3. **Test & Playback**: Use the **Test Microphone** button to record and listen to a snippet to verify clarity.
-
-### How to Dictate
-
-1. **Focus**: Click into any text field (Email, Word, Browser, Code Editor, etc.).
-2. **Hold**: Press and hold `Ctrl + Shift + Space` (default).
-3. **Speak**: Speak clearly while holding the keys.
-4. **Release**: Let go of the keys. Your speech will appear as text at your cursor.
-
-## Known Issues
-
-- **Linux Input Support**: Current Linux input is limited to standard English characters. Support for non-English characters and Unicode symbols is planned for a future update.
-- **Language Selection**: Choosing a language in settings provides a "hint" to the AI, but transcription may not always reliably follow the selected language depending on the model used.
+---
 
 ## Technology
 
@@ -97,7 +112,9 @@ Voquill is built for performance and security:
 - **Rust** - High-performance systems backend.
 - **Whisper.cpp** - Optimized on-device speech recognition.
 - **Preact** - Clean and responsive interface.
-- **Deno** - Modern JavaScript/TypeScript runtime and task runner.
+- **Vite + npm** - Frontend tooling and script orchestration.
+
+---
 
 ## License
 

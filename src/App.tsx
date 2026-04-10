@@ -4,7 +4,6 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
-import { tokens } from './design-tokens.ts';
 import { Button } from './components/Button.tsx';
 import { ActionFooter } from './components/ActionFooter.tsx';
 import { ModelInfoModal } from './components/ModelInfoModal.tsx';
@@ -130,7 +129,6 @@ function App() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [modelStatus, setModelStatus] = useState<Record<string, boolean>>({});
   const [permissions, setPermissions] = useState<LinuxPermissions | null>(null);
-  const [linuxSetupStatus, setLinuxSetupStatus] = useState<'idle' | 'configuring' | 'restart-required' | 'failed'>('idle');
   const [isRecordingHotkey, setIsRecordingHotkey] = useState(false);
   const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
   const [showModelGuide, setShowModelGuide] = useState(false);

@@ -50,7 +50,7 @@ If a platform does not provide the required support, it is not supported by the 
 2. **Desktop Framework:** **Tauri**
    - Lightweight, cross-platform GUI framework.
    - Provides system tray and pop-up windows.
-   - Uses Rust core logic with a WebView-based configuration UI (built with **Preact** and **Deno**).
+   - Uses Rust core logic with a WebView-based configuration UI (built with **Preact** and **Vite/npm**).
 
 3. **Speech-to-Text Engine:**
    - Local: [Whisper.cpp](https://github.com/ggerganov/whisper.cpp) for offline.

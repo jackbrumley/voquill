@@ -1,26 +1,25 @@
 # Voquill Build Guide
 
-Voquill uses Deno as a task runner to simplify the build process across different platforms.
+Voquill uses npm scripts with the Tauri CLI to build across platforms.
 
 ## Quick Start
 
 The main build command will check for dependencies, build the frontend, and then build the Tauri application.
 
 ```bash
-# Standard release build
-deno task build
+# Start desktop development
+npm run tauri:dev
 
-# Development build (faster, includes debug info)
-deno task build --dev
+# Standard release build
+npm run tauri:build
 ```
 
 ### When to use each command:
-- **deno task build**: Use this for the final app you intend to share or use daily. It produces optimized, small executables.
-- **deno task dev**: Use this for active development. It provides hot-reloading for both the frontend and backend.
+- **npm run tauri:build**: Use this for the final app you intend to share or use daily. It produces optimized, small executables.
+- **npm run tauri:dev**: Use this for active development. It provides hot-reloading for both the frontend and backend.
 
 ## Requirements
 
-- **Deno** (latest version)
 - **Rust** with Cargo
 - **Node.js** and **npm** (for frontend dependencies)
 
@@ -52,11 +51,11 @@ When running Voquill on Linux, you may see a warning in the terminal:
 
 **Cause:** Tauri's tray implementation currently depends on the older `libayatana-appindicator3` library. The upstream project has released a newer `-glib` variant, but the Rust ecosystem bindings haven't migrated yet. No action is required from users or developers.
 
-## What the Build Script Does
+## What the Build Process Does
 
-1. **Checks Dependencies** - Verifies required Linux system libraries are present.
-2. **Builds Frontend** - Runs `deno task build:ui` (which runs type checks and Vite build).
-3. **Builds Application** - Runs `cargo tauri build` to create the final executable and installers.
+1. **Checks Dependencies** - Runs `npm run deps:check` and verifies required system libraries and toolchains.
+2. **Builds Frontend** - Runs `npm run build` (type-check + Vite build).
+3. **Builds Application** - Runs `tauri build` to create the final executable and installers.
 
 ## Output
 

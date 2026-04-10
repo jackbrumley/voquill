@@ -3,15 +3,29 @@
   "version": "1.2.4",
   "private": true,
   "scripts": {
-    "dev": "deno task dev",
-    "build": "deno task build",
-    "tauri": "deno task tauri"
+    "deps:check": "node scripts/check-deps.mjs",
+    "predev": "npm run deps:check",
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "prebuild": "npm run deps:check",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-shell": "^2",
+    "preact": "^10.28.2",
     "@tabler/icons-preact": "^3.36.1",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.2"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.9.6"
+    "@types/node": "^22.15.3",
+    "@preact/preset-vite": "^2.10.2",
+    "@tauri-apps/cli": "^2.9.6",
+    "typescript": "~5.9.3",
+    "vite": "^6.4.1"
   }
 }

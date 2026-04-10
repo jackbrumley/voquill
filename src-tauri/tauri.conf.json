@@ -4,8 +4,8 @@
   "version": "1.2.8",
   "identifier": "org.voquill.foss",
   "build": {
-    "beforeBuildCommand": "deno task build:ui",
-    "beforeDevCommand": "deno task dev:ui",
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420"
   },

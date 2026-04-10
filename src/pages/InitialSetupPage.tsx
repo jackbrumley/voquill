@@ -94,7 +94,6 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
     downloadProgress,
     isDownloading,
     portalVersion,
-    portalDiagnostics,
     isSystemManagedShortcut,
     systemShortcutContext,
     isApplyingHotkey,

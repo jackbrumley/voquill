@@ -22,14 +22,14 @@ You will need to build the application on each target platform.
 ### Linux (Debian/Ubuntu/RPM/AppImage)
 On a Linux machine:
 ```bash
-deno task build
+npm run tauri:build
 ```
 Artifacts will be in `src-tauri/target/release/bundle/deb/`, `src-tauri/target/release/bundle/rpm/`, and `src-tauri/target/release/bundle/appimage/`.
 
 ### Windows (MSI/EXE)
 On a Windows machine:
 ```bash
-deno task build
+npm run tauri:build
 ```
 Artifacts will be in `src-tauri/target/release/bundle/msi/` and `src-tauri/target/release/`.
 

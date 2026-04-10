@@ -16,7 +16,7 @@ Achieve full feature parity between Windows and Linux while maintaining a clean,
 - **Audio Device Labels**: Must follow the format `[Friendly Name] - [Device Description]` (e.g., "Microphone - 2- Realtek(R) Audio").
 - **Hold-to-Talk**: Must detect both "Pressed" and "Released" events for the global hotkey to start/stop recording.
 - **Hardware Typing**: Must simulate keystrokes into focused applications using the native Windows `SendInput` API.
-- **Environment Verification**: The Deno check scripts (`dev.ts`, `build.ts`) must verify that Windows build tools (LLVM/Clang for `bindgen`, CMake for `-sys` crates) are installed and in the PATH.
+- **Environment Verification**: The npm dependency check script (`npm run deps:check`) must verify that Windows build tools (LLVM/Clang for `bindgen`, CMake for `-sys` crates) are installed and in the PATH.
 
 ## 🏗️ Current State
 - **Compiles**: The app compiles and runs on Windows after several refactoring rounds.
@@ -33,5 +33,5 @@ Achieve full feature parity between Windows and Linux while maintaining a clean,
 ## 💡 Guidance for Next Session
 - **Right Way Only**: Do not retreat to generic CPAL names. Find the correct `windows` crate v0.58 invocation for `PropVariantToStringAlloc`.
 - **Gating Strategy**: Use type aliasing (e.g., `VirtualKeyboardHandle`) and abstraction modules to keep the code DRY while isolating platform-specific logic.
-- **Deno Deps**: See `scripts/deps.ts` for the centralized "Smart Dependency" check logic that helps users fix their PATH/installation issues.
+- **Dependency Checks**: See `scripts/check-deps.mjs` for the centralized "Smart Dependency" check logic that helps users fix their PATH/installation issues.
 - **Final Target**: The UI dropdown should look like the Windows Sound control panel, showing both the device name and the card it belongs to.

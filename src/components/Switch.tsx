@@ -1,6 +1,4 @@
 
-import { ComponentChildren } from 'preact';
-
 interface SwitchProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
