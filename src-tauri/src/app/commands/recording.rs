@@ -128,7 +128,10 @@ pub async fn start_mic_test(
 
         let sample_rate = {
             let guard = audio_engine.lock().unwrap();
-            guard.as_ref().map(|engine| engine.sample_rate).unwrap_or(16000)
+            guard
+                .as_ref()
+                .map(|engine| engine.sample_rate)
+                .unwrap_or(16000)
         };
 
         let result = audio::record_mic_test(&is_mic_test_clone, audio_engine, {

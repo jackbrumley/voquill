@@ -155,7 +155,10 @@ pub async fn record_and_transcribe(
             }
         };
 
-    let text = match service.transcribe(&audio_data, lang_code, prompt_hint).await {
+    let text = match service
+        .transcribe(&audio_data, lang_code, prompt_hint)
+        .await
+    {
         Ok(text) => {
             crate::log_info!(
                 "📝 Transcription received ({}): \"{}\"",

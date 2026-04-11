@@ -197,9 +197,11 @@ pub fn run_setup(
         if is_wayland_session() {
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(error) =
-                    crate::platform::linux::wayland::input::establish_input_session(&app_handle, false)
-                        .await
+                if let Err(error) = crate::platform::linux::wayland::input::establish_input_session(
+                    &app_handle,
+                    false,
+                )
+                .await
                 {
                     crate::log_warn!("Wayland input session restore failed: {}", error);
                 }

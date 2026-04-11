@@ -25,7 +25,10 @@ pub async fn check_model_status(model_size: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub async fn download_model(model_size: String, app_handle: tauri::AppHandle) -> Result<(), String> {
+pub async fn download_model(
+    model_size: String,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
     let manager = model_manager::ModelManager::new().map_err(|error| error.to_string())?;
 
     manager

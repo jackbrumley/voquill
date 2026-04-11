@@ -1,12 +1,12 @@
-use crate::{audio, AppState};
-#[cfg(target_os = "linux")]
-use crate::platform::linux::wayland::portal::capabilities::PortalDiagnostics;
-#[cfg(not(target_os = "linux"))]
-use crate::PortalDiagnostics;
-use serde::Serialize;
 #[cfg(target_os = "linux")]
 use crate::platform::linux::detection::is_wayland_session;
+#[cfg(target_os = "linux")]
+use crate::platform::linux::wayland::portal::capabilities::PortalDiagnostics;
 use crate::platform::permissions::LinuxPermissions;
+#[cfg(not(target_os = "linux"))]
+use crate::PortalDiagnostics;
+use crate::{audio, AppState};
+use serde::Serialize;
 use tauri::Manager;
 
 #[tauri::command]

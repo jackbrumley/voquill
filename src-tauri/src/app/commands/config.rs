@@ -1,6 +1,6 @@
 use crate::app::commands::hotkey::re_register_hotkey;
-use crate::{audio, config, history, AppState};
 use crate::config::Config;
+use crate::{audio, config, history, AppState};
 use tauri::Emitter;
 
 #[tauri::command]
@@ -55,7 +55,9 @@ pub async fn save_config(
             }
         }
     } else if restart_engine {
-        crate::log_info!("🔧 Audio config changed during active mic test, deferring engine restart");
+        crate::log_info!(
+            "🔧 Audio config changed during active mic test, deferring engine restart"
+        );
     }
 
     if let Err(error) = config::save_config(&normalized_config) {
@@ -66,7 +68,10 @@ pub async fn save_config(
         if let Err(error) = re_register_hotkey(&app_handle, &normalized_config.hotkey).await {
             let mut error_lock = state.hotkey_error.lock().unwrap();
             *error_lock = Some(error.clone());
-            return Err(format!("Config saved but failed to update hotkey: {}", error));
+            return Err(format!(
+                "Config saved but failed to update hotkey: {}",
+                error
+            ));
         } else {
             let mut error_lock = state.hotkey_error.lock().unwrap();
             *error_lock = None;

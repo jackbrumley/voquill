@@ -290,7 +290,9 @@ pub async fn manual_register_hotkey(
 }
 
 #[tauri::command]
-pub async fn check_hotkey_status(state: tauri::State<'_, AppState>) -> Result<Option<String>, String> {
+pub async fn check_hotkey_status(
+    state: tauri::State<'_, AppState>,
+) -> Result<Option<String>, String> {
     let error = state.hotkey_error.lock().unwrap();
     Ok(error.clone())
 }
@@ -345,7 +347,9 @@ pub async fn set_configuring_hotkey(
                     );
                 }
             } else {
-                crate::log_info!("▶️ Wayland hotkey engine already active after capture; skipping resume");
+                crate::log_info!(
+                    "▶️ Wayland hotkey engine already active after capture; skipping resume"
+                );
             }
         }
     }
