@@ -1,4 +1,5 @@
 import { Button } from './Button.tsx';
+import { tokens } from '../design-tokens.ts';
 
 interface MicSetupPanelProps {
   inputSensitivity: number;
@@ -26,8 +27,8 @@ export function MicSetupPanel({
   const showVolumeMeter = micTestStatus === 'recording' || micTestStatus === 'playing';
 
   return (
-    <div className={`mic-setup-panel ${compact ? 'compact' : ''}`}>
-      <div className="mic-sensitivity-label">
+    <div style={{ width: '100%' }}>
+      <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, marginBottom: '4px', textAlign: 'left' }}>
         Mic Sensitivity ({Math.round(inputSensitivity * 100)}%)
       </div>
       <input
@@ -40,15 +41,36 @@ export function MicSetupPanel({
           const target = event.target as HTMLInputElement;
           onInputSensitivityChange(parseFloat(target.value));
         }}
-        className="slider"
+        style={{
+          WebkitAppearance: 'none',
+          width: '100%',
+          height: '6px',
+          background: tokens.colors.bgTertiary,
+          borderRadius: '3px',
+          outline: 'none',
+          margin: `${tokens.spacing.sm} 0`,
+        }}
       />
 
-      <div className="mic-test-row">
+      <div
+        style={{
+          marginTop: compact ? tokens.spacing.sm : tokens.spacing.md,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: tokens.spacing.sm,
+          alignItems: 'center',
+        }}
+      >
         {showVolumeMeter && (
-          <div className="volume-meter-container">
+          <div style={{ width: '100%', height: '4px', background: tokens.colors.bgTertiary, borderRadius: '2px', overflow: 'hidden' }}>
             <div
-              className={`volume-meter-bar ${micVolume > 0.9 ? 'clipping' : micVolume > 0.7 ? 'warning' : ''}`}
-              style={{ width: `${Math.min(micVolume * 100, 100)}%` }}
+              style={{
+                width: `${Math.min(micVolume * 100, 100)}%`,
+                height: '100%',
+                background: micVolume > 0.9 ? '#e74c3c' : micVolume > 0.7 ? '#f1c40f' : tokens.colors.success,
+                transition: 'width 0.1s ease-out',
+                boxShadow: micVolume > 0.9 ? '0 0 5px #e74c3c' : 'none',
+              }}
             ></div>
           </div>
         )}

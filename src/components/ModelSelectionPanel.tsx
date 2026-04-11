@@ -1,5 +1,7 @@
 import { IconInfoCircle } from '@tabler/icons-preact';
 import { Button } from './Button.tsx';
+import { selectBaseStyle, selectWrapperStyle } from '../theme/ui-primitives.ts';
+import { tokens } from '../design-tokens.ts';
 
 interface ModelSelectionPanelProps {
   availableModels: any[];
@@ -30,10 +32,14 @@ export function ModelSelectionPanel({
 }: ModelSelectionPanelProps) {
   return (
     <>
-      <div className="select-wrapper">
+      <div style={selectWrapperStyle}>
         {availableModels.length > 0 ? (
           <>
-            <select value={localModelSize} onChange={(event: Event) => onChangeModel((event.target as HTMLSelectElement).value)}>
+            <select
+              value={localModelSize}
+              onChange={(event: Event) => onChangeModel((event.target as HTMLSelectElement).value)}
+              style={selectBaseStyle}
+            >
               {availableModels
                 .filter((model) => model.engine === localEngine)
                 .map((model) => (
@@ -42,7 +48,7 @@ export function ModelSelectionPanel({
                   </option>
                 ))}
             </select>
-            <Button variant="ghost" className="icon-button" onClick={onShowModelGuide} title="Model Guide">
+            <Button variant="icon" onClick={onShowModelGuide} title="Model Guide">
               <IconInfoCircle size={20} />
             </Button>
             {!modelStatus[localModelSize] && (
@@ -52,25 +58,28 @@ export function ModelSelectionPanel({
             )}
           </>
         ) : (
-          <div className="model-panel-row">
-            <div className="model-panel-loading-text">Loading models...</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.sm, width: '100%' }}>
+            <div style={{ fontSize: '12px', color: '#d9dfe7', flex: 1 }}>Loading models...</div>
+            <Button variant="icon" onClick={onShowModelGuide} title="Model Guide">
+              <IconInfoCircle size={20} />
+            </Button>
             <Button variant="configAction" size={actionButtonSize} onClick={onRetryModels}>Retry</Button>
           </div>
         )}
       </div>
 
       {availableModels.length > 0 && (
-        <div className="mode-description model-panel-description">
+        <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textSecondary }}>
           {availableModels.find((model) => model.size === localModelSize)?.description}
         </div>
       )}
 
       {isDownloading && (
-        <div className="download-progress-container model-download-progress">
-          <div className="volume-meter-container model-download-progress-bar">
-            <div className="volume-meter-bar model-download-progress-fill" style={{ width: `${Math.min(downloadProgress, 100)}%` }}></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
+          <div style={{ width: '100%', height: '4px', background: tokens.colors.bgTertiary, borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(downloadProgress, 100)}%`, height: '100%', background: tokens.colors.success }}></div>
           </div>
-          <div className="model-download-progress-text">
+          <div style={{ fontSize: '10px', color: '#d9dfe7', textAlign: 'right' }}>
             Downloading model... {Math.round(downloadProgress)}%
           </div>
         </div>

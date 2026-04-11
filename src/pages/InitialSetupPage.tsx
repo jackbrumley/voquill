@@ -9,6 +9,8 @@ import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
 import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
 import { SurfaceCard } from '../components/SurfaceCard.tsx';
 import { SettingRow } from '../components/SettingRow.tsx';
+import { helperTextStyle, inputBaseStyle, selectBaseStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
+import { tokens } from '../design-tokens.ts';
 
 interface AudioDevice {
   id: string;
@@ -124,20 +126,40 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
     onFinishSetup,
   } = props;
 
+  const setupGhostPillStyle = {
+    borderRadius: '40px',
+    padding: '10px 24px',
+    fontWeight: 700,
+  } as const;
+
   return (
-    <div className="tab-panel page-scroll initial-setup-page" key="initial-setup">
-      <SurfaceCard className="tab-panel-content initial-setup-content">
-        <div className="setup-header">
-          <div className="setup-icon-container">
-            <IconShieldLock size={32} className="setup-icon" />
+    <div style={{ ...tabPanelStyle, overflow: 'hidden', padding: 0, height: '100%', minHeight: 0 }} key="initial-setup">
+      <SurfaceCard
+        className="tab-panel-content"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'transparent',
+          border: 'none',
+          boxShadow: 'none',
+          backdropFilter: 'none',
+          WebkitBackdropFilter: 'none',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.lg, width: '100%', maxWidth: '900px', margin: '0 auto', borderRadius: tokens.radii.panel, padding: tokens.spacing.md, height: '100%', minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.md, textAlign: 'center', width: '100%' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: tokens.colors.accentPrimary, boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+            <IconShieldLock size={32} />
           </div>
-          <h2>Initial Setup</h2>
+          <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800, letterSpacing: '-0.02em', color: tokens.colors.textPrimary }}>Initial Setup</h2>
         </div>
 
-        <div className="setup-body">
-          <p className="setup-intro">Complete these required checks before first use:</p>
-          <div className="setup-list">
-            <div className="setup-section-label">Required</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.md, color: '#d9dfe7', lineHeight: 1.6, textAlign: 'left', flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px' }}>
+          <p style={{ margin: 0, fontSize: tokens.typography.sizeSm, width: '100%', textAlign: 'center' }}>Complete these required checks before first use:</p>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#d9dfe7', margin: '2px 0 6px' }}>Required</div>
 
             <SettingRow
               className={`permission-item ${permissions?.audio ? 'ready' : ''}`}
@@ -146,7 +168,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               status={permissions?.audio ? (
                 <IconCheck color="var(--colors-success)" size={20} />
               ) : (
-                <Button variant="ghost" size="sm" onClick={onAudioSetup}>Request</Button>
+                <Button variant="ghost" size="sm" pill style={setupGhostPillStyle} onClick={onAudioSetup}>Request</Button>
               )}
             />
 
@@ -157,7 +179,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               status={permissions?.shortcuts ? (
                 <IconCheck color="var(--colors-success)" size={20} />
               ) : (
-                <Button variant="ghost" size="sm" onClick={onConfigureHotkey} disabled={isApplyingHotkey}>
+                <Button variant="ghost" size="sm" pill style={setupGhostPillStyle} onClick={onConfigureHotkey} disabled={isApplyingHotkey}>
                   Change Shortcut
                 </Button>
               )}
@@ -172,24 +194,28 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                   onBlur={onHotkeyBlur}
                   readOnly
                   placeholder={portalVersion >= 1 ? 'Bind with button' : 'Click to set'}
-                  className="hotkey-input setup-hotkey-input setup-hotkey-input-field"
+                  className="hotkey-input"
                   style={{
+                    ...inputBaseStyle,
+                    width: '100%',
+                    maxWidth: '240px',
+                    textAlign: 'left',
                     cursor: portalVersion >= 1 ? 'default' : 'pointer',
-                    color: isRecordingHotkey ? 'var(--colors-text-primary)' : 'var(--colors-text-primary)',
+                    color: tokens.colors.textPrimary,
                     opacity: portalVersion >= 1 ? 0.85 : 1,
                   }}
                   title={portalVersion >= 1 ? 'Use Configure Hotkey to request a system shortcut.' : ''}
                 />
               )}
               {isSystemManagedShortcut && (
-                <div className="permission-desc permission-desc-note">
+                <div style={helperTextStyle}>
                   {systemShortcutContext?.distro
                     ? `Your ${systemShortcutContext.distro} system manages this shortcut. Change it in ${systemShortcutContext.settings_path}.`
                     : `Your system manages this shortcut. Change it in ${systemShortcutContext?.settings_path || 'System Settings -> Keyboard Shortcuts'}.`}
                 </div>
               )}
               {!permissions?.shortcuts && permissions?.shortcuts_detail && (
-                <div className="permission-desc permission-desc-warning">
+                <div style={{ ...helperTextStyle, color: '#f1c40f' }}>
                   {permissions.shortcuts_detail}
                 </div>
               )}
@@ -202,7 +228,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               status={permissions?.input_emulation ? (
                 <IconCheck color="var(--colors-success)" size={20} />
               ) : (
-                <Button variant="ghost" size="sm" onClick={onInputSetup}>Request</Button>
+                <Button variant="ghost" size="sm" pill style={setupGhostPillStyle} onClick={onInputSetup}>Request</Button>
               )}
             />
 
@@ -249,7 +275,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               status={isAudioDeviceReady ? (
                 <IconCheck color="var(--colors-success)" size={20} />
               ) : (
-                <Button variant="ghost" size="sm" onClick={() => {
+                <Button variant="ghost" size="sm" pill style={setupGhostPillStyle} onClick={() => {
                   onTouchSetup();
                   onLoadMics();
                 }}>
@@ -265,6 +291,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                   onChangeConfig('audio_device', (event.target as HTMLSelectElement).value);
                 }}
                 className="setup-audio-select"
+                style={selectBaseStyle}
               >
                 <option value="default">Default microphone</option>
                 {availableMics.map((mic) => (
@@ -273,7 +300,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               </select>
             </SettingRow>
 
-            <div className="setup-section-label setup-section-recommended">Recommended</div>
+            <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#d9dfe7', margin: '8px 0 6px' }}>Recommended</div>
 
             <SettingRow
               className={`permission-item ${micTestPassed ? 'ready' : ''}`}
@@ -295,34 +322,29 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
             </SettingRow>
           </div>
 
-          <p className="setup-note">
-            Complete required checks to unlock the app. Mic Test is optional but recommended.
-            {isSystemManagedShortcut && (
-              <> To change your shortcut later, use {systemShortcutContext?.settings_path || 'System Settings -> Keyboard Shortcuts'}.</>
-            )}
-          </p>
         </div>
 
-        <div className="setup-actions setup-button-container">
-          <div className="setup-actions-row">
-            <Button variant="ghost" onClick={onRefreshStatus} className="setup-refresh-button" title="Refresh Status">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '6px', paddingBottom: tokens.spacing.md }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.sm }}>
+            <Button variant="ghost" onClick={onRefreshStatus} title="Refresh Status" style={{ width: '38px', height: '38px', padding: 0, borderRadius: '999px', color: tokens.colors.textPrimary }}>
               <IconRefresh size={16} />
             </Button>
             <Button
               variant="configAction"
-              className="setup-finish-button"
               disabled={!isAllReady}
               onClick={onFinishSetup}
+              style={{ minWidth: '180px' }}
             >
               Finish Setup
             </Button>
           </div>
 
           {!isAllReady && setupTouched && (
-            <div className="setup-actions-note">
+            <div style={{ marginTop: '8px', fontSize: '11px', color: '#d9dfe7', textAlign: 'center' }}>
               Complete all required items to finish setup.
             </div>
           )}
+        </div>
         </div>
       </SurfaceCard>
     </div>

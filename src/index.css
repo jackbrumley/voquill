@@ -9,11 +9,6 @@
   font-family: var(--typography-font-main);
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: dark;
-  color: var(--colors-text-primary);
-  background-color: var(--colors-bg-primary);
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -26,34 +21,13 @@ html, body {
 }
 
 body {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
   min-width: 320px;
   overflow: hidden;
+  color: var(--colors-text-primary);
+  background: var(--colors-bg-primary);
 }
 
 #root {
   width: 100%;
   height: 100%;
-}
-
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  transition: background 0.2s ease;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
 }

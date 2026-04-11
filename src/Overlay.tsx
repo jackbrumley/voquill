@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { listen } from '@tauri-apps/api/event';
 import StatusIcon from './StatusIcon.tsx';
-import './Overlay.css';
+import { tokens } from './design-tokens.ts';
 
 function Overlay() {
   const [status, setStatus] = useState<string>('Ready');
@@ -47,10 +47,23 @@ function Overlay() {
   }, []);
 
   return (
-    <div className="status-container">
-      <div className="overlay-content">
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', width: '100vw', backgroundColor: 'rgba(0,0,0,0)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
         <StatusIcon status={status} />
-        <span className="status-text">{status}</span>
+        <span
+          style={{
+            color: '#fff',
+            fontFamily: tokens.typography.fontMain,
+            fontSize: '16px',
+            fontWeight: 300,
+            textAlign: 'center',
+            background: 'rgba(54, 57, 63, 0.55)',
+            padding: '2px 6px',
+            borderRadius: '8px',
+          }}
+        >
+          {status}
+        </span>
       </div>
     </div>
   );

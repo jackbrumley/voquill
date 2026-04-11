@@ -12,7 +12,23 @@ import { StatusPage } from './pages/StatusPage.tsx';
 import { ConfigPage } from './pages/ConfigPage.tsx';
 import { HistoryPage } from './pages/HistoryPage.tsx';
 import { InitialSetupPage } from './pages/InitialSetupPage.tsx';
-import './App.css';
+import {
+  appShellStyle,
+  helperTextStyle,
+  modalShortcutNoteStyle,
+  modalShortcutPathStyle,
+  modalTextIntroStyle,
+  tabContentStyle,
+  tabNavStyle,
+  titleBarControlsStyle,
+  titleBarStyle,
+  titleBarTitleStyle,
+  toastContainerStyle,
+  getToastStyle,
+  toastDotStyle,
+  toastMessageStyle,
+} from './theme/ui-primitives.ts';
+import { tokens } from './design-tokens.ts';
 
 interface Config {
   openai_api_key: string;
@@ -158,6 +174,7 @@ function App() {
   const [isApplyingHotkey, setIsApplyingHotkey] = useState(false);
   const [initialRouteChecked, setInitialRouteChecked] = useState(false);
   const [setupTouched, setSetupTouched] = useState(false);
+  const [hoveredTopTab, setHoveredTopTab] = useState<AppRoute | null>(null);
   const tabContentRef = useRef<HTMLDivElement | null>(null);
   const trayFallbackNotifiedRef = useRef(false);
 
@@ -828,13 +845,48 @@ function App() {
     }
   };
 
+  const topTabBaseStyle = {
+    border: 'none',
+    borderRadius: `${tokens.radii.input} ${tokens.radii.input} 0 0`,
+    background: 'transparent',
+    color: tokens.colors.textSecondary,
+    fontSize: '12px',
+    fontWeight: 600,
+    letterSpacing: '0.005em',
+    padding: `12px ${tokens.spacing.sm}`,
+    cursor: 'pointer',
+    transition: tokens.transitions.normal,
+    flex: 1,
+    textAlign: 'center',
+    position: 'relative',
+    zIndex: 1,
+    marginBottom: 0,
+  } as const;
+
+  const getTopTabStyle = (route: AppRoute) => {
+    const isActive = activeRoute === route;
+    const isHovered = hoveredTopTab === route;
+    return {
+      ...topTabBaseStyle,
+      background: isActive
+        ? 'rgba(54, 57, 63, 0.5)'
+        : isHovered
+          ? 'rgba(255, 255, 255, 0.05)'
+          : 'transparent',
+      color: isActive ? tokens.colors.textPrimary : tokens.colors.textSecondary,
+      backdropFilter: isActive ? 'blur(5px)' : undefined,
+      WebkitBackdropFilter: isActive ? 'blur(5px)' : undefined,
+      boxShadow: isActive ? `inset 0 -1px 0 ${tokens.colors.bgPrimary}` : 'none',
+    } as const;
+  };
+
   return (
-    <div className="app">
-      <div className="title-bar" onMouseDown={handleTitleBarMouseDown}>
-        <div className="title-bar-title">Voquill</div>
-        <div className="title-bar-controls">
-          <Button variant="icon" className="title-bar-button" onClick={handleMinimize}>─</Button>
-          <Button variant="icon" className="title-bar-button close" onClick={handleClose}>✕</Button>
+    <div style={appShellStyle}>
+      <div style={titleBarStyle} onMouseDown={handleTitleBarMouseDown}>
+        <div style={titleBarTitleStyle}>Voquill</div>
+        <div style={titleBarControlsStyle}>
+          <Button variant="icon" onClick={handleMinimize}>─</Button>
+          <Button variant="icon" onClick={handleClose} style={{ background: 'rgba(239, 68, 68, 0.2)' }}>✕</Button>
         </div>
       </div>
 
@@ -880,13 +932,40 @@ function App() {
         />
       ) : (
         <>
-          <div className="tab-nav">
-            <button className={`tab ${activeRoute === 'status' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Button clicked: Status Tab'); navigate('status'); }}>Status</button>
-            <button className={`tab ${activeRoute === 'history' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Button clicked: History Tab'); navigate('history'); }}>History</button>
-            <button className={`tab ${activeRoute === 'config' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Button clicked: Config Tab'); navigate('config'); }}>Config</button>
+          <div style={tabNavStyle}>
+            <button
+              type="button"
+              style={getTopTabStyle('status')}
+              onClick={() => { logUI('🖱️ Button clicked: Status Tab'); navigate('status'); }}
+              onMouseEnter={() => setHoveredTopTab('status')}
+              onMouseLeave={() => setHoveredTopTab(null)}
+              aria-current={activeRoute === 'status' ? 'page' : undefined}
+            >
+              Status
+            </button>
+            <button
+              type="button"
+              style={getTopTabStyle('history')}
+              onClick={() => { logUI('🖱️ Button clicked: History Tab'); navigate('history'); }}
+              onMouseEnter={() => setHoveredTopTab('history')}
+              onMouseLeave={() => setHoveredTopTab(null)}
+              aria-current={activeRoute === 'history' ? 'page' : undefined}
+            >
+              History
+            </button>
+            <button
+              type="button"
+              style={getTopTabStyle('config')}
+              onClick={() => { logUI('🖱️ Button clicked: Config Tab'); navigate('config'); }}
+              onMouseEnter={() => setHoveredTopTab('config')}
+              onMouseLeave={() => setHoveredTopTab(null)}
+              aria-current={activeRoute === 'config' ? 'page' : undefined}
+            >
+              Config
+            </button>
           </div>
 
-          <div className="tab-content" ref={tabContentRef}>
+          <div style={tabContentStyle} ref={tabContentRef}>
             {activeRoute === 'status' && (
               <StatusPage
                 currentStatus={currentStatus}
@@ -945,22 +1024,22 @@ function App() {
 
           {activeRoute === 'history' && (
             <ActionFooter>
-              <Button variant="danger" className="sticky-footer-button" onClick={clearHistory}>Clear History</Button>
+              <Button variant="danger" pill floating onClick={clearHistory}>Clear History</Button>
             </ActionFooter>
           )}
         </>
       )}
 
-      <div className="toast-container">
+      <div style={toastContainerStyle}>
         {toasts.map(toast => (
           <div
             key={toast.id}
-            className={`toast ${toast.type}`}
+            style={getToastStyle(toast.type)}
             title="Click to copy"
             onClick={() => void handleToastClick(toast)}
           >
-            <span className="toast-dot"></span>
-            <span className="toast-message">{toast.message}</span>
+            <span style={{ ...toastDotStyle, background: toast.type === 'success' ? tokens.colors.success : toast.type === 'error' ? tokens.colors.error : tokens.colors.accentPrimary }}></span>
+            <span style={toastMessageStyle}>{toast.message}</span>
           </div>
         ))}
       </div>
@@ -980,10 +1059,10 @@ function App() {
             </Button>
           }
         >
-          <p className="hotkey-capture-subtitle">
+          <p style={helperTextStyle}>
             Press your desired key combination, or press Escape to cancel.
           </p>
-          <div className="hotkey-capture-display">
+          <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px 12px', textAlign: 'center', fontWeight: 700 }}>
             {isRecordingHotkey ? 'Listening for keys...' : config.hotkey}
           </div>
         </Modal>
@@ -1014,13 +1093,13 @@ function App() {
             </>
           }
         >
-          <p className="modal-intro">
+          <p style={modalTextIntroStyle}>
             Looks like your distro manages your shortcut. In order to change it, you will need to do so in your system settings.
           </p>
-          <p className="modal-shortcut-path">
+          <p style={modalShortcutPathStyle}>
             {systemShortcutContext?.settings_path || 'Settings -> Apps -> Voquill -> Global Shortcuts'}
           </p>
-          <p className="modal-shortcut-note">
+          <p style={modalShortcutNoteStyle}>
             If you can&apos;t find it, you may need to search through your system settings for &quot;Voquill&quot; or &quot;shortcuts&quot;.
           </p>
         </Modal>

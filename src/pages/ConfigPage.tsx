@@ -6,6 +6,8 @@ import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
 import { Button } from '../components/Button.tsx';
 import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
 import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
+import { helperTextStyle, inputBaseStyle, selectBaseStyle, selectWrapperStyle, tabPanelContentStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
+import { tokens } from '../design-tokens.ts';
 
 interface AudioDevice {
   id: string;
@@ -107,15 +109,21 @@ export function ConfigPage(props: ConfigPageProps) {
     onCopySessionLogs,
   } = props;
 
+  const configGhostPillStyle = {
+    borderRadius: '40px',
+    padding: '10px 24px',
+    fontWeight: 700,
+  } as const;
+
   return (
-    <div className="tab-panel config-panel page-scroll" key="config">
-      <div className="tab-panel-content">
+    <div style={{ ...tabPanelStyle, overflow: 'auto', padding: 0 }} key="config">
+      <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0 }}>
         <CollapsibleSection title="Transcription" isOpen={activeConfigSection === 'transcription'} onToggle={() => setActiveConfigSection(activeConfigSection === 'transcription' ? null : 'transcription')}>
           <ConfigField
             label="Global Hotkey"
             description={isSystemManagedShortcut ? 'Use your system shortcut to record and release to transcribe.' : 'Hold these keys to record, release to transcribe.'}
           >
-            <div className={`config-hotkey-row ${isSystemManagedShortcut ? 'is-system-managed' : ''}`}>
+            <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
               {!isSystemManagedShortcut && (
                 <input
                   type="text"
@@ -123,8 +131,7 @@ export function ConfigPage(props: ConfigPageProps) {
                   readOnly
                   onClick={() => {}}
                   placeholder="Configure using button"
-                  className="hotkey-input"
-                  style={{ opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default' }}
+                  style={{ ...inputBaseStyle, opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default' }}
                   title={portalVersion >= 1 ? 'Use Configure Hotkey to request binding through the system portal.' : ''}
                 />
               )}
@@ -138,14 +145,14 @@ export function ConfigPage(props: ConfigPageProps) {
               </Button>
             </div>
             {isSystemManagedShortcut ? (
-              <div className="config-inline-note">
+              <div style={helperTextStyle}>
                 {systemShortcutContext?.distro
                   ? `Your ${systemShortcutContext.distro} system manages this shortcut. To change it, open ${systemShortcutContext.settings_path}.`
                   : `Your system manages this shortcut. To change it, open ${systemShortcutContext?.settings_path || 'System Settings -> Keyboard Shortcuts'}.`}
                 {portalDiagnostics?.active_trigger ? ` Current shortcut: ${portalDiagnostics.active_trigger}.` : ''}
               </div>
             ) : portalVersion >= 1 && (
-              <div className="config-inline-note">
+              <div style={helperTextStyle}>
                 Shortcut registration uses the Wayland GlobalShortcuts portal.
                 {portalDiagnostics?.active_trigger ? ` Active shortcut: ${portalDiagnostics.active_trigger}.` : ''}
                 {hotkeyBindingState?.bound ? ' Listener is active.' : ''}
@@ -167,25 +174,25 @@ export function ConfigPage(props: ConfigPageProps) {
           {config.transcription_mode === 'API' ? (
             <>
               <ConfigField label="API Key" description="Used to authenticate with the transcription service (OpenAI).">
-                <div className="config-inline-actions input-with-button">
-                  <input type="text" value={config.openai_api_key} onChange={(e: Event) => updateConfig('openai_api_key', (e.target as HTMLInputElement).value)} placeholder="sk-..." />
+                <div style={{ ...selectWrapperStyle }}>
+                  <input style={inputBaseStyle} type="text" value={config.openai_api_key} onChange={(e: Event) => updateConfig('openai_api_key', (e.target as HTMLInputElement).value)} placeholder="sk-..." />
                   <Button variant="configAction" onClick={testApiKey} disabled={isTestingApi}>{isTestingApi ? '...' : 'Test'}</Button>
                 </div>
               </ConfigField>
 
               <ConfigField label="API URL" description="The endpoint that processes audio (OpenAI or Local Whisper).">
-                <input type="url" value={config.api_url} onChange={(e: Event) => updateConfig('api_url', (e.target as HTMLInputElement).value)} />
+                <input style={inputBaseStyle} type="url" value={config.api_url} onChange={(e: Event) => updateConfig('api_url', (e.target as HTMLInputElement).value)} />
               </ConfigField>
 
               <ConfigField label="API Model" description="The model name to use with the API provider.">
-                <input type="text" value={config.api_model} onChange={(e: Event) => updateConfig('api_model', (e.target as HTMLInputElement).value)} />
+                <input style={inputBaseStyle} type="text" value={config.api_model} onChange={(e: Event) => updateConfig('api_model', (e.target as HTMLInputElement).value)} />
               </ConfigField>
             </>
           ) : (
             <>
               <ConfigField label="Local Engine" description="The core technology used to process your voice locally.">
-                <div className="select-wrapper">
-                  <select value={config.local_engine} onChange={(e: Event) => updateConfig('local_engine', (e.target as HTMLSelectElement).value)}>
+                <div style={selectWrapperStyle}>
+                  <select style={selectBaseStyle} value={config.local_engine} onChange={(e: Event) => updateConfig('local_engine', (e.target as HTMLSelectElement).value)}>
                     {availableEngines.map((engine) => (
                       <option key={engine} value={engine}>{engine}</option>
                     ))}
@@ -209,9 +216,9 @@ export function ConfigPage(props: ConfigPageProps) {
               </ConfigField>
 
               <ConfigField label="Turbo Mode (GPU)" description="Uses your graphics card to speed up transcription. Recommended for 'Medium' models.">
-                <div className="config-inline-actions config-inline-actions-between">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacing.sm, width: '100%' }}>
                   <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} label="Enabled" />
-                  <IconRocket size={20} className={`turbo-icon-indicator ${config.enable_gpu ? 'is-enabled' : ''}`} />
+                  <IconRocket size={20} color={config.enable_gpu ? tokens.colors.success : tokens.colors.textMuted} />
                 </div>
               </ConfigField>
             </>
@@ -225,11 +232,11 @@ export function ConfigPage(props: ConfigPageProps) {
 
         <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
           <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
-            <div className="select-wrapper">
-              <select value={config.audio_device || 'default'} onChange={(e: Event) => updateConfig('audio_device', (e.target as HTMLSelectElement).value)}>
+            <div style={selectWrapperStyle}>
+              <select style={selectBaseStyle} value={config.audio_device || 'default'} onChange={(e: Event) => updateConfig('audio_device', (e.target as HTMLSelectElement).value)}>
                 {availableMics.map((mic) => <option key={mic.id} value={mic.id}>{mic.label}</option>)}
               </select>
-              <Button variant="ghost" className="icon-button" onClick={loadMics} title="Refresh Devices">
+              <Button variant="icon" onClick={loadMics} title="Refresh Devices">
                 <IconRefresh size={16} />
               </Button>
             </div>
@@ -250,30 +257,30 @@ export function ConfigPage(props: ConfigPageProps) {
 
         <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>
           <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
-            <input type="number" value={config.typing_speed_interval} onChange={(e: Event) => updateConfig('typing_speed_interval', parseInt((e.target as HTMLInputElement).value))} />
+            <input style={inputBaseStyle} type="number" value={config.typing_speed_interval} onChange={(e: Event) => updateConfig('typing_speed_interval', parseInt((e.target as HTMLInputElement).value))} />
           </ConfigField>
 
           <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
-            <input type="number" value={config.key_press_duration_ms} onChange={(e: Event) => updateConfig('key_press_duration_ms', parseInt((e.target as HTMLInputElement).value))} />
+            <input style={inputBaseStyle} type="number" value={config.key_press_duration_ms} onChange={(e: Event) => updateConfig('key_press_duration_ms', parseInt((e.target as HTMLInputElement).value))} />
           </ConfigField>
 
           <ConfigField label="Status Overlay Position (px)" description="Vertical offset for the status overlay from the bottom of the screen.">
-            <input type="number" value={config.pixels_from_bottom} onChange={(e: Event) => updateConfig('pixels_from_bottom', parseInt((e.target as HTMLInputElement).value))} />
+            <input style={inputBaseStyle} type="number" value={config.pixels_from_bottom} onChange={(e: Event) => updateConfig('pixels_from_bottom', parseInt((e.target as HTMLInputElement).value))} />
           </ConfigField>
         </CollapsibleSection>
 
         <CollapsibleSection title="Debug" isOpen={activeConfigSection === 'debug'} onToggle={() => setActiveConfigSection(activeConfigSection === 'debug' ? null : 'debug')}>
           <ConfigField label="Logs" description="Copy or open logs for troubleshooting and support.">
-            <div className="config-inline-actions">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
               <Button variant="configAction" onClick={onCopySessionLogs}>Copy Logs</Button>
-              <Button variant="ghost" onClick={openSessionLog}>Open Log File</Button>
+              <Button variant="ghost" pill style={configGhostPillStyle} onClick={openSessionLog}>Open Log File</Button>
             </div>
           </ConfigField>
 
           <ConfigField label="Recording Logs" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
-            <div className="config-inline-actions config-inline-actions-between">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacing.sm, width: '100%' }}>
               <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} label="Enable Recording Logs" />
-              <Button variant="ghost" onClick={openDebugFolder}>Open Folder</Button>
+              <Button variant="ghost" pill style={configGhostPillStyle} onClick={openDebugFolder}>Open Folder</Button>
             </div>
           </ConfigField>
 
@@ -281,12 +288,12 @@ export function ConfigPage(props: ConfigPageProps) {
             <Button variant="configAction" onClick={onReopenInitialSetup}>Re-run Initial Setup</Button>
           </ConfigField>
 
-          <div className="config-subsection-divider" role="separator" aria-hidden="true"></div>
-          <div className="config-subsection-heading">Experimental</div>
+          <div style={{ width: '100%', height: '1px', margin: `${tokens.spacing.sm} 0 0`, background: 'rgba(255, 255, 255, 0.1)' }} role="separator" aria-hidden="true"></div>
+          <div style={{ width: '100%', marginTop: tokens.spacing.sm, fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#d9dfe7' }}>Experimental</div>
 
           <ConfigField label="Language Hint" description="Best-effort language hint for transcription. Some engines/models may ignore this setting or apply it inconsistently.">
-            <div className="select-wrapper">
-              <select value={config.language} onChange={(e: Event) => updateConfig('language', (e.target as HTMLSelectElement).value)}>
+            <div style={selectWrapperStyle}>
+              <select style={selectBaseStyle} value={config.language} onChange={(e: Event) => updateConfig('language', (e.target as HTMLSelectElement).value)}>
                 <option value="auto">Automatic Detection</option>
                 <option value="en-AU">English (Australia)</option>
                 <option value="en-GB">English (United Kingdom)</option>
