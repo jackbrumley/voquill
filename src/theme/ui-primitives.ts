@@ -36,6 +36,7 @@ export const titleBarControlsStyle: Style = {
   display: 'flex',
   alignItems: 'center',
   gap: '6px',
+  paddingRight: '2px',
 };
 
 export const tabNavStyle: Style = {
@@ -111,31 +112,39 @@ export const helperTextStyle: Style = {
 
 export const toastContainerStyle: Style = {
   position: 'fixed',
-  right: '14px',
-  bottom: '14px',
+  top: '60px',
+  left: '50%',
+  transform: 'translateX(-50%)',
   display: 'flex',
   flexDirection: 'column',
-  gap: '8px',
-  zIndex: 1000,
-};
-
-export const getToastStyle = (type: 'success' | 'error' | 'info'): Style => ({
-  minWidth: '240px',
-  maxWidth: '420px',
-  display: 'flex',
   alignItems: 'center',
   gap: '8px',
-  padding: '10px 12px',
-  borderRadius: '10px',
-  border: '1px solid rgba(255, 255, 255, 0.1)',
-  backdropFilter: 'blur(12px)',
-  WebkitBackdropFilter: 'blur(12px)',
-  background: type === 'success'
-    ? 'rgba(16, 185, 129, 0.14)'
-    : type === 'error'
-      ? 'rgba(239, 68, 68, 0.14)'
-      : 'rgba(47, 49, 54, 0.9)',
-  cursor: 'pointer',
+  zIndex: 1000,
+  width: 'min(420px, calc(100% - 24px))',
+  padding: '0 12px',
+  boxSizing: 'border-box',
+  pointerEvents: 'none',
+};
+
+export const getToastStyle = (type: 'success' | 'error' | 'info' | 'saved'): Style => ({
+  width: type === 'saved' ? 'auto' : '100%',
+  maxWidth: type === 'saved' ? '220px' : '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: type === 'saved' ? '6px 12px' : '10px 12px',
+  borderRadius: type === 'saved' ? '999px' : '10px',
+  border: 'none',
+  background: type === 'saved'
+    ? '#10b981'
+    : type === 'success'
+      ? '#10b981'
+      : type === 'error'
+        ? '#ef4444'
+        : '#4cc9f0',
+  cursor: type === 'saved' ? 'default' : 'pointer',
+  pointerEvents: 'auto',
+  boxShadow: type === 'saved' ? '0 3px 10px rgba(0, 0, 0, 0.25)' : '0 4px 12px rgba(0, 0, 0, 0.22)',
 });
 
 export const toastDotStyle: Style = {
@@ -150,6 +159,13 @@ export const toastMessageStyle: Style = {
   fontSize: tokens.typography.sizeSm,
   color: tokens.colors.textPrimary,
 };
+
+export const getToastMessageStyle = (type: 'success' | 'error' | 'info' | 'saved'): Style => ({
+  fontSize: type === 'saved' ? tokens.typography.sizeXs : tokens.typography.sizeSm,
+  color: tokens.colors.textPrimary,
+  fontWeight: type === 'saved' ? 700 : 500,
+  letterSpacing: type === 'saved' ? '0.01em' : 'normal',
+});
 
 export const modalTextIntroStyle: Style = {
   ...helperTextStyle,

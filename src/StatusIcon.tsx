@@ -3,23 +3,20 @@ interface StatusIconProps {
   status: string;
   className?: string;
   large?: boolean;
+  size?: number;
 }
 
-function StatusIcon({ status, className = '', large = false }: StatusIconProps) {
+function StatusIcon({ status, className = '', large = false, size }: StatusIconProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'Ready':
         return '';
       case 'Recording':
         return '🎤';
-      case 'Converting audio':
-        return '🔄';
       case 'Transcribing':
         return '🧠';
-      case 'Typing':
-        return '⌨️';
       default:
-        return '📊';
+        throw new Error(`Unknown status icon state: ${status}`);
     }
   };
 
@@ -29,25 +26,23 @@ function StatusIcon({ status, className = '', large = false }: StatusIconProps) 
         return 'status-ready';
       case 'Recording':
         return 'status-recording';
-      case 'Converting audio':
       case 'Transcribing':
         return 'status-transcribing';
-      case 'Typing':
-        return 'status-typing';
       default:
-        return '';
+        throw new Error(`Unknown status class state: ${status}`);
     }
   };
 
   const animationName = status === 'Recording'
     ? 'voquill-status-bounce'
-    : status === 'Converting audio' || status === 'Transcribing'
+    : status === 'Transcribing'
       ? 'voquill-status-spin'
-      : status === 'Typing'
-        ? 'voquill-status-bounce-fast'
-        : 'voquill-status-enter';
+      : 'voquill-status-enter';
 
-  const jumpHeight = large ? '-35px' : '-18px';
+  const orbSize = size ?? (large ? 108 : 80);
+  const emojiSize = Math.max(22, Math.round(orbSize * 0.6));
+  const readyDotSize = Math.max(10, Math.round(orbSize * 0.18));
+  const jumpHeight = `-${Math.max(16, Math.round(orbSize * 0.32))}px`;
 
   return (
     <div className={className} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -70,32 +65,27 @@ function StatusIcon({ status, className = '', large = false }: StatusIconProps) 
       <div
         className={getStatusClass(status)}
         style={{
-          width: large ? '110px' : '80px',
-          height: large ? '110px' : '80px',
+          width: `${orbSize}px`,
+          height: `${orbSize}px`,
           borderRadius: '50%',
           background: 'radial-gradient(circle, #5ab7d6 0%, rgba(90, 183, 214, 1) 20%, rgba(123, 120, 163, 1) 35%, rgba(156, 90, 136, 1) 50%, rgba(196, 57, 145, 1) 65%, #c43991 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           position: 'relative',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2)',
-          backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: 'none',
+          overflow: 'hidden',
+          isolation: 'isolate',
         }}
       >
         <div
           style={{
             position: 'absolute',
-            top: '-4px',
-            left: '-4px',
-            right: '-4px',
-            bottom: '-4px',
+            inset: 0,
             borderRadius: '50%',
-            background: 'conic-gradient(from 0deg, #5ab7d6, #c43991, #5ab7d6)',
-            animation: 'voquill-ring-rotate 3s linear infinite',
-            opacity: 0.6,
-            zIndex: 0,
-            filter: 'blur(2px)',
+            background: 'radial-gradient(circle, rgba(0,0,0,0) 72%, rgba(47,49,54,0.16) 92%, rgba(47,49,54,0.26) 100%)',
+            pointerEvents: 'none',
+            zIndex: 1,
           }}
         ></div>
         <div
@@ -113,8 +103,8 @@ function StatusIcon({ status, className = '', large = false }: StatusIconProps) 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'translateY(calc(var(--jump-height) / -2))', ['--jump-height' as any]: jumpHeight, zIndex: 2 }}>
             <span
               style={{
-                width: large ? '20px' : '12px',
-                height: large ? '20px' : '12px',
+                width: `${readyDotSize}px`,
+                height: `${readyDotSize}px`,
                 backgroundColor: '#fff',
                 borderRadius: '50%',
                 animation: 'voquill-ready-dot-jump 3s infinite ease-in-out',
@@ -126,13 +116,22 @@ function StatusIcon({ status, className = '', large = false }: StatusIconProps) 
           <span
             key={status}
             style={{
-              fontSize: large ? '60px' : '48px',
+              fontSize: `${emojiSize}px`,
               display: 'inline-block',
+              lineHeight: 1,
+              background: 'transparent',
+              fontFamily: "'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'EmojiOne Color', sans-serif",
               position: 'relative',
               zIndex: 2,
-              filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5))',
-              textShadow: '0 1px 3px rgba(0, 0, 0, 0.4)',
-              animation: status === 'Typing' ? `${animationName} 1s ease-in-out infinite` : status === 'Recording' ? `${animationName} 1.5s ease-in-out infinite` : status === 'Transcribing' || status === 'Converting audio' ? `${animationName} 2s linear infinite` : `${animationName} 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
+              filter: 'none',
+              textShadow: 'none',
+              backfaceVisibility: 'hidden',
+              WebkitFontSmoothing: 'antialiased',
+              animation: status === 'Recording'
+                ? `${animationName} 1.5s ease-in-out infinite`
+                : status === 'Transcribing'
+                  ? `${animationName} 2s linear infinite`
+                  : `${animationName} 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
             }}
           >
             {getStatusIcon(status)}

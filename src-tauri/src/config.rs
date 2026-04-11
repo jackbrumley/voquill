@@ -86,7 +86,7 @@ fn default_key_press_duration() -> u64 {
     2
 }
 fn default_pixels_from_bottom() -> i32 {
-    100
+    150
 }
 fn default_audio_device() -> Option<String> {
     Some("default".to_string())

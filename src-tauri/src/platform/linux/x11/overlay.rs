@@ -29,7 +29,7 @@ pub fn position_overlay_window(
     let scale_factor = monitor.scale_factor();
 
     let pixels_from_bottom_physical = (pixels_from_bottom_logical as f64 * scale_factor) as i32;
-    let window_width_logical = 140.0;
+    let window_width_logical = 260.0;
     let window_height_logical = 140.0;
 
     let window_width_physical = (window_width_logical * scale_factor) as i32;

@@ -4,6 +4,7 @@ import { Switch } from '../components/Switch.tsx';
 import { CollapsibleSection } from '../components/CollapsibleSection.tsx';
 import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
 import { Button } from '../components/Button.tsx';
+import { NumberField } from '../components/NumberField.tsx';
 import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
 import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
 import { helperTextStyle, inputBaseStyle, selectBaseStyle, selectWrapperStyle, tabPanelContentStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
@@ -218,7 +219,7 @@ export function ConfigPage(props: ConfigPageProps) {
               <ConfigField label="Turbo Mode (GPU)" description="Uses your graphics card to speed up transcription. Recommended for 'Medium' models.">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacing.sm, width: '100%' }}>
                   <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} label="Enabled" />
-                  <IconRocket size={20} color={config.enable_gpu ? tokens.colors.success : tokens.colors.textMuted} />
+                  <IconRocket size={20} color={config.enable_gpu ? '#f1c40f' : tokens.colors.textMuted} />
                 </div>
               </ConfigField>
             </>
@@ -257,15 +258,15 @@ export function ConfigPage(props: ConfigPageProps) {
 
         <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>
           <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
-            <input style={inputBaseStyle} type="number" value={config.typing_speed_interval} onChange={(e: Event) => updateConfig('typing_speed_interval', parseInt((e.target as HTMLInputElement).value))} />
+            <NumberField value={config.typing_speed_interval} onChange={(value) => updateConfig('typing_speed_interval', value)} min={1} />
           </ConfigField>
 
           <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
-            <input style={inputBaseStyle} type="number" value={config.key_press_duration_ms} onChange={(e: Event) => updateConfig('key_press_duration_ms', parseInt((e.target as HTMLInputElement).value))} />
+            <NumberField value={config.key_press_duration_ms} onChange={(value) => updateConfig('key_press_duration_ms', value)} min={1} />
           </ConfigField>
 
           <ConfigField label="Status Overlay Position (px)" description="Vertical offset for the status overlay from the bottom of the screen.">
-            <input style={inputBaseStyle} type="number" value={config.pixels_from_bottom} onChange={(e: Event) => updateConfig('pixels_from_bottom', parseInt((e.target as HTMLInputElement).value))} />
+            <NumberField value={config.pixels_from_bottom} onChange={(value) => updateConfig('pixels_from_bottom', value)} min={0} />
           </ConfigField>
         </CollapsibleSection>
 

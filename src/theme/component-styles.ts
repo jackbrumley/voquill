@@ -25,20 +25,10 @@ export const settingRowBaseStyle: Style = {
 };
 
 export const getSettingRowStyle = ({
-  focused,
   ready,
 }: {
-  focused: boolean;
   ready: boolean;
 }): Style => {
-  if (focused) {
-    return {
-      ...settingRowBaseStyle,
-      borderColor: 'rgba(88, 101, 242, 0.45)',
-      background: 'rgba(255, 255, 255, 0.03)',
-    };
-  }
-
   if (ready) {
     return {
       ...settingRowBaseStyle,

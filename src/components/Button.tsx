@@ -7,7 +7,7 @@ import { tokens } from '../design-tokens.ts';
 interface ButtonProps {
   children: ComponentChildren;
   onClick?: (e: MouseEvent) => void;
-  variant?: 'primary' | 'secondary' | 'configAction' | 'danger' | 'ghost' | 'icon';
+  variant?: 'primary' | 'secondary' | 'configAction' | 'danger' | 'ghost' | 'icon' | 'titlebarIcon' | 'titlebarClose';
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   className?: string;
@@ -98,6 +98,24 @@ export const Button = ({
       padding: tokens.spacing.sm,
       borderRadius: '999px',
     },
+    titlebarIcon: {
+      border: '1px solid transparent',
+      background: 'rgba(255, 255, 255, 0.1)',
+      color: tokens.colors.textPrimary,
+      width: '34px',
+      height: '34px',
+      padding: '6px',
+      borderRadius: '999px',
+    },
+    titlebarClose: {
+      border: '1px solid transparent',
+      background: 'rgba(239, 68, 68, 0.28)',
+      color: tokens.colors.textPrimary,
+      width: '34px',
+      height: '34px',
+      padding: '6px',
+      borderRadius: '999px',
+    },
   };
 
   const sizeStyles: Record<string, Record<string, string | number>> = {
@@ -113,6 +131,12 @@ export const Button = ({
     danger: { background: '#ff5f5f', transform: 'translateY(-2px)' },
     ghost: { background: 'rgba(255, 255, 255, 0.14)', transform: 'translateY(-1px)' },
     icon: { background: 'rgba(255, 255, 255, 0.14)', transform: 'translateY(-1px)' },
+    titlebarIcon: {
+      background: 'rgba(255, 255, 255, 0.3)',
+    },
+    titlebarClose: {
+      background: 'rgba(239, 68, 68, 0.58)',
+    },
   };
 
   const baseStyle: Record<string, string | number> = {
@@ -135,7 +159,9 @@ export const Button = ({
     ...sizeStyles[size],
     ...variantStyles[variant],
     ...(hovered && !disabled ? hoverStyles[variant] : {}),
-    ...(pressed && !disabled ? { transform: 'translateY(0)', filter: 'brightness(0.9)' } : {}),
+    ...(pressed && !disabled && !['titlebarIcon', 'titlebarClose'].includes(variant)
+      ? { transform: 'translateY(0)', filter: 'brightness(0.9)' }
+      : {}),
     ...(pill ? { borderRadius: '40px' } : {}),
     ...(floating
       ? {

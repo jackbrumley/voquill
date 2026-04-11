@@ -88,7 +88,7 @@ export function StatusPage({
         </Card>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.xs, padding: `${tokens.spacing.xs} 0`, opacity: 0.6, transition: tokens.transitions.fast }}>
-          <div style={{ display: 'flex', gap: tokens.spacing.xs, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center' }}>
             <button
               type="button"
               onClick={() => open('https://github.com/jackbrumley/voquill')}
@@ -98,17 +98,18 @@ export function StatusPage({
               style={{
                 background: hoveredFooterIcon === 'github' ? 'rgba(255, 255, 255, 0.05)' : 'none',
                 border: 'none',
-                padding: '4px',
+                padding: '10px',
                 cursor: 'pointer',
-                color: tokens.colors.textMuted,
+                color: hoveredFooterIcon === 'github' ? tokens.colors.textPrimary : tokens.colors.textMuted,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: '50%',
+                transform: hoveredFooterIcon === 'github' ? 'translateY(-2px)' : 'translateY(0)',
                 transition: tokens.transitions.fast,
               }}
             >
-              <IconBrandGithub size={18} />
+              <IconBrandGithub size={20} />
             </button>
             <button
               type="button"
@@ -119,17 +120,23 @@ export function StatusPage({
               style={{
                 background: hoveredFooterIcon === 'heart' ? 'rgba(255, 255, 255, 0.05)' : 'none',
                 border: 'none',
-                padding: '4px',
+                padding: '10px',
                 cursor: 'pointer',
                 color: tokens.colors.textMuted,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: '50%',
+                transform: hoveredFooterIcon === 'heart' ? 'translateY(-2px)' : 'translateY(0)',
                 transition: tokens.transitions.fast,
               }}
             >
-              <IconHeart size={18} color="#ff6b6b" fill="#ff6b6b" fillOpacity={0.2} />
+              <IconHeart
+                size={20}
+                color={hoveredFooterIcon === 'heart' ? '#ff4d5e' : '#ff6b6b'}
+                fill={hoveredFooterIcon === 'heart' ? '#ff4d5e' : '#ff6b6b'}
+                fillOpacity={hoveredFooterIcon === 'heart' ? 0.38 : 0.2}
+              />
             </button>
           </div>
           <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, fontFamily: tokens.typography.fontMono }}>v{appVersion}</div>

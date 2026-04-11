@@ -30,6 +30,7 @@ use serde::Serialize;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -1194,6 +1195,13 @@ async fn download_model(model_size: String, app_handle: tauri::AppHandle) -> Res
 }
 
 static CURRENT_STATUS: OnceLock<Mutex<String>> = OnceLock::new();
+static STATUS_UPDATE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Clone, Debug, Serialize)]
+struct StatusUpdatePayload {
+    seq: u64,
+    status: String,
+}
 
 #[tauri::command]
 fn get_current_status() -> String {
@@ -1218,6 +1226,8 @@ async fn clear_history() -> Result<(), String> {
 async fn hide_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
     if let Some(overlay_window) = app_handle.get_webview_window("overlay") {
         overlay_window.hide().map_err(|e| e.to_string())?;
+    } else {
+        log_warn!("⚠️ hide_overlay_window: overlay window not found");
     }
     Ok(())
 }
@@ -1239,17 +1249,14 @@ async fn position_overlay_window(
 }
 
 async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
-    log_info!("🔍 show_overlay_window called");
     let overlay_window = app_handle
         .get_webview_window("overlay")
         .ok_or("Overlay window not found")?;
 
     if overlay_window.is_visible().unwrap_or(false) {
-        log_info!("🔍 Overlay already visible");
         return Ok(());
     }
 
-    log_info!("🔍 Positioning and showing overlay...");
     position_overlay_window(&overlay_window, app_handle).await?;
 
     // Use Tauri native show() to maintain reference count stability
@@ -1258,16 +1265,17 @@ async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
     // Ghost Mode handled by display backend
     let state = app_handle.state::<AppState>();
     state.display_backend.apply_overlay_hints(&overlay_window);
-
-    log_info!("✅ Overlay visibility commanded");
     Ok(())
 }
 
 // Centralized status emitter
 async fn emit_status_update(status: &str) {
+    let sequence = STATUS_UPDATE_SEQUENCE.fetch_add(1, Ordering::Relaxed) + 1;
+    let mut previous_status: Option<String> = None;
     let mut changed = false;
     if let Some(status_mutex) = CURRENT_STATUS.get() {
         if let Ok(mut global_status) = status_mutex.lock() {
+            previous_status = Some(global_status.clone());
             if *global_status != status {
                 *global_status = status.to_string();
                 changed = true;
@@ -1279,13 +1287,21 @@ async fn emit_status_update(status: &str) {
         return;
     }
 
-    log_info!("🔄 App Status Change: {}", status);
+    log_info!(
+        "🔄 App Status Change: '{}' -> '{}'",
+        previous_status.as_deref().unwrap_or("<unknown>"),
+        status
+    );
 
     if let Some(app_handle) = APP_HANDLE.get() {
         let windows = ["main", "overlay"];
+        let payload = StatusUpdatePayload {
+            seq: sequence,
+            status: status.to_string(),
+        };
         for window_label in &windows {
             if let Some(window) = app_handle.get_webview_window(window_label) {
-                let _ = window.emit("status-update", status);
+                let _ = window.emit("status-update", payload.clone());
             }
         }
 

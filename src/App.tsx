@@ -24,9 +24,8 @@ import {
   titleBarStyle,
   titleBarTitleStyle,
   toastContainerStyle,
+  getToastMessageStyle,
   getToastStyle,
-  toastDotStyle,
-  toastMessageStyle,
 } from './theme/ui-primitives.ts';
 import { tokens } from './design-tokens.ts';
 
@@ -56,7 +55,7 @@ interface Config {
 interface Toast {
   id: number;
   message: string;
-  type: 'success' | 'error' | 'info';
+  type: 'success' | 'error' | 'info' | 'saved';
 }
 
 interface HistoryItem {
@@ -104,6 +103,11 @@ interface SystemShortcutContext {
   distro?: string;
   desktop?: string;
   settings_path: string;
+}
+
+interface StatusUpdatePayload {
+  seq: number;
+  status: string;
 }
 
 type AppRoute = 'setup' | 'status' | 'history' | 'config';
@@ -173,6 +177,10 @@ function App() {
   const [showSystemShortcutModal, setShowSystemShortcutModal] = useState(false);
   const [isApplyingHotkey, setIsApplyingHotkey] = useState(false);
   const [initialRouteChecked, setInitialRouteChecked] = useState(false);
+  const [hasLoadedConfig, setHasLoadedConfig] = useState(false);
+  const [hasLoadedSetupStatus, setHasLoadedSetupStatus] = useState(false);
+  const [hasLoadedMics, setHasLoadedMics] = useState(false);
+  const [hasLoadedModels, setHasLoadedModels] = useState(false);
   const [setupTouched, setSetupTouched] = useState(false);
   const [hoveredTopTab, setHoveredTopTab] = useState<AppRoute | null>(null);
   const tabContentRef = useRef<HTMLDivElement | null>(null);
@@ -293,8 +301,10 @@ function App() {
       }
     });
 
-    const unlistenStatus = listen<string>('status-update', (event) => {
-      setCurrentStatus(event.payload);
+    const unlistenStatus = listen<string | StatusUpdatePayload>('status-update', (event) => {
+      const payload = event.payload;
+      const nextStatus = typeof payload === 'string' ? payload : payload.status;
+      setCurrentStatus(nextStatus);
     });
 
     const unlistenHistory = listen('history-updated', () => {
@@ -383,6 +393,8 @@ function App() {
       setHotkeyBindingState(bindingState);
     } catch (error) {
       console.error('Failed to check setup status:', error);
+    } finally {
+      setHasLoadedSetupStatus(true);
     }
   };
 
@@ -463,6 +475,8 @@ function App() {
       });
     } catch (error) {
       showToast(`Failed to load config: ${error}`, 'error');
+    } finally {
+      setHasLoadedConfig(true);
     }
   };
 
@@ -472,6 +486,8 @@ function App() {
       setAvailableMics(devices);
     } catch (error) {
       showToast(`Failed to load microphones: ${error}`, 'error');
+    } finally {
+      setHasLoadedMics(true);
     }
   };
 
@@ -505,6 +521,8 @@ function App() {
     } catch (error) {
       console.error('❌ Failed to load models:', error);
       showToast(`Failed to load models: ${error}`, 'error');
+    } finally {
+      setHasLoadedModels(true);
     }
   };
 
@@ -543,7 +561,7 @@ function App() {
     }
   };
 
-  const persistConfig = async (configToPersist: Config) => {
+  const persistConfig = async (configToPersist: Config, showSavedConfirmation = false) => {
     try {
       const configToSave = {
         ...configToPersist,
@@ -551,6 +569,9 @@ function App() {
         openai_api_key: configToPersist.openai_api_key || 'your_api_key_here',
       };
       await invoke('save_config', { newConfig: configToSave });
+      if (showSavedConfirmation) {
+        showToast('✓ Saved', 'saved');
+      }
     } catch (error) {
       console.error('Failed to auto-save configuration:', error);
       showToast(`Failed to save: ${error}`, 'error');
@@ -560,9 +581,11 @@ function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       const previousConfig = lastCommittedConfigRef.current;
+      let hasChanges = false;
       if (previousConfig) {
         (Object.keys(config) as (keyof Config)[]).forEach((key) => {
           if (previousConfig[key] !== config[key]) {
+            hasChanges = true;
             const formattedValue = formatConfigValueForLog(key, config[key]);
             logUI(`⚙️ Setting changed: ${key} -> ${formattedValue}`);
           }
@@ -570,7 +593,7 @@ function App() {
       }
 
       lastCommittedConfigRef.current = { ...config };
-      persistConfig(config);
+      persistConfig(config, hasChanges && previousConfig !== null);
     }, 500);
     return () => clearTimeout(timer);
   }, [config]);
@@ -662,16 +685,21 @@ function App() {
     }
   };
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'saved' = 'info') => {
     // Log to console/backend
-    const emoji = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+    const emoji = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'saved' ? '💾' : 'ℹ️';
     logUI(`${emoji} Toast: ${message}`);
 
     const id = Date.now();
-    setToasts(prev => [...prev, { id, message, type }]);
+    setToasts(prev => {
+      if (type === 'saved') {
+        return [...prev.filter(toast => toast.type !== 'saved'), { id, message, type }];
+      }
+      return [...prev, { id, message, type }];
+    });
     
-    // Errors stay longer (10s), others 3s
-    const duration = type === 'error' ? 10000 : 3000;
+    // Errors stay longer (10s), saved confirmations are brief, others 3s
+    const duration = type === 'error' ? 10000 : type === 'saved' ? 900 : 3000;
     
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
@@ -679,6 +707,11 @@ function App() {
   };
 
   const handleToastClick = async (toast: Toast) => {
+    if (toast.type === 'saved') {
+      setToasts(prev => prev.filter(t => t.id !== toast.id));
+      return;
+    }
+
     try {
       await invoke('plugin:clipboard-manager|write_text', { text: toast.message });
     } catch (error) {
@@ -819,18 +852,26 @@ function App() {
   };
 
   const isAllReady = isPortalSetupReady && isAudioDeviceReady && isLocalModelReady;
+  const startupChecksLoaded = hasLoadedConfig && hasLoadedSetupStatus && hasLoadedMics && hasLoadedModels;
 
   useEffect(() => {
-    if (initialRouteChecked || !permissions) {
+    if (initialRouteChecked || !startupChecksLoaded) {
       return;
     }
 
-    if (!hashHasExplicitRoute(window.location.hash)) {
-      navigate(isAllReady ? 'status' : 'setup', true);
+    const hasExplicitRoute = hashHasExplicitRoute(window.location.hash);
+    const currentHashRoute = routeFromHash(window.location.hash);
+
+    if (isAllReady) {
+      if (!hasExplicitRoute || currentHashRoute === 'setup') {
+        navigate('status', true);
+      }
+    } else if (!hasExplicitRoute || currentHashRoute !== 'setup') {
+      navigate('setup', true);
     }
 
     setInitialRouteChecked(true);
-  }, [initialRouteChecked, permissions, isAllReady]);
+  }, [initialRouteChecked, startupChecksLoaded, isAllReady]);
 
   const handleTitleBarMouseDown = async (e: any) => {
     if (e.buttons === 1 && !e.target.closest('button')) {
@@ -885,8 +926,8 @@ function App() {
       <div style={titleBarStyle} onMouseDown={handleTitleBarMouseDown}>
         <div style={titleBarTitleStyle}>Voquill</div>
         <div style={titleBarControlsStyle}>
-          <Button variant="icon" onClick={handleMinimize}>─</Button>
-          <Button variant="icon" onClick={handleClose} style={{ background: 'rgba(239, 68, 68, 0.2)' }}>✕</Button>
+          <Button variant="titlebarIcon" onClick={handleMinimize}>─</Button>
+          <Button variant="titlebarClose" onClick={handleClose}>✕</Button>
         </div>
       </div>
 
@@ -1035,11 +1076,10 @@ function App() {
           <div
             key={toast.id}
             style={getToastStyle(toast.type)}
-            title="Click to copy"
+            title={toast.type === 'saved' ? undefined : 'Click to copy'}
             onClick={() => void handleToastClick(toast)}
           >
-            <span style={{ ...toastDotStyle, background: toast.type === 'success' ? tokens.colors.success : toast.type === 'error' ? tokens.colors.error : tokens.colors.accentPrimary }}></span>
-            <span style={toastMessageStyle}>{toast.message}</span>
+            <span style={getToastMessageStyle(toast.type)}>{toast.message}</span>
           </div>
         ))}
       </div>

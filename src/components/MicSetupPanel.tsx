@@ -24,7 +24,8 @@ export function MicSetupPanel({
   compact = false,
   actionButtonSize = 'md',
 }: MicSetupPanelProps) {
-  const showVolumeMeter = micTestStatus === 'recording' || micTestStatus === 'playing';
+  const showVolumeMeter = micTestStatus === 'recording';
+  const showPlaybackText = micTestStatus === 'playing';
 
   return (
     <div style={{ width: '100%' }}>
@@ -61,19 +62,27 @@ export function MicSetupPanel({
           alignItems: 'center',
         }}
       >
-        {showVolumeMeter && (
-          <div style={{ width: '100%', height: '4px', background: tokens.colors.bgTertiary, borderRadius: '2px', overflow: 'hidden' }}>
-            <div
-              style={{
-                width: `${Math.min(micVolume * 100, 100)}%`,
-                height: '100%',
-                background: micVolume > 0.9 ? '#e74c3c' : micVolume > 0.7 ? '#f1c40f' : tokens.colors.success,
-                transition: 'width 0.1s ease-out',
-                boxShadow: micVolume > 0.9 ? '0 0 5px #e74c3c' : 'none',
-              }}
-            ></div>
-          </div>
-        )}
+        <div style={{ width: '100%', minHeight: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {showVolumeMeter && (
+            <div style={{ width: '100%', height: '4px', background: tokens.colors.bgTertiary, borderRadius: '2px', overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: `${Math.min(micVolume * 100, 100)}%`,
+                  height: '100%',
+                  background: micVolume > 0.9 ? '#e74c3c' : micVolume > 0.7 ? '#f1c40f' : tokens.colors.success,
+                  transition: 'width 0.1s ease-out',
+                  boxShadow: micVolume > 0.9 ? '0 0 5px #e74c3c' : 'none',
+                }}
+              ></div>
+            </div>
+          )}
+
+          {showPlaybackText && (
+            <span style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textSecondary }}>
+              Playing back recording
+            </span>
+          )}
+        </div>
 
         <Button
           disabled={micTestStatus === 'processing'}

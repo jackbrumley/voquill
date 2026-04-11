@@ -1,5 +1,4 @@
 import { ComponentChildren } from 'preact';
-import { useState } from 'preact/hooks';
 import {
   getSettingRowStyle,
   settingRowContentStyle,
@@ -24,15 +23,12 @@ export const SettingRow = ({
   children,
   className = '',
 }: SettingRowProps) => {
-  const [focused, setFocused] = useState(false);
   const isReady = className.split(/\s+/).includes('ready');
 
   return (
     <div
       className={`setting-row ${className}`.trim()}
-      style={getSettingRowStyle({ focused, ready: isReady })}
-      onFocusCapture={() => setFocused(true)}
-      onBlurCapture={() => setFocused(false)}
+      style={getSettingRowStyle({ ready: isReady })}
     >
       <div className="setting-row-header" style={settingRowHeaderStyle}>
         <div className="field-label" style={settingRowLabelStyle}>{title}</div>
