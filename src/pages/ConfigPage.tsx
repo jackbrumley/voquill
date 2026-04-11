@@ -218,17 +218,11 @@ export function ConfigPage(props: ConfigPageProps) {
                 />
               </ConfigField>
 
-              <ConfigField label="Turbo Mode (GPU)" description="Uses your graphics card to speed up transcription. Recommended for 'Medium' models.">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacing.sm, width: '100%' }}>
-                  <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} label="Enabled" />
-                  <IconRocket size={20} color={config.enable_gpu ? '#f1c40f' : tokens.colors.textMuted} />
-                </div>
-              </ConfigField>
             </>
           )}
 
           <ConfigField label="Always Copy to Clipboard" description="Automatically copies the transcription to your clipboard even when in Typewriter mode.">
-            <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} label="Enabled" />
+            <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} />
           </ConfigField>
 
         </CollapsibleSection>
@@ -284,9 +278,11 @@ export function ConfigPage(props: ConfigPageProps) {
           </ConfigField>
 
           <ConfigField label="Recording Logs" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacing.sm, width: '100%' }}>
-              <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} label="Enable Recording Logs" />
-              <Button variant="ghost" pill style={configGhostPillStyle} onClick={openDebugFolder}>Open Folder</Button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: tokens.spacing.sm, width: '100%' }}>
+              <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} />
+              <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                <Button variant="ghost" pill style={configGhostPillStyle} onClick={openDebugFolder}>Open Folder</Button>
+              </div>
             </div>
           </ConfigField>
 
@@ -300,6 +296,18 @@ export function ConfigPage(props: ConfigPageProps) {
 
           <div style={{ width: '100%', height: '1px', margin: `${tokens.spacing.sm} 0 0`, background: 'rgba(255, 255, 255, 0.1)' }} role="separator" aria-hidden="true"></div>
           <div style={{ width: '100%', marginTop: tokens.spacing.sm, fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#d9dfe7' }}>Experimental</div>
+
+          {config.transcription_mode === 'Local' && (
+            <ConfigField
+              label="Turbo Mode (GPU)"
+              description="Experimental. GPU acceleration can be faster on some systems, but performance varies by hardware and model."
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: tokens.spacing.sm, width: '100%' }}>
+                <IconRocket size={20} color={config.enable_gpu ? '#f1c40f' : tokens.colors.textMuted} />
+                <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} />
+              </div>
+            </ConfigField>
+          )}
 
           <ConfigField label="Language Hint" description="Best-effort language hint for transcription. Some engines/models may ignore this setting or apply it inconsistently.">
             <div style={selectWrapperStyle}>

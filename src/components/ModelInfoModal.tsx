@@ -56,7 +56,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
           <h3 style={{ margin: 0, fontSize: tokens.typography.sizeSm, fontWeight: 700 }}>Turbo Mode (GPU)</h3>
         </div>
         <p style={{ margin: 0, fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary, lineHeight: 1.6 }}>
-          If you have a dedicated graphics card (AMD or NVIDIA), enabling <strong>Turbo Mode</strong> in Advanced settings will dramatically speed up transcription. With Turbo Mode, the <strong>Small</strong> model is a great accuracy upgrade while still feeling fast.
+          If you have a dedicated graphics card (AMD or NVIDIA), try <strong>Turbo Mode</strong> in Experimental settings. It can speed up transcription on some systems, but results vary by hardware and model.
         </p>
       </div>
 

@@ -8,7 +8,6 @@ import { Button } from '../components/Button.tsx';
 import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
 import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
 import { SelectField } from '../components/SelectField.tsx';
-import { Switch } from '../components/Switch.tsx';
 import { SurfaceCard } from '../components/SurfaceCard.tsx';
 import { SettingRow } from '../components/SettingRow.tsx';
 import { helperTextStyle, inputBaseStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
@@ -305,20 +304,6 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               />
             </SettingRow>
 
-            {config.transcription_mode === 'Local' && (
-              <SettingRow
-                className={`permission-item ${config.enable_gpu ? 'ready' : ''}`}
-                title="Turbo Mode (GPU)"
-                description="Optional. Uses your GPU to speed up local transcription, especially for medium and larger models."
-                status={<IconInfoCircle size={20} color="var(--colors-text-secondary)" />}
-              >
-                <Switch
-                  checked={config.enable_gpu}
-                  onChange={(checked) => onChangeConfig('enable_gpu', checked)}
-                  label="Enabled"
-                />
-              </SettingRow>
-            )}
           </div>
 
         </div>
