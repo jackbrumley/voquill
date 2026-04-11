@@ -182,11 +182,22 @@
             margin-bottom: 0;
             font-size: 0.95rem;
             line-height: 1.6;
-            color: #ffffff;
+            color: #f1f4f8;
         }
 
         .download-section {
             margin: 0.25rem 0 1rem 0;
+        }
+
+        .download-primary-row,
+        .download-secondary-row {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .download-secondary-row {
+            margin-top: 0.1rem;
         }
 
         .how-it-works {
@@ -359,6 +370,11 @@
             body { justify-content: flex-start; }
             .philosophy-grid { gap: 1.25rem; margin: 1.5rem 0; }
             .hero-container { padding: 0.58rem; }
+            .download-primary-row,
+            .download-secondary-row {
+                flex-direction: column;
+                align-items: center;
+            }
         }
     </style>
 </head>
@@ -376,32 +392,35 @@
         </header>
 
         <div class="download-section">
-            <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn">
-                <img src="download.svg" alt="" class="btn-icon" aria-hidden="true">
-                <span class="btn-text">
-                    <span class="btn-title">Download</span>
-                    <span class="btn-subtitle">Latest release</span>
-                </span>
-            </a>
-            <br>
-            <a href="donate.html" class="btn btn-secondary">
-                <img src="heart.svg" alt="" class="btn-icon" aria-hidden="true">
-                <span class="btn-text">
-                    <span class="btn-title">Support</span>
-                    <span class="btn-subtitle">Donate optional</span>
-                </span>
-            </a>
-            <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">
-                <img src="brand-github.svg" alt="" class="btn-icon" aria-hidden="true">
-                <span class="btn-text">
-                    <span class="btn-title">GitHub</span>
-                    <span class="btn-subtitle">Forever FOSS</span>
-                </span>
-            </a>
+            <div class="download-primary-row">
+                <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn">
+                    <img src="download.svg" alt="" class="btn-icon" aria-hidden="true">
+                    <span class="btn-text">
+                        <span class="btn-title">Download</span>
+                        <span class="btn-subtitle">Latest release</span>
+                    </span>
+                </a>
+            </div>
+            <div class="download-secondary-row">
+                <a href="donate.html" class="btn btn-secondary">
+                    <img src="heart.svg" alt="" class="btn-icon" aria-hidden="true">
+                    <span class="btn-text">
+                        <span class="btn-title">Support</span>
+                        <span class="btn-subtitle">Donate optional</span>
+                    </span>
+                </a>
+                <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">
+                    <img src="brand-github.svg" alt="" class="btn-icon" aria-hidden="true">
+                    <span class="btn-text">
+                        <span class="btn-title">GitHub</span>
+                        <span class="btn-subtitle">Forever FOSS</span>
+                    </span>
+                </a>
+            </div>
         </div>
 
         <p class="how-it-works">
-            Voquill listens while you hold push-to-talk, transcribes when you release, and writes the result exactly where your cursor is. It types like a keyboard, so it works anywhere and everywhere across your system. It is free and open source, with Windows and Linux support. Everything runs locally on your device, so your voice and transcriptions stay private.
+            Voquill listens while you hold push-to-talk, transcribes when you release, and writes the result exactly where your cursor is. It types like a keyboard, so it works anywhere and everywhere across your system. Free and open source with Windows and Linux support, it runs locally on your device so your voice and transcriptions stay private.
         </p>
 
         <div class="hero-container" id="hero-content">
