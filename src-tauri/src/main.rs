@@ -120,7 +120,7 @@ use hotkey::HardwareHotkey;
 #[cfg(target_os = "linux")]
 use platform::linux::detection::is_wayland_session;
 #[cfg(target_os = "linux")]
-use platform::linux::wayland::env::{check_wayland_display, enforce_wayland};
+use platform::linux::wayland::env::{check_wayland_display, configure_linux_session_environment};
 #[cfg(target_os = "linux")]
 use platform::linux::wayland::portal::capabilities::{
     detect_global_shortcuts_capabilities, PortalDiagnostics,
@@ -1534,7 +1534,7 @@ fn main() {
 
     #[cfg(target_os = "linux")]
     {
-        enforce_wayland();
+        configure_linux_session_environment();
     }
 
     env_logger::init();

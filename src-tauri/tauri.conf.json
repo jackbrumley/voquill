@@ -78,7 +78,6 @@
         "desktopTemplate": "packaging/org.voquill.foss.desktop.hbs",
         "depends": [
           "libgtk-layer-shell0",
-          "webkit2gtk-4.1",
           "libpulse0",
           "libappindicator3-1"
         ],

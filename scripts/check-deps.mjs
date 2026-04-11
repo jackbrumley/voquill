@@ -135,7 +135,12 @@ function getDebianDependencies() {
     ["librsvg2", "librsvg development headers", () => checkDeb("librsvg2-dev"), "sudo apt install -y librsvg2-dev"],
     ["vulkan-headers", "Vulkan development headers (required for Turbo Mode)", () => checkDeb("libvulkan-dev"), "sudo apt install -y libvulkan-dev"],
     ["shaderc", "Vulkan shader compiler (required for Turbo Mode)", () => commandExists("glslc"), "sudo apt install -y glslc"],
-    ["fuse2", "FUSE 2 library (required for AppImage bundling)", () => checkDeb("libfuse2"), "sudo apt install -y libfuse2"],
+    [
+      "fuse2",
+      "FUSE 2 library (required for AppImage bundling)",
+      () => checkDeb("libfuse2") || checkDeb("libfuse2t64"),
+      "sudo apt install -y libfuse2 || sudo apt install -y libfuse2t64",
+    ],
     ["patchelf", "PatchELF utility (required for AppImage bundling)", () => commandExists("patchelf"), "sudo apt install -y patchelf"],
     ["file", "File utility (required for AppImage bundling)", () => commandExists("file"), "sudo apt install -y file"],
     ["squashfs-tools", "SquashFS utilities (required for AppImage bundling)", () => commandExists("mksquashfs"), "sudo apt install -y squashfs-tools"],

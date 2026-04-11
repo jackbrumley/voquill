@@ -4,7 +4,7 @@ This document tracks expected behavior for Wayland portal integrations, with emp
 
 ## Scope
 
-- Platform: Linux Wayland only
+- Platform: Linux Wayland sessions (portal path). X11 uses native backends and is tracked outside this document.
 - Features: Global shortcuts, input emulation, microphone access
 - Backends: GNOME, KDE (others may work if they implement the required portal interfaces)
 

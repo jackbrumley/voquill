@@ -19,10 +19,11 @@ Code is for humans to read, and only secondarily for machines to execute.
 - **Formatting:** Strict adherence to `cargo fmt` and `npm run typecheck`.
 - **Proactive Cleanup:** If you see messy code, redundant nesting, or illogical organization, you are expected to suggest a cleanup or fix it immediately (after confirming with the user).
 
-### 3. The "Wayland-Only" Mandate
-Linux support is strictly Wayland.
-- **XDG Portals:** Hardware access (Microphone, Shortcuts, Input Emulation) must use **XDG Portals** (via `ashpd`).
-- **Compositor Awareness:** Recognize that Wayland compositors (GNOME, KDE, Hyprland) have strict security models; handle window positioning and input simulation using proper, future-proof protocols.
+### 3. Linux Display Server Support
+Linux support targets both Wayland and X11, with clear platform boundaries.
+- **Wayland Path:** Use **XDG Portals** (via `ashpd`) for hardware access (Microphone, Shortcuts, Input Emulation).
+- **X11 Path:** Use native X11-compatible backends for shortcuts/input while keeping behavior aligned with Wayland as closely as possible.
+- **Compositor Awareness:** Recognize that Wayland compositors (GNOME, KDE, Hyprland) have strict security models; keep those integrations explicit and future-proof.
 - **Primary Delivery:** The Linux AppImage is our gold standard for delivery. Keep packaging logic simple, portable, and self-contained.
 
 ### 4. Root Cause First
@@ -99,23 +100,23 @@ Managed via **npm** scripts and the Tauri CLI.
 
 | Platform | Display Server | Audio Backend | Hardware Access |
 | :--- | :--- | :--- | :--- |
-| **Linux** | Wayland (Primary) | ALSA / PulseAudio | XDG Portals (ashpd) |
+| **Linux** | Wayland, X11 | ALSA / PulseAudio | Wayland: XDG Portals (`ashpd`), X11: native X11 backends |
 | **Windows** | Desktop | WASAPI | CoreAudio API |
 
 ### Linux Permission Setup
-On first launch or if permissions are missing, Voquill triggers standard XDG Portal prompts to request access to the microphone, global shortcuts, and remote desktop (for input simulation). Agents must ensure any new hardware interaction respects this Portal-first flow.
+On Wayland, Voquill triggers standard XDG Portal prompts for microphone, global shortcuts, and remote desktop (input simulation). On X11, equivalent capabilities use native X11 backends and should still surface clear setup/readiness state in the UI.
 
 ---
 
 ## 🔄 Development Workflow for New Features
 
 When adding a new feature, follow this sequence:
-1.  **Analyze Environment:** Check for platform-specific constraints (especially Wayland).
+1.  **Analyze Environment:** Check for platform-specific constraints (Wayland and X11 where relevant).
 2.  **Scaffold Backend:** Implement the logic in a new or existing Rust module.
 3.  **Expose Command:** Create a `#[tauri::command]` and register it in `main.rs`.
 4.  **Implement UI:** Create the Preact component and hook it up to the command using `invoke`.
 5.  **Verify Integrity:** Run `cargo clippy`, `npm run typecheck`, and `npm run lint`.
-6.  **Test Platform Parity:** Verify the feature works on Linux (Wayland) and Windows.
+6.  **Test Platform Parity:** Verify the feature works on Linux (Wayland and X11) and Windows.
 
 ---
 
@@ -133,7 +134,7 @@ Any agent working on this repo should prioritize the following cleanups:
 - **Ask, Don't Assume:** If a cleanup involves structural changes (like moving folders or renaming modules), always explain *why* it's cleaner and ask for approval.
 - **Trace the Data:** Before proposing a fix for any data-related issue, trace the information back to its origin. Propose a fix for the source logic rather than a filter for the consumer.
 - **Status Updates:** Use the centralized `emit_status_update` in Rust as the single source of truth for UI state. Avoid emitting ad-hoc events for standard states.
-- **Platform Parity:** When adding a feature, ensure it is considered for Windows and Linux (Wayland). If a platform requires specific logic, isolate it in a platform-specific module.
+- **Platform Parity:** When adding a feature, ensure it is considered for Windows and Linux (Wayland and X11). If a platform requires specific logic, isolate it in a platform-specific module.
 - **UI Consistency First:** Keep the UI behavior, structure, and interaction flow identical across systems whenever possible. Only diverge at the exact point where an OS/backend capability requires it (for example, system-managed shortcut configuration vs in-app configuration).
 - **Documentation:** Proactively update `AGENTS.md` or other docs if you introduce a new architectural pattern or a major dependency.
 - **Self-Verification:** Always run `cargo check` and `npm run typecheck` before declaring a task complete.

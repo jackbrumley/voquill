@@ -9,7 +9,7 @@ Achieve full feature parity between Windows and Linux while maintaining a clean,
 - **OCD-Standard Code**: Code must be semantic, descriptive, and idiomatic. No abbreviations (e.g., use `index` instead of `idx`).
 - **Linux Integrity (CRITICAL)**: The application is "perfect" on Linux. **NEVER** make changes that break or degrade Linux functionality.
 - **Platform Parity**: Features must operate identically across platforms. If Linux has "Hold-to-Talk" and "Typewriter Mode," Windows must have them too.
-- **Wayland-Only Mandate**: Linux support is strictly for Wayland using XDG Portals (via `ashpd`).
+- **Linux Display Server Support**: Linux support targets both Wayland and X11. Use XDG Portals on Wayland and native X11 backends on X11.
 - **Zero-Warning Build**: The project must compile with zero errors and zero warnings on all supported platforms.
 
 ## ✅ Functional Requirements (Windows)

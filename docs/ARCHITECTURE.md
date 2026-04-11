@@ -36,9 +36,9 @@ The goal is to build a cross-platform desktop application that allows the user t
 
 ## Supported Platforms
 - **Windows** (fully supported)
-- **Linux (Wayland/GNOME & KDE)** — only supported if the compositor provides the necessary global shortcut and text injection APIs.
+- **Linux (Wayland + X11)** with backend-specific implementation paths.
 
-If a platform does not provide the required support, it is not supported by the application.
+If a platform does not provide the required capabilities for its backend path, it is not supported by the application.
 
 ## Recommended Technology Stack
 
@@ -60,12 +60,14 @@ If a platform does not provide the required support, it is not supported by the 
    - **CPAL** or **PortAudio** bindings in Rust for capturing audio.
 
 5. **Global Hotkeys:**
-   - Windows: Native `RegisterHotKey` or low-level keyboard hook.
-   - Linux: `org.freedesktop.portal.GlobalShortcuts`.
+    - Windows: Native `RegisterHotKey` or low-level keyboard hook.
+    - Linux Wayland: `org.freedesktop.portal.GlobalShortcuts`.
+    - Linux X11: Native X11 global shortcut handling.
 
 6. **Text Injection:**
-   - Windows: `SendInput` API.
-   - Linux: `org.freedesktop.portal.RemoteDesktop`/`VirtualKeyboard`.
+    - Windows: `SendInput` API.
+    - Linux Wayland: `org.freedesktop.portal.RemoteDesktop`/`VirtualKeyboard`.
+    - Linux X11: Native X11/XTest input simulation.
 
 7. **Overlay Pop-Up:**
    - Implemented as a Tauri window with transparent background and always-on-top flag.
@@ -74,4 +76,4 @@ If a platform does not provide the required support, it is not supported by the 
 ---
 
 ## Summary
-This project delivers a **single consistent application** across Windows and Linux (where supported). It provides while-held push-to-talk dictation, live transcription, direct text injection, and clear on-screen feedback. If a system cannot meet the requirements (e.g., Linux without proper portal support), it will not be supported.
+This project delivers a **single consistent application** across Windows and Linux (Wayland and X11 where supported). It provides while-held push-to-talk dictation, live transcription, direct text injection, and clear on-screen feedback. If a system cannot meet the required capabilities for its backend path, it will not be supported.
