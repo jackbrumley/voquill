@@ -49,6 +49,7 @@ pub async fn get_portal_diagnostics() -> Result<PortalDiagnostics, String> {
     })
 }
 
+#[cfg(target_os = "linux")]
 fn read_linux_distribution_name() -> Option<String> {
     let contents = std::fs::read_to_string("/etc/os-release").ok()?;
     for line in contents.lines() {
