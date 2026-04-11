@@ -7,7 +7,8 @@ import { Button } from '../components/Button.tsx';
 import { NumberField } from '../components/NumberField.tsx';
 import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
 import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
-import { helperTextStyle, inputBaseStyle, selectBaseStyle, selectWrapperStyle, tabPanelContentStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
+import { SelectField } from '../components/SelectField.tsx';
+import { helperTextStyle, inputBaseStyle, selectWrapperStyle, tabPanelContentStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 
 interface AudioDevice {
@@ -72,7 +73,23 @@ interface ConfigPageProps {
   openSessionLog: () => void;
   onReopenInitialSetup: () => void;
   onCopySessionLogs: () => void;
+  onFactoryReset: () => void;
 }
+
+const languageOptions = [
+  { value: 'auto', label: 'Automatic Detection' },
+  { value: 'en-AU', label: 'English (Australia)' },
+  { value: 'en-GB', label: 'English (United Kingdom)' },
+  { value: 'en-US', label: 'English (United States)' },
+  { value: 'fr', label: 'French' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'de', label: 'German' },
+  { value: 'it', label: 'Italian' },
+  { value: 'pt', label: 'Portuguese' },
+  { value: 'nl', label: 'Dutch' },
+  { value: 'ja', label: 'Japanese' },
+  { value: 'zh', label: 'Chinese' },
+];
 
 export function ConfigPage(props: ConfigPageProps) {
   const {
@@ -108,6 +125,7 @@ export function ConfigPage(props: ConfigPageProps) {
     openSessionLog,
     onReopenInitialSetup,
     onCopySessionLogs,
+    onFactoryReset,
   } = props;
 
   const configGhostPillStyle = {
@@ -193,11 +211,12 @@ export function ConfigPage(props: ConfigPageProps) {
             <>
               <ConfigField label="Local Engine" description="The core technology used to process your voice locally.">
                 <div style={selectWrapperStyle}>
-                  <select style={selectBaseStyle} value={config.local_engine} onChange={(e: Event) => updateConfig('local_engine', (e.target as HTMLSelectElement).value)}>
-                    {availableEngines.map((engine) => (
-                      <option key={engine} value={engine}>{engine}</option>
-                    ))}
-                  </select>
+                  <SelectField
+                    value={config.local_engine}
+                    options={availableEngines.map((engine) => ({ value: engine, label: engine }))}
+                    onChange={(nextEngine) => updateConfig('local_engine', nextEngine)}
+                    ariaLabel="Local engine"
+                  />
                 </div>
               </ConfigField>
 
@@ -234,9 +253,12 @@ export function ConfigPage(props: ConfigPageProps) {
         <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
           <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
             <div style={selectWrapperStyle}>
-              <select style={selectBaseStyle} value={config.audio_device || 'default'} onChange={(e: Event) => updateConfig('audio_device', (e.target as HTMLSelectElement).value)}>
-                {availableMics.map((mic) => <option key={mic.id} value={mic.id}>{mic.label}</option>)}
-              </select>
+              <SelectField
+                value={config.audio_device || 'default'}
+                options={availableMics.map((mic) => ({ value: mic.id, label: mic.label }))}
+                onChange={(nextMicId) => updateConfig('audio_device', nextMicId)}
+                ariaLabel="Microphone"
+              />
               <Button variant="icon" onClick={loadMics} title="Refresh Devices">
                 <IconRefresh size={16} />
               </Button>
@@ -289,25 +311,21 @@ export function ConfigPage(props: ConfigPageProps) {
             <Button variant="configAction" onClick={onReopenInitialSetup}>Re-run Initial Setup</Button>
           </ConfigField>
 
+          <ConfigField label="Factory Reset" description="Reset Voquill to defaults and clear models, logs, and history.">
+            <Button variant="danger" pill onClick={onFactoryReset}>Reset App to Defaults</Button>
+          </ConfigField>
+
           <div style={{ width: '100%', height: '1px', margin: `${tokens.spacing.sm} 0 0`, background: 'rgba(255, 255, 255, 0.1)' }} role="separator" aria-hidden="true"></div>
           <div style={{ width: '100%', marginTop: tokens.spacing.sm, fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#d9dfe7' }}>Experimental</div>
 
           <ConfigField label="Language Hint" description="Best-effort language hint for transcription. Some engines/models may ignore this setting or apply it inconsistently.">
             <div style={selectWrapperStyle}>
-              <select style={selectBaseStyle} value={config.language} onChange={(e: Event) => updateConfig('language', (e.target as HTMLSelectElement).value)}>
-                <option value="auto">Automatic Detection</option>
-                <option value="en-AU">English (Australia)</option>
-                <option value="en-GB">English (United Kingdom)</option>
-                <option value="en-US">English (United States)</option>
-                <option value="fr">French</option>
-                <option value="es">Spanish</option>
-                <option value="de">German</option>
-                <option value="it">Italian</option>
-                <option value="pt">Portuguese</option>
-                <option value="nl">Dutch</option>
-                <option value="ja">Japanese</option>
-                <option value="zh">Chinese</option>
-              </select>
+              <SelectField
+                value={config.language}
+                options={languageOptions}
+                onChange={(nextLanguage) => updateConfig('language', nextLanguage)}
+                ariaLabel="Language hint"
+              />
             </div>
           </ConfigField>
         </CollapsibleSection>

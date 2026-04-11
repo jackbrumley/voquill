@@ -6,6 +6,7 @@ commands.allow = [
     "stop_recording",
     "get_config",
     "save_config",
+    "reset_application_to_defaults",
     "test_api_key",
     "get_current_status",
     "get_history",

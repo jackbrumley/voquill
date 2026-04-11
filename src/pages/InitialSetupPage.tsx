@@ -7,9 +7,11 @@ import {
 import { Button } from '../components/Button.tsx';
 import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
 import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
+import { SelectField } from '../components/SelectField.tsx';
+import { Switch } from '../components/Switch.tsx';
 import { SurfaceCard } from '../components/SurfaceCard.tsx';
 import { SettingRow } from '../components/SettingRow.tsx';
-import { helperTextStyle, inputBaseStyle, selectBaseStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
+import { helperTextStyle, inputBaseStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 
 interface AudioDevice {
@@ -41,6 +43,7 @@ interface SetupConfig {
   transcription_mode: 'API' | 'Local';
   local_model_size: string;
   local_engine: string;
+  enable_gpu: boolean;
   hotkey: string;
   audio_device: string | null;
   input_sensitivity: number;
@@ -284,20 +287,18 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                 </Button>
               )}
             >
-              <select
+              <SelectField
                 value={config.audio_device || 'default'}
-                onChange={(event) => {
+                onChange={(nextMicId) => {
                   onTouchSetup();
-                  onChangeConfig('audio_device', (event.target as HTMLSelectElement).value);
+                  onChangeConfig('audio_device', nextMicId);
                 }}
-                className="setup-audio-select"
-                style={selectBaseStyle}
-              >
-                <option value="default">Default microphone</option>
-                {availableMics.map((mic) => (
-                  <option key={mic.id} value={mic.id}>{mic.label || mic.id}</option>
-                ))}
-              </select>
+                options={[
+                  { value: 'default', label: 'Default microphone' },
+                  ...availableMics.map((mic) => ({ value: mic.id, label: mic.label || mic.id })),
+                ]}
+                ariaLabel="Setup microphone"
+              />
             </SettingRow>
 
             <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#d9dfe7', margin: '8px 0 6px' }}>Recommended</div>
@@ -320,6 +321,21 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                 onStopMicPlayback={onStopMicPlayback}
               />
             </SettingRow>
+
+            {config.transcription_mode === 'Local' && (
+              <SettingRow
+                className={`permission-item ${config.enable_gpu ? 'ready' : ''}`}
+                title="Turbo Mode (GPU)"
+                description="Optional. Uses your GPU to speed up local transcription, especially for medium and larger models."
+                status={<IconInfoCircle size={20} color="var(--colors-text-secondary)" />}
+              >
+                <Switch
+                  checked={config.enable_gpu}
+                  onChange={(checked) => onChangeConfig('enable_gpu', checked)}
+                  label="Enabled"
+                />
+              </SettingRow>
+            )}
           </div>
 
         </div>

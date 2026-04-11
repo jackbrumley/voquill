@@ -1,6 +1,7 @@
 import { IconInfoCircle } from '@tabler/icons-preact';
 import { Button } from './Button.tsx';
-import { selectBaseStyle, selectWrapperStyle } from '../theme/ui-primitives.ts';
+import { SelectField } from './SelectField.tsx';
+import { selectWrapperStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 
 interface ModelSelectionPanelProps {
@@ -35,19 +36,19 @@ export function ModelSelectionPanel({
       <div style={selectWrapperStyle}>
         {availableModels.length > 0 ? (
           <>
-            <select
+            <SelectField
               value={localModelSize}
-              onChange={(event: Event) => onChangeModel((event.target as HTMLSelectElement).value)}
-              style={selectBaseStyle}
-            >
-              {availableModels
+              onChange={onChangeModel}
+              searchable={false}
+              ariaLabel="Local model"
+              options={availableModels
                 .filter((model) => model.engine === localEngine)
-                .map((model) => (
-                  <option key={model.size} value={model.size}>
-                    {model.label} {model.recommended ? '(Recommended)' : ''} ({Math.round(model.file_size / 1024 / 1024)}MB)
-                  </option>
-                ))}
-            </select>
+                .map((model) => ({
+                  value: model.size,
+                  label: `${model.label} ${model.recommended ? '(Recommended) ' : ''}(${Math.round(model.file_size / 1024 / 1024)}MB)`,
+                  searchText: `${model.size} ${model.description || ''} ${model.engine || ''}`,
+                }))}
+            />
             <Button variant="icon" onClick={onShowModelGuide} title="Model Guide">
               <IconInfoCircle size={20} />
             </Button>

@@ -92,11 +92,6 @@ export const inputBaseStyle: Style = {
   outline: 'none',
 };
 
-export const selectBaseStyle: Style = {
-  ...inputBaseStyle,
-  appearance: 'none',
-};
-
 export const selectWrapperStyle: Style = {
   display: 'flex',
   gap: tokens.spacing.sm,

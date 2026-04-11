@@ -175,6 +175,7 @@ function App() {
   const [systemShortcutContext, setSystemShortcutContext] = useState<SystemShortcutContext | null>(null);
   const [showHotkeyCaptureModal, setShowHotkeyCaptureModal] = useState(false);
   const [showSystemShortcutModal, setShowSystemShortcutModal] = useState(false);
+  const [showFactoryResetModal, setShowFactoryResetModal] = useState(false);
   const [isApplyingHotkey, setIsApplyingHotkey] = useState(false);
   const [initialRouteChecked, setInitialRouteChecked] = useState(false);
   const [hasLoadedConfig, setHasLoadedConfig] = useState(false);
@@ -738,6 +739,28 @@ function App() {
     }
   };
 
+  const handleFactoryReset = async () => {
+    try {
+      await invoke('reset_application_to_defaults');
+      setShowFactoryResetModal(false);
+      showToast('Factory reset completed.', 'success');
+
+      await Promise.all([
+        loadConfig(),
+        loadMics(),
+        loadModels(),
+        loadHistory(),
+        checkSetupStatus(),
+      ]);
+
+      setSetupTouched(false);
+      setInitialRouteChecked(false);
+      navigate('setup', true);
+    } catch (error) {
+      showToast(`Factory reset failed: ${error}`, 'error');
+    }
+  };
+
   const handleClose = async () => {
     try {
       await invoke('quit_application');
@@ -1055,6 +1078,7 @@ function App() {
                   navigate('setup');
                 }}
                 onCopySessionLogs={() => void copySessionLogs()}
+                onFactoryReset={() => setShowFactoryResetModal(true)}
               />
             )}
 
@@ -1142,6 +1166,29 @@ function App() {
           <p style={modalShortcutNoteStyle}>
             If you can&apos;t find it, you may need to search through your system settings for &quot;Voquill&quot; or &quot;shortcuts&quot;.
           </p>
+        </Modal>
+      )}
+
+      {showFactoryResetModal && (
+        <Modal
+          title="Factory Reset"
+          onClose={() => setShowFactoryResetModal(false)}
+          maxWidth="560px"
+          footer={
+            <>
+              <Button variant="ghost" pill onClick={() => setShowFactoryResetModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="danger" pill onClick={() => void handleFactoryReset()}>
+                Reset Everything
+              </Button>
+            </>
+          }
+        >
+          <p style={modalTextIntroStyle}>
+            This will reset Voquill to defaults and permanently clear downloaded models, logs, and history.
+          </p>
+          <p style={modalShortcutNoteStyle}>This action cannot be undone.</p>
         </Modal>
       )}
 

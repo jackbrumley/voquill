@@ -1,8 +1,6 @@
 import { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
-import { IconX } from '@tabler/icons-preact';
 import { Card } from './Card.tsx';
-import { Button } from './Button.tsx';
 import { tokens } from '../design-tokens.ts';
 
 interface ModalProps {
@@ -13,7 +11,6 @@ interface ModalProps {
   maxWidth?: string;
   closeOnOverlay?: boolean;
   fullScreen?: boolean;
-  hideCloseButton?: boolean;
   footerAlign?: 'end' | 'center';
 }
 
@@ -25,9 +22,28 @@ export function Modal({
   maxWidth = '500px',
   closeOnOverlay = true,
   fullScreen = false,
-  hideCloseButton = false,
   footerAlign = 'end',
 }: ModalProps) {
+  const modalCardStyle = fullScreen
+    ? {
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column' as const,
+        background: `linear-gradient(135deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 50%, ${tokens.colors.bgGradientCool} 100%)`,
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
+        boxShadow: 'none',
+        overflowY: 'auto' as const,
+        scrollbarGutter: 'stable' as const,
+      }
+    : {
+        background: tokens.colors.bgSecondary,
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        boxShadow: tokens.shadows.lg,
+      };
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -66,29 +82,9 @@ export function Modal({
           height: fullScreen ? '100%' : 'auto',
         }}
       >
-        <Card
-          className="modal-card"
-          style={fullScreen
-            ? {
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                background: `linear-gradient(135deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 50%, ${tokens.colors.bgGradientCool} 100%)`,
-                backdropFilter: 'none',
-                WebkitBackdropFilter: 'none',
-                boxShadow: 'none',
-                overflowY: 'auto',
-                scrollbarGutter: 'stable',
-              }
-            : undefined}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: hideCloseButton ? 'center' : 'space-between', marginBottom: '12px' }}>
+        <Card className="modal-card" style={modalCardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '12px' }}>
             <h2 style={{ fontSize: '18px', margin: 0, color: tokens.colors.textPrimary }}>{title}</h2>
-            {!hideCloseButton && (
-              <Button variant="icon" onClick={onClose} title="Close" style={{ width: '34px', height: '34px' }}>
-                <IconX size={20} />
-              </Button>
-            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: fullScreen ? 1 : undefined, minHeight: fullScreen ? 0 : undefined }}>{children}</div>

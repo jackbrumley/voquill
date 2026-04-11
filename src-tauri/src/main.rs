@@ -28,7 +28,7 @@ macro_rules! log_warn {
 
 use serde::Serialize;
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{Seek, SeekFrom, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -50,6 +50,63 @@ fn get_session_log_path() -> Result<PathBuf, String> {
         .join("debug");
     fs::create_dir_all(&debug_dir).map_err(|error| error.to_string())?;
     Ok(debug_dir.join("session.log"))
+}
+
+fn get_app_config_root_dir() -> Result<PathBuf, String> {
+    let root_dir = dirs::config_dir()
+        .ok_or_else(|| "Could not find config directory".to_string())?
+        .join("foss-voquill");
+
+    fs::create_dir_all(&root_dir).map_err(|error| error.to_string())?;
+    Ok(root_dir)
+}
+
+fn clear_directory_contents(path: &std::path::Path, preserve_filenames: &[&str]) -> Result<(), String> {
+    if !path.exists() {
+        return Ok(());
+    }
+
+    for entry in fs::read_dir(path).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let entry_path = entry.path();
+        let file_name = entry
+            .file_name()
+            .to_string_lossy()
+            .to_string();
+
+        if preserve_filenames.iter().any(|name| *name == file_name) {
+            continue;
+        }
+
+        if entry_path.is_dir() {
+            fs::remove_dir_all(&entry_path).map_err(|error| error.to_string())?;
+        } else {
+            fs::remove_file(&entry_path).map_err(|error| error.to_string())?;
+        }
+    }
+
+    Ok(())
+}
+
+fn truncate_session_log_with_header() -> Result<(), String> {
+    if let Some(lock) = SESSION_LOG_FILE.get() {
+        if let Ok(mut maybe_file) = lock.lock() {
+            if let Some(file) = maybe_file.as_mut() {
+                file.set_len(0).map_err(|error| error.to_string())?;
+                file.seek(SeekFrom::Start(0)).map_err(|error| error.to_string())?;
+                writeln!(
+                    file,
+                    "[{}] SESSION RESET | version={}",
+                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"),
+                    env!("CARGO_PKG_VERSION")
+                )
+                .map_err(|error| error.to_string())?;
+                return Ok(());
+            }
+        }
+    }
+
+    Err("Session log file handle unavailable".to_string())
 }
 
 fn initialize_session_logging() {
@@ -1223,6 +1280,78 @@ async fn clear_history() -> Result<(), String> {
     history::clear_history().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn reset_application_to_defaults(
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    log_info!("🧹 Factory reset requested");
+
+    let root_dir = get_app_config_root_dir()?;
+
+    let models_dir = root_dir.join("models");
+    if models_dir.exists() {
+        fs::remove_dir_all(&models_dir).map_err(|error| error.to_string())?;
+    }
+    fs::create_dir_all(&models_dir).map_err(|error| error.to_string())?;
+
+    let debug_dir = root_dir.join("debug");
+    fs::create_dir_all(&debug_dir).map_err(|error| error.to_string())?;
+    clear_directory_contents(&debug_dir, &["session.log"])?;
+
+    if let Err(error) = truncate_session_log_with_header() {
+        log_warn!("⚠️ Could not truncate session log during factory reset: {}", error);
+    }
+
+    history::clear_history().map_err(|error| error.to_string())?;
+
+    let default_config = Config::default();
+    config::save_config(&default_config).map_err(|error| error.to_string())?;
+
+    {
+        let mut config_lock = state.config.lock().unwrap();
+        *config_lock = default_config.clone();
+    }
+
+    {
+        let mut cached_device = state.cached_device.lock().unwrap();
+        *cached_device = None;
+    }
+
+    {
+        let mut mic_test_active = state.is_mic_test_active.lock().unwrap();
+        *mic_test_active = false;
+    }
+
+    {
+        let mut playback_stream = state.playback_stream.lock().unwrap();
+        *playback_stream = None;
+    }
+
+    {
+        let mut hotkey_error = state.hotkey_error.lock().unwrap();
+        *hotkey_error = None;
+    }
+
+    if let Err(error) = re_register_hotkey(&app_handle, &default_config.hotkey).await {
+        let mut hotkey_error = state.hotkey_error.lock().unwrap();
+        *hotkey_error = Some(error.clone());
+        return Err(format!(
+            "Factory reset completed but failed to re-register default hotkey: {}",
+            error
+        ));
+    }
+
+    emit_status_to_frontend("Ready").await;
+
+    let _ = app_handle.emit("history-updated", serde_json::json!({ "items": [] }));
+    let _ = app_handle.emit("config-updated", default_config.clone());
+    let _ = app_handle.emit("setup-status-changed", serde_json::json!({}));
+
+    log_info!("✅ Factory reset completed successfully");
+    Ok(())
+}
+
 async fn hide_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
     if let Some(overlay_window) = app_handle.get_webview_window("overlay") {
         overlay_window.hide().map_err(|e| e.to_string())?;
@@ -1725,7 +1854,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            start_recording, stop_recording, get_config, save_config,
+            start_recording, stop_recording, get_config, save_config, reset_application_to_defaults,
             test_api_key, get_current_status, get_history, clear_history,
             check_hotkey_status, manual_register_hotkey, configure_hotkey, apply_captured_hotkey,
             get_hotkey_binding_state, minimize_to_tray_or_taskbar, quit_application, get_audio_devices,

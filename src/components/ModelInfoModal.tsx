@@ -13,7 +13,6 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
       title="Model Guide"
       onClose={onClose}
       fullScreen
-      hideCloseButton
     >
       <p style={{ fontSize: tokens.typography.sizeMd, color: tokens.colors.textSecondary, lineHeight: 1.6, margin: 0 }}>
         Voquill uses AI models to transcribe your voice. Choose the one that best fits your computer's power.
