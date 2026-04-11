@@ -45,20 +45,21 @@ In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and fr
 
 ## Getting Started
 
-**Set Up (Local Recommended)**
-- Open **Config**, choose a model size (start with **Distil-Small**).
-- Click **Download** to install the model locally.
-- Optional: enable **Turbo Mode** in Advanced settings if you have a dedicated GPU.
-- Cloud mode optional: add your OpenAI API key and switch transcription mode to **Cloud**.
+1. **[Download](https://github.com/jackbrumley/voquill/releases/latest) and Install**
+and install the application with the relevent install file for your OS.
+   - Windows 10/11 (native desktop):  `setup.exe` or `.msi`
+   - Debian-based Linux (Ubuntu/Debian/Mint): use `.deb`
+   - Fedora/RHEL-based Linux: use `.rpm`
+   - Other Linux distros (including Arch/CachyOS): use `.AppImage` (⚠️ best-effort support).
+2. **Launch It**
+   - On Lauch you will meet an initial setup screen to help you get started.
+   - Set your hotkey, select your model, approve permissions and select the correct microphone.
+   - Adjust mic sensitivity so voice is clear without clipping.
+   - Use **Test Microphone** + playback to verify quality.
+3. **Use It**
+   - Focus any text field (email, docs, browser, editor).
+   - Hold your hotkey `Ctrl + Shift + Space` (default), speak, then release to transcribe.
 
-**Use It**
-- Focus any text field (email, docs, browser, editor).
-- Hold `Ctrl + Shift + Space` (default), speak, then release to transcribe.
-
-**Audio Quick Check**
-- Select the correct microphone.
-- Adjust mic sensitivity so voice is clear without clipping.
-- Use **Test Microphone** + playback to verify quality.
 
 ---
 
@@ -89,21 +90,12 @@ On Windows, all Tauri/Cargo build artifacts are written to `C:\voquill-build` to
 
 ---
 
-## Platform Support, Downloads & Known Issues
+## Known Issues
 
-| System | Display Server | Recommended Downloads | Status | Known Issues |
-| :-- | :-- | :-- | :--: | :-- |
-| Windows 10/11 | Native Windows desktop | `.msi`, setup `.exe`, portable `.exe` | ✅ | None |
-| Ubuntu / Debian / Linux Mint | Wayland | `.deb`, `.AppImage` | ✅ | None |
-| Fedora / RHEL-based distros | Wayland | `.rpm`, `.AppImage` | ⚠️ | AppImage build can fail on Fedora hosts due linuxdeploy strip incompatibility with RELR system libraries. Build AppImage on Ubuntu/Mint/Kubuntu, or build only `.deb/.rpm` on Fedora with `npm run tauri -- build --bundles deb,rpm`. |
-| KDE-based distros (Kubuntu, KDE Neon) | Wayland | distro package (`.deb`/`.rpm`), `.AppImage` | ✅ | None |
-| Linux (general compatibility) | X11 | distro package (`.deb`/`.rpm`), `.AppImage` | ✅ | None |
-
-`✅` = tested and supported, `⚠️` = supported with caveats, `❌` = not supported
-
-**General Known Issues**
 - Linux input is currently limited to standard English characters. Non-English characters and broader Unicode support are planned.
-- Language selection acts as a transcription hint and may not always be followed by every model.
+- Language selection acts as a transcription hint and may not work.
+- AppImage is a cross-distro fallback, not the primary support target; desktop/portal integration can vary compared to distro-native `.deb`/`.rpm` installs.
+- Fedora AppImage builds can fail due linuxdeploy strip incompatibility with RELR system libraries.
 
 ---
 
@@ -126,7 +118,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 ### Project Provenance
-*FOSS Voquill is the original project, first published in July 2025. Built to give back to the open-source community. Truly free. No subscriptions or paid tiers.*
+*FOSS Voquill is the original project, first published in July 2025. Built to give back to the open-source community. Truly free and Open Source*
 
 <div align="center">
 

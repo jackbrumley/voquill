@@ -26,6 +26,10 @@ npm run tauri:build
 ```
 Artifacts will be in `src-tauri/target/release/bundle/deb/`, `src-tauri/target/release/bundle/rpm/`, and `src-tauri/target/release/bundle/appimage/`.
 
+Release support policy:
+- Primary supported Linux artifacts: `.deb` and `.rpm`.
+- AppImage is a compatibility fallback for other distros/environments.
+
 Note: On Fedora/RHEL hosts, AppImage bundling may fail due a linuxdeploy strip incompatibility with RELR-enabled system libraries. Build AppImage on Ubuntu/Mint/Kubuntu, or run `npm run tauri -- build --bundles deb,rpm` on Fedora.
 
 ### Windows (MSI/EXE)
@@ -55,14 +59,12 @@ Artifacts will be in `src-tauri/target/release/bundle/msi/` and `src-tauri/targe
 
 Release assets uploaded to GitHub must follow this naming scheme:
 
-`voquill-<version>-<os>-<architecture>[ -<variant> ].<extension>`
+`voquill-<version>-<os>-<architecture>[ -setup ].<extension>`
 
 Supported Voquill asset names:
-- `voquill-<version>-linux-x64`
 - `voquill-<version>-linux-x64.AppImage`
 - `voquill-<version>-linux-x64.deb`
 - `voquill-<version>-linux-x64.rpm`
-- `voquill-<version>-windows-x64-portable.exe`
 - `voquill-<version>-windows-x64-setup.exe`
 - `voquill-<version>-windows-x64.msi`
 
@@ -71,22 +73,24 @@ Rules:
 - Use SemVer for `<version>` (example: `1.2.6`).
 - Use OS token values: `linux`, `windows`.
 - Use architecture token value: `x64`.
-- Use the optional `<variant>` only when needed (example: `portable`, `setup`).
+- Use the optional `-setup` variant for the Windows installer executable.
 
 Example for v1.2.6:
-- `voquill-1.2.6-linux-x64`
 - `voquill-1.2.6-linux-x64.AppImage`
 - `voquill-1.2.6-linux-x64.deb`
 - `voquill-1.2.6-linux-x64.rpm`
-- `voquill-1.2.6-windows-x64-portable.exe`
 - `voquill-1.2.6-windows-x64-setup.exe`
 - `voquill-1.2.6-windows-x64.msi`
 
 3. **Upload Assets**:
    Manually upload assets using the naming convention above.
    For Linux, upload:
+   - `src-tauri/target/release/bundle/appimage/*.AppImage`
    - `src-tauri/target/release/bundle/deb/*.deb`
    - `src-tauri/target/release/bundle/rpm/*.rpm`
+   For Windows, upload:
+   - `src-tauri/target/release/bundle/nsis/*-setup.exe`
+   - `src-tauri/target/release/bundle/msi/*.msi`
 
 4. **Publish**:
    Review the release and click "Publish release".
