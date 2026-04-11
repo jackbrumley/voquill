@@ -23,6 +23,8 @@ export function MicSetupPanel({
   compact = false,
   actionButtonSize = 'md',
 }: MicSetupPanelProps) {
+  const showVolumeMeter = micTestStatus === 'recording' || micTestStatus === 'playing';
+
   return (
     <div className={`mic-setup-panel ${compact ? 'compact' : ''}`}>
       <div className="mic-sensitivity-label">
@@ -42,6 +44,15 @@ export function MicSetupPanel({
       />
 
       <div className="mic-test-row">
+        {showVolumeMeter && (
+          <div className="volume-meter-container">
+            <div
+              className={`volume-meter-bar ${micVolume > 0.9 ? 'clipping' : micVolume > 0.7 ? 'warning' : ''}`}
+              style={{ width: `${Math.min(micVolume * 100, 100)}%` }}
+            ></div>
+          </div>
+        )}
+
         <Button
           disabled={micTestStatus === 'processing'}
           variant="configAction"
@@ -64,13 +75,6 @@ export function MicSetupPanel({
                 ? 'Stop Playback'
                 : 'Processing...'}
         </Button>
-
-        <div className="volume-meter-container">
-          <div
-            className={`volume-meter-bar ${micVolume > 0.9 ? 'clipping' : micVolume > 0.7 ? 'warning' : ''}`}
-            style={{ width: `${Math.min(micVolume * 100, 100)}%` }}
-          ></div>
-        </div>
       </div>
     </div>
   );

@@ -90,6 +90,23 @@ interface SystemShortcutContext {
   settings_path: string;
 }
 
+type AppRoute = 'setup' | 'status' | 'history' | 'config';
+
+const DEFAULT_ROUTE: AppRoute = 'status';
+
+const routeFromHash = (hash: string): AppRoute => {
+  const normalized = hash.replace(/^#\/?/, '').split('/')[0].trim().toLowerCase();
+  if (normalized === 'setup' || normalized === 'status' || normalized === 'history' || normalized === 'config') {
+    return normalized;
+  }
+  return DEFAULT_ROUTE;
+};
+
+const hashHasExplicitRoute = (hash: string): boolean => {
+  const normalized = hash.replace(/^#\/?/, '').trim().toLowerCase();
+  return normalized.length > 0;
+};
+
 function App() {
   const [config, setConfig] = useState<Config>({
     openai_api_key: '',
@@ -112,7 +129,7 @@ function App() {
     enable_gpu: false,
   });
   
-  const [activeTab, setActiveTab] = useState<'status' | 'history' | 'config'>('status');
+  const [activeRoute, setActiveRoute] = useState<AppRoute>(routeFromHash(window.location.hash));
   const [isTestingApi, setIsTestingApi] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [currentStatus, setCurrentStatus] = useState<string>('Ready');
@@ -139,12 +156,18 @@ function App() {
   const [showHotkeyCaptureModal, setShowHotkeyCaptureModal] = useState(false);
   const [showSystemShortcutModal, setShowSystemShortcutModal] = useState(false);
   const [isApplyingHotkey, setIsApplyingHotkey] = useState(false);
-  const [showInitialSetup, setShowInitialSetup] = useState(true);
+  const [initialRouteChecked, setInitialRouteChecked] = useState(false);
   const [setupTouched, setSetupTouched] = useState(false);
   const tabContentRef = useRef<HTMLDivElement | null>(null);
   const trayFallbackNotifiedRef = useRef(false);
 
   useEffect(() => {
+    const syncRouteFromHash = () => {
+      setActiveRoute(routeFromHash(window.location.hash));
+    };
+
+    window.addEventListener('hashchange', syncRouteFromHash);
+
     invoke<number>('get_wayland_portal_version')
       .then(setPortalVersion)
       .catch(e => console.log("Not running Wayland portal version check:", e));
@@ -160,7 +183,29 @@ function App() {
     invoke<SystemShortcutContext>('get_system_shortcut_context')
       .then(setSystemShortcutContext)
       .catch(e => console.log('System shortcut context unavailable:', e));
+
+    syncRouteFromHash();
+
+    return () => {
+      window.removeEventListener('hashchange', syncRouteFromHash);
+    };
   }, []);
+
+  const navigate = (route: AppRoute, replace = false) => {
+    const nextHash = `#/${route}`;
+    if (window.location.hash === nextHash) {
+      setActiveRoute(route);
+      return;
+    }
+
+    if (replace) {
+      window.history.replaceState(null, '', nextHash);
+      setActiveRoute(route);
+      return;
+    }
+
+    window.location.hash = nextHash;
+  };
 
   const logUI = (msg: string) => {
     // Log key interaction traces always; drop other spam unless debug mode
@@ -309,7 +354,7 @@ function App() {
     if (tabContentRef.current) {
       tabContentRef.current.scrollTop = 0;
     }
-  }, [activeTab]);
+  }, [activeRoute]);
 
   const checkSetupStatus = async () => {
     try {
@@ -629,9 +674,9 @@ function App() {
   const copySessionLogs = async () => {
     try {
       await invoke('copy_session_log_to_clipboard');
-      showToast('Session logs copied to clipboard.', 'success');
+      showToast('Log copied to clipboard.', 'success');
     } catch (error) {
-      showToast(`Failed to copy session logs: ${error}`, 'error');
+      showToast(`Failed to copy log: ${error}`, 'error');
     }
   };
 
@@ -639,7 +684,7 @@ function App() {
     try {
       await invoke('open_session_log');
     } catch (error) {
-      showToast(`Failed to open session log: ${error}`, 'error');
+      showToast(`Failed to open log file: ${error}`, 'error');
     }
   };
 
@@ -759,10 +804,16 @@ function App() {
   const isAllReady = isPortalSetupReady && isAudioDeviceReady && isLocalModelReady;
 
   useEffect(() => {
-    if (permissions && isAllReady && !setupTouched) {
-      setShowInitialSetup(false);
+    if (initialRouteChecked || !permissions) {
+      return;
     }
-  }, [permissions, isAllReady, setupTouched]);
+
+    if (!hashHasExplicitRoute(window.location.hash)) {
+      navigate(isAllReady ? 'status' : 'setup', true);
+    }
+
+    setInitialRouteChecked(true);
+  }, [initialRouteChecked, permissions, isAllReady]);
 
   const handleTitleBarMouseDown = async (e: any) => {
     if (e.buttons === 1 && !e.target.closest('button')) {
@@ -787,7 +838,7 @@ function App() {
         </div>
       </div>
 
-      {showInitialSetup ? (
+      {activeRoute === 'setup' ? (
         <InitialSetupPage
           permissions={permissions}
           config={config}
@@ -825,18 +876,18 @@ function App() {
           onStopMicTest={() => void stopMicTest()}
           onStopMicPlayback={() => void stopMicPlayback()}
           onRefreshStatus={() => void checkSetupStatus()}
-          onFinishSetup={() => setShowInitialSetup(false)}
+          onFinishSetup={() => navigate('status')}
         />
       ) : (
         <>
           <div className="tab-nav">
-            <button className={`tab ${activeTab === 'status' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Button clicked: Status Tab'); setActiveTab('status'); }}>Status</button>
-            <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Button clicked: History Tab'); setActiveTab('history'); }}>History</button>
-            <button className={`tab ${activeTab === 'config' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Button clicked: Config Tab'); setActiveTab('config'); }}>Config</button>
+            <button className={`tab ${activeRoute === 'status' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Button clicked: Status Tab'); navigate('status'); }}>Status</button>
+            <button className={`tab ${activeRoute === 'history' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Button clicked: History Tab'); navigate('history'); }}>History</button>
+            <button className={`tab ${activeRoute === 'config' ? 'active' : ''}`} onClick={() => { logUI('🖱️ Button clicked: Config Tab'); navigate('config'); }}>Config</button>
           </div>
 
           <div className="tab-content" ref={tabContentRef}>
-            {activeTab === 'status' && (
+            {activeRoute === 'status' && (
               <StatusPage
                 currentStatus={currentStatus}
                 appVersion={appVersion}
@@ -847,7 +898,7 @@ function App() {
               />
             )}
 
-            {activeTab === 'config' && (
+            {activeRoute === 'config' && (
               <ConfigPage
                 config={config}
                 activeConfigSection={activeConfigSection}
@@ -881,18 +932,18 @@ function App() {
                 openSessionLog={() => void openSessionLog()}
                 onReopenInitialSetup={() => {
                   setSetupTouched(true);
-                  setShowInitialSetup(true);
+                  navigate('setup');
                 }}
                 onCopySessionLogs={() => void copySessionLogs()}
               />
             )}
 
-            {activeTab === 'history' && (
+            {activeRoute === 'history' && (
               <HistoryPage history={history} onCopyToClipboard={copyToClipboard} />
             )}
           </div>
 
-          {activeTab === 'history' && (
+          {activeRoute === 'history' && (
             <ActionFooter>
               <Button variant="danger" className="sticky-footer-button" onClick={clearHistory}>Clear History</Button>
             </ActionFooter>

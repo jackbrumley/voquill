@@ -110,7 +110,49 @@ export function ConfigPage(props: ConfigPageProps) {
   return (
     <div className="tab-panel config-panel page-scroll" key="config">
       <div className="tab-panel-content">
-        <CollapsibleSection title="Basic" isOpen={activeConfigSection === 'basic'} onToggle={() => setActiveConfigSection(activeConfigSection === 'basic' ? null : 'basic')}>
+        <CollapsibleSection title="Transcription" isOpen={activeConfigSection === 'transcription'} onToggle={() => setActiveConfigSection(activeConfigSection === 'transcription' ? null : 'transcription')}>
+          <ConfigField
+            label="Global Hotkey"
+            description={isSystemManagedShortcut ? 'Use your system shortcut to record and release to transcribe.' : 'Hold these keys to record, release to transcribe.'}
+          >
+            <div className={`config-hotkey-row ${isSystemManagedShortcut ? 'is-system-managed' : ''}`}>
+              {!isSystemManagedShortcut && (
+                <input
+                  type="text"
+                  value={config.hotkey}
+                  readOnly
+                  onClick={() => {}}
+                  placeholder="Configure using button"
+                  className="hotkey-input"
+                  style={{ opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default' }}
+                  title={portalVersion >= 1 ? 'Use Configure Hotkey to request binding through the system portal.' : ''}
+                />
+              )}
+              <Button
+                size="md"
+                variant="configAction"
+                onClick={handleConfigureHotkey}
+                disabled={isApplyingHotkey}
+              >
+                Modify
+              </Button>
+            </div>
+            {isSystemManagedShortcut ? (
+              <div className="config-inline-note">
+                {systemShortcutContext?.distro
+                  ? `Your ${systemShortcutContext.distro} system manages this shortcut. To change it, open ${systemShortcutContext.settings_path}.`
+                  : `Your system manages this shortcut. To change it, open ${systemShortcutContext?.settings_path || 'System Settings -> Keyboard Shortcuts'}.`}
+                {portalDiagnostics?.active_trigger ? ` Current shortcut: ${portalDiagnostics.active_trigger}.` : ''}
+              </div>
+            ) : portalVersion >= 1 && (
+              <div className="config-inline-note">
+                Shortcut registration uses the Wayland GlobalShortcuts portal.
+                {portalDiagnostics?.active_trigger ? ` Active shortcut: ${portalDiagnostics.active_trigger}.` : ''}
+                {hotkeyBindingState?.bound ? ' Listener is active.' : ''}
+              </div>
+            )}
+          </ConfigField>
+
           <ConfigField label="Transcription Method" description="Choose between cloud-based API or fully local processing.">
             <ModeSwitcher
               value={config.transcription_mode}
@@ -165,54 +207,20 @@ export function ConfigPage(props: ConfigPageProps) {
                   onRetryModels={loadModels}
                 />
               </ConfigField>
+
+              <ConfigField label="Turbo Mode (GPU)" description="Uses your graphics card to speed up transcription. Recommended for 'Medium' models.">
+                <div className="config-inline-actions config-inline-actions-between">
+                  <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} label="Enabled" />
+                  <IconRocket size={20} className={`turbo-icon-indicator ${config.enable_gpu ? 'is-enabled' : ''}`} />
+                </div>
+              </ConfigField>
             </>
           )}
-
-          <ConfigField
-            label="Global Hotkey"
-            description={isSystemManagedShortcut ? 'Use your system shortcut to record and release to transcribe.' : 'Hold these keys to record, release to transcribe.'}
-          >
-            <div className={`config-hotkey-row ${isSystemManagedShortcut ? 'is-system-managed' : ''}`}>
-              {!isSystemManagedShortcut && (
-                <input
-                  type="text"
-                  value={config.hotkey}
-                  readOnly
-                  onClick={() => {}}
-                  placeholder="Configure using button"
-                  className="hotkey-input"
-                  style={{ opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default' }}
-                  title={portalVersion >= 1 ? 'Use Configure Hotkey to request binding through the system portal.' : ''}
-                />
-              )}
-              <Button
-                size="md"
-                variant="configAction"
-                onClick={handleConfigureHotkey}
-                disabled={isApplyingHotkey}
-              >
-                Modify
-              </Button>
-            </div>
-            {isSystemManagedShortcut ? (
-              <div className="config-inline-note">
-                {systemShortcutContext?.distro
-                  ? `Your ${systemShortcutContext.distro} system manages this shortcut. To change it, open ${systemShortcutContext.settings_path}.`
-                  : `Your system manages this shortcut. To change it, open ${systemShortcutContext?.settings_path || 'System Settings -> Keyboard Shortcuts'}.`}
-                {portalDiagnostics?.active_trigger ? ` Current shortcut: ${portalDiagnostics.active_trigger}.` : ''}
-              </div>
-            ) : portalVersion >= 1 && (
-              <div className="config-inline-note">
-                Shortcut registration uses the Wayland GlobalShortcuts portal.
-                {portalDiagnostics?.active_trigger ? ` Active shortcut: ${portalDiagnostics.active_trigger}.` : ''}
-                {hotkeyBindingState?.bound ? ' Listener is active.' : ''}
-              </div>
-            )}
-          </ConfigField>
 
           <ConfigField label="Always Copy to Clipboard" description="Automatically copies the transcription to your clipboard even when in Typewriter mode.">
             <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} label="Enabled" />
           </ConfigField>
+
         </CollapsibleSection>
 
         <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
@@ -248,26 +256,17 @@ export function ConfigPage(props: ConfigPageProps) {
           <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
             <input type="number" value={config.key_press_duration_ms} onChange={(e: Event) => updateConfig('key_press_duration_ms', parseInt((e.target as HTMLInputElement).value))} />
           </ConfigField>
-        </CollapsibleSection>
 
-        <CollapsibleSection title="Advanced" isOpen={activeConfigSection === 'advanced'} onToggle={() => setActiveConfigSection(activeConfigSection === 'advanced' ? null : 'advanced')}>
-          <ConfigField label="Popup Position (px)" description="Vertical offset for the status overlay from the screen bottom.">
+          <ConfigField label="Status Overlay Position (px)" description="Vertical offset for the status overlay from the bottom of the screen.">
             <input type="number" value={config.pixels_from_bottom} onChange={(e: Event) => updateConfig('pixels_from_bottom', parseInt((e.target as HTMLInputElement).value))} />
-          </ConfigField>
-
-          <ConfigField label="Turbo Mode (GPU)" description="Uses your graphics card to speed up transcription. Recommended for 'Medium' models.">
-            <div className="config-inline-actions config-inline-actions-between">
-              <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} label="Enabled" />
-              <IconRocket size={20} className={`turbo-icon-indicator ${config.enable_gpu ? 'is-enabled' : ''}`} />
-            </div>
           </ConfigField>
         </CollapsibleSection>
 
         <CollapsibleSection title="Debug" isOpen={activeConfigSection === 'debug'} onToggle={() => setActiveConfigSection(activeConfigSection === 'debug' ? null : 'debug')}>
-          <ConfigField label="Session Logs" description="Copies current launch logs (without secrets) for issue reports.">
+          <ConfigField label="Logs" description="Copy or open logs for troubleshooting and support.">
             <div className="config-inline-actions">
-              <Button variant="configAction" onClick={onCopySessionLogs}>Copy Session Logs</Button>
-              <Button variant="ghost" onClick={openSessionLog}>Open Session Log</Button>
+              <Button variant="configAction" onClick={onCopySessionLogs}>Copy Logs</Button>
+              <Button variant="ghost" onClick={openSessionLog}>Open Log File</Button>
             </div>
           </ConfigField>
 
@@ -281,9 +280,10 @@ export function ConfigPage(props: ConfigPageProps) {
           <ConfigField label="Initial Setup" description="Re-open onboarding checks for permissions, model, and hotkey setup.">
             <Button variant="configAction" onClick={onReopenInitialSetup}>Re-run Initial Setup</Button>
           </ConfigField>
-        </CollapsibleSection>
 
-        <CollapsibleSection title="Experimental" isOpen={activeConfigSection === 'experimental'} onToggle={() => setActiveConfigSection(activeConfigSection === 'experimental' ? null : 'experimental')}>
+          <div className="config-subsection-divider" role="separator" aria-hidden="true"></div>
+          <div className="config-subsection-heading">Experimental</div>
+
           <ConfigField label="Language Hint" description="Best-effort language hint for transcription. Some engines/models may ignore this setting or apply it inconsistently.">
             <div className="select-wrapper">
               <select value={config.language} onChange={(e: Event) => updateConfig('language', (e.target as HTMLSelectElement).value)}>

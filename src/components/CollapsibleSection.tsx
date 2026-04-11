@@ -1,6 +1,7 @@
 
 import { ComponentChildren } from 'preact';
 import { IconChevronDown } from '@tabler/icons-preact';
+import { SurfaceCard } from './SurfaceCard.tsx';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -11,7 +12,7 @@ interface CollapsibleSectionProps {
 
 export const CollapsibleSection = ({ title, children, isOpen, onToggle }: CollapsibleSectionProps) => {
   return (
-    <div className={`collapsible-section ${isOpen ? 'is-open' : ''}`}>
+    <SurfaceCard className={`collapsible-section ${isOpen ? 'is-open' : ''}`}>
       <div className="collapsible-header" onClick={onToggle}>
         <div className="collapsible-title">
           <span>{title}</span>
@@ -25,6 +26,6 @@ export const CollapsibleSection = ({ title, children, isOpen, onToggle }: Collap
           {children}
         </div>
       )}
-    </div>
+    </SurfaceCard>
   );
 };

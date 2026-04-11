@@ -2,24 +2,24 @@
 export const tokens = {
   colors: {
     // Backgrounds
-    bgPrimary: '#36393f',
+    bgPrimary: '#2b2e34',
     bgSecondary: '#2f3136',
     bgTertiary: '#202225',
     bgHover: '#40444b',
-    bgGradientWarm: '#4a384d',
-    bgGradientCool: '#2d454f',
+    bgGradientWarm: '#3a2c3d',
+    bgGradientCool: '#243942',
     
     // Text
     textPrimary: '#ffffff',
-    textSecondary: '#8e9297',
-    textMuted: '#72767d',
+    textSecondary: '#c5cbd3',
+    textMuted: '#a6adb8',
     
     // Brand/Action
     accentPrimary: '#5865f2',
     accentHover: '#4752c4',
     success: '#10b981',
     error: '#ef4444',
-    glassBg: 'rgba(47, 49, 54, 0.6)',
+    glassBg: 'rgba(35, 37, 42, 0.72)',
     glassBgHeavy: 'rgba(54, 57, 63, 0.95)',
     glassBlur: '16px',
   },
