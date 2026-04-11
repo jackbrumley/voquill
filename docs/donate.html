@@ -14,14 +14,15 @@
 
   <style>
     :root {
-      --colors-bg-primary: #36393f;
-      --colors-bg-gradient-warm: #4a384d;
-      --colors-bg-gradient-cool: #2d454f;
+      --colors-bg-primary: #2b2e34;
+      --colors-bg-gradient-warm: #3a2c3d;
+      --colors-bg-gradient-cool: #243942;
       --colors-text-primary: #ffffff;
-      --colors-text-secondary: #8e9297;
+      --colors-text-secondary: #c5cbd3;
       --colors-accent-primary: #5865f2;
+      --colors-accent-hover: #4752c4;
       --colors-success: #10b981;
-      --colors-glass-bg: rgba(47, 49, 54, 0.6);
+      --colors-glass-bg: rgba(35, 37, 42, 0.72);
       --colors-glass-blur: 16px;
 
       --typography-font-main: "Inter", 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -83,7 +84,7 @@
 
     .tagline {
       font-size: 1.1rem;
-      color: var(--colors-text-secondary);
+      color: #d9dfe7;
       margin-top: 0.75rem;
       max-width: 600px;
       margin-left: auto;
@@ -98,8 +99,8 @@
       padding: 1.25rem;
       border-radius: 16px;
       text-align: left;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
       margin: 1rem auto;
       max-width: 760px;
     }
@@ -116,7 +117,7 @@
     .card p {
       margin: 0.5rem 0;
       font-size: 0.95rem;
-      color: var(--colors-text-secondary);
+      color: #ffffff;
       text-align: center;
     }
 
@@ -129,34 +130,35 @@
     }
 
     .btn {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       background-color: var(--colors-success);
       color: white;
       padding: 0.85rem 2.25rem;
       border-radius: 40px;
       text-decoration: none;
-      font-weight: 700;
-      font-size: 1.05rem;
+      font-weight: 600;
+      font-size: 1.1rem;
       transition: all 0.2s ease;
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
     }
 
     .btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
-      filter: brightness(1.05);
+      background-color: #0ea371;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
     }
 
     .btn-secondary {
-      background-color: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background-color: var(--colors-accent-primary);
       color: var(--colors-text-primary);
-      box-shadow: none;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
     }
 
     .btn-secondary:hover {
-      background-color: rgba(255, 255, 255, 0.1);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      background-color: var(--colors-accent-hover);
+      box-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
       transform: translateY(-2px);
     }
 
@@ -172,8 +174,8 @@
       image-rendering: pixelated;
       image-rendering: crisp-edges;
       border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
       background: rgba(0,0,0,0.15);
       padding: 0.5rem;
     }
@@ -183,7 +185,7 @@
       padding-top: 1rem;
       text-align: center;
       font-size: 0.85rem;
-      color: var(--colors-text-secondary);
+      color: #d9dfe7;
       width: 100%;
       border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
@@ -209,7 +211,7 @@
       <img src="logo.png" alt="Voquill Logo" class="logo">
       <h1>Support FOSS Voquill</h1>
       <p class="tagline">
-        FOSS Voquill is free, private, and open-source. Donations help cover ongoing development, testing, and distribution.
+        Voquill is a personal project I build in my spare time. Donations do not unlock features and this will remain free and open source. Support simply shows me this work is valuable, and helps me justify continuing to invest my time in it.
       </p>
     </header>
 

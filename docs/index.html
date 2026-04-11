@@ -35,14 +35,15 @@
     </script>
     <style>
         :root {
-            --colors-bg-primary: #36393f;
-            --colors-bg-gradient-warm: #4a384d;
-            --colors-bg-gradient-cool: #2d454f;
+            --colors-bg-primary: #2b2e34;
+            --colors-bg-gradient-warm: #3a2c3d;
+            --colors-bg-gradient-cool: #243942;
             --colors-text-primary: #ffffff;
-            --colors-text-secondary: #8e9297;
+            --colors-text-secondary: #c5cbd3;
             --colors-accent-primary: #5865f2;
+            --colors-accent-hover: #4752c4;
             --colors-success: #10b981;
-            --colors-glass-bg: rgba(47, 49, 54, 0.6);
+            --colors-glass-bg: rgba(35, 37, 42, 0.72);
             --colors-glass-blur: 16px;
 
             --typography-font-main: "Inter", 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -101,28 +102,9 @@
             line-height: 1.1;
         }
 
-        .foss-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.35rem;
-            padding: 0.3rem 0.7rem;
-            border-radius: 999px;
-            border: 1px solid rgba(88, 101, 242, 0.4);
-            background: rgba(88, 101, 242, 0.15);
-            color: var(--colors-text-primary);
-            font-size: 0.75rem;
-            font-weight: 700;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            margin: 0.75rem auto 0.25rem auto;
-            width: fit-content;
-            box-shadow: 0 8px 20px rgba(88, 101, 242, 0.2);
-        }
-
         .tagline {
             font-size: 1.25rem;
-            color: var(--colors-text-secondary);
+            color: #d9dfe7;
             margin-top: 0.75rem;
             max-width: 800px;
             margin-left: auto;
@@ -142,9 +124,9 @@
             font-size: 0.8rem;
             font-weight: 800;
             letter-spacing: 0.25em;
-            color: var(--colors-text-primary);
+            color: #e3e8f0;
             text-transform: uppercase;
-            opacity: 0.5;
+            opacity: 0.98;
             transition: all 0.3s ease;
             cursor: default;
         }
@@ -174,8 +156,8 @@
             padding: 1.25rem;
             border-radius: 20px;
             text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: none;
             transition: transform 0.25s ease;
             display: flex;
             flex-direction: column;
@@ -200,43 +182,84 @@
             margin-bottom: 0;
             font-size: 0.95rem;
             line-height: 1.6;
-            color: var(--colors-text-secondary);
+            color: #ffffff;
         }
 
         .download-section {
             margin: 0.25rem 0 1rem 0;
         }
 
+        .how-it-works {
+            margin: 1.1rem auto 0.9rem auto;
+            max-width: 860px;
+            color: #ffffff;
+            font-size: 1.02rem;
+            line-height: 1.62;
+            text-align: center;
+        }
+
         .btn {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.68rem;
             background-color: var(--colors-success);
             color: white;
-            padding: 0.85rem 2.25rem;
+            padding: 0.74rem 1.7rem;
             border-radius: 40px;
             text-decoration: none;
-            font-weight: 700;
-            font-size: 1.05rem;
+            font-weight: 600;
+            font-size: 1.2rem;
             transition: all 0.2s ease;
             margin: 0.5rem;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+        }
+
+        .btn-icon {
+            width: 1em;
+            height: 1em;
+            display: block;
+            flex-shrink: 0;
+            align-self: center;
+            filter: brightness(0) invert(1);
+        }
+
+        .btn-text {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            line-height: 1;
+        }
+
+        .btn-title {
+            font-size: 1em;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        .btn-subtitle {
+            margin-top: 0.2em;
+            font-size: 0.54em;
+            font-weight: 500;
+            opacity: 0.82;
+            letter-spacing: 0.02em;
         }
 
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
-            filter: brightness(1.05);
+            background-color: #0ea371;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
         }
 
         .btn-secondary {
-            background-color: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: var(--colors-accent-primary);
             color: var(--colors-text-primary);
-            box-shadow: none;
+            box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
         }
 
         .btn-secondary:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            background-color: var(--colors-accent-hover);
+            box-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
         }
 
         footer {
@@ -254,7 +277,7 @@
             opacity: 0.8;
             font-weight: 500;
             color: var(--colors-text-primary);
-            margin-bottom: 0.25rem;
+            margin: 1rem 0 0.2rem 0;
         }
 
         .hero-container {
@@ -262,21 +285,28 @@
             max-width: 800px;
             width: 100%;
             border-radius: 20px;
-            overflow: hidden;
             background: var(--colors-glass-bg);
             backdrop-filter: blur(var(--colors-glass-blur));
             -webkit-backdrop-filter: blur(var(--colors-glass-blur));
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+            padding: 0.7rem;
             transition: transform 0.3s ease;
             cursor: zoom-in;
         }
 
         .hero-container:hover {
-            transform: scale(1.01);
+            transform: translateY(-1px);
         }
 
-        .hero-container img, .hero-container video {
+        .hero-media {
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 14px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .hero-media img, .hero-media video {
             width: 100%;
             display: block;
         }
@@ -319,19 +349,8 @@
             transform: scale(1);
         }
 
-        .view-gallery-link {
-            display: inline-block;
+        .gallery-action {
             margin-top: 1rem;
-            color: var(--colors-text-secondary);
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: color 0.2s ease;
-        }
-
-        .view-gallery-link:hover {
-            color: var(--colors-text-primary);
-            text-decoration: underline;
         }
 
         @media (max-width: 600px) {
@@ -339,6 +358,7 @@
             .container { padding: 2rem 1rem; }
             body { justify-content: flex-start; }
             .philosophy-grid { gap: 1.25rem; margin: 1.5rem 0; }
+            .hero-container { padding: 0.58rem; }
         }
     </style>
 </head>
@@ -356,21 +376,45 @@
         </header>
 
         <div class="download-section">
-            <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn">Download Latest Version</a>
+            <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn">
+                <img src="download.svg" alt="" class="btn-icon" aria-hidden="true">
+                <span class="btn-text">
+                    <span class="btn-title">Download</span>
+                    <span class="btn-subtitle">Latest release</span>
+                </span>
+            </a>
             <br>
-            <a href="donate.html" class="btn btn-secondary">Support the Project</a>
-            <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">View Code on GitHub</a>
+            <a href="donate.html" class="btn btn-secondary">
+                <img src="heart.svg" alt="" class="btn-icon" aria-hidden="true">
+                <span class="btn-text">
+                    <span class="btn-title">Support</span>
+                    <span class="btn-subtitle">Donate optional</span>
+                </span>
+            </a>
+            <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">
+                <img src="brand-github.svg" alt="" class="btn-icon" aria-hidden="true">
+                <span class="btn-text">
+                    <span class="btn-title">GitHub</span>
+                    <span class="btn-subtitle">Forever FOSS</span>
+                </span>
+            </a>
         </div>
+
+        <p class="how-it-works">
+            Voquill listens while you hold push-to-talk, transcribes when you release, and writes the result exactly where your cursor is. It types like a keyboard, so it works anywhere and everywhere across your system. It is free and open source, with Windows and Linux support. Everything runs locally on your device, so your voice and transcriptions stay private.
+        </p>
 
         <div class="hero-container" id="hero-content">
-            <video autoplay muted loop playsinline poster="screenshots/screenshot-status.png">
-                <source src="screenshots/screen-recording-kubuntu.mp4" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
+            <div class="hero-media">
+                <video autoplay muted loop playsinline poster="screenshots/screenshot-status.png">
+                    <source src="screenshots/screen-recording-kubuntu.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
         </div>
-        <a href="screenshots.html" class="view-gallery-link">View Screenshots →</a>
-
-        <div class="foss-badge">FOSS</div>
+        <div class="gallery-action">
+            <a href="screenshots.html" class="btn btn-secondary">Screenshots</a>
+        </div>
 
         <section class="philosophy-grid">
             <div class="card">
@@ -387,8 +431,9 @@
             </div>
         </section>
 
+    <p class="provenance">FOSS Voquill is the original project, first published in July 2025 by Jack Brumley and built to give back to the open-source community.</p>
+
     <footer>
-        <p class="provenance">FOSS Voquill is the original project, first published in July 2025 by Jack Brumley and built to give back to the open-source community.</p>
         <p>&copy; 2026 FOSS Voquill Project. (MIT License).</p>
     </footer>
 

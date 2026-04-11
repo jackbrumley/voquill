@@ -12,13 +12,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --colors-bg-primary: #36393f;
-            --colors-bg-gradient-warm: #4a384d;
-            --colors-bg-gradient-cool: #2d454f;
+            --colors-bg-primary: #2b2e34;
+            --colors-bg-gradient-warm: #3a2c3d;
+            --colors-bg-gradient-cool: #243942;
             --colors-text-primary: #ffffff;
-            --colors-text-secondary: #8e9297;
+            --colors-text-secondary: #c5cbd3;
             --colors-accent-primary: #5865f2;
-            --colors-glass-bg: rgba(47, 49, 54, 0.6);
+            --colors-accent-hover: #4752c4;
+            --colors-glass-bg: rgba(35, 37, 42, 0.72);
             --colors-glass-blur: 16px;
             --typography-font-main: "Inter", 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
@@ -53,16 +54,29 @@
             margin-bottom: 2rem;
         }
 
-        .back-link {
-            display: inline-block;
-            margin-bottom: 2rem;
-            color: var(--colors-text-secondary);
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--colors-accent-primary);
+            color: var(--colors-text-primary);
+            padding: 0.85rem 2.25rem;
+            border-radius: 40px;
             text-decoration: none;
-            font-weight: 500;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
         }
 
-        .back-link:hover {
-            color: var(--colors-text-primary);
+        .btn:hover {
+            transform: translateY(-2px);
+            background-color: var(--colors-accent-hover);
+            box-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
+        }
+
+        .back-link {
+            margin-bottom: 2rem;
         }
 
         .gallery {
@@ -80,7 +94,7 @@
             border-radius: 20px;
             padding: 1.25rem;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
             width: 100%;
             height: 100%;
             display: flex;
@@ -106,7 +120,7 @@
 
         .screenshot-card p {
             margin-top: 1.25rem;
-            color: var(--colors-text-secondary);
+            color: #ffffff;
             font-size: 0.9rem;
             line-height: 1.4;
             min-height: 3em;
@@ -169,14 +183,17 @@
         footer {
             margin-top: auto;
             padding: 2rem;
-            color: var(--colors-text-secondary);
+            color: #d9dfe7;
             font-size: 0.85rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            width: 100%;
+            text-align: center;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <a href="index.html" class="back-link">← Back to Home</a>
+        <a href="index.html" class="btn back-link">Back to Home</a>
         <h1>Screenshots</h1>
         
         <div class="gallery">
