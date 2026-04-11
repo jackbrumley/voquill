@@ -91,7 +91,8 @@ Managed via **npm** scripts and the Tauri CLI.
 ### 2. Frontend (Preact)
 - **Strict TypeScript:** No `any`. Explicit interfaces for all data structures (API responses, State slices).
 - **Hooks over Classes:** Use functional components and custom hooks (in `src/ui/src/hooks/`) for logic isolation.
-- **Styles:** Use semantic CSS. Avoid inline styles or "magic number" positioning. Themes should be managed via global CSS variables in `index.css`.
+- **Styles (Current Convention):** Prefer component-local inline style objects with design tokens for layout, spacing, and color. Use global CSS (`index.css`) for resets, root-level variables, and truly global concerns only.
+- **Style Consistency:** When touching existing UI, follow the style approach already used in that component/file. Do not introduce a separate styling pattern unless there is a clear architectural reason.
 - **Tauri Core:** Use `@tauri-apps/api` for communication with the backend.
 
 ---

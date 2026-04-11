@@ -43,7 +43,9 @@ export function MicSetupPanel({
           onInputSensitivityChange(parseFloat(target.value));
         }}
         style={{
+          appearance: 'none',
           WebkitAppearance: 'none',
+          accentColor: tokens.colors.accentPrimary,
           width: '100%',
           height: '6px',
           background: tokens.colors.bgTertiary,
