@@ -56,7 +56,7 @@ pub async fn establish_input_session(
             &session,
             DeviceType::Keyboard.into(),
             requested_restore_token.as_deref(),
-            PersistMode::DoNot,
+            PersistMode::ExplicitlyRevoked,
         )
         .await
         .map_err(|error| format!("Failed to select keyboard devices: {error}"))?;
