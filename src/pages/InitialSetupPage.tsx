@@ -128,12 +128,10 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
   } as const;
 
   return (
-    <div style={{ ...tabPanelStyle, overflow: 'hidden', padding: 0, height: '100%', minHeight: 0 }} key="initial-setup">
+    <div style={{ ...tabPanelStyle, overflow: 'auto', padding: 0 }} key="initial-setup">
       <SurfaceCard
         className="tab-panel-content"
         style={{
-          flex: 1,
-          minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
           background: 'transparent',
@@ -143,7 +141,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
           WebkitBackdropFilter: 'none',
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.lg, width: '100%', maxWidth: '900px', margin: '0 auto', borderRadius: tokens.radii.panel, padding: tokens.spacing.md, height: '100%', minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.lg, width: '100%', maxWidth: '900px', margin: '0 auto', borderRadius: tokens.radii.panel, padding: tokens.spacing.md }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.md, textAlign: 'center', width: '100%' }}>
           <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: tokens.colors.accentPrimary, boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
             <IconShieldLock size={32} />
@@ -151,7 +149,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
           <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800, letterSpacing: '-0.02em', color: tokens.colors.textPrimary }}>Initial Setup</h2>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.md, color: '#d9dfe7', lineHeight: 1.6, textAlign: 'left', flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.md, color: '#d9dfe7', lineHeight: 1.6, textAlign: 'left' }}>
           <p style={{ margin: 0, fontSize: tokens.typography.sizeSm, width: '100%', textAlign: 'center' }}>Complete these required checks before first use:</p>
           <div>
             <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#d9dfe7', margin: '2px 0 6px' }}>Required</div>
@@ -325,7 +323,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
 
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '6px', paddingBottom: tokens.spacing.md }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '6px', paddingBottom: tokens.spacing.xl }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.sm }}>
             <Button variant="ghost" onClick={onRefreshStatus} title="Refresh Status" style={{ width: '38px', height: '38px', padding: 0, borderRadius: '999px', color: tokens.colors.textPrimary }}>
               <IconRefresh size={16} />

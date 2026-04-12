@@ -2,6 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+pub const INPUT_SENSITIVITY_MIN: f32 = 0.1;
+pub const INPUT_SENSITIVITY_MAX: f32 = 2.0;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum OutputMethod {
     Typewriter,
@@ -56,6 +59,14 @@ pub struct Config {
     pub input_token: Option<String>,
     #[serde(default = "default_enable_gpu")]
     pub enable_gpu: bool,
+}
+
+impl Config {
+    pub fn normalize_input_sensitivity(&mut self) {
+        self.input_sensitivity = self
+            .input_sensitivity
+            .clamp(INPUT_SENSITIVITY_MIN, INPUT_SENSITIVITY_MAX);
+    }
 }
 
 fn default_api_key() -> String {
@@ -216,7 +227,8 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
             }
         }
 
-        let config = serde_json::from_value::<Config>(config_value)?;
+        let mut config = serde_json::from_value::<Config>(config_value)?;
+        config.normalize_input_sensitivity();
         // Persist migration to disk to keep config clean
         save_config(&config)?;
         Ok(config)
@@ -245,17 +257,20 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let config_path = get_config_path()?;
     log_info!("Attempting to save config to: {:?}", config_path);
 
-    let config_str = serde_json::to_string_pretty(config)?;
+    let mut normalized_config = config.clone();
+    normalized_config.normalize_input_sensitivity();
+    let config_str = serde_json::to_string_pretty(&normalized_config)?;
     log_info!(
-        "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, gpu={}",
-        config.transcription_mode,
-        config.local_engine,
-        config.local_model_size,
-        config.hotkey,
-        config.audio_device,
-        config.debug_mode,
-        config.enable_recording_logs,
-        config.enable_gpu
+        "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, gpu={}, input_sensitivity={:.2}",
+        normalized_config.transcription_mode,
+        normalized_config.local_engine,
+        normalized_config.local_model_size,
+        normalized_config.hotkey,
+        normalized_config.audio_device,
+        normalized_config.debug_mode,
+        normalized_config.enable_recording_logs,
+        normalized_config.enable_gpu,
+        normalized_config.input_sensitivity
     );
 
     fs::write(&config_path, config_str)?;

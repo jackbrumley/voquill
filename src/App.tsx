@@ -593,7 +593,16 @@ function App() {
   }, [config.local_engine, availableModels]);
 
   const updateConfig = (key: string, value: any) => {
-    setConfig(prev => ({ ...prev, [key]: value } as Config));
+    const normalizedValue = key === 'input_sensitivity'
+      ? (() => {
+          const parsedValue = Number(value);
+          if (!Number.isFinite(parsedValue)) {
+            return 1.0;
+          }
+          return Math.min(2.0, Math.max(0.1, parsedValue));
+        })()
+      : value;
+    setConfig(prev => ({ ...prev, [key]: normalizedValue } as Config));
   };
 
   const toggleOutputMethod = (method: 'Typewriter' | 'Clipboard') => {

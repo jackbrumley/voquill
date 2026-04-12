@@ -1,4 +1,5 @@
 import { Button } from './Button.tsx';
+import { SliderField } from './SliderField.tsx';
 import { tokens } from '../design-tokens.ts';
 
 interface MicSetupPanelProps {
@@ -32,27 +33,14 @@ export function MicSetupPanel({
       <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, marginBottom: '4px', textAlign: 'left' }}>
         Mic Sensitivity ({Math.round(inputSensitivity * 100)}%)
       </div>
-      <input
-        type="range"
-        min="0.1"
-        max="2.0"
-        step="0.05"
+      <SliderField
         value={inputSensitivity}
-        onChange={(event: Event) => {
-          const target = event.target as HTMLInputElement;
-          onInputSensitivityChange(parseFloat(target.value));
-        }}
-        style={{
-          appearance: 'none',
-          WebkitAppearance: 'none',
-          accentColor: tokens.colors.accentPrimary,
-          width: '100%',
-          height: '6px',
-          background: tokens.colors.bgTertiary,
-          borderRadius: '3px',
-          outline: 'none',
-          margin: `${tokens.spacing.sm} 0`,
-        }}
+        min={0.1}
+        max={2.0}
+        step={0.05}
+        onChange={onInputSensitivityChange}
+        ariaLabel="Mic sensitivity"
+        style={{ margin: `${tokens.spacing.sm} 0` }}
       />
 
       <div

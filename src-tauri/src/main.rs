@@ -1226,14 +1226,17 @@ async fn save_config(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    let mut normalized_config = new_config;
+    normalized_config.normalize_input_sensitivity();
+
     let (restart_engine, hotkey_changed) = {
         let mut config = state.config.lock().unwrap();
-        let audio_changed = config.audio_device != new_config.audio_device
-            || config.input_sensitivity != new_config.input_sensitivity;
-        let hotkey_changed = config.hotkey != new_config.hotkey;
+        let audio_changed = config.audio_device != normalized_config.audio_device
+            || config.input_sensitivity != normalized_config.input_sensitivity;
+        let hotkey_changed = config.hotkey != normalized_config.hotkey;
 
         // CRITICAL: Preserve internal tokens that the frontend doesn't manage
-        let mut merged_config = new_config.clone();
+        let mut merged_config = normalized_config.clone();
         if merged_config.shortcuts_token.is_none() {
             merged_config.shortcuts_token = config.shortcuts_token.clone();
         }
@@ -1255,7 +1258,7 @@ async fn save_config(
     if restart_engine && !is_mic_test_active {
         log_info!("🔧 Audio config changed, restarting persistent engine...");
         let cached_device = state.cached_device.lock().unwrap().clone();
-        let sensitivity = new_config.input_sensitivity;
+        let sensitivity = normalized_config.input_sensitivity;
         let mut engine_guard = state.audio_engine.lock().unwrap();
         *engine_guard = None; // Drop old stream
         if let Some(dev) = cached_device {
@@ -1268,13 +1271,13 @@ async fn save_config(
         log_info!("🔧 Audio config changed during active mic test, deferring engine restart");
     }
 
-    if let Err(e) = config::save_config(&new_config) {
+    if let Err(e) = config::save_config(&normalized_config) {
         let error_msg = format!("Failed to save config: {}", e);
         return Err(error_msg);
     }
 
     if hotkey_changed {
-        if let Err(e) = re_register_hotkey(&app_handle, &new_config.hotkey).await {
+        if let Err(e) = re_register_hotkey(&app_handle, &normalized_config.hotkey).await {
             let mut error_lock = state.hotkey_error.lock().unwrap();
             *error_lock = Some(e.clone());
             return Err(format!("Config saved but failed to update hotkey: {}", e));

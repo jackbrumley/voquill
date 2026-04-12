@@ -284,7 +284,7 @@ export function SelectField({
     <div
       ref={containerRef}
       className={className}
-      style={{ position: 'relative', width: '100%', ...style }}
+      style={{ position: 'relative', width: '100%', minWidth: 0, flex: '1 1 auto', ...style }}
       onKeyDown={handleKeyDown}
     >
       <button
@@ -311,6 +311,9 @@ export function SelectField({
       >
         <span
           style={{
+            display: 'block',
+            flex: 1,
+            minWidth: 0,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',

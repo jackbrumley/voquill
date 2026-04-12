@@ -31,49 +31,60 @@ export function ModelSelectionPanel({
   onRetryModels,
   actionButtonSize = 'md',
 }: ModelSelectionPanelProps) {
+  const actionButtonRowStyle = {
+    display: 'flex',
+    justifyContent: 'center',
+    width: '100%',
+  } as const;
+
   return (
     <>
-      <div style={selectWrapperStyle}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
         {availableModels.length > 0 ? (
           <>
-            <SelectField
-              value={localModelSize}
-              onChange={onChangeModel}
-              searchable={false}
-              ariaLabel="Local model"
-              options={availableModels
-                .filter((model) => model.engine === localEngine)
-                .map((model) => ({
-                  value: model.size,
-                  label: `${model.label} ${model.recommended ? '(Recommended) ' : ''}(${Math.round(model.file_size / 1024 / 1024)}MB)`,
-                  searchText: `${model.size} ${model.description || ''} ${model.engine || ''}`,
-                }))}
-            />
-            <Button variant="icon" onClick={onShowModelGuide} title="Model Guide">
-              <IconInfoCircle size={20} />
-            </Button>
-            {!modelStatus[localModelSize] && (
-              <Button variant="configAction" size={actionButtonSize} onClick={() => onDownloadModel(localModelSize)} disabled={isDownloading}>
-                {isDownloading ? '...' : 'Download'}
+            <div style={selectWrapperStyle}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <SelectField
+                  value={localModelSize}
+                  onChange={onChangeModel}
+                  searchable={false}
+                  ariaLabel="Local model"
+                  options={availableModels
+                    .filter((model) => model.engine === localEngine)
+                    .map((model) => ({
+                      value: model.size,
+                      label: `${model.label} ${model.recommended ? '(Recommended) ' : ''}(${Math.round(model.file_size / 1024 / 1024)}MB)`,
+                      searchText: `${model.size} ${model.description || ''} ${model.engine || ''}`,
+                    }))}
+                  style={{ minWidth: 0 }}
+                />
+              </div>
+              <Button variant="icon" onClick={onShowModelGuide} title="Model Guide">
+                <IconInfoCircle size={20} />
               </Button>
+            </div>
+            {!modelStatus[localModelSize] && (
+              <div style={actionButtonRowStyle}>
+                <Button variant="configAction" size={actionButtonSize} onClick={() => onDownloadModel(localModelSize)} disabled={isDownloading}>
+                  {isDownloading ? '...' : 'Download'}
+                </Button>
+              </div>
             )}
           </>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.sm, width: '100%' }}>
-            <div style={{ fontSize: '12px', color: '#d9dfe7', flex: 1 }}>Loading models...</div>
-            <Button variant="icon" onClick={onShowModelGuide} title="Model Guide">
-              <IconInfoCircle size={20} />
-            </Button>
-            <Button variant="configAction" size={actionButtonSize} onClick={onRetryModels}>Retry</Button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.sm, width: '100%' }}>
+              <div style={{ fontSize: '12px', color: '#d9dfe7', flex: 1, minWidth: 0 }}>Loading models...</div>
+              <Button variant="icon" onClick={onShowModelGuide} title="Model Guide">
+                <IconInfoCircle size={20} />
+              </Button>
+            </div>
+            <div style={actionButtonRowStyle}>
+              <Button variant="configAction" size={actionButtonSize} onClick={onRetryModels}>Retry</Button>
+            </div>
           </div>
         )}
       </div>
-
-      {availableModels.length > 0 && (
-        <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textSecondary }}>
-          {availableModels.find((model) => model.size === localModelSize)?.description}
-        </div>
-      )}
 
       {isDownloading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
@@ -83,6 +94,12 @@ export function ModelSelectionPanel({
           <div style={{ fontSize: '10px', color: '#d9dfe7', textAlign: 'right' }}>
             Downloading model... {Math.round(downloadProgress)}%
           </div>
+        </div>
+      )}
+
+      {availableModels.length > 0 && (
+        <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textSecondary }}>
+          {availableModels.find((model) => model.size === localModelSize)?.description}
         </div>
       )}
     </>
