@@ -27,12 +27,6 @@ interface LinuxPermissions {
   shortcuts_detail?: string;
 }
 
-interface PortalDiagnostics {
-  available: boolean;
-  version: number;
-  supports_configure_shortcuts: boolean;
-}
-
 interface SystemShortcutContext {
   distro?: string;
   desktop?: string;
@@ -57,7 +51,6 @@ interface InitialSetupPageProps {
   downloadProgress: number;
   isDownloading: boolean;
   portalVersion: number;
-  portalDiagnostics: PortalDiagnostics | null;
   isSystemManagedShortcut: boolean;
   systemShortcutContext: SystemShortcutContext | null;
   isApplyingHotkey: boolean;

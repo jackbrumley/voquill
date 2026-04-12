@@ -61,7 +61,10 @@ fn get_app_config_root_dir() -> Result<PathBuf, String> {
     Ok(root_dir)
 }
 
-fn clear_directory_contents(path: &std::path::Path, preserve_filenames: &[&str]) -> Result<(), String> {
+fn clear_directory_contents(
+    path: &std::path::Path,
+    preserve_filenames: &[&str],
+) -> Result<(), String> {
     if !path.exists() {
         return Ok(());
     }
@@ -69,10 +72,7 @@ fn clear_directory_contents(path: &std::path::Path, preserve_filenames: &[&str])
     for entry in fs::read_dir(path).map_err(|error| error.to_string())? {
         let entry = entry.map_err(|error| error.to_string())?;
         let entry_path = entry.path();
-        let file_name = entry
-            .file_name()
-            .to_string_lossy()
-            .to_string();
+        let file_name = entry.file_name().to_string_lossy().to_string();
 
         if preserve_filenames.iter().any(|name| *name == file_name) {
             continue;
@@ -93,7 +93,8 @@ fn truncate_session_log_with_header() -> Result<(), String> {
         if let Ok(mut maybe_file) = lock.lock() {
             if let Some(file) = maybe_file.as_mut() {
                 file.set_len(0).map_err(|error| error.to_string())?;
-                file.seek(SeekFrom::Start(0)).map_err(|error| error.to_string())?;
+                file.seek(SeekFrom::Start(0))
+                    .map_err(|error| error.to_string())?;
                 writeln!(
                     file,
                     "[{}] SESSION RESET | version={}",
@@ -180,9 +181,7 @@ use platform::linux::detection::is_wayland_session;
 #[cfg(target_os = "linux")]
 use platform::linux::wayland::env::{check_wayland_display, configure_linux_session_environment};
 #[cfg(target_os = "linux")]
-use platform::linux::wayland::portal::capabilities::{
-    detect_global_shortcuts_capabilities, PortalDiagnostics,
-};
+use platform::linux::wayland::portal::capabilities::PortalDiagnostics;
 use platform::permissions::LinuxPermissions;
 
 #[cfg(not(target_os = "linux"))]
@@ -663,32 +662,18 @@ async fn apply_hotkey_registration(
 #[tauri::command]
 async fn configure_hotkey(
     state: tauri::State<'_, AppState>,
-    app_handle: tauri::AppHandle,
 ) -> Result<ConfigureHotkeyResult, String> {
     if is_wayland_session() {
-        let capabilities = detect_global_shortcuts_capabilities().await?;
-        if capabilities.supports_configure_shortcuts {
-            let hotkey = {
-                let config = state.config.lock().unwrap();
-                config.hotkey.clone()
-            };
+        let capabilities =
+            platform::linux::wayland::portal::capabilities::detect_global_shortcuts_capabilities()
+                .await?;
 
-            apply_hotkey_registration(hotkey, state, app_handle).await?;
-            return Ok(ConfigureHotkeyResult {
-                outcome: "configured".to_string(),
-                detail: None,
-            });
-        }
-
-        let already_bound = {
-            let binding_state = state.hotkey_binding_state.lock().unwrap();
-            binding_state.bound
-        };
-
-        if already_bound {
+        if !capabilities.supports_configure_shortcuts {
             return Ok(ConfigureHotkeyResult {
                 outcome: "system_managed".to_string(),
-                detail: Some("Shortcut changes must be made in system settings.".to_string()),
+                detail: Some(
+                    "This desktop manages shortcut changes in system settings.".to_string(),
+                ),
             });
         }
 
@@ -697,13 +682,23 @@ async fn configure_hotkey(
             config.hotkey.clone()
         };
 
-        apply_hotkey_registration(hotkey, state, app_handle).await?;
+        let opened_system_configuration =
+            platform::linux::wayland::shortcuts::try_open_linux_portal_shortcut_configuration(
+                &hotkey,
+            )
+            .await?;
+
+        if opened_system_configuration {
+            return Ok(ConfigureHotkeyResult {
+                outcome: "configured".to_string(),
+                detail: Some("Opened system shortcut configuration.".to_string()),
+            });
+        }
 
         return Ok(ConfigureHotkeyResult {
-            outcome: "configured".to_string(),
-            detail: Some("System shortcut was initialized for this app.".to_string()),
+            outcome: "system_managed".to_string(),
+            detail: Some("Shortcut changes must be made in system settings.".to_string()),
         });
-
     }
 
     Ok(ConfigureHotkeyResult {
@@ -1396,7 +1391,10 @@ async fn reset_application_to_defaults(
     clear_directory_contents(&debug_dir, &["session.log"])?;
 
     if let Err(error) = truncate_session_log_with_header() {
-        log_warn!("⚠️ Could not truncate session log during factory reset: {}", error);
+        log_warn!(
+            "⚠️ Could not truncate session log during factory reset: {}",
+            error
+        );
     }
 
     history::clear_history().map_err(|error| error.to_string())?;

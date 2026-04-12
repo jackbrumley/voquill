@@ -86,6 +86,55 @@ async fn bind_record_shortcut(
     Err("Portal bind succeeded but did not return the expected shortcut id 'record'.".to_string())
 }
 
+async fn has_bound_record_shortcut(
+    proxy: &GlobalShortcuts<'_>,
+    session: &ashpd::desktop::Session<'_, GlobalShortcuts<'_>>,
+) -> Result<bool, String> {
+    let listed = proxy
+        .list_shortcuts(session)
+        .await
+        .map_err(|error| format!("Failed to call portal ListShortcuts: {error}"))?
+        .response()
+        .map_err(|error| format!("Failed to read shortcut list response: {error}"))?;
+
+    Ok(listed
+        .shortcuts()
+        .iter()
+        .any(|shortcut| shortcut.id() == RECORD_SHORTCUT_ID))
+}
+
+pub async fn try_open_linux_portal_shortcut_configuration(
+    preferred_hotkey: &str,
+) -> Result<bool, String> {
+    let proxy = GlobalShortcuts::new()
+        .await
+        .map_err(|error| format!("Failed to connect to GlobalShortcuts portal: {error}"))?;
+
+    let session = proxy
+        .create_session()
+        .await
+        .map_err(|error| format!("Failed to create portal session: {error}"))?;
+
+    let normalized_trigger = normalize_wayland_trigger(preferred_hotkey);
+    let has_record_shortcut = has_bound_record_shortcut(&proxy, &session).await?;
+    if !has_record_shortcut {
+        bind_record_shortcut(&proxy, &session, &normalized_trigger).await?;
+    }
+
+    let configure_result = proxy
+        .configure_shortcuts(&session, None, None::<ashpd::ActivationToken>)
+        .await;
+    let _ = session.close().await;
+
+    match configure_result {
+        Ok(()) => Ok(true),
+        Err(ashpd::Error::RequiresVersion(_, _)) => Ok(false),
+        Err(error) => Err(format!(
+            "Failed to open system shortcut configuration: {error}"
+        )),
+    }
+}
+
 pub async fn start_linux_portal_hotkey_engine(
     app_handle: tauri::AppHandle,
     force: bool,
@@ -201,26 +250,36 @@ pub async fn start_linux_portal_hotkey_engine(
             }
         }
 
+        let should_rebind_for_current_session =
+            !active_trigger.is_empty() || shortcuts_token.is_some();
+
+        if should_rebind_for_current_session {
+            let preferred_trigger = if !active_trigger.is_empty() {
+                trigger_description_to_hotkey(&active_trigger)
+                    .map(|hotkey| normalize_wayland_trigger(&hotkey))
+                    .unwrap_or_else(|| normalized_trigger.clone())
+            } else {
+                normalized_trigger.clone()
+            };
+
+            crate::log_info!(
+                "🔁 Restoring shortcut binding in current session using trigger='{}'",
+                preferred_trigger
+            );
+            active_trigger =
+                bind_record_shortcut(&proxy, &session, preferred_trigger.as_str()).await?;
+        }
+
         if active_trigger.is_empty() {
-            if shortcuts_token.is_some() {
-                crate::log_warn!(
-                    "No active shortcut reported by ListShortcuts; rebinding using desired trigger '{}'",
-                    normalized_trigger
-                );
-                active_trigger =
-                    bind_record_shortcut(&proxy, &session, normalized_trigger.as_str()).await?;
-            }
-            if active_trigger.is_empty() {
-                let _ = session.close().await;
-                crate::set_hotkey_binding_state(
-                    &app_handle,
-                    false,
-                    false,
-                    Some("No system shortcut found. Setup is required.".to_string()),
-                    None,
-                );
-                return Err("No system shortcut found. Setup is required.".to_string());
-            }
+            let _ = session.close().await;
+            crate::set_hotkey_binding_state(
+                &app_handle,
+                false,
+                false,
+                Some("No system shortcut found. Setup is required.".to_string()),
+                None,
+            );
+            return Err("No system shortcut found. Setup is required.".to_string());
         }
 
         crate::log_info!("✅ Reusing existing portal shortcut: '{}'", active_trigger);
@@ -261,54 +320,84 @@ pub async fn start_linux_portal_hotkey_engine(
                     );
                     break;
                 }
-                Some(event) = activated_stream.next() => {
-                    let shortcut_id = event.shortcut_id().to_string();
-                    let timestamp_ms = event.timestamp().as_millis();
-                    let state = app_handle_for_task.state::<AppState>();
-                    let was_recording = *state.is_recording.lock().unwrap();
-                    crate::log_info!(
-                        "🎤 Portal Activated: id='{}', ts={}ms, shortcut_pressed={}, is_recording={} ",
-                        shortcut_id,
-                        timestamp_ms,
-                        shortcut_pressed,
-                        was_recording
-                    );
+                activated_event = activated_stream.next() => {
+                    match activated_event {
+                        Some(event) => {
+                            let shortcut_id = event.shortcut_id().to_string();
+                            let timestamp_ms = event.timestamp().as_millis();
+                            let state = app_handle_for_task.state::<AppState>();
+                            let was_recording = *state.is_recording.lock().unwrap();
+                            crate::log_info!(
+                                "🎤 Portal Activated: id='{}', ts={}ms, shortcut_pressed={}, is_recording={} ",
+                                shortcut_id,
+                                timestamp_ms,
+                                shortcut_pressed,
+                                was_recording
+                            );
 
-                    if shortcut_id == RECORD_SHORTCUT_ID && !shortcut_pressed {
-                        shortcut_pressed = true;
-                        crate::log_info!("🎤 Portal: Hotkey Pressed -> invoking start_recording");
-                        let _ = crate::start_recording(state, app_handle_for_task.clone()).await;
-                    } else {
-                        crate::log_info!(
-                            "🎤 Portal Activated ignored: id='{}', shortcut_pressed={} ",
-                            shortcut_id,
-                            shortcut_pressed
-                        );
+                            if shortcut_id == RECORD_SHORTCUT_ID && !shortcut_pressed {
+                                shortcut_pressed = true;
+                                crate::log_info!("🎤 Portal: Hotkey Pressed -> invoking start_recording");
+                                let _ = crate::start_recording(state, app_handle_for_task.clone()).await;
+                            } else {
+                                crate::log_info!(
+                                    "🎤 Portal Activated ignored: id='{}', shortcut_pressed={} ",
+                                    shortcut_id,
+                                    shortcut_pressed
+                                );
+                            }
+                        }
+                        None => {
+                            crate::log_warn!("GlobalShortcuts activated stream ended unexpectedly.");
+                            crate::set_hotkey_binding_state(
+                                &app_handle_for_task,
+                                false,
+                                false,
+                                Some("Global shortcut listener disconnected (activated stream ended).".to_string()),
+                                None,
+                            );
+                            break;
+                        }
                     }
                 }
-                Some(event) = deactivated_stream.next() => {
-                    let shortcut_id = event.shortcut_id().to_string();
-                    let timestamp_ms = event.timestamp().as_millis();
-                    let state = app_handle_for_task.state::<AppState>();
-                    let was_recording = *state.is_recording.lock().unwrap();
-                    crate::log_info!(
-                        "⏹️  Portal Deactivated: id='{}', ts={}ms, shortcut_pressed={}, is_recording={}",
-                        shortcut_id,
-                        timestamp_ms,
-                        shortcut_pressed,
-                        was_recording
-                    );
+                deactivated_event = deactivated_stream.next() => {
+                    match deactivated_event {
+                        Some(event) => {
+                            let shortcut_id = event.shortcut_id().to_string();
+                            let timestamp_ms = event.timestamp().as_millis();
+                            let state = app_handle_for_task.state::<AppState>();
+                            let was_recording = *state.is_recording.lock().unwrap();
+                            crate::log_info!(
+                                "⏹️  Portal Deactivated: id='{}', ts={}ms, shortcut_pressed={}, is_recording={}",
+                                shortcut_id,
+                                timestamp_ms,
+                                shortcut_pressed,
+                                was_recording
+                            );
 
-                    if shortcut_id == RECORD_SHORTCUT_ID && shortcut_pressed {
-                        shortcut_pressed = false;
-                        crate::log_info!("⏹️  Portal: Hotkey Released -> invoking stop_recording");
-                        let _ = crate::stop_recording(state).await;
-                    } else {
-                        crate::log_info!(
-                            "⏹️  Portal Deactivated ignored: id='{}', shortcut_pressed={}",
-                            shortcut_id,
-                            shortcut_pressed
-                        );
+                            if shortcut_id == RECORD_SHORTCUT_ID && shortcut_pressed {
+                                shortcut_pressed = false;
+                                crate::log_info!("⏹️  Portal: Hotkey Released -> invoking stop_recording");
+                                let _ = crate::stop_recording(state).await;
+                            } else {
+                                crate::log_info!(
+                                    "⏹️  Portal Deactivated ignored: id='{}', shortcut_pressed={}",
+                                    shortcut_id,
+                                    shortcut_pressed
+                                );
+                            }
+                        }
+                        None => {
+                            crate::log_warn!("GlobalShortcuts deactivated stream ended unexpectedly.");
+                            crate::set_hotkey_binding_state(
+                                &app_handle_for_task,
+                                false,
+                                false,
+                                Some("Global shortcut listener disconnected (deactivated stream ended).".to_string()),
+                                None,
+                            );
+                            break;
+                        }
                     }
                 }
             }

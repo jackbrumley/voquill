@@ -1,15 +1,12 @@
 use crate::config::Config;
 use crate::platform::linux::wayland::input;
-use crate::platform::linux::wayland::portal::capabilities::collect_global_shortcuts_diagnostics;
 use crate::platform::permissions::LinuxPermissions;
 use ashpd::desktop::camera::Camera;
 use tauri::AppHandle;
 
 pub async fn check_linux_permissions(config: &Config) -> LinuxPermissions {
     let audio = Camera::new().await.is_ok();
-    let shortcuts_diagnostics = collect_global_shortcuts_diagnostics().await;
-
-    let shortcuts = shortcuts_diagnostics.has_record_shortcut;
+    let shortcuts = config.shortcuts_token.is_some();
 
     let input_emulation = config.input_token.is_some();
 
@@ -19,12 +16,10 @@ pub async fn check_linux_permissions(config: &Config) -> LinuxPermissions {
         input_emulation,
         shortcuts_status: if shortcuts {
             "bound".to_string()
-        } else if shortcuts_diagnostics.available {
-            "unbound".to_string()
         } else {
-            "portal-unavailable".to_string()
+            "unbound".to_string()
         },
-        shortcuts_detail: shortcuts_diagnostics.detail,
+        shortcuts_detail: None,
     }
 }
 

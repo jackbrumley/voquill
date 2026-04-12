@@ -77,16 +77,6 @@ interface LinuxPermissions {
   shortcuts_detail?: string;
 }
 
-interface PortalDiagnostics {
-  available: boolean;
-  version: number;
-  supports_configure_shortcuts: boolean;
-  has_record_shortcut: boolean;
-  active_trigger?: string;
-  status: string;
-  detail?: string;
-}
-
 interface ConfigureHotkeyResult {
   outcome: 'configured' | 'requires_in_app_capture' | 'system_managed';
   detail?: string;
@@ -170,7 +160,6 @@ function App() {
   const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
   const [showModelGuide, setShowModelGuide] = useState(false);
   const [portalVersion, setPortalVersion] = useState<number>(0);
-  const [portalDiagnostics, setPortalDiagnostics] = useState<PortalDiagnostics | null>(null);
   const [hotkeyBindingState, setHotkeyBindingState] = useState<HotkeyBindingState | null>(null);
   const [systemShortcutContext, setSystemShortcutContext] = useState<SystemShortcutContext | null>(null);
   const [showHotkeyCaptureModal, setShowHotkeyCaptureModal] = useState(false);
@@ -197,10 +186,6 @@ function App() {
     invoke<number>('get_wayland_portal_version')
       .then(setPortalVersion)
       .catch(e => console.log("Not running Wayland portal version check:", e));
-
-    invoke<PortalDiagnostics>('get_portal_diagnostics')
-      .then(setPortalDiagnostics)
-      .catch(e => console.log('Portal diagnostics unavailable:', e));
 
     invoke<HotkeyBindingState>('get_hotkey_binding_state')
       .then(setHotkeyBindingState)
@@ -388,8 +373,6 @@ function App() {
     try {
       const perms = await invoke<LinuxPermissions>('get_linux_setup_status');
       setPermissions(perms);
-      const diagnostics = await invoke<PortalDiagnostics>('get_portal_diagnostics');
-      setPortalDiagnostics(diagnostics);
       const bindingState = await invoke<HotkeyBindingState>('get_hotkey_binding_state');
       setHotkeyBindingState(bindingState);
     } catch (error) {
@@ -437,7 +420,7 @@ function App() {
       } else if (result.outcome === 'system_managed') {
         setShowSystemShortcutModal(true);
       } else {
-        showToast('Shortcut configured successfully!', 'success');
+        showToast(result.detail || 'Shortcut configured successfully!', 'success');
         await checkSetupStatus();
       }
     } catch (error) {
@@ -651,10 +634,7 @@ function App() {
   const isAudioDeviceReady = availableMics.length > 0 && !!config.audio_device;
   const isPortalSetupReady =
     !!permissions && permissions.audio && permissions.shortcuts && permissions.input_emulation;
-  const isSystemManagedShortcut =
-    !!portalDiagnostics?.available &&
-    portalDiagnostics.version >= 1 &&
-    !portalDiagnostics.supports_configure_shortcuts;
+  const isSystemManagedShortcut = portalVersion >= 1 && portalVersion < 2;
 
   const openDebugFolder = async () => {
     try {
@@ -960,7 +940,6 @@ function App() {
           downloadProgress={downloadProgress}
           isDownloading={isDownloading}
           portalVersion={portalVersion}
-          portalDiagnostics={portalDiagnostics}
           isSystemManagedShortcut={isSystemManagedShortcut}
           systemShortcutContext={systemShortcutContext}
           isApplyingHotkey={isApplyingHotkey}
@@ -1050,9 +1029,7 @@ function App() {
                 isDownloading={isDownloading}
                 isTestingApi={isTestingApi}
                 portalVersion={portalVersion}
-                portalDiagnostics={portalDiagnostics}
                 isSystemManagedShortcut={isSystemManagedShortcut}
-                systemShortcutContext={systemShortcutContext}
                 hotkeyBindingState={hotkeyBindingState}
                 isApplyingHotkey={isApplyingHotkey}
                 availableMics={availableMics}
@@ -1159,11 +1136,20 @@ function App() {
           }
         >
           <p style={{ ...modalTextIntroStyle, fontSize: tokens.typography.sizeMd }}>
-            Looks like your distro manages your shortcut. In order to change it, you will need to do so in your system settings.
+            {systemShortcutContext?.desktop
+              ? `Your ${systemShortcutContext.desktop} desktop manages this shortcut${systemShortcutContext?.distro ? ` on ${systemShortcutContext.distro}` : ''}. To change it, open:`
+              : systemShortcutContext?.distro
+                ? `Your ${systemShortcutContext.distro} system manages this shortcut. To change it, open:`
+                : 'Your system manages this shortcut. To change it, open:'}
           </p>
           <p style={modalShortcutPathStyle}>
             {systemShortcutContext?.settings_path || 'Settings -> Apps -> Voquill -> Global Shortcuts'}
           </p>
+          {hotkeyBindingState?.active_trigger && (
+            <p style={modalShortcutNoteStyle}>
+              Current shortcut: {hotkeyBindingState.active_trigger}
+            </p>
+          )}
           <p style={modalShortcutNoteStyle}>
             If you can&apos;t find it, you may need to search through your system settings for &quot;Voquill&quot; or &quot;shortcuts&quot;.
           </p>

@@ -16,12 +16,6 @@ interface AudioDevice {
   label: string;
 }
 
-interface SystemShortcutContext {
-  distro?: string;
-  desktop?: string;
-  settings_path: string;
-}
-
 interface ConfigPageProps {
   config: {
     transcription_mode: 'API' | 'Local';
@@ -51,10 +45,8 @@ interface ConfigPageProps {
   isDownloading: boolean;
   isTestingApi: boolean;
   portalVersion: number;
-  portalDiagnostics: { active_trigger?: string } | null;
   isSystemManagedShortcut: boolean;
-  systemShortcutContext: SystemShortcutContext | null;
-  hotkeyBindingState: { bound: boolean } | null;
+  hotkeyBindingState: { bound: boolean; active_trigger?: string } | null;
   isApplyingHotkey: boolean;
   availableMics: AudioDevice[];
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
@@ -103,9 +95,7 @@ export function ConfigPage(props: ConfigPageProps) {
     isDownloading,
     isTestingApi,
     portalVersion,
-    portalDiagnostics,
     isSystemManagedShortcut,
-    systemShortcutContext,
     hotkeyBindingState,
     isApplyingHotkey,
     availableMics,
@@ -163,17 +153,10 @@ export function ConfigPage(props: ConfigPageProps) {
                 Modify
               </Button>
             </div>
-            {isSystemManagedShortcut ? (
-              <div style={helperTextStyle}>
-                {systemShortcutContext?.distro
-                  ? `Your ${systemShortcutContext.distro} system manages this shortcut. To change it, open ${systemShortcutContext.settings_path}.`
-                  : `Your system manages this shortcut. To change it, open ${systemShortcutContext?.settings_path || 'System Settings -> Keyboard Shortcuts'}.`}
-                {portalDiagnostics?.active_trigger ? ` Current shortcut: ${portalDiagnostics.active_trigger}.` : ''}
-              </div>
-            ) : portalVersion >= 1 && (
+            {!isSystemManagedShortcut && portalVersion >= 1 && (
               <div style={helperTextStyle}>
                 Shortcut registration uses the Wayland GlobalShortcuts portal.
-                {portalDiagnostics?.active_trigger ? ` Active shortcut: ${portalDiagnostics.active_trigger}.` : ''}
+                {hotkeyBindingState?.active_trigger ? ` Active shortcut: ${hotkeyBindingState.active_trigger}.` : ''}
                 {hotkeyBindingState?.bound ? ' Listener is active.' : ''}
               </div>
             )}
