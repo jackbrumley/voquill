@@ -10,12 +10,12 @@ The main build command will check for dependencies, build the frontend, and then
 # Start desktop development
 npm run tauri:dev
 
-# Standard release build
+# Standard Tauri bundle build
 npm run tauri:build
 ```
 
 ### When to use each command:
-- **npm run tauri:build**: Use this for the final app you intend to share or use daily. It produces optimized, small executables.
+- **npm run tauri:build**: Use this for the final app you intend to share or use daily. It produces optimized, small executables and bundled installers.
 - **npm run tauri:dev**: Use this for active development. It provides hot-reloading for both the frontend and backend.
 
 ## Requirements
@@ -68,3 +68,4 @@ After a successful build, you can find the artifacts in:
 - **Missing dependencies on Linux**: If the build fails with missing library errors, follow the instructions provided by the script to install the necessary `apt` packages.
 - **Frontend build issues**: If the UI fails to build, try clearing `node_modules` and running the build again.
 - **Rust compilation errors**: Ensure your Rust toolchain is up to date with `rustup update`.
+- **Fedora AppImage bundling**: Some Fedora toolchains ship RELR-enabled libraries that fail when stripped by the linuxdeploy binary bundled with Tauri. On Fedora, use `npm run tauri -- build --bundles deb,rpm` for distro packages, and build AppImage on Ubuntu/Mint/Kubuntu.

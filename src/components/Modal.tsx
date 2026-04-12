@@ -2,6 +2,7 @@ import { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
 import { Card } from './Card.tsx';
 import { tokens } from '../design-tokens.ts';
+import { titleBarHeight } from '../theme/ui-primitives.ts';
 
 interface ModalProps {
   title: string;
@@ -24,6 +25,7 @@ export function Modal({
   fullScreen = false,
   footerAlign = 'end',
 }: ModalProps) {
+  const titleBarInset = titleBarHeight;
   const modalCardStyle = fullScreen
     ? {
         height: '100%',
@@ -60,7 +62,7 @@ export function Modal({
       onClick={closeOnOverlay ? onClose : undefined}
       style={{
         position: 'fixed',
-        top: fullScreen ? '42px' : 0,
+        top: titleBarInset,
         right: 0,
         bottom: 0,
         left: 0,
@@ -80,6 +82,7 @@ export function Modal({
           width: '100%',
           maxWidth: fullScreen ? 'none' : maxWidth,
           height: fullScreen ? '100%' : 'auto',
+          maxHeight: fullScreen ? '100%' : 'calc(100% - 16px)',
         }}
       >
         <Card className="modal-card" style={modalCardStyle}>

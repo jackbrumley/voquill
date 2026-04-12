@@ -73,12 +73,12 @@ In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and fr
 3. **Check your system is ready**
    - Run: `npm run deps:check`
    - If anything is missing, it will print the install commands.
-4. **Build the full app**
+4. **Build release packages**
    - Run: `npm run tauri:build`
-   - This creates installable app packages.
+   - This builds production packages for your current platform.
 5. **Find your built files**
-   - Windows location: `C:\voquill-build\release\bundle\`
    - Linux location: `src-tauri/target/release/bundle/`
+   - Windows location: `C:\voquill-build\release\bundle\`
    - This folder contains installer/package files (such as `.msi`, `.deb`, `.rpm`, `.AppImage`).
 6. **Optional: Run in development mode**
    - Run: `npm run tauri:dev`
@@ -95,7 +95,7 @@ On Windows, all Tauri/Cargo build artifacts are written to `C:\voquill-build` to
 | :-- | :-- | :-- | :--: | :-- |
 | Windows 10/11 | Native Windows desktop | `.msi`, setup `.exe`, portable `.exe` | ✅ | None |
 | Ubuntu / Debian / Linux Mint | Wayland | `.deb`, `.AppImage` | ✅ | None |
-| Fedora / RHEL-based distros | Wayland | `.rpm`, `.AppImage` | ✅ | None |
+| Fedora / RHEL-based distros | Wayland | `.rpm`, `.AppImage` | ⚠️ | AppImage build can fail on Fedora hosts due linuxdeploy strip incompatibility with RELR system libraries. Build AppImage on Ubuntu/Mint/Kubuntu, or build only `.deb/.rpm` on Fedora with `npm run tauri -- build --bundles deb,rpm`. |
 | KDE-based distros (Kubuntu, KDE Neon) | Wayland | distro package (`.deb`/`.rpm`), `.AppImage` | ✅ | None |
 | Linux (general compatibility) | X11 | distro package (`.deb`/`.rpm`), `.AppImage` | ✅ | None |
 

@@ -98,7 +98,11 @@
         }
       },
       "appimage": {
-        "bundleMediaFramework": false
+        "bundleMediaFramework": false,
+        "files": {
+          "/usr/share/metainfo/org.voquill.foss.metainfo.xml": "org.voquill.foss.metainfo.xml",
+          "/usr/share/appdata/org.voquill.foss.appdata.xml": "org.voquill.foss.metainfo.xml"
+        }
       }
     }
   },

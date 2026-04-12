@@ -3,6 +3,8 @@ import { tokens } from '../design-tokens.ts';
 
 export type Style = JSX.CSSProperties;
 
+export const titleBarHeight = '42px';
+
 export const appShellStyle: Style = {
   display: 'flex',
   flexDirection: 'column',
@@ -14,7 +16,7 @@ export const appShellStyle: Style = {
 };
 
 export const titleBarStyle: Style = {
-  height: '42px',
+  height: titleBarHeight,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',

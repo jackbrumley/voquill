@@ -26,6 +26,8 @@ npm run tauri:build
 ```
 Artifacts will be in `src-tauri/target/release/bundle/deb/`, `src-tauri/target/release/bundle/rpm/`, and `src-tauri/target/release/bundle/appimage/`.
 
+Note: On Fedora/RHEL hosts, AppImage bundling may fail due a linuxdeploy strip incompatibility with RELR-enabled system libraries. Build AppImage on Ubuntu/Mint/Kubuntu, or run `npm run tauri -- build --bundles deb,rpm` on Fedora.
+
 ### Windows (MSI/EXE)
 On a Windows machine:
 ```bash
@@ -82,6 +84,9 @@ Example for v1.2.6:
 
 3. **Upload Assets**:
    Manually upload assets using the naming convention above.
+   For Linux, upload:
+   - `src-tauri/target/release/bundle/deb/*.deb`
+   - `src-tauri/target/release/bundle/rpm/*.rpm`
 
 4. **Publish**:
    Review the release and click "Publish release".

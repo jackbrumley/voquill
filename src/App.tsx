@@ -88,7 +88,7 @@ interface PortalDiagnostics {
 }
 
 interface ConfigureHotkeyResult {
-  outcome: 'configured' | 'requires_in_app_capture';
+  outcome: 'configured' | 'requires_in_app_capture' | 'system_managed';
   detail?: string;
 }
 
@@ -425,11 +425,6 @@ function App() {
     if (isApplyingHotkey) return;
     setSetupTouched(true);
 
-    if (isSystemManagedShortcut) {
-      setShowSystemShortcutModal(true);
-      return;
-    }
-
     try {
       setIsApplyingHotkey(true);
       const result = await invoke<ConfigureHotkeyResult>('configure_hotkey');
@@ -439,6 +434,8 @@ function App() {
         await setRecordingState(true);
         setRecordedKeys(new Set());
         showToast('Press your desired key combination in the modal.', 'info');
+      } else if (result.outcome === 'system_managed') {
+        setShowSystemShortcutModal(true);
       } else {
         showToast('Shortcut configured successfully!', 'success');
         await checkSetupStatus();
@@ -1113,9 +1110,11 @@ function App() {
           title="Configure Hotkey"
           onClose={() => void cancelHotkeyCapture()}
           maxWidth="440px"
+          footerAlign="center"
           footer={
             <Button
               variant="ghost"
+              pill
               onClick={() => void cancelHotkeyCapture()}
               disabled={isApplyingHotkey}
             >
@@ -1137,13 +1136,15 @@ function App() {
           title="Change Shortcut"
           onClose={() => setShowSystemShortcutModal(false)}
           maxWidth="560px"
+          footerAlign="center"
           footer={
             <>
-              <Button variant="secondary" onClick={() => setShowSystemShortcutModal(false)}>
+              <Button variant="ghost" pill onClick={() => setShowSystemShortcutModal(false)}>
                 Close
               </Button>
               <Button
                 variant="primary"
+                pill
                 onClick={() => {
                   void (async () => {
                     setShowSystemShortcutModal(false);
@@ -1157,7 +1158,7 @@ function App() {
             </>
           }
         >
-          <p style={modalTextIntroStyle}>
+          <p style={{ ...modalTextIntroStyle, fontSize: tokens.typography.sizeMd }}>
             Looks like your distro manages your shortcut. In order to change it, you will need to do so in your system settings.
           </p>
           <p style={modalShortcutPathStyle}>
@@ -1174,6 +1175,7 @@ function App() {
           title="Factory Reset"
           onClose={() => setShowFactoryResetModal(false)}
           maxWidth="560px"
+          footerAlign="center"
           footer={
             <>
               <Button variant="ghost" pill onClick={() => setShowFactoryResetModal(false)}>

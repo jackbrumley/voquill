@@ -8,14 +8,22 @@
   <developer id="org.voquill">
     <name>Jack Brumley</name>
   </developer>
+  <pkgname>voquill</pkgname>
   <launchable type="desktop-id">org.voquill.foss.desktop</launchable>
+  <icon type="stock">org.voquill.foss</icon>
+  <icon type="stock">voquill</icon>
   <description>
     <p>
-      Voquill is a cross-platform push-to-talk dictation app for Linux and Windows. It records while your shortcut is held,
-      transcribes locally or via API, and types into your active application.
+      Voquill is a cross-platform push-to-talk dictation app for Linux and Windows. Hold your shortcut to record,
+      release to transcribe, and Voquill types directly into your active application.
     </p>
     <p>
-      It is focused on a clean desktop workflow with explicit portal permissions on Wayland and local-first operation.
+      It is local-first by design: voice processing can run entirely on-device with Whisper models, and cloud API
+      transcription is optional.
+    </p>
+    <p>
+      Voquill is built for a clean desktop workflow with explicit Wayland portal permissions, reliable Linux and Windows
+      behavior, and fast keyboard-first dictation.
     </p>
   </description>
   <url type="homepage">https://voquill.org/</url>

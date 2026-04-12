@@ -99,7 +99,6 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
     isDownloading,
     portalVersion,
     isSystemManagedShortcut,
-    systemShortcutContext,
     isApplyingHotkey,
     availableMics,
     micTestStatus,
@@ -209,13 +208,6 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                   }}
                   title={portalVersion >= 1 ? 'Use Configure Hotkey to request a system shortcut.' : ''}
                 />
-              )}
-              {isSystemManagedShortcut && (
-                <div style={helperTextStyle}>
-                  {systemShortcutContext?.distro
-                    ? `Your ${systemShortcutContext.distro} system manages this shortcut. Change it in ${systemShortcutContext.settings_path}.`
-                    : `Your system manages this shortcut. Change it in ${systemShortcutContext?.settings_path || 'System Settings -> Keyboard Shortcuts'}.`}
-                </div>
               )}
               {!permissions?.shortcuts && permissions?.shortcuts_detail && (
                 <div style={{ ...helperTextStyle, color: '#f1c40f' }}>

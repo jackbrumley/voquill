@@ -219,6 +219,8 @@ pub struct AppState {
     pub wayland_input_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     #[cfg(target_os = "linux")]
     pub wayland_input_ready: Arc<Mutex<bool>>,
+    #[cfg(target_os = "linux")]
+    pub wayland_host_app_registration_error: Arc<Mutex<Option<String>>>,
     pub display_backend: Arc<dyn platform::traits::DisplayBackend>,
 }
 
@@ -264,9 +266,39 @@ impl Default for AppState {
             wayland_input_cancel: Arc::new(Mutex::new(None)),
             #[cfg(target_os = "linux")]
             wayland_input_ready: Arc::new(Mutex::new(false)),
+            #[cfg(target_os = "linux")]
+            wayland_host_app_registration_error: Arc::new(Mutex::new(None)),
             display_backend: platform::initialize(),
         }
     }
+}
+
+#[cfg(target_os = "linux")]
+fn enrich_wayland_shortcut_error(state: &AppState, error: String) -> String {
+    if !is_wayland_session() {
+        return error;
+    }
+
+    let looks_like_portal_rejection = error.contains("Portal request didn't succeed: Other")
+        || error.contains("Portal rejected shortcut");
+    if !looks_like_portal_rejection {
+        return error;
+    }
+
+    let host_registration_error = state
+        .wayland_host_app_registration_error
+        .lock()
+        .unwrap()
+        .clone();
+
+    if let Some(host_error) = host_registration_error {
+        return format!(
+            "{} Hint: Wayland portal app registration failed earlier ({}). This usually means the desktop environment cannot resolve Voquill's app metadata yet.",
+            error, host_error
+        );
+    }
+
+    error
 }
 
 pub fn set_hotkey_binding_state(
@@ -518,20 +550,30 @@ async fn apply_hotkey_registration(
                     config.hotkey = previous_hotkey.clone();
                 }
 
-                let restore_error = backend.start_engine(app_handle.clone(), true).await.err();
+                let restore_error = backend.start_engine(app_handle.clone(), false).await.err();
                 if let Some(error) = restore_error {
+                    let enriched_error = {
+                        #[cfg(target_os = "linux")]
+                        {
+                            enrich_wayland_shortcut_error(&state, error)
+                        }
+                        #[cfg(not(target_os = "linux"))]
+                        {
+                            error
+                        }
+                    };
                     set_hotkey_binding_state(
                         &app_handle,
                         false,
                         false,
-                        Some(error.clone()),
+                        Some(enriched_error.clone()),
                         None,
                     );
                     let mut hotkey_error = state.hotkey_error.lock().unwrap();
-                    *hotkey_error = Some(error.clone());
+                    *hotkey_error = Some(enriched_error.clone());
                     return Err(format!(
                         "Failed to save hotkey change: {}. Also failed to restore previous hotkey: {}",
-                        save_error, error
+                        save_error, enriched_error
                     ));
                 }
 
@@ -550,32 +592,66 @@ async fn apply_hotkey_registration(
             Ok(())
         }
         Err(error) => {
+            let registration_error = {
+                #[cfg(target_os = "linux")]
+                {
+                    enrich_wayland_shortcut_error(&state, error)
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    error
+                }
+            };
+
             {
                 let mut config = state.config.lock().unwrap();
                 config.hotkey = previous_hotkey.clone();
             }
 
-            let restore_result = backend.start_engine(app_handle.clone(), true).await;
+            if previous_hotkey == new_hotkey {
+                set_hotkey_binding_state(
+                    &app_handle,
+                    false,
+                    false,
+                    Some(registration_error.clone()),
+                    None,
+                );
+                let mut hotkey_error = state.hotkey_error.lock().unwrap();
+                *hotkey_error = Some(registration_error.clone());
+                return Err(registration_error);
+            }
+
+            let restore_result = backend.start_engine(app_handle.clone(), false).await;
             match restore_result {
                 Ok(()) => {
                     set_hotkey_binding_state(&app_handle, true, true, None, None);
                     let mut hotkey_error = state.hotkey_error.lock().unwrap();
                     *hotkey_error = None;
-                    Err(error)
+                    Err(registration_error)
                 }
                 Err(restore_error) => {
+                    let enriched_restore_error = {
+                        #[cfg(target_os = "linux")]
+                        {
+                            enrich_wayland_shortcut_error(&state, restore_error)
+                        }
+                        #[cfg(not(target_os = "linux"))]
+                        {
+                            restore_error
+                        }
+                    };
                     set_hotkey_binding_state(
                         &app_handle,
                         false,
                         false,
-                        Some(restore_error.clone()),
+                        Some(enriched_restore_error.clone()),
                         None,
                     );
                     let mut hotkey_error = state.hotkey_error.lock().unwrap();
-                    *hotkey_error = Some(restore_error.clone());
+                    *hotkey_error = Some(enriched_restore_error.clone());
                     Err(format!(
                         "{} Also failed to restore previous hotkey: {}",
-                        error, restore_error
+                        registration_error, enriched_restore_error
                     ))
                 }
             }
@@ -604,10 +680,30 @@ async fn configure_hotkey(
             });
         }
 
+        let already_bound = {
+            let binding_state = state.hotkey_binding_state.lock().unwrap();
+            binding_state.bound
+        };
+
+        if already_bound {
+            return Ok(ConfigureHotkeyResult {
+                outcome: "system_managed".to_string(),
+                detail: Some("Shortcut changes must be made in system settings.".to_string()),
+            });
+        }
+
+        let hotkey = {
+            let config = state.config.lock().unwrap();
+            config.hotkey.clone()
+        };
+
+        apply_hotkey_registration(hotkey, state, app_handle).await?;
+
         return Ok(ConfigureHotkeyResult {
-            outcome: "requires_in_app_capture".to_string(),
-            detail: Some("Portal backend does not provide native shortcut picker.".to_string()),
+            outcome: "configured".to_string(),
+            detail: Some("System shortcut was initialized for this app.".to_string()),
         });
+
     }
 
     Ok(ConfigureHotkeyResult {
@@ -1765,6 +1861,7 @@ fn main() {
                 }
 
                 if is_wayland_session() {
+                    let state = app.state::<AppState>();
                     let host_app_registration = tauri::async_runtime::block_on(async {
                         let app_id = AppID::try_from("org.voquill.foss")
                             .map_err(|error| format!("Invalid host app id: {error}"))?;
@@ -1774,8 +1871,18 @@ fn main() {
                     });
 
                     match host_app_registration {
-                        Ok(()) => log_info!("✅ Registered host app ID with portal registry"),
-                        Err(error) => log_warn!("⚠️ Host app registration failed: {}", error),
+                        Ok(()) => {
+                            let mut registration_error =
+                                state.wayland_host_app_registration_error.lock().unwrap();
+                            *registration_error = None;
+                            log_info!("✅ Registered host app ID with portal registry");
+                        }
+                        Err(error) => {
+                            let mut registration_error =
+                                state.wayland_host_app_registration_error.lock().unwrap();
+                            *registration_error = Some(error.clone());
+                            log_warn!("⚠️ Host app registration failed: {}", error);
+                        }
                     }
 
                     let tray_watcher_available =
