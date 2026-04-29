@@ -1,0 +1,36 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ page.title | default: site.title }}</title>
+{% if page.description %}
+<meta name="description" content="{{ page.description }}">
+{% endif %}
+{% if page.og_title %}
+<meta property="og:title" content="{{ page.og_title }}">
+{% endif %}
+{% if page.og_description %}
+<meta property="og:description" content="{{ page.og_description }}">
+{% endif %}
+<meta property="og:site_name" content="{{ site.title }}">
+<meta property="og:type" content="website">
+{% if page.og_url %}
+<meta property="og:url" content="{{ page.og_url }}">
+{% endif %}
+{% if page.og_image %}
+<meta property="og:image" content="{{ page.og_image }}">
+{% endif %}
+{% if page.canonical %}
+<link rel="canonical" href="{{ page.canonical }}">
+{% endif %}
+<link rel="icon" type="image/x-icon" href="{{ '/favicon.ico' | relative_url }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ '/assets/base.css' | relative_url }}">
+{% if page.stylesheets %}
+  {% for stylesheet in page.stylesheets %}
+<link rel="stylesheet" href="{{ stylesheet | relative_url }}">
+  {% endfor %}
+{% endif %}
+{% if page.is_home %}
+  {% include index-json-ld.html %}
+{% endif %}

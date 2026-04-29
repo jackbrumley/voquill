@@ -3,5 +3,5 @@
 - Create official v1.0 release for Windows, Mac and Linux with GitHub releases.
 - Add basic error handling for network/API failures with user-friendly messages.
 - Test and verify full functionality on all three platforms before release.
-- Choose and add appropriate open source license (MIT/Apache-2.0/GPL).
+- Keep license references consistent across docs/site (GNU AGPLv3).
 - Add option to auto start when Windows or OS starts

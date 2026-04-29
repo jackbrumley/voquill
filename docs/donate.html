@@ -1,276 +1,52 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FOSS Voquill | Donate</title>
-  <meta name="description" content="Support FOSS Voquill, a truly free & open-source offline dictation tool that types into any app. Donations are optional.">
-  <link rel="canonical" href="https://voquill.org/donate.html">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
+---
+layout: default
+title: FOSS Voquill | Donate
+description: Support FOSS Voquill, a truly free & open-source offline dictation tool that types into any app. Donations are optional.
+canonical: https://voquill.org/donate.html
+stylesheets:
+  - /assets/donate.css
+body_class: centered-page
+container_class: donate-container
+provenance: Founded July 2025 by Jack Brumley
+---
+<header>
+  <img src="{{ '/logo.png' | relative_url }}" alt="Voquill Logo" class="logo">
+  <h1>Support FOSS Voquill</h1>
+  <p class="tagline">
+    Voquill is a personal project I build in my spare time. Donations do not unlock features and this will remain free and open source. Support simply shows me this work is valuable, and helps me justify continuing to invest my time in it.
+  </p>
+</header>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<section class="card">
+  <h2>Donate via PayPal (AUD)</h2>
+  <p>Use the button below to choose an amount, or scan the QR code on a mobile device.</p>
 
-  <style>
-    :root {
-      --colors-bg-primary: #2b2e34;
-      --colors-bg-gradient-warm: #3a2c3d;
-      --colors-bg-gradient-cool: #243942;
-      --colors-text-primary: #ffffff;
-      --colors-text-secondary: #c5cbd3;
-      --colors-accent-primary: #5865f2;
-      --colors-accent-hover: #4752c4;
-      --colors-success: #10b981;
-      --colors-glass-bg: rgba(35, 37, 42, 0.72);
-      --colors-glass-blur: 16px;
-
-      --typography-font-main: "Inter", 'Segoe UI', system-ui, -apple-system, sans-serif;
-      --typography-font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      font-family: var(--typography-font-main);
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      text-rendering: optimizeLegibility;
-      background: linear-gradient(
-        135deg,
-        var(--colors-bg-gradient-warm) 0%,
-        var(--colors-bg-primary) 50%,
-        var(--colors-bg-gradient-cool) 100%
-      );
-      background-attachment: fixed;
-      color: var(--colors-text-primary);
-      line-height: 1.5;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    .container {
-      max-width: 900px;
-      width: 95%;
-      padding: 1rem 1rem;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    header { margin-bottom: 1rem; }
-
-    .logo {
-      width: 80px;
-      height: 80px;
-      margin-bottom: 0.75rem;
-      filter: drop-shadow(0 8px 24px rgba(0,0,0,0.3));
-    }
-
-    h1 {
-      font-size: 2.25rem;
-      margin: 0;
-      font-weight: 300;
-      letter-spacing: -0.02em;
-      line-height: 1.1;
-    }
-
-    .tagline {
-      font-size: 1.02rem;
-      color: #ffffff;
-      margin-top: 0.75rem;
-      max-width: 860px;
-      margin-left: auto;
-      margin-right: auto;
-      font-weight: 400;
-      line-height: 1.62;
-    }
-
-    .card {
-      background: var(--colors-glass-bg);
-      backdrop-filter: blur(var(--colors-glass-blur));
-      -webkit-backdrop-filter: blur(var(--colors-glass-blur));
-      padding: 1.25rem;
-      border-radius: 16px;
-      text-align: left;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
-      margin: 1rem auto;
-      max-width: 760px;
-    }
-
-    .card h2 {
-      margin: 0 0 0.75rem 0;
-      color: var(--colors-accent-primary);
-      font-size: 1.15rem;
-      font-weight: 700;
-      letter-spacing: 0.2px;
-      text-align: center;
-    }
-
-    .card p {
-      margin: 0.5rem 0;
-      font-size: 0.95rem;
-      color: #ffffff;
-      text-align: center;
-    }
-
-    .donate-actions {
-      margin-top: 1rem;
-    }
-
-    .donate-primary-row,
-    .donate-secondary-row {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .donate-secondary-row {
-      margin-top: 0.5rem;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background-color: var(--colors-success);
-      color: white;
-      padding: 0.85rem 2.25rem;
-      border-radius: 40px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 1.1rem;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
-    }
-
-    .btn:hover {
-      transform: translateY(-2px);
-      background-color: #0ea371;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
-    }
-
-    .btn-secondary {
-      background-color: var(--colors-accent-primary);
-      color: var(--colors-text-primary);
-      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
-    }
-
-    .btn-secondary.btn-compact {
-      padding: 0.66rem 1.6rem;
-      font-size: 1rem;
-    }
-
-    .btn-secondary:hover {
-      background-color: var(--colors-accent-hover);
-      box-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
-      transform: translateY(-2px);
-    }
-
-    .qr-wrap {
-      display: flex;
-      justify-content: center;
-      margin-top: 1rem;
-    }
-
-    .qr {
-      width: 128px;
-      height: 128px;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-      background: rgba(0,0,0,0.15);
-      padding: 0.5rem;
-    }
-
-    footer {
-      margin-top: 1rem;
-      padding-top: 1rem;
-      text-align: center;
-      font-size: 0.85rem;
-      color: #d9dfe7;
-      width: 100%;
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .provenance {
-      font-style: normal;
-      opacity: 0.8;
-      font-weight: 500;
-      color: var(--colors-text-primary);
-      margin-bottom: 0.25rem;
-    }
-
-    @media (max-width: 600px) {
-      h1 { font-size: 2.05rem; }
-      .container { padding: 2rem 1rem; }
-      body { justify-content: flex-start; }
-      .donate-primary-row,
-      .donate-secondary-row {
-        flex-direction: column;
-        align-items: center;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <img src="logo.png" alt="Voquill Logo" class="logo">
-      <h1>Support FOSS Voquill</h1>
-      <p class="tagline">
-        Voquill is a personal project I build in my spare time. Donations do not unlock features and this will remain free and open source. Support simply shows me this work is valuable, and helps me justify continuing to invest my time in it.
-      </p>
-    </header>
-
-    <section class="card">
-      <h2>Donate via PayPal (AUD)</h2>
-      <p>Use the button below to choose an amount, or scan the QR code on a mobile device.</p>
-
-      <div class="donate-actions">
-        <div class="donate-primary-row">
-          <a
-            class="btn"
-            href="https://www.paypal.com/donate/?business=NQLJU7FJPRFB4&no_recurring=0&item_name=Support+development+and+maintenance+of+FOSS+Voquill%2C+a+free+and+open-source+offline+dictation+tool.&currency_code=AUD"
-            target="_blank"
-            rel="noopener noreferrer"
-          >Donate with PayPal</a>
-        </div>
-        <div class="donate-secondary-row">
-          <a class="btn btn-secondary btn-compact" href="./">Back to Home</a>
-        </div>
-      </div>
-
-      <div class="qr-wrap">
-        <a
-          href="https://www.paypal.com/donate/?business=NQLJU7FJPRFB4&no_recurring=0&item_name=Support+development+and+maintenance+of+FOSS+Voquill%2C+a+free+and+open-source+offline+dictation+tool.&currency_code=AUD"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Open PayPal donate link"
-        >
-          <img class="qr" src="paypal-donate-qr-code.png" alt="PayPal donate QR code">
-        </a>
-      </div>
-
-      <p style="margin-top: 1rem; font-size: 0.9rem;">
-        Donations are optional and do not unlock features. FOSS Voquill remains free and MIT licensed.
-      </p>
-    </section>
-
-    <footer>
-      <p class="provenance">Founded July 2025 by Jack Brumley</p>
-      <p>&copy; 2026 FOSS Voquill Project. MIT Licensed.</p>
-    </footer>
+  <div class="donate-actions">
+    <div class="donate-primary-row">
+      <a
+        class="btn"
+        href="https://www.paypal.com/donate/?business=NQLJU7FJPRFB4&no_recurring=0&item_name=Support+development+and+maintenance+of+FOSS+Voquill%2C+a+free+and+open-source+offline+dictation+tool.&currency_code=AUD"
+        target="_blank"
+        rel="noopener noreferrer"
+      >Donate with PayPal</a>
+    </div>
+    <div class="donate-secondary-row">
+      <a class="btn btn-secondary btn-compact" href="{{ '/' | relative_url }}">Back to Home</a>
+    </div>
   </div>
-</body>
-</html>
+
+  <div class="qr-wrap">
+    <a
+      href="https://www.paypal.com/donate/?business=NQLJU7FJPRFB4&no_recurring=0&item_name=Support+development+and+maintenance+of+FOSS+Voquill%2C+a+free+and+open-source+offline+dictation+tool.&currency_code=AUD"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Open PayPal donate link"
+    >
+      <img class="qr" src="{{ '/paypal-donate-qr-code.png' | relative_url }}" alt="PayPal donate QR code">
+    </a>
+  </div>
+
+  <p style="margin-top: 1rem; font-size: 0.9rem;">
+    Donations are optional and do not unlock features. FOSS Voquill remains free and GNU AGPLv3 licensed.
+  </p>
+</section>

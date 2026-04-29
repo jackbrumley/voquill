@@ -1,501 +1,127 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FOSS Voquill | Free & Private Dictation</title>
-    <meta name="description" content="FOSS, truly free & open-source offline dictation for Windows and Linux. Types directly into any app—voice-to-text runs locally so your data never leaves your device. No subscriptions.">
-    <meta property="og:title" content="FOSS Voquill | Free & Private Dictation">
-    <meta property="og:description" content="FOSS, truly free & open-source offline dictation that types into any app. Local voice-to-text keeps your data on your device. No subscriptions.">
-    <meta property="og:site_name" content="FOSS Voquill">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://voquill.org/">
-    <meta property="og:image" content="https://voquill.org/screenshots/screenshot-status.png">
-    <link rel="canonical" href="https://voquill.org/">
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
-    <script type="application/ld+json">
-        {
-            "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            "name": "FOSS Voquill",
-            "description": "FOSS, truly free & open-source offline dictation for Windows and Linux. Types directly into any app - voice-to-text runs locally so your data never leaves your device. No subscriptions.",
-            "applicationCategory": "ProductivityApplication",
-            "operatingSystem": "Windows, Linux",
-            "license": "https://opensource.org/licenses/MIT",
-            "url": "https://voquill.org/",
-            "downloadUrl": "https://github.com/jackbrumley/voquill/releases/latest",
-            "publisher": {
-                "@type": "Person",
-                "name": "Jack Brumley"
-            }
-        }
-    </script>
-    <style>
-        :root {
-            --colors-bg-primary: #2b2e34;
-            --colors-bg-gradient-warm: #3a2c3d;
-            --colors-bg-gradient-cool: #243942;
-            --colors-text-primary: #ffffff;
-            --colors-text-secondary: #c5cbd3;
-            --colors-accent-primary: #5865f2;
-            --colors-accent-hover: #4752c4;
-            --colors-success: #10b981;
-            --colors-glass-bg: rgba(35, 37, 42, 0.72);
-            --colors-glass-blur: 16px;
+---
+layout: default
+title: FOSS Voquill | Free & Private Dictation
+description: FOSS, truly free & open-source offline dictation for Windows and Linux. Types directly into any app—voice-to-text runs locally so your data never leaves your device. No subscriptions.
+og_title: FOSS Voquill | Free & Private Dictation
+og_description: FOSS, truly free & open-source offline dictation that types into any app. Local voice-to-text keeps your data on your device. No subscriptions.
+og_url: https://voquill.org/
+og_image: https://voquill.org/screenshots/screenshot-status.png
+canonical: https://voquill.org/
+stylesheets:
+  - /assets/index.css
+is_home: true
+body_class: centered-page
+container_class: home-container
+provenance: FOSS Voquill is the original project, first published in July 2025 by Jack Brumley and built to give back to the open-source community.
+---
+<header>
+  <img src="{{ '/logo.png' | relative_url }}" alt="Voquill Logo" class="logo">
+  <h1>FOSS Voquill</h1>
+  <p class="tagline">Truly free &amp; open-source offline dictation that types into any app. Voice-to-text runs locally so your data never leaves your device.</p>
+  <div class="platform-support">
+    <span class="platform-label">Linux</span>
+    <div class="platform-divider"></div>
+    <span class="platform-label">Windows</span>
+  </div>
+</header>
 
-            --typography-font-main: "Inter", 'Segoe UI', system-ui, -apple-system, sans-serif;
-            --typography-font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
-        }
+<div class="download-section">
+  <div class="download-primary-row">
+    <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn">
+      <img src="{{ '/download.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
+      <span class="btn-text">
+        <span class="btn-title">Download</span>
+        <span class="btn-subtitle">Latest release</span>
+      </span>
+    </a>
+  </div>
+  <div class="download-secondary-row">
+    <a href="{{ '/donate.html' | relative_url }}" class="btn btn-secondary">
+      <img src="{{ '/heart.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
+      <span class="btn-text">
+        <span class="btn-title">Support</span>
+        <span class="btn-subtitle">Donate optional</span>
+      </span>
+    </a>
+    <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">
+      <img src="{{ '/brand-github.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
+      <span class="btn-text">
+        <span class="btn-title">GitHub</span>
+        <span class="btn-subtitle">Forever FOSS</span>
+      </span>
+    </a>
+  </div>
+</div>
 
-        * {
-            box-sizing: border-box;
-        }
+<p class="how-it-works">
+  Voquill listens while you hold push-to-talk, transcribes when you release, and writes the result exactly where your cursor is. It types like a keyboard, so it works anywhere and everywhere across your system. Free and open source with Windows and Linux support, it runs locally on your device so your voice and transcriptions stay private.
+</p>
 
-        body {
-            font-family: var(--typography-font-main);
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            text-rendering: optimizeLegibility;
-            background: linear-gradient(135deg, var(--colors-bg-gradient-warm) 0%, var(--colors-bg-primary) 50%, var(--colors-bg-gradient-cool) 100%);
-            background-attachment: fixed;
-            color: var(--colors-text-primary);
-            line-height: 1.5;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
+<div class="hero-container" id="hero-content">
+  <div class="hero-media">
+    <video autoplay muted loop playsinline poster="{{ '/screenshots/screenshot-status.png' | relative_url }}">
+      <source src="{{ '/screenshots/screen-recording-kubuntu.mp4' | relative_url }}" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+  </div>
+</div>
+<div class="gallery-action">
+  <a href="{{ '/screenshots.html' | relative_url }}" class="btn btn-secondary">Screenshots</a>
+</div>
 
-        .container {
-            max-width: 1100px;
-            width: 95%;
-            padding: 1rem 1rem;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
+<section class="philosophy-grid">
+  <div class="card">
+    <h3>Truly Free</h3>
+    <p>GNU AGPLv3 licensed and completely free to use. No subscriptions, no accounts, and no "Pro" tiers—just a powerful tool that belongs to everyone.</p>
+  </div>
+  <div class="card">
+    <h3>100% Private</h3>
+    <p>Your voice stays on your device. Everything is processed locally by Whisper.cpp so your data stays yours. Cloud processing is available as an optional extra if you choose to use it.</p>
+  </div>
+  <div class="card">
+    <h3>Open Source</h3>
+    <p>Transparent, secure, and community-driven. Built with high-performance technology to ensure FOSS Voquill stays fast and entirely under your control.</p>
+  </div>
+</section>
 
-        header {
-            margin-bottom: 1rem;
-        }
+<div class="lightbox-overlay" id="lightbox">
+  <div id="lightbox-container"></div>
+</div>
 
-        .logo {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 0.75rem;
-            filter: drop-shadow(0 8px 24px rgba(0,0,0,0.3));
-        }
+<script>
+  const lightbox = document.getElementById('lightbox');
+  const lightboxContainer = document.getElementById('lightbox-container');
+  const heroContainer = document.getElementById('hero-content');
 
-        h1 {
-            font-size: 2.5rem;
-            margin: 0;
-            font-weight: 300;
-            letter-spacing: -0.02em;
-            line-height: 1.1;
-        }
+  heroContainer.addEventListener('click', () => {
+    const current = heroContainer.querySelector('video');
+    lightboxContainer.innerHTML = '';
 
-        .tagline {
-            font-size: 1.25rem;
-            color: #d9dfe7;
-            margin-top: 0.75rem;
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
-            font-weight: 400;
-        }
+    const video = document.createElement('video');
+    video.src = current.querySelector('source').src;
+    video.autoplay = true;
+    video.controls = true;
+    video.loop = true;
+    video.className = 'lightbox-content';
+    lightboxContainer.appendChild(video);
 
-        .platform-support {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 2rem;
-            margin-top: 1.25rem;
-        }
+    lightbox.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  });
 
-        .platform-label {
-            font-size: 0.8rem;
-            font-weight: 800;
-            letter-spacing: 0.25em;
-            color: #e3e8f0;
-            text-transform: uppercase;
-            opacity: 0.98;
-            transition: all 0.3s ease;
-            cursor: default;
-        }
+  lightbox.addEventListener('click', (event) => {
+    if (event.target === lightbox || event.target.classList.contains('lightbox-content') === false) {
+      lightbox.classList.remove('active');
+      lightboxContainer.innerHTML = '';
+      document.body.style.overflow = 'auto';
+    }
+  });
 
-        .platform-label:hover {
-            opacity: 1;
-            letter-spacing: 0.3em;
-        }
-
-        .platform-divider {
-            width: 1px;
-            height: 16px;
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .philosophy-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-            margin: 2rem 0 1.25rem 0;
-        }
-
-        .card {
-            background: var(--colors-glass-bg);
-            backdrop-filter: blur(var(--colors-glass-blur));
-            -webkit-backdrop-filter: blur(var(--colors-glass-blur));
-            padding: 1.25rem;
-            border-radius: 20px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: none;
-            transition: transform 0.25s ease;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            height: 100%;
-        }
-
-        .card:hover {
-            transform: translateY(-4px);
-        }
-
-        .card h3 {
-            margin-top: 0;
-            margin-bottom: 0.75rem;
-            color: var(--colors-accent-primary);
-            font-size: 1.2rem;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
-
-        .card p {
-            margin-bottom: 0;
-            font-size: 0.95rem;
-            line-height: 1.6;
-            color: #f1f4f8;
-        }
-
-        .download-section {
-            margin: 0.25rem 0 1rem 0;
-        }
-
-        .download-primary-row,
-        .download-secondary-row {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .download-secondary-row {
-            margin-top: 0.1rem;
-        }
-
-        .how-it-works {
-            margin: 1.1rem auto 0.9rem auto;
-            max-width: 860px;
-            color: #ffffff;
-            font-size: 1.02rem;
-            line-height: 1.62;
-            text-align: center;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.68rem;
-            background-color: var(--colors-success);
-            color: white;
-            padding: 0.74rem 1.7rem;
-            border-radius: 40px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 1.2rem;
-            transition: all 0.2s ease;
-            margin: 0.5rem;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
-        }
-
-        .btn-icon {
-            width: 1em;
-            height: 1em;
-            display: block;
-            flex-shrink: 0;
-            align-self: center;
-            filter: brightness(0) invert(1);
-        }
-
-        .btn-text {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: flex-start;
-            line-height: 1;
-        }
-
-        .btn-title {
-            font-size: 1em;
-            font-weight: 600;
-            letter-spacing: 0.01em;
-        }
-
-        .btn-subtitle {
-            margin-top: 0.2em;
-            font-size: 0.54em;
-            font-weight: 500;
-            opacity: 0.82;
-            letter-spacing: 0.02em;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            background-color: #0ea371;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
-        }
-
-        .btn-secondary {
-            background-color: var(--colors-accent-primary);
-            color: var(--colors-text-primary);
-            box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
-        }
-
-        .btn-secondary:hover {
-            background-color: var(--colors-accent-hover);
-            box-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
-        }
-
-        footer {
-            margin-top: 1rem;
-            padding-top: 1rem;
-            text-align: center;
-            font-size: 0.85rem;
-            color: var(--colors-text-secondary);
-            width: 100%;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .provenance {
-            font-style: normal;
-            opacity: 0.8;
-            font-weight: 500;
-            color: var(--colors-text-primary);
-            margin: 1rem 0 0.2rem 0;
-        }
-
-        .hero-container {
-            margin: 2rem auto;
-            max-width: 800px;
-            width: 100%;
-            border-radius: 20px;
-            background: var(--colors-glass-bg);
-            backdrop-filter: blur(var(--colors-glass-blur));
-            -webkit-backdrop-filter: blur(var(--colors-glass-blur));
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
-            padding: 0.7rem;
-            transition: transform 0.3s ease;
-            cursor: zoom-in;
-        }
-
-        .hero-container:hover {
-            transform: translateY(-1px);
-        }
-
-        .hero-media {
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            border-radius: 14px;
-            overflow: hidden;
-            background: rgba(0, 0, 0, 0.2);
-        }
-
-        .hero-media img, .hero-media video {
-            width: 100%;
-            display: block;
-        }
-
-        /* Lightbox Styles */
-        .lightbox-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            cursor: pointer;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .lightbox-overlay.active {
-            display: flex;
-            opacity: 1;
-        }
-
-        .lightbox-content {
-            max-width: 90%;
-            max-height: 90vh;
-            border-radius: 12px;
-            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
-            transform: scale(0.95);
-            transition: transform 0.3s ease;
-            background: #000;
-        }
-
-        .lightbox-overlay.active .lightbox-content {
-            transform: scale(1);
-        }
-
-        .gallery-action {
-            margin-top: 1rem;
-        }
-
-        @media (max-width: 600px) {
-            h1 { font-size: 2.25rem; }
-            .container { padding: 2rem 1rem; }
-            body { justify-content: flex-start; }
-            .philosophy-grid { gap: 1.25rem; margin: 1.5rem 0; }
-            .hero-container { padding: 0.58rem; }
-            .download-primary-row,
-            .download-secondary-row {
-                flex-direction: column;
-                align-items: center;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <img src="logo.png" alt="Voquill Logo" class="logo">
-            <h1>FOSS Voquill</h1>
-            <p class="tagline">Truly free & open-source offline dictation that types into any app. Voice-to-text runs locally so your data never leaves your device.</p>
-            <div class="platform-support">
-                <span class="platform-label">Linux</span>
-                <div class="platform-divider"></div>
-                <span class="platform-label">Windows</span>
-            </div>
-        </header>
-
-        <div class="download-section">
-            <div class="download-primary-row">
-                <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn">
-                    <img src="download.svg" alt="" class="btn-icon" aria-hidden="true">
-                    <span class="btn-text">
-                        <span class="btn-title">Download</span>
-                        <span class="btn-subtitle">Latest release</span>
-                    </span>
-                </a>
-            </div>
-            <div class="download-secondary-row">
-                <a href="donate.html" class="btn btn-secondary">
-                    <img src="heart.svg" alt="" class="btn-icon" aria-hidden="true">
-                    <span class="btn-text">
-                        <span class="btn-title">Support</span>
-                        <span class="btn-subtitle">Donate optional</span>
-                    </span>
-                </a>
-                <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">
-                    <img src="brand-github.svg" alt="" class="btn-icon" aria-hidden="true">
-                    <span class="btn-text">
-                        <span class="btn-title">GitHub</span>
-                        <span class="btn-subtitle">Forever FOSS</span>
-                    </span>
-                </a>
-            </div>
-        </div>
-
-        <p class="how-it-works">
-            Voquill listens while you hold push-to-talk, transcribes when you release, and writes the result exactly where your cursor is. It types like a keyboard, so it works anywhere and everywhere across your system. Free and open source with Windows and Linux support, it runs locally on your device so your voice and transcriptions stay private.
-        </p>
-
-        <div class="hero-container" id="hero-content">
-            <div class="hero-media">
-                <video autoplay muted loop playsinline poster="screenshots/screenshot-status.png">
-                    <source src="screenshots/screen-recording-kubuntu.mp4" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>
-            </div>
-        </div>
-        <div class="gallery-action">
-            <a href="screenshots.html" class="btn btn-secondary">Screenshots</a>
-        </div>
-
-        <section class="philosophy-grid">
-            <div class="card">
-                <h3>Truly Free</h3>
-                <p>MIT Licensed and completely free to use. No subscriptions, no accounts, and no "Pro" tiers—just a powerful tool that belongs to everyone.</p>
-            </div>
-            <div class="card">
-                <h3>100% Private</h3>
-                <p>Your voice stays on your device. Everything is processed locally by Whisper.cpp so your data stays yours. Cloud processing is available as an optional extra if you choose to use it.</p>
-            </div>
-            <div class="card">
-                <h3>Open Source</h3>
-                <p>Transparent, secure, and community-driven. Built with high-performance technology to ensure FOSS Voquill stays fast and entirely under your control.</p>
-            </div>
-        </section>
-
-    <p class="provenance">FOSS Voquill is the original project, first published in July 2025 by Jack Brumley and built to give back to the open-source community.</p>
-
-    <footer>
-        <p>&copy; 2026 FOSS Voquill Project. (MIT License).</p>
-    </footer>
-
-    <div class="lightbox-overlay" id="lightbox">
-        <div id="lightbox-container"></div>
-    </div>
-
-    <script>
-        const lightbox = document.getElementById('lightbox');
-        const lightboxContainer = document.getElementById('lightbox-container');
-        const heroContainer = document.getElementById('hero-content');
-
-        heroContainer.addEventListener('click', () => {
-            const current = heroContainer.querySelector('video');
-            lightboxContainer.innerHTML = '';
-            
-            const video = document.createElement('video');
-            video.src = current.querySelector('source').src;
-            video.autoplay = true;
-            video.controls = true;
-            video.loop = true;
-            video.className = 'lightbox-content';
-            lightboxContainer.appendChild(video);
-            
-            lightbox.classList.add('active');
-            document.body.style.overflow = 'hidden';
-        });
-
-        lightbox.addEventListener('click', (e) => {
-            if (e.target === lightbox || e.target.classList.contains('lightbox-content') === false) {
-                lightbox.classList.remove('active');
-                lightboxContainer.innerHTML = '';
-                document.body.style.overflow = 'auto';
-            }
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && lightbox.classList.contains('active')) {
-                lightbox.classList.remove('active');
-                lightboxContainer.innerHTML = '';
-                document.body.style.overflow = 'auto';
-            }
-        });
-    </script>
-</body>
-</html>
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && lightbox.classList.contains('active')) {
+      lightbox.classList.remove('active');
+      lightboxContainer.innerHTML = '';
+      document.body.style.overflow = 'auto';
+    }
+  });
+</script>

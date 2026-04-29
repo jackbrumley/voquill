@@ -2,6 +2,7 @@
   "name": "voquill-root",
   "version": "1.3.1",
   "private": true,
+  "license": "AGPL-3.0-only",
   "scripts": {
     "deps:check": "node scripts/check-deps.mjs",
     "predev": "npm run deps:check",
