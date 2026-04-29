@@ -24,22 +24,11 @@ h1 {
 }
 
 .screenshot-card {
-  background: var(--colors-glass-bg);
-  backdrop-filter: blur(var(--colors-glass-blur));
-  border-radius: 20px;
-  padding: 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
-  transition: transform 0.3s ease;
   cursor: pointer;
-}
-
-.screenshot-card:hover {
-  transform: translateY(-5px);
 }
 
 .screenshot-card img,
@@ -55,7 +44,7 @@ h1 {
 }
 
 .screenshot-card p {
-  margin-top: 1.25rem;
+  margin-top: 0.8rem;
   color: #ffffff;
   font-size: 0.9rem;
   line-height: 1.4;

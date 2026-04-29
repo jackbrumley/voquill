@@ -85,11 +85,15 @@ body {
 
 .site-footer {
   margin-top: 1rem;
-  padding-top: 1rem;
   text-align: center;
   font-size: 0.85rem;
   color: var(--colors-text-secondary);
   width: 100%;
+}
+
+.site-footer-license {
+  margin-top: 0.75rem;
+  padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 

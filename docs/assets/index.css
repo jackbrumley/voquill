@@ -160,36 +160,26 @@ h1 {
   margin: 2rem auto;
   max-width: 800px;
   width: 100%;
-  border-radius: 20px;
-  background: var(--colors-glass-bg);
-  backdrop-filter: blur(var(--colors-glass-blur));
-  -webkit-backdrop-filter: blur(var(--colors-glass-blur));
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
-  padding: 0.7rem;
-  transition: transform 0.3s ease;
   cursor: zoom-in;
 }
 
-.hero-container:hover {
-  transform: translateY(-1px);
-}
-
 .hero-media {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 14px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.2);
 }
 
 .hero-media img,
 .hero-media video {
   width: 100%;
   display: block;
+  border-radius: 14px;
 }
 
 .gallery-action {
   margin-top: 1rem;
+}
+
+.home-provenance {
+  margin-top: 1.1rem;
 }
 
 @media (max-width: 600px) {
@@ -200,10 +190,6 @@ h1 {
   .philosophy-grid {
     gap: 1.25rem;
     margin: 1.5rem 0;
-  }
-
-  .hero-container {
-    padding: 0.58rem;
   }
 
   .download-primary-row,
