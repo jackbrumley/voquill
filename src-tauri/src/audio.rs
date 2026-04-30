@@ -315,23 +315,85 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
     let host = cpal::default_host();
     let target = target_id.filter(|id| id != "default");
 
+    fn summarize_input_devices(host: &cpal::Host) -> String {
+        match host.input_devices() {
+            Ok(devices) => devices
+                .map(|device| {
+                    let identifier = device
+                        .id()
+                        .map(|id| id.1)
+                        .unwrap_or_else(|_| "<unknown-id>".to_string());
+                    let label = device
+                        .description()
+                        .map(|description| description.name().to_string())
+                        .unwrap_or_else(|_| "<unknown-name>".to_string());
+                    format!("{} ({})", identifier, label)
+                })
+                .collect::<Vec<String>>()
+                .join(", "),
+            Err(error) => format!("<failed to enumerate input devices: {}>", error),
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    fn summarize_pulse_sources() -> String {
+        let mut controller = match pulsectl::controllers::SourceController::create() {
+            Ok(controller) => controller,
+            Err(error) => return format!("<failed to connect PulseAudio: {}>", error),
+        };
+
+        match controller.list_devices() {
+            Ok(sources) => sources
+                .into_iter()
+                .map(|source| {
+                    source
+                        .name
+                        .unwrap_or_else(|| "<unknown-source>".to_string())
+                })
+                .collect::<Vec<String>>()
+                .join(", "),
+            Err(error) => format!("<failed to list PulseAudio sources: {}>", error),
+        }
+    }
+
+    let available_inputs = summarize_input_devices(&host);
+
     if let Some(name) = target {
-        if let Some(_stripped) = name.strip_prefix("pulse:") {
+        if let Some(stripped) = name.strip_prefix("pulse:") {
             #[cfg(target_os = "linux")]
             {
-                std::env::set_var("PULSE_SOURCE", _stripped);
+                std::env::set_var("PULSE_SOURCE", stripped);
             }
-            host.input_devices()
-                .map_err(|e| e.to_string())?
-                .into_iter()
-                .find(|d| d.id().map(|id| id.1 == "pulse").unwrap_or(false))
-                .ok_or_else(|| "Pulse ALSA device not found".to_string())
+
+            host.default_input_device().ok_or_else(|| {
+                #[cfg(target_os = "linux")]
+                {
+                    let pulse_sources = summarize_pulse_sources();
+                    return format!(
+                        "Failed to resolve Pulse source '{}': no default input device available after setting PULSE_SOURCE. pulse_sources=[{}], input_devices=[{}]",
+                        stripped, pulse_sources, available_inputs
+                    );
+                }
+
+                #[cfg(not(target_os = "linux"))]
+                {
+                    format!(
+                        "Failed to resolve device '{}': no default input device available. input_devices=[{}]",
+                        name, available_inputs
+                    )
+                }
+            })
         } else {
             host.input_devices()
                 .map_err(|e| e.to_string())?
                 .into_iter()
                 .find(|d| d.id().map(|id| id.1 == name).unwrap_or(false))
-                .ok_or_else(|| format!("Device '{}' not found", name))
+                .ok_or_else(|| {
+                    format!(
+                        "Device '{}' not found. input_devices=[{}]",
+                        name, available_inputs
+                    )
+                })
         }
     } else {
         #[cfg(target_os = "linux")]
@@ -346,8 +408,12 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
                 }
             }
         }
-        host.default_input_device()
-            .ok_or_else(|| "No input device available".to_string())
+        host.default_input_device().ok_or_else(|| {
+            format!(
+                "No input device available. input_devices=[{}]",
+                available_inputs
+            )
+        })
     }
 }
 

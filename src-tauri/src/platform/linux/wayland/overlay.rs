@@ -1,15 +1,35 @@
 use gtk::prelude::*;
 use gtk_layer_shell::LayerShell;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use tauri::WebviewWindow;
 
 static OVERLAY_LAYER_SHELL_INITIALIZED: AtomicBool = AtomicBool::new(false);
+static OVERLAY_LAYER_SHELL_SUPPORT: AtomicU8 = AtomicU8::new(0);
+
+pub fn manual_overlay_offset_supported() -> bool {
+    match OVERLAY_LAYER_SHELL_SUPPORT.load(Ordering::Relaxed) {
+        1 => true,
+        2 => false,
+        _ => {
+            let supported = gtk_layer_shell::is_supported();
+            OVERLAY_LAYER_SHELL_SUPPORT.store(if supported { 1 } else { 2 }, Ordering::Relaxed);
+            supported
+        }
+    }
+}
 
 pub fn apply_linux_unfocusable_hints(window: &WebviewWindow, pixels_from_bottom_logical: i32) {
+    let layer_shell_supported = gtk_layer_shell::is_supported();
+    OVERLAY_LAYER_SHELL_SUPPORT.store(if layer_shell_supported { 1 } else { 2 }, Ordering::Relaxed);
+    crate::log_info!(
+        "🧭 Wayland overlay capability: manual_offset_supported={}",
+        layer_shell_supported
+    );
+
     let window_clone = window.clone();
     gtk::glib::MainContext::default().invoke(move || {
         if let Ok(gtk_window) = window_clone.gtk_window() {
-            if gtk_layer_shell::is_supported() {
+            if layer_shell_supported {
                 let was_initialized = OVERLAY_LAYER_SHELL_INITIALIZED.swap(true, Ordering::SeqCst);
                 if !was_initialized {
                     crate::log_info!("🛠️  Initializing Wayland Layer Shell for overlay...");
@@ -42,6 +62,10 @@ pub fn position_overlay_window(
     overlay_window: &WebviewWindow,
     pixels_from_bottom_logical: i32,
 ) -> Result<(), String> {
+    if !manual_overlay_offset_supported() {
+        return Ok(());
+    }
+
     let window_clone = overlay_window.clone();
 
     gtk::glib::MainContext::default().invoke(move || {

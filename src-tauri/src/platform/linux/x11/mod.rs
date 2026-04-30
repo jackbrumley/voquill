@@ -57,6 +57,8 @@ impl PermissionManager for X11Backend {
             input_emulation: true,
             shortcuts_status: "ready".to_string(),
             shortcuts_detail: None,
+            manual_overlay_offset_supported: true,
+            overlay_positioning_detail: None,
         }
     }
 }

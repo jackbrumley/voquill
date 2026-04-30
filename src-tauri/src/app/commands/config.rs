@@ -111,7 +111,20 @@ pub async fn save_config(
         }
         crate::log_info!("✅ Persistent engine restarted");
     } else {
-        let cached = audio::lookup_device(merged_config.audio_device.clone()).ok();
+        let cached = match audio::lookup_device(merged_config.audio_device.clone()) {
+            Ok(device) => Some(device),
+            Err(error) => {
+                crate::log_warn!(
+                    "❌ Failed to pre-warm audio device cache (requested_device='{}'): {}",
+                    merged_config
+                        .audio_device
+                        .clone()
+                        .unwrap_or_else(|| "default".to_string()),
+                    error
+                );
+                None
+            }
+        };
         let mut cached_device = state.cached_device.lock().unwrap();
         *cached_device = cached;
         crate::log_info!("🔧 Pre-warmed audio device cache");

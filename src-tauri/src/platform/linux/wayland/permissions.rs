@@ -20,6 +20,10 @@ pub async fn check_linux_permissions(config: &Config) -> LinuxPermissions {
             "unbound".to_string()
         },
         shortcuts_detail: None,
+        manual_overlay_offset_supported: false,
+        overlay_positioning_detail: Some(
+            "Manual overlay position adjustment is not available on your system.".to_string(),
+        ),
     }
 }
 
