@@ -18,8 +18,10 @@ pub async fn save_config(
     let mut normalized_config = new_config;
     normalized_config.normalize_input_sensitivity();
 
-    let (restart_engine, hotkey_changed) = {
-        let mut config_guard = state.config.lock().unwrap();
+    let is_mic_test_active = *state.is_mic_test_active.lock().unwrap();
+
+    let (restart_engine, hotkey_changed, merged_config) = {
+        let config_guard = state.config.lock().unwrap();
         let audio_changed = config_guard.audio_device != normalized_config.audio_device
             || config_guard.input_sensitivity != normalized_config.input_sensitivity;
         let hotkey_changed = config_guard.hotkey != normalized_config.hotkey;
@@ -32,40 +34,95 @@ pub async fn save_config(
             merged_config.input_token = config_guard.input_token.clone();
         }
 
-        *config_guard = merged_config;
-
-        let mut cached_device = state.cached_device.lock().unwrap();
-        *cached_device = audio::lookup_device(config_guard.audio_device.clone()).ok();
-        crate::log_info!("🔧 Pre-warmed audio device cache");
-
-        (audio_changed, hotkey_changed)
+        (audio_changed, hotkey_changed, merged_config)
     };
 
-    let is_mic_test_active = *state.is_mic_test_active.lock().unwrap();
-    if restart_engine && !is_mic_test_active {
-        crate::log_info!("🔧 Audio config changed, restarting persistent engine...");
-        let cached_device = state.cached_device.lock().unwrap().clone();
-        let sensitivity = normalized_config.input_sensitivity;
-        let mut engine_guard = state.audio_engine.lock().unwrap();
-        *engine_guard = None;
-        if let Some(device) = cached_device {
-            if let Ok(new_engine) = audio::PersistentAudioEngine::new(&device, sensitivity) {
-                *engine_guard = Some(new_engine);
-                crate::log_info!("✅ Persistent engine restarted");
-            }
+    let mut prepared_device: Option<cpal::Device> = None;
+    let mut prepared_engine: Option<audio::PersistentAudioEngine> = None;
+
+    if restart_engine {
+        if is_mic_test_active {
+            let selected_device = merged_config
+                .audio_device
+                .clone()
+                .unwrap_or_else(|| "default".to_string());
+            crate::log_warn!(
+                "Audio config change rejected while mic test is active (requested_device='{}', sensitivity={:.2})",
+                selected_device,
+                merged_config.input_sensitivity
+            );
+            return Err(
+                "Cannot change audio settings while mic test is active. Stop mic test and try again."
+                    .to_string(),
+            );
         }
-    } else if restart_engine {
+
+        let selected_device = merged_config.audio_device.clone();
+        let resolved_device = audio::lookup_device(selected_device.clone()).map_err(|error| {
+            format!(
+                "Failed to resolve input device '{}': {}",
+                selected_device.unwrap_or_else(|| "default".to_string()),
+                error
+            )
+        })?;
+
         crate::log_info!(
-            "🔧 Audio config changed during active mic test, deferring engine restart"
+            "🔧 Audio config changed, validating persistent engine restart (requested_device='{}', sensitivity={:.2})",
+            merged_config
+                .audio_device
+                .clone()
+                .unwrap_or_else(|| "default".to_string()),
+            merged_config.input_sensitivity
         );
+
+        let new_engine = audio::PersistentAudioEngine::new(
+            &resolved_device,
+            merged_config.input_sensitivity,
+        )
+        .map_err(|error| {
+            format!(
+                "Failed to initialize persistent audio engine for device '{}' (sensitivity {:.2}): {}",
+                merged_config
+                    .audio_device
+                    .clone()
+                    .unwrap_or_else(|| "default".to_string()),
+                merged_config.input_sensitivity,
+                error
+            )
+        })?;
+
+        prepared_device = Some(resolved_device);
+        prepared_engine = Some(new_engine);
     }
 
-    if let Err(error) = config::save_config(&normalized_config) {
+    {
+        let mut config_guard = state.config.lock().unwrap();
+        *config_guard = merged_config.clone();
+    }
+
+    if restart_engine {
+        {
+            let mut cached_device = state.cached_device.lock().unwrap();
+            *cached_device = prepared_device;
+        }
+        {
+            let mut engine_guard = state.audio_engine.lock().unwrap();
+            *engine_guard = prepared_engine;
+        }
+        crate::log_info!("✅ Persistent engine restarted");
+    } else {
+        let cached = audio::lookup_device(merged_config.audio_device.clone()).ok();
+        let mut cached_device = state.cached_device.lock().unwrap();
+        *cached_device = cached;
+        crate::log_info!("🔧 Pre-warmed audio device cache");
+    }
+
+    if let Err(error) = config::save_config(&merged_config) {
         return Err(format!("Failed to save config: {}", error));
     }
 
     if hotkey_changed {
-        if let Err(error) = re_register_hotkey(&app_handle, &normalized_config.hotkey).await {
+        if let Err(error) = re_register_hotkey(&app_handle, &merged_config.hotkey).await {
             let mut error_lock = state.hotkey_error.lock().unwrap();
             *error_lock = Some(error.clone());
             return Err(format!(

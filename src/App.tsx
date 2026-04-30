@@ -643,7 +643,7 @@ function App() {
   const isAudioDeviceReady = availableMics.length > 0 && !!config.audio_device;
   const isPortalSetupReady =
     !!permissions && permissions.audio && permissions.shortcuts && permissions.input_emulation;
-  const isSystemManagedShortcut = portalVersion >= 1 && portalVersion < 2;
+  const isSystemManagedShortcut = portalVersion >= 1;
 
   const openDebugFolder = async () => {
     try {

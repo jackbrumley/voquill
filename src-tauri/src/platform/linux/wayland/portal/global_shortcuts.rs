@@ -103,6 +103,13 @@ async fn has_bound_record_shortcut(
         .any(|shortcut| shortcut.id() == RECORD_SHORTCUT_ID))
 }
 
+fn is_configure_shortcuts_unavailable(error: &ashpd::Error) -> bool {
+    let message = error.to_string();
+    message.contains("ConfigureShortcuts is not implemented")
+        || message.contains("UnknownMethod")
+        || message.contains("Method ConfigureShortcuts")
+}
+
 pub async fn try_open_linux_portal_shortcut_configuration(
     preferred_hotkey: &str,
 ) -> Result<bool, String> {
@@ -129,6 +136,13 @@ pub async fn try_open_linux_portal_shortcut_configuration(
     match configure_result {
         Ok(()) => Ok(true),
         Err(ashpd::Error::RequiresVersion(_, _)) => Ok(false),
+        Err(error) if is_configure_shortcuts_unavailable(&error) => {
+            crate::log_warn!(
+                "GlobalShortcuts ConfigureShortcuts unavailable on this desktop: {}",
+                error
+            );
+            Ok(false)
+        }
         Err(error) => Err(format!(
             "Failed to open system shortcut configuration: {error}"
         )),

@@ -42,10 +42,22 @@ pub async fn start_recording(
             let cached_device = state.cached_device.lock().unwrap().clone();
             if let Some(device) = cached_device {
                 let sensitivity = config.lock().unwrap().input_sensitivity;
-                if let Ok(new_engine) = audio::PersistentAudioEngine::new(&device, sensitivity) {
-                    *engine_guard = Some(new_engine);
-                    crate::log_info!("✅ Audio engine initialized on demand");
+                match audio::PersistentAudioEngine::new(&device, sensitivity) {
+                    Ok(new_engine) => {
+                        *engine_guard = Some(new_engine);
+                        crate::log_info!("✅ Audio engine initialized on demand");
+                    }
+                    Err(error) => {
+                        crate::log_warn!(
+                            "❌ Failed to initialize audio engine on demand for recording: {}",
+                            error
+                        );
+                    }
                 }
+            } else {
+                crate::log_warn!(
+                    "❌ Audio engine initialization skipped: no cached input device available"
+                );
             }
         }
     }
@@ -110,10 +122,22 @@ pub async fn start_mic_test(
             let cached_device = state.cached_device.lock().unwrap().clone();
             if let Some(device) = cached_device {
                 let sensitivity = state.config.lock().unwrap().input_sensitivity;
-                if let Ok(new_engine) = audio::PersistentAudioEngine::new(&device, sensitivity) {
-                    *engine_guard = Some(new_engine);
-                    crate::log_info!("✅ Audio engine initialized on demand");
+                match audio::PersistentAudioEngine::new(&device, sensitivity) {
+                    Ok(new_engine) => {
+                        *engine_guard = Some(new_engine);
+                        crate::log_info!("✅ Audio engine initialized on demand");
+                    }
+                    Err(error) => {
+                        crate::log_warn!(
+                            "❌ Failed to initialize audio engine on demand for mic test: {}",
+                            error
+                        );
+                    }
                 }
+            } else {
+                crate::log_warn!(
+                    "❌ Audio engine initialization skipped for mic test: no cached input device available"
+                );
             }
         }
 
