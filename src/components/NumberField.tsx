@@ -7,9 +7,10 @@ interface NumberFieldProps {
   min?: number;
   max?: number;
   step?: number;
+  disabled?: boolean;
 }
 
-export function NumberField({ value, onChange, min, max, step = 1 }: NumberFieldProps) {
+export function NumberField({ value, onChange, min, max, step = 1, disabled = false }: NumberFieldProps) {
   const [draftValue, setDraftValue] = useState(String(value));
   const [isFocused, setIsFocused] = useState(false);
 
@@ -31,12 +32,18 @@ export function NumberField({ value, onChange, min, max, step = 1 }: NumberField
   };
 
   const handleInput = (event: Event) => {
+    if (disabled) {
+      return;
+    }
     const rawValue = (event.target as HTMLInputElement).value;
     setDraftValue(rawValue);
     commitIfValid(rawValue);
   };
 
   const handleBlur = () => {
+    if (disabled) {
+      return;
+    }
     setIsFocused(false);
     if (draftValue.trim() === '' || Number.isNaN(Number(draftValue))) {
       setDraftValue(String(value));
@@ -73,6 +80,7 @@ export function NumberField({ value, onChange, min, max, step = 1 }: NumberField
         min={min}
         max={max}
         step={step}
+        disabled={disabled}
         style={inputBaseStyle}
       />
     </>

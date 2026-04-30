@@ -46,16 +46,40 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
 
     {
         let mut cached_device = app_state.cached_device.lock().unwrap();
-        let device = audio::lookup_device(initial_config.audio_device.clone()).ok();
+        let device = match audio::lookup_device(initial_config.audio_device.clone()) {
+            Ok(device) => Some(device),
+            Err(error) => {
+                crate::log_warn!(
+                    "❌ Initial audio device pre-warm failed (requested_device='{}'): {}",
+                    initial_config
+                        .audio_device
+                        .clone()
+                        .unwrap_or_else(|| "default".to_string()),
+                    error
+                );
+                None
+            }
+        };
         *cached_device = device.clone();
 
         if let Some(device) = device {
-            if let Ok(engine) =
-                audio::PersistentAudioEngine::new(&device, initial_config.input_sensitivity)
-            {
-                let mut engine_guard = app_state.audio_engine.lock().unwrap();
-                *engine_guard = Some(engine);
-                crate::log_info!("✅ Persistent audio engine initialized");
+            match audio::PersistentAudioEngine::new(&device, initial_config.input_sensitivity) {
+                Ok(engine) => {
+                    let mut engine_guard = app_state.audio_engine.lock().unwrap();
+                    *engine_guard = Some(engine);
+                    crate::log_info!("✅ Persistent audio engine initialized");
+                }
+                Err(error) => {
+                    crate::log_warn!(
+                        "❌ Initial persistent audio engine initialization failed (requested_device='{}', sensitivity={:.2}): {}",
+                        initial_config
+                            .audio_device
+                            .clone()
+                            .unwrap_or_else(|| "default".to_string()),
+                        initial_config.input_sensitivity,
+                        error
+                    );
+                }
             }
         }
         crate::log_info!("🔧 Initial pre-warm of audio device cache complete");

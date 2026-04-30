@@ -67,6 +67,42 @@ pub struct SystemShortcutContext {
     settings_path: String,
 }
 
+#[derive(Serialize)]
+pub struct OverlayPositioningCapabilities {
+    manual_offset_supported: bool,
+    detail: Option<String>,
+}
+
+#[tauri::command]
+pub async fn get_overlay_positioning_capabilities() -> Result<OverlayPositioningCapabilities, String>
+{
+    #[cfg(target_os = "linux")]
+    {
+        if is_wayland_session() {
+            let layer_shell_supported =
+                crate::platform::linux::wayland::overlay::manual_overlay_offset_supported();
+            crate::log_info!(
+                "🧭 Overlay positioning capability check: wayland=true, manual_offset_supported={}",
+                layer_shell_supported
+            );
+            if !layer_shell_supported {
+                return Ok(OverlayPositioningCapabilities {
+                    manual_offset_supported: false,
+                    detail: Some(
+                        "Manual overlay position adjustment is not available on your system."
+                            .to_string(),
+                    ),
+                });
+            }
+        }
+    }
+
+    Ok(OverlayPositioningCapabilities {
+        manual_offset_supported: true,
+        detail: None,
+    })
+}
+
 #[tauri::command]
 pub async fn get_system_shortcut_context() -> Result<SystemShortcutContext, String> {
     #[cfg(target_os = "linux")]
@@ -123,6 +159,15 @@ pub async fn get_linux_setup_status(
     if is_wayland_session() {
         let input_ready = *state.wayland_input_ready.lock().unwrap();
         permissions.input_emulation = input_ready;
+
+        let manual_overlay_offset_supported =
+            crate::platform::linux::wayland::overlay::manual_overlay_offset_supported();
+        permissions.manual_overlay_offset_supported = manual_overlay_offset_supported;
+        permissions.overlay_positioning_detail = if manual_overlay_offset_supported {
+            None
+        } else {
+            Some("Manual overlay position adjustment is not available on your system.".to_string())
+        };
     }
     crate::log_info!(
         "🧭 Setup readiness: audio={}, shortcuts={} (status={}), input_emulation={}, runtime_hotkey_bound={}, runtime_hotkey_listening={}",

@@ -6,5 +6,7 @@ pub async fn check_windows_permissions() -> crate::platform::permissions::LinuxP
         input_emulation: true,
         shortcuts_status: "ready".to_string(),
         shortcuts_detail: None,
+        manual_overlay_offset_supported: true,
+        overlay_positioning_detail: None,
     }
 }

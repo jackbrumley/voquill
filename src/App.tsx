@@ -75,6 +75,8 @@ interface LinuxPermissions {
   input_emulation: boolean;
   shortcuts_status: string;
   shortcuts_detail?: string;
+  manual_overlay_offset_supported?: boolean;
+  overlay_positioning_detail?: string;
 }
 
 interface ConfigureHotkeyResult {
@@ -93,6 +95,11 @@ interface SystemShortcutContext {
   distro?: string;
   desktop?: string;
   settings_path: string;
+}
+
+interface OverlayPositioningCapabilities {
+  manual_offset_supported: boolean;
+  detail?: string;
 }
 
 interface StatusUpdatePayload {
@@ -162,6 +169,10 @@ function App() {
   const [portalVersion, setPortalVersion] = useState<number>(0);
   const [hotkeyBindingState, setHotkeyBindingState] = useState<HotkeyBindingState | null>(null);
   const [systemShortcutContext, setSystemShortcutContext] = useState<SystemShortcutContext | null>(null);
+  const [overlayPositioningCapabilities, setOverlayPositioningCapabilities] = useState<OverlayPositioningCapabilities>({
+    manual_offset_supported: false,
+    detail: 'Manual overlay position adjustment is not available on your system.',
+  });
   const [showHotkeyCaptureModal, setShowHotkeyCaptureModal] = useState(false);
   const [showSystemShortcutModal, setShowSystemShortcutModal] = useState(false);
   const [showFactoryResetModal, setShowFactoryResetModal] = useState(false);
@@ -194,6 +205,16 @@ function App() {
     invoke<SystemShortcutContext>('get_system_shortcut_context')
       .then(setSystemShortcutContext)
       .catch(e => console.log('System shortcut context unavailable:', e));
+
+    invoke<OverlayPositioningCapabilities>('get_overlay_positioning_capabilities')
+      .then(setOverlayPositioningCapabilities)
+      .catch(e => {
+        setOverlayPositioningCapabilities({
+          manual_offset_supported: false,
+          detail: 'Manual overlay position adjustment is not available on your system.',
+        });
+        console.log('Overlay positioning capabilities unavailable:', e);
+      });
 
     syncRouteFromHash();
 
@@ -373,6 +394,12 @@ function App() {
     try {
       const perms = await invoke<LinuxPermissions>('get_linux_setup_status');
       setPermissions(perms);
+      if (typeof perms.manual_overlay_offset_supported === 'boolean') {
+        setOverlayPositioningCapabilities({
+          manual_offset_supported: perms.manual_overlay_offset_supported,
+          detail: perms.overlay_positioning_detail,
+        });
+      }
       const bindingState = await invoke<HotkeyBindingState>('get_hotkey_binding_state');
       setHotkeyBindingState(bindingState);
     } catch (error) {
@@ -643,7 +670,7 @@ function App() {
   const isAudioDeviceReady = availableMics.length > 0 && !!config.audio_device;
   const isPortalSetupReady =
     !!permissions && permissions.audio && permissions.shortcuts && permissions.input_emulation;
-  const isSystemManagedShortcut = portalVersion >= 1 && portalVersion < 2;
+  const isSystemManagedShortcut = portalVersion >= 1;
 
   const openDebugFolder = async () => {
     try {
@@ -1044,6 +1071,7 @@ function App() {
                 availableMics={availableMics}
                 micTestStatus={micTestStatus}
                 micVolume={micVolume}
+                overlayPositioningCapabilities={overlayPositioningCapabilities}
                 updateConfig={updateConfig}
                 testApiKey={testApiKey}
                 downloadModel={downloadModel}

@@ -51,6 +51,7 @@ interface ConfigPageProps {
   availableMics: AudioDevice[];
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
+  overlayPositioningCapabilities: { manual_offset_supported: boolean; detail?: string };
   updateConfig: (key: string, value: any) => void;
   testApiKey: () => void;
   downloadModel: (size: string) => void;
@@ -101,6 +102,7 @@ export function ConfigPage(props: ConfigPageProps) {
     availableMics,
     micTestStatus,
     micVolume,
+    overlayPositioningCapabilities,
     updateConfig,
     testApiKey,
     downloadModel,
@@ -265,7 +267,19 @@ export function ConfigPage(props: ConfigPageProps) {
           </ConfigField>
 
           <ConfigField label="Status Overlay Position (px)" description="Vertical offset for the status overlay from the bottom of the screen.">
-            <NumberField value={config.pixels_from_bottom} onChange={(value) => updateConfig('pixels_from_bottom', value)} min={0} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+              <NumberField
+                value={config.pixels_from_bottom}
+                onChange={(value) => updateConfig('pixels_from_bottom', value)}
+                min={0}
+                disabled={!overlayPositioningCapabilities.manual_offset_supported}
+              />
+              {!overlayPositioningCapabilities.manual_offset_supported && (
+                <div style={helperTextStyle}>
+                  {overlayPositioningCapabilities.detail || 'Manual overlay position adjustment is not available on your system.'}
+                </div>
+              )}
+            </div>
           </ConfigField>
         </CollapsibleSection>
 

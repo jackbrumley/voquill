@@ -39,13 +39,57 @@ pub async fn start_recording(
         let mut engine_guard = audio_engine.lock().unwrap();
         if engine_guard.is_none() {
             crate::log_info!("🔧 Audio engine not found, attempting to initialize...");
-            let cached_device = state.cached_device.lock().unwrap().clone();
-            if let Some(device) = cached_device {
-                let sensitivity = config.lock().unwrap().input_sensitivity;
-                if let Ok(new_engine) = audio::PersistentAudioEngine::new(&device, sensitivity) {
-                    *engine_guard = Some(new_engine);
-                    crate::log_info!("✅ Audio engine initialized on demand");
+            let requested_device = { state.config.lock().unwrap().audio_device.clone() };
+
+            let resolved_device = {
+                let cached_device = state.cached_device.lock().unwrap().clone();
+                if cached_device.is_some() {
+                    cached_device
+                } else {
+                    match audio::lookup_device(requested_device.clone()) {
+                        Ok(device) => {
+                            crate::log_info!(
+                                "🔧 Resolved input device on demand for recording (requested_device='{}')",
+                                requested_device
+                                    .clone()
+                                    .unwrap_or_else(|| "default".to_string())
+                            );
+                            let mut cache_guard = state.cached_device.lock().unwrap();
+                            *cache_guard = Some(device.clone());
+                            Some(device)
+                        }
+                        Err(error) => {
+                            crate::log_warn!(
+                                "❌ Failed to resolve input device for recording (requested_device='{}'): {}",
+                                requested_device
+                                    .clone()
+                                    .unwrap_or_else(|| "default".to_string()),
+                                error
+                            );
+                            None
+                        }
+                    }
                 }
+            };
+
+            if let Some(device) = resolved_device {
+                let sensitivity = config.lock().unwrap().input_sensitivity;
+                match audio::PersistentAudioEngine::new(&device, sensitivity) {
+                    Ok(new_engine) => {
+                        *engine_guard = Some(new_engine);
+                        crate::log_info!("✅ Audio engine initialized on demand");
+                    }
+                    Err(error) => {
+                        crate::log_warn!(
+                            "❌ Failed to initialize audio engine on demand for recording: {}",
+                            error
+                        );
+                    }
+                }
+            } else {
+                crate::log_warn!(
+                    "❌ Audio engine initialization skipped for recording: input device unresolved"
+                );
             }
         }
     }
@@ -107,13 +151,57 @@ pub async fn start_mic_test(
         let mut engine_guard = audio_engine.lock().unwrap();
         if engine_guard.is_none() {
             crate::log_info!("🔧 Audio engine not found for mic test, attempting to initialize...");
-            let cached_device = state.cached_device.lock().unwrap().clone();
-            if let Some(device) = cached_device {
-                let sensitivity = state.config.lock().unwrap().input_sensitivity;
-                if let Ok(new_engine) = audio::PersistentAudioEngine::new(&device, sensitivity) {
-                    *engine_guard = Some(new_engine);
-                    crate::log_info!("✅ Audio engine initialized on demand");
+            let requested_device = { state.config.lock().unwrap().audio_device.clone() };
+
+            let resolved_device = {
+                let cached_device = state.cached_device.lock().unwrap().clone();
+                if cached_device.is_some() {
+                    cached_device
+                } else {
+                    match audio::lookup_device(requested_device.clone()) {
+                        Ok(device) => {
+                            crate::log_info!(
+                                "🔧 Resolved input device on demand for mic test (requested_device='{}')",
+                                requested_device
+                                    .clone()
+                                    .unwrap_or_else(|| "default".to_string())
+                            );
+                            let mut cache_guard = state.cached_device.lock().unwrap();
+                            *cache_guard = Some(device.clone());
+                            Some(device)
+                        }
+                        Err(error) => {
+                            crate::log_warn!(
+                                "❌ Failed to resolve input device for mic test (requested_device='{}'): {}",
+                                requested_device
+                                    .clone()
+                                    .unwrap_or_else(|| "default".to_string()),
+                                error
+                            );
+                            None
+                        }
+                    }
                 }
+            };
+
+            if let Some(device) = resolved_device {
+                let sensitivity = state.config.lock().unwrap().input_sensitivity;
+                match audio::PersistentAudioEngine::new(&device, sensitivity) {
+                    Ok(new_engine) => {
+                        *engine_guard = Some(new_engine);
+                        crate::log_info!("✅ Audio engine initialized on demand");
+                    }
+                    Err(error) => {
+                        crate::log_warn!(
+                            "❌ Failed to initialize audio engine on demand for mic test: {}",
+                            error
+                        );
+                    }
+                }
+            } else {
+                crate::log_warn!(
+                    "❌ Audio engine initialization skipped for mic test: input device unresolved"
+                );
             }
         }
 
