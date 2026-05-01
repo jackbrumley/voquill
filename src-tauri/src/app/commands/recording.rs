@@ -95,7 +95,13 @@ pub async fn start_recording(
     }
 
     tokio::spawn(async move {
-        crate::app::status::emit_status_update("Recording").await;
+        crate::log_info!("🎙️ Recording task started");
+        tauri::async_runtime::spawn(async {
+            crate::app::status::emit_status_update("Recording").await;
+        });
+        crate::log_info!("🎙️ Recording status update dispatched");
+
+        crate::log_info!("🎙️ Recording capture pipeline starting");
         let result = crate::app::recording_flow::record_and_transcribe(
             config,
             is_recording_clone,
