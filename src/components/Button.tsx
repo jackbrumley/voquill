@@ -104,7 +104,7 @@ export const Button = ({
       color: tokens.colors.textPrimary,
       width: '34px',
       height: '34px',
-      padding: '6px',
+      padding: 0,
       borderRadius: '999px',
     },
     titlebarClose: {
@@ -113,7 +113,7 @@ export const Button = ({
       color: tokens.colors.textPrimary,
       width: '34px',
       height: '34px',
-      padding: '6px',
+      padding: 0,
       borderRadius: '999px',
     },
   };

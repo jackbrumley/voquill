@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { open } from '@tauri-apps/plugin-shell';
+import { IconMinus, IconX } from '@tabler/icons-preact';
 import { Button } from './components/Button.tsx';
 import { ActionFooter } from './components/ActionFooter.tsx';
 import { ModelInfoModal } from './components/ModelInfoModal.tsx';
@@ -983,9 +984,32 @@ function App() {
     setInitialRouteChecked(true);
   }, [initialRouteChecked, startupChecksLoaded, isAllReady]);
 
-  const handleTitleBarMouseDown = async (e: any) => {
-    if (e.buttons === 1 && !e.target.closest('button')) {
+  const handleTitleBarMouseDown = async (event: MouseEvent) => {
+    const target = event.target as HTMLElement | null;
+    if (event.detail > 1) {
+      return;
+    }
+
+    if (event.buttons === 1 && !target?.closest('button')) {
       await getCurrentWindow().startDragging();
+    }
+  };
+
+  const handleTitleBarDoubleClick = async (event: MouseEvent) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button')) {
+      return;
+    }
+
+    try {
+      const win = getCurrentWindow();
+      if (await win.isMaximized()) {
+        await win.unmaximize();
+      } else {
+        await win.maximize();
+      }
+    } catch {
+      // no-op if maximize is unavailable
     }
   };
 
@@ -1033,11 +1057,11 @@ function App() {
 
   return (
     <div style={appShellStyle}>
-      <div style={titleBarStyle} onMouseDown={handleTitleBarMouseDown}>
+      <div style={titleBarStyle} onMouseDown={handleTitleBarMouseDown} onDblClick={handleTitleBarDoubleClick}>
         <div style={titleBarTitleStyle}>Voquill</div>
         <div style={titleBarControlsStyle}>
-          <Button variant="titlebarIcon" onClick={handleMinimize}>─</Button>
-          <Button variant="titlebarClose" onClick={handleClose}>✕</Button>
+          <Button variant="titlebarIcon" onClick={handleMinimize}><IconMinus size={14} stroke={2.2} /></Button>
+          <Button variant="titlebarClose" onClick={handleClose}><IconX size={14} stroke={2.2} /></Button>
         </div>
       </div>
 
