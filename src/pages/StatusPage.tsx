@@ -148,18 +148,22 @@ export function StatusPage({
             <button
               type="button"
               onClick={onOpenUpdateModal}
+              title="Open update details"
               style={{
-                border: 'none',
-                background: 'transparent',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                background: 'rgba(255, 255, 255, 0.94)',
                 cursor: 'pointer',
-                padding: 0,
-                color: tokens.colors.accentPrimary,
+                padding: '4px 10px',
+                borderRadius: '999px',
+                color: '#1f2530',
                 fontSize: tokens.typography.sizeXs,
-                fontWeight: 700,
-                textDecoration: 'underline',
+                fontWeight: 800,
+                letterSpacing: '0.01em',
+                boxShadow: '0 6px 16px rgba(0, 0, 0, 0.3)',
+                transition: tokens.transitions.fast,
               }}
             >
-              Update available
+              ! Update available
             </button>
           )}
         </div>

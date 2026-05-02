@@ -292,6 +292,11 @@ export function ConfigPage(props: ConfigPageProps) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
               <Button variant="configAction" onClick={onCopySessionLogs}>Copy Logs</Button>
               <Button variant="ghost" pill style={configGhostPillStyle} onClick={openSessionLog}>Open Log File</Button>
+            </div>
+          </ConfigField>
+
+          <ConfigField label="Updates" description="Check for newer Voquill releases.">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
               <Button variant="ghost" pill style={configGhostPillStyle} onClick={onCheckForUpdates} disabled={checkingUpdates}>
                 {checkingUpdates ? 'Checking...' : 'Check for Updates'}
               </Button>
