@@ -10,7 +10,7 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-purple)](https://github.com/jackbrumley/voquill)
-[![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri-24C8DB)](https://tauri.app/)
+[![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri-yellow)](https://tauri.app/)
 
 *FOSS dictation that works in any application, anywhere on your system. 100% local, 100% private, and truly free.*
 
