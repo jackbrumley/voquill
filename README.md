@@ -1,34 +1,61 @@
-<div align="center">
+<p align="center">
+  <img src="src-tauri/icons/128x128.png" alt="Voquill Logo" width="96" height="96" />
+</p>
 
-![Voquill Logo](src-tauri/icons/128x128.png)
+<h1 align="center">FOSS Voquill - Private Push-to-Talk Dictation for Windows and Linux</h1>
 
-# FOSS Voquill
+<p align="center">Truly free, private system-wide push-to-talk dictation tool.</p>
 
-**Truly free, private system-wide push-to-talk dictation tool.**
+<p align="center">
+  <a href="https://www.gnu.org/licenses/agpl-3.0.html"><img src="https://img.shields.io/badge/License-AGPLv3-blue.svg" alt="AGPL v3 License" /></a>
+  <a href="https://github.com/jackbrumley/voquill"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-4f46e5" alt="Platform" /></a>
+  <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Built%20With-Tauri-14b8a6" alt="Built with Tauri" /></a>
+</p>
 
-[voquill.org](https://voquill.org)
+<p align="center">
+  <a href="https://github.com/jackbrumley/voquill/releases/latest"><img src="https://img.shields.io/badge/Download-Latest%20Release-ef4444?style=for-the-badge" alt="Download Latest Release" /></a>
+</p>
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-purple)](https://github.com/jackbrumley/voquill)
-[![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri-yellow)](https://tauri.app/)
+FOSS Voquill is offline dictation that works in any app on your system. Your voice never leaves your device, and there are no accounts, subscriptions, or cloud dependencies.
 
-*FOSS dictation that works in any application, anywhere on your system. 100% local, 100% private, and truly free.*
+It exists because dictation should be a basic utility, not a locked service. If you want private, system-wide push-to-talk transcription on Linux or Windows, this is built for that workflow.
 
-**[Download Latest Release](https://github.com/jackbrumley/voquill/releases/latest)**
+## Install
 
-</div>
+Download the latest release here:
+
+- **[Download Latest Release](https://github.com/jackbrumley/voquill/releases/latest)**
+
+Release package options:
+
+- Windows (Most users): Setup EXE (no admin)
+- Windows (IT/Admin): System MSI
+- Linux (Debian/Ubuntu): `.deb`
+- Linux (Fedora/RHEL): `.rpm`
+- Linux (Portable): `.AppImage`
+
+Setup EXE installs per-user (no admin). MSI is a system-wide install intended for IT/admin deployment.
+
+## Getting Started
+
+1. **Launch Voquill**
+   - On launch, you will see an initial setup screen.
+2. **Configure your setup**
+   - Set your hotkey, select your model, approve permissions, and choose your microphone.
+   - Adjust mic sensitivity so voice is clear without clipping.
+   - Use **Test Microphone** with playback to verify quality.
+3. **Start dictating**
+   - Focus any text field (email, docs, browser, editor).
+   - Hold your hotkey `Ctrl + Shift + Space` (default), speak, then release to transcribe.
 
 ---
 
-## The Philosophy
+## Screenshots
 
-FOSS Voquill was created with a simple premise: **voice dictation should be a basic utility, not a subscription service.** 
-
-In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and freedom first:
-- **No Backend**: No servers, no cloud, no data collection.
-- **No Accounts**: No logins, no tracking, no onboarding.
-- **Truly Free**: No subscriptions, no paid tiers. Free to use and build on.
-- **Privacy First**: Your voice stays on your device. Transcription runs locally.
+![Voquill status overlay during transcription](docs/screenshots/screenshot-status.png)
+![Voquill engine configuration and model selection](docs/screenshots/screenshot-config1.png)
+![Voquill settings for shortcuts and behavior](docs/screenshots/screenshot-config2.png)
+![Voquill local dictation history view](docs/screenshots/screenshot-history.png)
 
 ---
 
@@ -43,23 +70,15 @@ In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and fr
 
 ---
 
-## Getting Started
+## The Philosophy
 
-1. **[Download](https://github.com/jackbrumley/voquill/releases/latest) and Install**
-and install the application with the relevent install file for your OS.
-   - Windows 10/11 (native desktop):  `.msi`
-   - Debian-based Linux (Ubuntu/Debian/Mint): use `.deb`
-   - Fedora/RHEL-based Linux: use `.rpm`
-   - Other Linux distros (including Arch/CachyOS): use `.AppImage` (⚠️ best-effort support).
-2. **Launch It**
-   - On Lauch you will meet an initial setup screen to help you get started.
-   - Set your hotkey, select your model, approve permissions and select the correct microphone.
-   - Adjust mic sensitivity so voice is clear without clipping.
-   - Use **Test Microphone** + playback to verify quality.
-3. **Use It**
-   - Focus any text field (email, docs, browser, editor).
-   - Hold your hotkey `Ctrl + Shift + Space` (default), speak, then release to transcribe.
+FOSS Voquill was created with a simple premise: **voice dictation should be a basic utility, not a subscription service.**
 
+In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and freedom first:
+- **No Backend**: No servers, no cloud, no data collection.
+- **No Accounts**: No logins, no tracking, no onboarding.
+- **Truly Free**: No subscriptions, no paid tiers. Free to use and build on.
+- **Privacy First**: Your voice stays on your device. Transcription runs locally.
 
 ---
 
@@ -95,7 +114,7 @@ On Windows, all Tauri/Cargo build artifacts are written to `C:\voquill-build` to
 - Linux input is currently limited to standard English characters. Non-English characters and broader Unicode support are planned.
 - Language selection acts as a transcription hint and may not work.
 - AppImage is a cross-distro fallback, not the primary support target; desktop/portal integration can vary compared to distro-native `.deb`/`.rpm` installs.
-- Fedora AppImage builds can fail due linuxdeploy strip incompatibility with RELR system libraries.
+- Fedora AppImage builds can fail due to linuxdeploy strip incompatibility with RELR system libraries.
 
 ---
 
