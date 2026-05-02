@@ -144,7 +144,8 @@ fn main() {
             get_wayland_portal_version,
             get_portal_diagnostics,
             get_system_shortcut_context,
-            get_overlay_positioning_capabilities
+            get_overlay_positioning_capabilities,
+            check_for_updates
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

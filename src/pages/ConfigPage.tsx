@@ -67,6 +67,8 @@ interface ConfigPageProps {
   onReopenInitialSetup: () => void;
   onCopySessionLogs: () => void;
   onFactoryReset: () => void;
+  checkingUpdates: boolean;
+  onCheckForUpdates: () => void;
 }
 
 const languageOptions = [
@@ -118,6 +120,8 @@ export function ConfigPage(props: ConfigPageProps) {
     onReopenInitialSetup,
     onCopySessionLogs,
     onFactoryReset,
+    checkingUpdates,
+    onCheckForUpdates,
   } = props;
 
   const configGhostPillStyle = {
@@ -288,6 +292,9 @@ export function ConfigPage(props: ConfigPageProps) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
               <Button variant="configAction" onClick={onCopySessionLogs}>Copy Logs</Button>
               <Button variant="ghost" pill style={configGhostPillStyle} onClick={openSessionLog}>Open Log File</Button>
+              <Button variant="ghost" pill style={configGhostPillStyle} onClick={onCheckForUpdates} disabled={checkingUpdates}>
+                {checkingUpdates ? 'Checking...' : 'Check for Updates'}
+              </Button>
             </div>
           </ConfigField>
 

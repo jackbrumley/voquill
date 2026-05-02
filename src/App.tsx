@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
+import { open } from '@tauri-apps/plugin-shell';
 import { Button } from './components/Button.tsx';
 import { ActionFooter } from './components/ActionFooter.tsx';
 import { ModelInfoModal } from './components/ModelInfoModal.tsx';
@@ -102,6 +103,14 @@ interface OverlayPositioningCapabilities {
   detail?: string;
 }
 
+interface UpdateCheckResult {
+  currentVersion: string;
+  latestVersion: string;
+  updateAvailable: boolean;
+  releaseUrl: string;
+  notesUrl?: string;
+}
+
 interface StatusUpdatePayload {
   seq: number;
   status: string;
@@ -176,7 +185,11 @@ function App() {
   const [showHotkeyCaptureModal, setShowHotkeyCaptureModal] = useState(false);
   const [showSystemShortcutModal, setShowSystemShortcutModal] = useState(false);
   const [showFactoryResetModal, setShowFactoryResetModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [isApplyingHotkey, setIsApplyingHotkey] = useState(false);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
   const [initialRouteChecked, setInitialRouteChecked] = useState(false);
   const [hasLoadedConfig, setHasLoadedConfig] = useState(false);
   const [hasLoadedSetupStatus, setHasLoadedSetupStatus] = useState(false);
@@ -289,6 +302,7 @@ function App() {
     checkSetupStatus();
     
     getVersion().then(setAppVersion).catch(err => console.error("Failed to get version:", err));
+    void checkForUpdates(false);
 
     const unlistenPressed = listen('hotkey-pressed', () => {
       setCurrentStatus('Recording');
@@ -680,6 +694,66 @@ function App() {
     }
   };
 
+  const openLatestReleasePage = async () => {
+    const releaseUrl = updateResult?.releaseUrl || 'https://github.com/jackbrumley/voquill/releases/latest';
+    try {
+      await open(releaseUrl);
+    } catch (error) {
+      showToast(`Failed to open release page: ${error}`, 'error');
+    }
+  };
+
+  const checkForUpdates = async (showUpToDateModal: boolean) => {
+    if (checkingUpdates) {
+      return;
+    }
+
+    setCheckingUpdates(true);
+    try {
+      const result = await invoke<UpdateCheckResult>('check_for_updates');
+      setUpdateResult(result);
+      setLastCheckedAt(Date.now());
+      if (result.updateAvailable || showUpToDateModal) {
+        setShowUpdateModal(true);
+      }
+      if (!result.updateAvailable && showUpToDateModal) {
+        showToast('You are already on the latest version.', 'info');
+      }
+    } catch (error) {
+      if (showUpToDateModal) {
+        showToast(`Failed to check for updates: ${error}`, 'error');
+      } else {
+        console.log('Background update check failed:', error);
+      }
+    } finally {
+      setCheckingUpdates(false);
+    }
+  };
+
+  const getLastCheckedLabel = () => {
+    if (!lastCheckedAt) {
+      return 'Not checked yet';
+    }
+
+    const elapsedMs = Date.now() - lastCheckedAt;
+    if (elapsedMs < 60_000) {
+      return 'Just now';
+    }
+
+    const elapsedMinutes = Math.floor(elapsedMs / 60_000);
+    if (elapsedMinutes < 60) {
+      return `${elapsedMinutes} min ago`;
+    }
+
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    if (elapsedHours < 24) {
+      return `${elapsedHours} hr ago`;
+    }
+
+    const elapsedDays = Math.floor(elapsedHours / 24);
+    return `${elapsedDays} day${elapsedDays === 1 ? '' : 's'} ago`;
+  };
+
   const testApiKey = async () => {
     setIsTestingApi(true);
     try {
@@ -1050,6 +1124,8 @@ function App() {
                 config={config}
                 isSystemManagedShortcut={isSystemManagedShortcut}
                 onToggleOutputMethod={toggleOutputMethod}
+                hasUpdateAvailable={updateResult?.updateAvailable === true}
+                onOpenUpdateModal={() => setShowUpdateModal(true)}
               />
             )}
 
@@ -1090,6 +1166,8 @@ function App() {
                 }}
                 onCopySessionLogs={() => void copySessionLogs()}
                 onFactoryReset={() => setShowFactoryResetModal(true)}
+                checkingUpdates={checkingUpdates}
+                onCheckForUpdates={() => void checkForUpdates(true)}
               />
             )}
 
@@ -1214,6 +1292,35 @@ function App() {
             This will reset Voquill to defaults and permanently clear downloaded models, logs, and history.
           </p>
           <p style={modalShortcutNoteStyle}>This action cannot be undone.</p>
+        </Modal>
+      )}
+
+      {showUpdateModal && (
+        <Modal
+          title={updateResult?.updateAvailable ? 'Update Available' : 'Voquill is Up to Date'}
+          onClose={() => setShowUpdateModal(false)}
+          maxWidth="560px"
+          footerAlign="center"
+          footer={
+            <>
+              <Button variant="ghost" pill onClick={() => setShowUpdateModal(false)}>
+                Later
+              </Button>
+              <Button variant="primary" pill onClick={() => void openLatestReleasePage()}>
+                Download Latest
+              </Button>
+            </>
+          }
+        >
+          <p style={modalTextIntroStyle}>
+            {updateResult?.updateAvailable
+              ? `A newer Voquill version is available. Current: v${updateResult.currentVersion} -> Latest: v${updateResult.latestVersion}.`
+              : `You are on the latest version (v${updateResult?.currentVersion || appVersion}).`}
+          </p>
+          <p style={modalShortcutNoteStyle}>
+            Updates are currently installed manually by downloading the latest release package.
+          </p>
+          <p style={modalShortcutNoteStyle}>Last checked: {getLastCheckedLabel()}</p>
         </Modal>
       )}
 

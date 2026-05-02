@@ -19,6 +19,8 @@ interface StatusPageProps {
     hotkey: string;
   };
   onToggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
+  hasUpdateAvailable: boolean;
+  onOpenUpdateModal: () => void;
 }
 
 export function StatusPage({
@@ -28,6 +30,8 @@ export function StatusPage({
   isSystemManagedShortcut,
   config,
   onToggleOutputMethod,
+  hasUpdateAvailable,
+  onOpenUpdateModal,
 }: StatusPageProps) {
   const [hoveredFooterIcon, setHoveredFooterIcon] = useState<'github' | 'heart' | null>(null);
 
@@ -140,6 +144,24 @@ export function StatusPage({
             </button>
           </div>
           <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, fontFamily: tokens.typography.fontMono }}>v{appVersion}</div>
+          {hasUpdateAvailable && (
+            <button
+              type="button"
+              onClick={onOpenUpdateModal}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                padding: 0,
+                color: tokens.colors.accentPrimary,
+                fontSize: tokens.typography.sizeXs,
+                fontWeight: 700,
+                textDecoration: 'underline',
+              }}
+            >
+              Update available
+            </button>
+          )}
         </div>
       </div>
     </div>
