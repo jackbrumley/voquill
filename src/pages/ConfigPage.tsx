@@ -69,6 +69,7 @@ interface ConfigPageProps {
   onFactoryReset: () => void;
   checkingUpdates: boolean;
   onCheckForUpdates: () => void;
+  onOpenUiLab: () => void;
 }
 
 const languageOptions = [
@@ -122,6 +123,7 @@ export function ConfigPage(props: ConfigPageProps) {
     onFactoryReset,
     checkingUpdates,
     onCheckForUpdates,
+    onOpenUiLab,
   } = props;
 
   const configGhostPillStyle = {
@@ -322,6 +324,10 @@ export function ConfigPage(props: ConfigPageProps) {
 
           <div style={{ width: '100%', height: '1px', margin: `${tokens.spacing.sm} 0 0`, background: 'rgba(255, 255, 255, 0.1)' }} role="separator" aria-hidden="true"></div>
           <div style={{ width: '100%', marginTop: tokens.spacing.sm, fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#d9dfe7' }}>Experimental</div>
+
+          <ConfigField label="UI Lab" description="Open the internal visual QA page for component and state previews.">
+            <Button variant="ghost" pill style={configGhostPillStyle} onClick={onOpenUiLab}>Open UI Lab</Button>
+          </ConfigField>
 
           {config.transcription_mode === 'Local' && (
             <ConfigField

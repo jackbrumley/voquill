@@ -1,4 +1,4 @@
-import { IconBrandGithub, IconHeart } from '@tabler/icons-preact';
+import { IconAlertCircle, IconBrandGithub, IconHeart } from '@tabler/icons-preact';
 import { open } from '@tauri-apps/plugin-shell';
 import { useState } from 'preact/hooks';
 import StatusIcon from '../StatusIcon.tsx';
@@ -150,20 +150,24 @@ export function StatusPage({
               onClick={onOpenUpdateModal}
               title="Open update details"
               style={{
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                background: 'rgba(255, 255, 255, 0.94)',
+                border: '1px solid rgba(255, 255, 255, 0.16)',
+                background: tokens.colors.accentPrimary,
                 cursor: 'pointer',
                 padding: '4px 10px',
                 borderRadius: '999px',
-                color: '#1f2530',
+                color: '#ffffff',
                 fontSize: tokens.typography.sizeXs,
                 fontWeight: 800,
                 letterSpacing: '0.01em',
                 boxShadow: '0 6px 16px rgba(0, 0, 0, 0.3)',
                 transition: tokens.transitions.fast,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
-              ! Update available
+              <IconAlertCircle size={13} stroke={2.2} />
+              <span>Update available</span>
             </button>
           )}
         </div>

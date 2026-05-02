@@ -25,6 +25,7 @@ export const titleBarStyle: Style = {
   backdropFilter: 'blur(10px)',
   borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
   userSelect: 'none',
+  WebkitUserSelect: 'none',
 };
 
 export const titleBarTitleStyle: Style = {

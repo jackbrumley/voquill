@@ -5,7 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { open } from '@tauri-apps/plugin-shell';
-import { IconMinus, IconX } from '@tabler/icons-preact';
+import { IconMinus, IconSquare, IconX } from '@tabler/icons-preact';
 import { Button } from './components/Button.tsx';
 import { ActionFooter } from './components/ActionFooter.tsx';
 import { ModelInfoModal } from './components/ModelInfoModal.tsx';
@@ -14,6 +14,7 @@ import { StatusPage } from './pages/StatusPage.tsx';
 import { ConfigPage } from './pages/ConfigPage.tsx';
 import { HistoryPage } from './pages/HistoryPage.tsx';
 import { InitialSetupPage } from './pages/InitialSetupPage.tsx';
+import { UiLabPage } from './pages/UiLabPage.tsx';
 import {
   appShellStyle,
   helperTextStyle,
@@ -117,13 +118,13 @@ interface StatusUpdatePayload {
   status: string;
 }
 
-type AppRoute = 'setup' | 'status' | 'history' | 'config';
+type AppRoute = 'setup' | 'status' | 'history' | 'config' | 'ui-lab';
 
 const DEFAULT_ROUTE: AppRoute = 'status';
 
 const routeFromHash = (hash: string): AppRoute => {
   const normalized = hash.replace(/^#\/?/, '').split('/')[0].trim().toLowerCase();
-  if (normalized === 'setup' || normalized === 'status' || normalized === 'history' || normalized === 'config') {
+  if (normalized === 'setup' || normalized === 'status' || normalized === 'history' || normalized === 'config' || normalized === 'ui-lab') {
     return normalized;
   }
   return DEFAULT_ROUTE;
@@ -973,6 +974,11 @@ function App() {
     const hasExplicitRoute = hashHasExplicitRoute(window.location.hash);
     const currentHashRoute = routeFromHash(window.location.hash);
 
+    if (currentHashRoute === 'ui-lab') {
+      setInitialRouteChecked(true);
+      return;
+    }
+
     if (isAllReady) {
       if (!hasExplicitRoute || currentHashRoute === 'setup') {
         navigate('status', true);
@@ -987,10 +993,12 @@ function App() {
   const handleTitleBarMouseDown = async (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
     if (event.detail > 1) {
+      event.preventDefault();
       return;
     }
 
     if (event.buttons === 1 && !target?.closest('button')) {
+      event.preventDefault();
       await getCurrentWindow().startDragging();
     }
   };
@@ -1001,6 +1009,12 @@ function App() {
       return;
     }
 
+    event.preventDefault();
+
+    await toggleWindowMaximize();
+  };
+
+  const toggleWindowMaximize = async () => {
     try {
       const win = getCurrentWindow();
       if (await win.isMaximized()) {
@@ -1061,6 +1075,7 @@ function App() {
         <div style={titleBarTitleStyle}>Voquill</div>
         <div style={titleBarControlsStyle}>
           <Button variant="titlebarIcon" onClick={handleMinimize}><IconMinus size={14} stroke={2.2} /></Button>
+          <Button variant="titlebarIcon" onClick={() => void toggleWindowMaximize()}><IconSquare size={12} stroke={2.2} /></Button>
           <Button variant="titlebarClose" onClick={handleClose}><IconX size={14} stroke={2.2} /></Button>
         </div>
       </div>
@@ -1192,11 +1207,20 @@ function App() {
                 onFactoryReset={() => setShowFactoryResetModal(true)}
                 checkingUpdates={checkingUpdates}
                 onCheckForUpdates={() => void checkForUpdates(true)}
+                onOpenUiLab={() => navigate('ui-lab')}
               />
             )}
 
             {activeRoute === 'history' && (
               <HistoryPage history={history} onCopyToClipboard={copyToClipboard} />
+            )}
+
+            {activeRoute === 'ui-lab' && (
+              <UiLabPage
+                appVersion={appVersion}
+                onBackToConfig={() => navigate('config')}
+                onOpenUpdateModal={() => setShowUpdateModal(true)}
+              />
             )}
           </div>
 
