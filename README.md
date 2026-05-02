@@ -9,8 +9,8 @@
 [voquill.org](https://voquill.org)
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)](https://github.com/jackbrumley/voquill)
-[![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri-24C8DB)](https://tauri.app/)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-purple)](https://github.com/jackbrumley/voquill)
+[![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri-yellow)](https://tauri.app/)
 
 *FOSS dictation that works in any application, anywhere on your system. 100% local, 100% private, and truly free.*
 
@@ -47,7 +47,7 @@ In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and fr
 
 1. **[Download](https://github.com/jackbrumley/voquill/releases/latest) and Install**
 and install the application with the relevent install file for your OS.
-   - Windows 10/11 (native desktop):  `setup.exe` or `.msi`
+   - Windows 10/11 (native desktop):  `.msi`
    - Debian-based Linux (Ubuntu/Debian/Mint): use `.deb`
    - Fedora/RHEL-based Linux: use `.rpm`
    - Other Linux distros (including Arch/CachyOS): use `.AppImage` (⚠️ best-effort support).
