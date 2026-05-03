@@ -56,14 +56,21 @@ container_class: home-container
   Voquill listens while you hold push-to-talk, transcribes when you release, and writes the result exactly where your cursor is. It types like a keyboard, so it works anywhere and everywhere across your system. Free and open source with Windows and Linux support, it runs locally on your device so your voice and transcriptions stay private.
 </p>
 
-<div class="hero-container" id="hero-content">
+<div class="hero-container">
   <div class="hero-media">
-    <video autoplay muted loop playsinline poster="{{ '/screenshots/screenshot-status.png' | relative_url }}">
-      <source src="{{ '/screenshots/screen-recording-kubuntu.mp4' | relative_url }}" type="video/mp4">
-      Your browser does not support the video tag.
-    </video>
+    <iframe
+      src="https://www.youtube.com/embed/yKKyPUwEpDg"
+      title="FOSS Voquill promo video"
+      loading="lazy"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      referrerpolicy="strict-origin-when-cross-origin"
+      allowfullscreen
+    ></iframe>
   </div>
 </div>
+<p class="tagline" style="margin-top: 0.5rem; font-size: 0.95rem; opacity: 0.85;">
+  Prefer opening it directly? <a href="https://youtu.be/yKKyPUwEpDg" target="_blank" rel="noopener noreferrer">Watch on YouTube</a>
+</p>
 <div class="gallery-action">
   <a href="{{ '/screenshots.html' | relative_url }}" class="btn btn-secondary">Screenshots</a>
 </div>
@@ -84,45 +91,3 @@ container_class: home-container
 </section>
 
 <p class="provenance home-provenance">FOSS Voquill is the original project, first published in July 2025 by Jack Brumley and built to give back to the open-source community.</p>
-
-<div class="lightbox-overlay" id="lightbox">
-  <div id="lightbox-container"></div>
-</div>
-
-<script>
-  const lightbox = document.getElementById('lightbox');
-  const lightboxContainer = document.getElementById('lightbox-container');
-  const heroContainer = document.getElementById('hero-content');
-
-  heroContainer.addEventListener('click', () => {
-    const current = heroContainer.querySelector('video');
-    lightboxContainer.innerHTML = '';
-
-    const video = document.createElement('video');
-    video.src = current.querySelector('source').src;
-    video.autoplay = true;
-    video.controls = true;
-    video.loop = true;
-    video.className = 'lightbox-content';
-    lightboxContainer.appendChild(video);
-
-    lightbox.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  });
-
-  lightbox.addEventListener('click', (event) => {
-    if (event.target === lightbox || event.target.classList.contains('lightbox-content') === false) {
-      lightbox.classList.remove('active');
-      lightboxContainer.innerHTML = '';
-      document.body.style.overflow = 'auto';
-    }
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && lightbox.classList.contains('active')) {
-      lightbox.classList.remove('active');
-      lightboxContainer.innerHTML = '';
-      document.body.style.overflow = 'auto';
-    }
-  });
-</script>

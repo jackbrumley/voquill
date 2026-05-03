@@ -20,6 +20,12 @@ FOSS Voquill is offline dictation that works in any app on your system. Your voi
 
 It exists because dictation should be a basic utility, not a locked service. If you want private, system-wide push-to-talk transcription on Linux or Windows, this is built for that workflow.
 
+## Watch the Promo
+
+[![Watch the Voquill promo video](https://img.youtube.com/vi/yKKyPUwEpDg/maxresdefault.jpg)](https://youtu.be/yKKyPUwEpDg)
+
+Prefer direct link: https://youtu.be/yKKyPUwEpDg
+
 ## Install
 
 Download the latest release here:
@@ -48,17 +54,6 @@ Setup EXE installs per-user (no admin). MSI is a system-wide install intended fo
    - Focus any text field (email, docs, browser, editor).
    - Hold your hotkey `Ctrl + Shift + Space` (default), speak, then release to transcribe.
 
----
-
-## Screenshots
-
-![Voquill status overlay during transcription](docs/screenshots/screenshot-status.png)
-![Voquill engine configuration and model selection](docs/screenshots/screenshot-config1.png)
-![Voquill settings for shortcuts and behavior](docs/screenshots/screenshot-config2.png)
-![Voquill local dictation history view](docs/screenshots/screenshot-history.png)
-
----
-
 ## Features
 
 - **Private by Default** - High-performance offline transcription ensures total data sovereignty.
@@ -79,6 +74,13 @@ In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and fr
 - **No Accounts**: No logins, no tracking, no onboarding.
 - **Truly Free**: No subscriptions, no paid tiers. Free to use and build on.
 - **Privacy First**: Your voice stays on your device. Transcription runs locally.
+
+## Screenshots
+
+![Voquill status overlay during transcription](docs/screenshots/screenshot-status.png)
+![Voquill engine configuration and model selection](docs/screenshots/screenshot-config1.png)
+![Voquill settings for shortcuts and behavior](docs/screenshots/screenshot-config2.png)
+![Voquill local dictation history view](docs/screenshots/screenshot-history.png)
 
 ---
 

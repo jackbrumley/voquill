@@ -160,7 +160,6 @@ h1 {
   margin: 2rem auto;
   max-width: 800px;
   width: 100%;
-  cursor: zoom-in;
 }
 
 .hero-media {
@@ -168,10 +167,16 @@ h1 {
 }
 
 .hero-media img,
-.hero-media video {
+.hero-media video,
+.hero-media iframe {
   width: 100%;
   display: block;
   border-radius: 14px;
+}
+
+.hero-media iframe {
+  aspect-ratio: 16 / 9;
+  border: 0;
 }
 
 .gallery-action {
