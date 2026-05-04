@@ -12,6 +12,7 @@ node_modules
 deno.lock
 dist
 dist-ssr
+_site/
 *.local
 
 # Rust
