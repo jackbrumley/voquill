@@ -30,6 +30,32 @@ This document tracks expected behavior for Wayland portal integrations, with emp
 - Manual bind path triggers portal request and persists trigger description.
 - Press/release emits recording start/stop transitions.
 
+## Fedora GNOME release-order edge case (GlobalShortcuts)
+
+### Observed behavior
+
+- Environment: Fedora GNOME Wayland with `xdg-desktop-portal-gnome`
+- Shortcut: `Ctrl+Shift+Space` push-to-talk hold flow
+- Failure pattern: portal emits repeated `Activated` events (roughly every 30ms) and does not emit a matching `Deactivated` for that shortcut cycle when keys are released in a problematic order
+- Recovery pattern: a later press/release often emits `Activated` then `Deactivated`, which finally unlatches recording
+
+### Rationale for Voquill fallback
+
+- Push-to-talk must never remain latched after keys are physically released
+- We keep the native portal as the primary source of truth (`Activated` starts, `Deactivated` stops)
+- We add a defensive repeat-heartbeat fallback only for this edge case class:
+  - detect rapid repeated `Activated` cadence while already recording
+  - treat the cadence as a temporary heartbeat mode
+  - if heartbeat stops for a short silence window and recording is still active, force `stop_recording`
+
+### Current thresholds
+
+- `REPEAT_ACTIVATION_WINDOW_MS = 120`
+- `REPEAT_SILENCE_TIMEOUT_MS = 220`
+- `REPEAT_WATCHDOG_TICK_MS = 50`
+
+These values are intentionally conservative and should be tuned only with portal event logs from affected systems.
+
 ## Troubleshooting Signals
 
 - `status=unavailable`: Portal service/backend missing or inaccessible.
