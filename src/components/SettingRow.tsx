@@ -4,12 +4,15 @@ import {
   settingRowContentStyle,
   settingRowDescriptionStyle,
   settingRowHeaderStyle,
+  settingRowHeaderRightStyle,
+  settingRowLabelBadgeStyle,
   settingRowLabelStyle,
   settingRowStatusStyle,
 } from '../theme/component-styles.ts';
 
 interface SettingRowProps {
   title: string;
+  titleBadge?: string;
   description?: string;
   status?: ComponentChildren;
   children?: ComponentChildren;
@@ -18,6 +21,7 @@ interface SettingRowProps {
 
 export const SettingRow = ({
   title,
+  titleBadge,
   description,
   status,
   children,
@@ -32,7 +36,12 @@ export const SettingRow = ({
     >
       <div className="setting-row-header" style={settingRowHeaderStyle}>
         <div className="field-label" style={settingRowLabelStyle}>{title}</div>
-        {status ? <div className="setting-row-status" style={settingRowStatusStyle}>{status}</div> : null}
+        {(titleBadge || status) ? (
+          <div className="setting-row-right" style={settingRowHeaderRightStyle}>
+            {titleBadge ? <span style={settingRowLabelBadgeStyle}>{titleBadge}</span> : null}
+            {status ? <div className="setting-row-status" style={settingRowStatusStyle}>{status}</div> : null}
+          </div>
+        ) : null}
       </div>
       {description ? <p className="field-description" style={settingRowDescriptionStyle}>{description}</p> : null}
       {children != null ? <div className="field-content" style={settingRowContentStyle}>{children}</div> : null}

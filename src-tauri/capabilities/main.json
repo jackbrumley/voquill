@@ -19,6 +19,9 @@
     "core:app:allow-version",
     "shell:default",
     "global-shortcut:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
     "clipboard-manager:allow-write-text",
     "allow-app-commands"
   ]

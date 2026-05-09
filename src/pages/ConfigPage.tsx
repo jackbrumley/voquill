@@ -27,6 +27,7 @@ interface ConfigPageProps {
     api_url: string;
     api_model: string;
     copy_on_typewriter: boolean;
+    output_method: 'Typewriter' | 'Clipboard';
     audio_device: string | null;
     input_sensitivity: number;
     typing_speed_interval: number;
@@ -70,6 +71,8 @@ interface ConfigPageProps {
   checkingUpdates: boolean;
   onCheckForUpdates: () => void;
   onOpenUiLab: () => void;
+  autostartEnabled: boolean;
+  onToggleAutostart: (enabled: boolean) => void;
 }
 
 const languageOptions = [
@@ -124,6 +127,8 @@ export function ConfigPage(props: ConfigPageProps) {
     checkingUpdates,
     onCheckForUpdates,
     onOpenUiLab,
+    autostartEnabled,
+    onToggleAutostart,
   } = props;
 
   const configGhostPillStyle = {
@@ -133,8 +138,64 @@ export function ConfigPage(props: ConfigPageProps) {
   } as const;
 
   return (
-    <div style={{ ...tabPanelStyle, overflow: 'auto', padding: 0 }} key="config">
+    <div style={{ ...tabPanelStyle, overflow: 'auto', padding: 0 }} key="settings">
       <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0 }}>
+        <CollapsibleSection title="General" isOpen={activeConfigSection === 'general'} onToggle={() => setActiveConfigSection(activeConfigSection === 'general' ? null : 'general')}>
+          <ConfigField label="Output Method" description="Choose how transcriptions are inserted when dictation finishes.">
+            <ModeSwitcher
+              value={config.output_method}
+              onToggle={(value) => updateConfig('output_method', value)}
+              options={[
+                { value: 'Typewriter', label: 'Typewriter', title: 'Type directly into your active cursor' },
+                { value: 'Clipboard', label: 'Clipboard', title: 'Copy transcription results to your clipboard' },
+              ]}
+            />
+          </ConfigField>
+
+          <ConfigField label="Always Copy to Clipboard" description="Also copy transcriptions to clipboard even while using Typewriter output.">
+            <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} />
+          </ConfigField>
+
+          <ConfigField label="Updates" description="Check for newer Voquill releases.">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
+              <Button variant="ghost" pill style={configGhostPillStyle} onClick={onCheckForUpdates} disabled={checkingUpdates}>
+                {checkingUpdates ? 'Checking...' : 'Check for Updates'}
+              </Button>
+            </div>
+          </ConfigField>
+
+          <ConfigField label="Launch on System Startup" description="Automatically starts Voquill when you log in.">
+            <Switch checked={autostartEnabled} onChange={onToggleAutostart} />
+          </ConfigField>
+
+          <ConfigField label="Status Overlay Position (px)" description="Vertical offset for the status overlay from the bottom of the screen.">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+              <NumberField
+                value={config.pixels_from_bottom}
+                onChange={(value) => updateConfig('pixels_from_bottom', value)}
+                min={0}
+                disabled={!overlayPositioningCapabilities.manual_offset_supported}
+              />
+              {!overlayPositioningCapabilities.manual_offset_supported && (
+                <div style={helperTextStyle}>
+                  {overlayPositioningCapabilities.detail || 'Manual overlay position adjustment is not available on your system.'}
+                </div>
+              )}
+            </div>
+          </ConfigField>
+
+          <ConfigField label="Language Hint" labelBadge="Experimental" description="Best-effort language hint for transcription. Some engines/models may ignore this setting or apply it inconsistently.">
+            <div style={selectWrapperStyle}>
+              <SelectField
+                value={config.language}
+                options={languageOptions}
+                onChange={(nextLanguage) => updateConfig('language', nextLanguage)}
+                ariaLabel="Language hint"
+              />
+            </div>
+          </ConfigField>
+        </CollapsibleSection>
+
         <CollapsibleSection title="Transcription" isOpen={activeConfigSection === 'transcription'} onToggle={() => setActiveConfigSection(activeConfigSection === 'transcription' ? null : 'transcription')}>
           <ConfigField
             label="Global Hotkey"
@@ -226,12 +287,19 @@ export function ConfigPage(props: ConfigPageProps) {
                 />
               </ConfigField>
 
+              <ConfigField
+                label="Turbo Mode (GPU)"
+                labelBadge="Experimental"
+                description="GPU acceleration can be faster on some systems, but performance varies by hardware and model."
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: tokens.spacing.sm, width: '100%' }}>
+                  <IconRocket size={20} color={config.enable_gpu ? '#f1c40f' : tokens.colors.textMuted} />
+                  <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} />
+                </div>
+              </ConfigField>
+
             </>
           )}
-
-          <ConfigField label="Always Copy to Clipboard" description="Automatically copies the transcription to your clipboard even when in Typewriter mode.">
-            <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} />
-          </ConfigField>
 
         </CollapsibleSection>
 
@@ -272,21 +340,6 @@ export function ConfigPage(props: ConfigPageProps) {
             <NumberField value={config.key_press_duration_ms} onChange={(value) => updateConfig('key_press_duration_ms', value)} min={1} />
           </ConfigField>
 
-          <ConfigField label="Status Overlay Position (px)" description="Vertical offset for the status overlay from the bottom of the screen.">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
-              <NumberField
-                value={config.pixels_from_bottom}
-                onChange={(value) => updateConfig('pixels_from_bottom', value)}
-                min={0}
-                disabled={!overlayPositioningCapabilities.manual_offset_supported}
-              />
-              {!overlayPositioningCapabilities.manual_offset_supported && (
-                <div style={helperTextStyle}>
-                  {overlayPositioningCapabilities.detail || 'Manual overlay position adjustment is not available on your system.'}
-                </div>
-              )}
-            </div>
-          </ConfigField>
         </CollapsibleSection>
 
         <CollapsibleSection title="Debug" isOpen={activeConfigSection === 'debug'} onToggle={() => setActiveConfigSection(activeConfigSection === 'debug' ? null : 'debug')}>
@@ -294,14 +347,6 @@ export function ConfigPage(props: ConfigPageProps) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
               <Button variant="configAction" onClick={onCopySessionLogs}>Copy Logs</Button>
               <Button variant="ghost" pill style={configGhostPillStyle} onClick={openSessionLog}>Open Log File</Button>
-            </div>
-          </ConfigField>
-
-          <ConfigField label="Updates" description="Check for newer Voquill releases.">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
-              <Button variant="ghost" pill style={configGhostPillStyle} onClick={onCheckForUpdates} disabled={checkingUpdates}>
-                {checkingUpdates ? 'Checking...' : 'Check for Updates'}
-              </Button>
             </div>
           </ConfigField>
 
@@ -322,35 +367,10 @@ export function ConfigPage(props: ConfigPageProps) {
             <Button variant="danger" pill onClick={onFactoryReset}>Reset App to Defaults</Button>
           </ConfigField>
 
-          <div style={{ width: '100%', height: '1px', margin: `${tokens.spacing.sm} 0 0`, background: 'rgba(255, 255, 255, 0.1)' }} role="separator" aria-hidden="true"></div>
-          <div style={{ width: '100%', marginTop: tokens.spacing.sm, fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#d9dfe7' }}>Experimental</div>
-
-          <ConfigField label="UI Lab" description="Open the internal visual QA page for component and state previews.">
+          <ConfigField label="UI Lab" labelBadge="Experimental" description="Open the internal visual QA page for component and state previews.">
             <Button variant="ghost" pill style={configGhostPillStyle} onClick={onOpenUiLab}>Open UI Lab</Button>
           </ConfigField>
 
-          {config.transcription_mode === 'Local' && (
-            <ConfigField
-              label="Turbo Mode (GPU)"
-              description="Experimental. GPU acceleration can be faster on some systems, but performance varies by hardware and model."
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: tokens.spacing.sm, width: '100%' }}>
-                <IconRocket size={20} color={config.enable_gpu ? '#f1c40f' : tokens.colors.textMuted} />
-                <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} />
-              </div>
-            </ConfigField>
-          )}
-
-          <ConfigField label="Language Hint" description="Best-effort language hint for transcription. Some engines/models may ignore this setting or apply it inconsistently.">
-            <div style={selectWrapperStyle}>
-              <SelectField
-                value={config.language}
-                options={languageOptions}
-                onChange={(nextLanguage) => updateConfig('language', nextLanguage)}
-                ariaLabel="Language hint"
-              />
-            </div>
-          </ConfigField>
         </CollapsibleSection>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
+import { disable as disableAutostart, enable as enableAutostart, isEnabled as isAutostartEnabled } from '@tauri-apps/plugin-autostart';
 import { open } from '@tauri-apps/plugin-shell';
 import { IconMinus, IconSquare, IconX } from '@tabler/icons-preact';
 import { Button } from './components/Button.tsx';
@@ -118,13 +119,13 @@ interface StatusUpdatePayload {
   status: string;
 }
 
-type AppRoute = 'setup' | 'status' | 'history' | 'config' | 'ui-lab';
+type AppRoute = 'setup' | 'status' | 'history' | 'settings' | 'ui-lab';
 
 const DEFAULT_ROUTE: AppRoute = 'status';
 
 const routeFromHash = (hash: string): AppRoute => {
   const normalized = hash.replace(/^#\/?/, '').split('/')[0].trim().toLowerCase();
-  if (normalized === 'setup' || normalized === 'status' || normalized === 'history' || normalized === 'config' || normalized === 'ui-lab') {
+  if (normalized === 'setup' || normalized === 'status' || normalized === 'history' || normalized === 'settings' || normalized === 'ui-lab') {
     return normalized;
   }
   return DEFAULT_ROUTE;
@@ -190,6 +191,7 @@ function App() {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [isApplyingHotkey, setIsApplyingHotkey] = useState(false);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [autostartEnabled, setAutostartEnabled] = useState(false);
   const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
   const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
   const [initialRouteChecked, setInitialRouteChecked] = useState(false);
@@ -305,6 +307,11 @@ function App() {
     
     getVersion().then(setAppVersion).catch(err => console.error("Failed to get version:", err));
     void checkForUpdates(false);
+    isAutostartEnabled()
+      .then(setAutostartEnabled)
+      .catch((error) => {
+        console.log('Autostart state unavailable:', error);
+      });
 
     const unlistenPressed = listen('hotkey-pressed', () => {
       setCurrentStatus('Recording');
@@ -732,6 +739,20 @@ function App() {
     }
   };
 
+  const toggleAutostart = async (enabled: boolean) => {
+    try {
+      if (enabled) {
+        await enableAutostart();
+      } else {
+        await disableAutostart();
+      }
+      setAutostartEnabled(enabled);
+      showToast(`Auto-start ${enabled ? 'enabled' : 'disabled'}`, 'success');
+    } catch (error) {
+      showToast(`Failed to toggle auto-start: ${error}`, 'error');
+    }
+  };
+
   const getLastCheckedLabel = () => {
     if (!lastCheckedAt) {
       return 'Not checked yet';
@@ -1144,13 +1165,13 @@ function App() {
             </button>
             <button
               type="button"
-              style={getTopTabStyle('config')}
-              onClick={() => { logUI('🖱️ Button clicked: Config Tab'); navigate('config'); }}
-              onMouseEnter={() => setHoveredTopTab('config')}
+              style={getTopTabStyle('settings')}
+              onClick={() => { logUI('🖱️ Button clicked: Settings Tab'); navigate('settings'); }}
+              onMouseEnter={() => setHoveredTopTab('settings')}
               onMouseLeave={() => setHoveredTopTab(null)}
-              aria-current={activeRoute === 'config' ? 'page' : undefined}
+              aria-current={activeRoute === 'settings' ? 'page' : undefined}
             >
-              Config
+              Settings
             </button>
           </div>
 
@@ -1168,7 +1189,7 @@ function App() {
               />
             )}
 
-            {activeRoute === 'config' && (
+            {activeRoute === 'settings' && (
               <ConfigPage
                 config={config}
                 activeConfigSection={activeConfigSection}
@@ -1208,6 +1229,8 @@ function App() {
                 checkingUpdates={checkingUpdates}
                 onCheckForUpdates={() => void checkForUpdates(true)}
                 onOpenUiLab={() => navigate('ui-lab')}
+                autostartEnabled={autostartEnabled}
+                onToggleAutostart={(enabled) => void toggleAutostart(enabled)}
               />
             )}
 
@@ -1218,7 +1241,7 @@ function App() {
             {activeRoute === 'ui-lab' && (
               <UiLabPage
                 appVersion={appVersion}
-                onBackToConfig={() => navigate('config')}
+                onBackToSettings={() => navigate('settings')}
                 onOpenUpdateModal={() => setShowUpdateModal(true)}
               />
             )}

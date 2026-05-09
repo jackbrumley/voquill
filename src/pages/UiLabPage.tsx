@@ -19,7 +19,7 @@ import { inputBaseStyle, selectWrapperStyle, tabPanelContentStyle, tabPanelStyle
 
 interface UiLabPageProps {
   appVersion: string;
-  onBackToConfig: () => void;
+  onBackToSettings: () => void;
   onOpenUpdateModal: () => void;
 }
 
@@ -42,7 +42,7 @@ const sampleModels = [
   },
 ];
 
-export function UiLabPage({ appVersion, onBackToConfig, onOpenUpdateModal }: UiLabPageProps) {
+export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: UiLabPageProps) {
   const [showUpdateBadge, setShowUpdateBadge] = useState(true);
   const [updateAvailableCopy, setUpdateAvailableCopy] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,7 +72,7 @@ export function UiLabPage({ appVersion, onBackToConfig, onOpenUpdateModal }: UiL
               Hidden route for visual QA. Open directly with <code>#/ui-lab</code>.
             </div>
             <div style={{ display: 'flex', gap: tokens.spacing.sm, flexWrap: 'wrap', marginTop: tokens.spacing.xs }}>
-              <Button variant="ghost" pill onClick={onBackToConfig}>Back to Config</Button>
+              <Button variant="ghost" pill onClick={onBackToSettings}>Back to Settings</Button>
               <Button variant="primary" pill onClick={() => setIsModalOpen(true)}>Open Internal Modal</Button>
               <Button variant="secondary" pill onClick={onOpenUpdateModal}>Open Real Update Modal</Button>
             </div>
@@ -134,7 +134,7 @@ export function UiLabPage({ appVersion, onBackToConfig, onOpenUpdateModal }: UiL
             <div style={{ display: 'flex', gap: tokens.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
               <Button variant="primary">Primary</Button>
               <Button variant="secondary">Secondary</Button>
-              <Button variant="configAction">Config Action</Button>
+              <Button variant="configAction">Settings Action</Button>
               <Button variant="ghost" pill>Ghost Pill</Button>
               <Button variant="danger">Danger</Button>
               <Button variant="icon" title="Icon">i</Button>

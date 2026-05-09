@@ -49,7 +49,15 @@ export const settingRowHeaderStyle: Style = {
 };
 
 export const settingRowStatusStyle: Style = {
+  flexShrink: 0,
+};
+
+export const settingRowHeaderRightStyle: Style = {
   marginLeft: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-end',
+  gap: '6px',
   flexShrink: 0,
 };
 
@@ -57,9 +65,23 @@ export const settingRowLabelStyle: Style = {
   fontWeight: 600,
   color: tokens.colors.textPrimary,
   fontSize: tokens.typography.sizeSm,
-  width: '100%',
+  flex: 1,
+  minWidth: 0,
   display: 'block',
   textAlign: 'left',
+};
+
+export const settingRowLabelBadgeStyle: Style = {
+  fontSize: '10px',
+  fontWeight: 800,
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase',
+  color: '#f5d88f',
+  border: '1px solid rgba(245, 216, 143, 0.5)',
+  background: 'rgba(245, 216, 143, 0.12)',
+  borderRadius: '999px',
+  padding: '2px 8px',
+  lineHeight: 1.2,
 };
 
 export const settingRowDescriptionStyle: Style = {

@@ -80,6 +80,7 @@ fn main() {
     let app_state = app::bootstrap::build_app_state(&initial_config);
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(

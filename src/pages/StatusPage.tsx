@@ -39,8 +39,8 @@ export function StatusPage({
     config.transcription_mode === 'Local'
       ? (modelStatus[config.local_model_size]
         ? <>Local Whisper model is <strong style={{ color: tokens.colors.textPrimary }}>Ready</strong>.</>
-        : <>Download a <strong style={{ color: tokens.colors.textPrimary }}>Whisper model</strong> in Config.</>)
-      : <>Enter your <strong style={{ color: tokens.colors.textPrimary }}>OpenAI API key</strong> in Config.</>,
+        : <>Download a <strong style={{ color: tokens.colors.textPrimary }}>Whisper model</strong> in Settings.</>)
+      : <>Enter your <strong style={{ color: tokens.colors.textPrimary }}>OpenAI API key</strong> in Settings.</>,
     <>Position cursor in any text field.</>,
     isSystemManagedShortcut
       ? <>Hold your system shortcut and speak.</>
