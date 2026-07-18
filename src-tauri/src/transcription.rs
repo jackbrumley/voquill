@@ -46,6 +46,12 @@ impl TranscriptionService for APITranscriptionService {
         language: Option<&str>,
         prompt: Option<&str>,
     ) -> Result<String, TranscriptionError> {
+        if self.api_model.is_empty() {
+            return Err(TranscriptionError::ModelError(
+                "API model is not configured. Set a model in Settings.".into(),
+            ));
+        }
+
         let client = reqwest::Client::new();
 
         let mut form = multipart::Form::new()
@@ -116,7 +122,7 @@ pub async fn test_api_key(
                 .file_name("test.wav")
                 .mime_str("audio/wav")?,
         )
-        .text("model", "whisper-1");
+        .text("model", "gpt-4o-transcribe");
 
     let response = client
         .post(api_url)

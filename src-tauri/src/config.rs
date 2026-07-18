@@ -76,7 +76,7 @@ fn default_api_url() -> String {
     "https://api.openai.com/v1/audio/transcriptions".to_string()
 }
 fn default_api_model() -> String {
-    "whisper-1".to_string()
+    "gpt-4o-transcribe".to_string()
 }
 fn default_transcription_mode() -> TranscriptionMode {
     TranscriptionMode::Local
