@@ -64,9 +64,7 @@ interface ConfigPageProps {
   stopMicTest: () => void;
   stopMicPlayback: () => void;
   openDebugFolder: () => void;
-  openSessionLog: () => void;
   onReopenInitialSetup: () => void;
-  onCopySessionLogs: () => void;
   onFactoryReset: () => void;
   checkingUpdates: boolean;
   onCheckForUpdates: () => void;
@@ -120,9 +118,7 @@ export function ConfigPage(props: ConfigPageProps) {
     stopMicTest,
     stopMicPlayback,
     openDebugFolder,
-    openSessionLog,
     onReopenInitialSetup,
-    onCopySessionLogs,
     onFactoryReset,
     checkingUpdates,
     onCheckForUpdates,
@@ -343,10 +339,9 @@ export function ConfigPage(props: ConfigPageProps) {
         </CollapsibleSection>
 
         <CollapsibleSection title="Debug" isOpen={activeConfigSection === 'debug'} onToggle={() => setActiveConfigSection(activeConfigSection === 'debug' ? null : 'debug')}>
-          <ConfigField label="Logs" description="Copy or open logs for troubleshooting and support.">
+          <ConfigField label="Logs" description="Open logs for troubleshooting and support.">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
-              <Button variant="configAction" onClick={onCopySessionLogs}>Copy Logs</Button>
-              <Button variant="ghost" pill style={configGhostPillStyle} onClick={openSessionLog}>Open Log File</Button>
+              <Button variant="configAction" onClick={openDebugFolder}>Open Logs</Button>
             </div>
           </ConfigField>
 

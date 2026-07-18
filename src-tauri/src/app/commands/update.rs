@@ -25,7 +25,7 @@ struct GitHubLatestRelease {
 pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
     let current_version = env!("CARGO_PKG_VERSION").to_string();
     crate::log_info!(
-        "📡 Tauri Command: check_for_updates invoked (current={})",
+        "Tauri Command: check_for_updates invoked (current={})",
         current_version
     );
 

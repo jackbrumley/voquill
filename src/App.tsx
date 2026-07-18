@@ -309,7 +309,7 @@ function App() {
     void checkForUpdates(false);
     isAutostartEnabled()
       .then(setAutostartEnabled)
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.log('Autostart state unavailable:', error);
       });
 
@@ -832,23 +832,6 @@ function App() {
     }
   };
 
-  const copySessionLogs = async () => {
-    try {
-      await invoke('copy_session_log_to_clipboard');
-      showToast('Log copied to clipboard.', 'success');
-    } catch (error) {
-      showToast(`Failed to copy log: ${error}`, 'error');
-    }
-  };
-
-  const openSessionLog = async () => {
-    try {
-      await invoke('open_session_log');
-    } catch (error) {
-      showToast(`Failed to open log file: ${error}`, 'error');
-    }
-  };
-
   const handleFactoryReset = async () => {
     try {
       await invoke('reset_application_to_defaults');
@@ -1219,12 +1202,10 @@ function App() {
                 stopMicTest={() => void stopMicTest()}
                 stopMicPlayback={() => void stopMicPlayback()}
                 openDebugFolder={openDebugFolder}
-                openSessionLog={() => void openSessionLog()}
                 onReopenInitialSetup={() => {
                   setSetupTouched(true);
                   navigate('setup');
                 }}
-                onCopySessionLogs={() => void copySessionLogs()}
                 onFactoryReset={() => setShowFactoryResetModal(true)}
                 checkingUpdates={checkingUpdates}
                 onCheckForUpdates={() => void checkForUpdates(true)}
