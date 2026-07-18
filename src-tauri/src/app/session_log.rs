@@ -82,6 +82,12 @@ pub fn initialize_session_logging() {
         }
     };
 
+    // Rotate previous session log so it survives for post-crash diagnosis
+    if log_path.exists() {
+        let last_path = log_path.with_file_name("last-session.log");
+        let _ = fs::rename(&log_path, &last_path);
+    }
+
     match OpenOptions::new()
         .create(true)
         .write(true)

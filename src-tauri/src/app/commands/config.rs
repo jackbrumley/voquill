@@ -168,7 +168,7 @@ pub async fn reset_application_to_defaults(
 
     let debug_dir = root_dir.join("debug");
     std::fs::create_dir_all(&debug_dir).map_err(|error| error.to_string())?;
-    crate::clear_directory_contents(&debug_dir, &["session.log"])?;
+    crate::clear_directory_contents(&debug_dir, &["session.log", "last-session.log"])?;
 
     if let Err(error) = crate::truncate_session_log_with_header() {
         crate::log_warn!(
