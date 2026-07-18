@@ -68,14 +68,14 @@ pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
 
     if update_available {
         crate::log_info!(
-            "🧭 Update available: {} -> {} ({})",
+            "Update available: {} -> {} ({})",
             current_version,
             latest_version,
             latest_release.html_url
         );
     } else {
         crate::log_info!(
-            "🧭 No update available (current={}, latest={})",
+            "No update available (current={}, latest={})",
             current_version,
             latest_version
         );

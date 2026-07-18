@@ -1,7 +1,7 @@
 use tauri::WebviewWindow;
 
 pub fn apply_linux_unfocusable_hints(_window: &WebviewWindow, _pixels_from_bottom_logical: i32) {
-    crate::log_info!("🛠️  Initializing X11 overlay hints...");
+    crate::log_info!("Initializing X11 overlay hints...");
     // Future X11 specific unfocusable window hints using winit or direct X11 can be placed here.
     // For now, the ghost mode setup in main.rs covers most use cases.
 }

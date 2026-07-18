@@ -8,13 +8,13 @@ pub async fn start_recording(
 ) -> Result<(), String> {
     let recording_before = *state.is_recording.lock().unwrap();
     crate::log_info!(
-        "🎤 start_recording invoked: is_recording_before={}, configuring_hotkey={}",
+        "start_recording invoked: is_recording_before={}, configuring_hotkey={}",
         recording_before,
         *state.is_configuring_hotkey.lock().unwrap()
     );
 
     if *state.is_configuring_hotkey.lock().unwrap() {
-        crate::log_info!("⚠️ Ignoring start_recording because hotkey configuration is active");
+        crate::log_info!("Ignoring start_recording because hotkey configuration is active");
         return Err("Currently configuring hotkey".to_string());
     }
 
@@ -25,7 +25,7 @@ pub async fn start_recording(
 
     *recording_flag = true;
     crate::log_info!(
-        "🎤 start_recording command - Flag set true (before={}, after={})",
+        "start_recording command - Flag set true (before={}, after={})",
         recording_before,
         *recording_flag
     );
@@ -38,7 +38,7 @@ pub async fn start_recording(
     {
         let mut engine_guard = audio_engine.lock().unwrap();
         if engine_guard.is_none() {
-            crate::log_info!("🔧 Audio engine not found, attempting to initialize...");
+            crate::log_info!("Audio engine not found, attempting to initialize...");
             let requested_device = { state.config.lock().unwrap().audio_device.clone() };
 
             let resolved_device = {
@@ -49,7 +49,7 @@ pub async fn start_recording(
                     match audio::lookup_device(requested_device.clone()) {
                         Ok(device) => {
                             crate::log_info!(
-                                "🔧 Resolved input device on demand for recording (requested_device='{}')",
+                                "Resolved input device on demand for recording (requested_device='{}')",
                                 requested_device
                                     .clone()
                                     .unwrap_or_else(|| "default".to_string())
@@ -60,7 +60,7 @@ pub async fn start_recording(
                         }
                         Err(error) => {
                             crate::log_warn!(
-                                "❌ Failed to resolve input device for recording (requested_device='{}'): {}",
+                                "Failed to resolve input device for recording (requested_device='{}'): {}",
                                 requested_device
                                     .clone()
                                     .unwrap_or_else(|| "default".to_string()),
@@ -77,31 +77,31 @@ pub async fn start_recording(
                 match audio::PersistentAudioEngine::new(&device, sensitivity) {
                     Ok(new_engine) => {
                         *engine_guard = Some(new_engine);
-                        crate::log_info!("✅ Audio engine initialized on demand");
+                        crate::log_info!("Audio engine initialized on demand");
                     }
                     Err(error) => {
                         crate::log_warn!(
-                            "❌ Failed to initialize audio engine on demand for recording: {}",
+                            "Failed to initialize audio engine on demand for recording: {}",
                             error
                         );
                     }
                 }
             } else {
                 crate::log_warn!(
-                    "❌ Audio engine initialization skipped for recording: input device unresolved"
+                    "Audio engine initialization skipped for recording: input device unresolved"
                 );
             }
         }
     }
 
     tokio::spawn(async move {
-        crate::log_info!("🎙️ Recording task started");
+        crate::log_info!("Recording task started");
         tauri::async_runtime::spawn(async {
             crate::app::status::emit_status_update("Recording").await;
         });
-        crate::log_info!("🎙️ Recording status update dispatched");
+        crate::log_info!("Recording status update dispatched");
 
-        crate::log_info!("🎙️ Recording capture pipeline starting");
+        crate::log_info!("Recording capture pipeline starting");
         let result = crate::app::recording_flow::record_and_transcribe(
             config,
             is_recording_clone,
@@ -111,7 +111,7 @@ pub async fn start_recording(
         .await;
 
         if let Err(error) = result {
-            crate::log_info!("❌ Global Recording error: {}", error);
+            crate::log_info!("Global Recording error: {}", error);
         }
     });
 
@@ -124,7 +124,7 @@ pub async fn stop_recording(state: tauri::State<'_, AppState>) -> Result<(), Str
     let before = *recording;
     *recording = false;
     crate::log_info!(
-        "⏹️  stop_recording command - Flag set false (before={}, after={})",
+        "stop_recording command - Flag set false (before={}, after={})",
         before,
         *recording
     );
@@ -136,10 +136,10 @@ pub async fn start_mic_test(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    crate::log_info!("📡 Tauri Command: start_mic_test invoked");
+    crate::log_info!("Tauri Command: start_mic_test invoked");
     let mut mic_test_flag = state.is_mic_test_active.lock().unwrap();
     if *mic_test_flag {
-        crate::log_info!("⚠️  start_mic_test: Already active");
+        crate::log_info!("start_mic_test: Already active");
         return Err("Mic test already active".to_string());
     }
     *mic_test_flag = true;
@@ -156,7 +156,7 @@ pub async fn start_mic_test(
     {
         let mut engine_guard = audio_engine.lock().unwrap();
         if engine_guard.is_none() {
-            crate::log_info!("🔧 Audio engine not found for mic test, attempting to initialize...");
+            crate::log_info!("Audio engine not found for mic test, attempting to initialize...");
             let requested_device = { state.config.lock().unwrap().audio_device.clone() };
 
             let resolved_device = {
@@ -167,7 +167,7 @@ pub async fn start_mic_test(
                     match audio::lookup_device(requested_device.clone()) {
                         Ok(device) => {
                             crate::log_info!(
-                                "🔧 Resolved input device on demand for mic test (requested_device='{}')",
+                                "Resolved input device on demand for mic test (requested_device='{}')",
                                 requested_device
                                     .clone()
                                     .unwrap_or_else(|| "default".to_string())
@@ -178,7 +178,7 @@ pub async fn start_mic_test(
                         }
                         Err(error) => {
                             crate::log_warn!(
-                                "❌ Failed to resolve input device for mic test (requested_device='{}'): {}",
+                                "Failed to resolve input device for mic test (requested_device='{}'): {}",
                                 requested_device
                                     .clone()
                                     .unwrap_or_else(|| "default".to_string()),
@@ -195,18 +195,18 @@ pub async fn start_mic_test(
                 match audio::PersistentAudioEngine::new(&device, sensitivity) {
                     Ok(new_engine) => {
                         *engine_guard = Some(new_engine);
-                        crate::log_info!("✅ Audio engine initialized on demand");
+                        crate::log_info!("Audio engine initialized on demand");
                     }
                     Err(error) => {
                         crate::log_warn!(
-                            "❌ Failed to initialize audio engine on demand for mic test: {}",
+                            "Failed to initialize audio engine on demand for mic test: {}",
                             error
                         );
                     }
                 }
             } else {
                 crate::log_warn!(
-                    "❌ Audio engine initialization skipped for mic test: input device unresolved"
+                    "Audio engine initialization skipped for mic test: input device unresolved"
                 );
             }
         }
@@ -218,7 +218,7 @@ pub async fn start_mic_test(
     }
 
     tokio::spawn(async move {
-        crate::log_info!("🎤 Mic test thread started");
+        crate::log_info!("Mic test thread started");
 
         let sample_rate = {
             let guard = audio_engine.lock().unwrap();
@@ -238,27 +238,27 @@ pub async fn start_mic_test(
 
         match result {
             Ok(captured_samples) => {
-                crate::log_info!("✅ Mic test captured {} samples", captured_samples.len());
+                crate::log_info!("Mic test captured {} samples", captured_samples.len());
                 if captured_samples.is_empty() {
-                    crate::log_info!("⚠️  No audio captured, resetting UI...");
+                    crate::log_info!("No audio captured, resetting UI...");
                     let _ = app_handle_clone.emit("mic-test-playback-finished", ());
                     return;
                 }
 
-                crate::log_info!("🔊 Initializing playback at {}Hz...", sample_rate);
+                crate::log_info!("Initializing playback at {}Hz...", sample_rate);
                 let app = app_handle_clone.clone();
                 match audio::play_audio(captured_samples.clone(), sample_rate, move || {
-                    crate::log_info!("🎵 Mic test playback finished");
+                    crate::log_info!("Mic test playback finished");
                     let _ = app.emit("mic-test-playback-finished", ());
                 }) {
                     Ok(stream) => {
                         let mut stream_guard = playback_stream_state.lock().unwrap();
                         *stream_guard = Some(stream);
-                        crate::log_info!("✅ Playback stream active");
+                        crate::log_info!("Playback stream active");
                         let _ = app_handle_clone.emit("mic-test-playback-started", ());
                     }
                     Err(error) => {
-                        crate::log_info!("❌ Playback stream initialization failed: {}", error);
+                        crate::log_info!("Playback stream initialization failed: {}", error);
                         let _ = app_handle_clone.emit("mic-test-playback-finished", ());
                     }
                 }
@@ -267,7 +267,7 @@ pub async fn start_mic_test(
                 *samples = captured_samples;
             }
             Err(error) => {
-                crate::log_info!("❌ Mic test recording error: {}", error);
+                crate::log_info!("Mic test recording error: {}", error);
                 let _ = app_handle_clone.emit("mic-test-playback-finished", ());
             }
         }
@@ -275,7 +275,7 @@ pub async fn start_mic_test(
         let mut mic_test_flag = is_mic_test_clone.lock().unwrap();
         if *mic_test_flag {
             *mic_test_flag = false;
-            crate::log_info!("🔧 Mic test active flag reset after mic test completion");
+            crate::log_info!("Mic test active flag reset after mic test completion");
         }
     });
 
@@ -284,18 +284,18 @@ pub async fn start_mic_test(
 
 #[tauri::command]
 pub async fn stop_mic_test(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    crate::log_info!("📡 Tauri Command: stop_mic_test invoked");
+    crate::log_info!("Tauri Command: stop_mic_test invoked");
     let mut mic_test_flag = state.is_mic_test_active.lock().unwrap();
     *mic_test_flag = false;
-    crate::log_info!("⏹️  Mic test flag set to false");
+    crate::log_info!("Mic test flag set to false");
     Ok(())
 }
 
 #[tauri::command]
 pub async fn stop_mic_playback(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    crate::log_info!("📡 Tauri Command: stop_mic_playback invoked");
+    crate::log_info!("Tauri Command: stop_mic_playback invoked");
     let mut stream_guard = state.playback_stream.lock().unwrap();
     *stream_guard = None;
-    crate::log_info!("⏹️  Playback stopped by user");
+    crate::log_info!("Playback stopped by user");
     Ok(())
 }

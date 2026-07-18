@@ -2,49 +2,49 @@ use crate::typing;
 
 #[tauri::command]
 pub async fn open_debug_folder() -> Result<(), String> {
-    crate::log_info!("📡 Tauri Command: open_debug_folder invoked");
+    crate::log_info!("Tauri Command: open_debug_folder invoked");
     let path = dirs::config_dir()
         .ok_or("Could not find config directory")?
         .join("foss-voquill")
         .join("debug");
 
-    crate::log_info!("📂 Target debug path: {:?}", path);
+    crate::log_info!("Target debug path: {:?}", path);
 
     if !path.exists() {
-        crate::log_info!("📂 Creating debug directory...");
+        crate::log_info!("Creating debug directory...");
         std::fs::create_dir_all(&path).map_err(|error| error.to_string())?;
     }
 
     #[cfg(target_os = "linux")]
     {
-        crate::log_info!("🚀 Executing: xdg-open {:?}", path);
+        crate::log_info!("Executing: xdg-open {:?}", path);
         std::process::Command::new("xdg-open")
             .arg(&path)
             .spawn()
             .map_err(|error| {
-                crate::log_info!("❌ Failed to execute xdg-open: {}", error);
+                crate::log_info!("Failed to execute xdg-open: {}", error);
                 error.to_string()
             })?;
     }
     #[cfg(target_os = "windows")]
     {
-        crate::log_info!("🚀 Executing: explorer {:?}", path);
+        crate::log_info!("Executing: explorer {:?}", path);
         std::process::Command::new("explorer")
             .arg(&path)
             .spawn()
             .map_err(|error| {
-                crate::log_info!("❌ Failed to execute explorer: {}", error);
+                crate::log_info!("Failed to execute explorer: {}", error);
                 error.to_string()
             })?;
     }
     #[cfg(target_os = "macos")]
     {
-        crate::log_info!("🚀 Executing: open {:?}", path);
+        crate::log_info!("Executing: open {:?}", path);
         std::process::Command::new("open")
             .arg(&path)
             .spawn()
             .map_err(|error| {
-                crate::log_info!("❌ Failed to execute open: {}", error);
+                crate::log_info!("Failed to execute open: {}", error);
                 error.to_string()
             })?;
     }
@@ -70,36 +70,36 @@ pub async fn open_session_log() -> Result<(), String> {
 
     #[cfg(target_os = "linux")]
     {
-        crate::log_info!("🚀 Executing: xdg-open {:?}", log_path);
+        crate::log_info!("Executing: xdg-open {:?}", log_path);
         std::process::Command::new("xdg-open")
             .arg(&log_path)
             .spawn()
             .map_err(|error| {
-                crate::log_info!("❌ Failed to execute xdg-open for session log: {}", error);
+                crate::log_info!("Failed to execute xdg-open for session log: {}", error);
                 error.to_string()
             })?;
     }
 
     #[cfg(target_os = "windows")]
     {
-        crate::log_info!("🚀 Executing: explorer {:?}", log_path);
+        crate::log_info!("Executing: explorer {:?}", log_path);
         std::process::Command::new("explorer")
             .arg(&log_path)
             .spawn()
             .map_err(|error| {
-                crate::log_info!("❌ Failed to execute explorer for session log: {}", error);
+                crate::log_info!("Failed to execute explorer for session log: {}", error);
                 error.to_string()
             })?;
     }
 
     #[cfg(target_os = "macos")]
     {
-        crate::log_info!("🚀 Executing: open {:?}", log_path);
+        crate::log_info!("Executing: open {:?}", log_path);
         std::process::Command::new("open")
             .arg(&log_path)
             .spawn()
             .map_err(|error| {
-                crate::log_info!("❌ Failed to execute open for session log: {}", error);
+                crate::log_info!("Failed to execute open for session log: {}", error);
                 error.to_string()
             })?;
     }

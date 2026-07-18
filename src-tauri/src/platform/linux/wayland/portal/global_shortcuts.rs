@@ -72,7 +72,7 @@ async fn bind_record_shortcut(
         .map_err(|error| format!("Portal rejected shortcut: {error}"))?;
 
     crate::log_info!(
-        "📋 BindShortcuts returned {} shortcuts",
+        "BindShortcuts returned {} shortcuts",
         bound.shortcuts().len()
     );
 
@@ -82,7 +82,7 @@ async fn bind_record_shortcut(
 
     for shortcut in bound.shortcuts() {
         crate::log_info!(
-            "✅ Wayland Global Shortcuts bound: ID='{}', Trigger='{}'",
+            "Wayland Global Shortcuts bound: ID='{}', Trigger='{}'",
             shortcut.id(),
             shortcut.trigger_description()
         );
@@ -166,7 +166,7 @@ pub async fn start_linux_portal_hotkey_engine(
     let has_previous = {
         let mut cancel_lock = state.hotkey_engine_cancel.lock().unwrap();
         if let Some(sender) = cancel_lock.take() {
-            crate::log_info!("🔄 Cancelling previous hotkey engine...");
+            crate::log_info!("Cancelling previous hotkey engine...");
             let _ = sender.send(());
             true
         } else {
@@ -184,11 +184,11 @@ pub async fn start_linux_portal_hotkey_engine(
         *cancel_lock = Some(cancel_tx);
     }
 
-    crate::log_info!("🚀 Wayland Global Shortcuts Engine starting...");
+    crate::log_info!("Wayland Global Shortcuts Engine starting...");
 
     let capabilities = detect_global_shortcuts_capabilities().await?;
     crate::log_info!(
-        "🧭 GlobalShortcuts portal version={}, supports_configure_shortcuts={}",
+        "GlobalShortcuts portal version={}, supports_configure_shortcuts={}",
         capabilities.version,
         capabilities.supports_configure_shortcuts
     );
@@ -210,7 +210,7 @@ pub async fn start_linux_portal_hotkey_engine(
     let normalized_trigger = normalize_wayland_trigger(&hotkey_str);
     let flow = GlobalShortcutsFlow::from_force(force);
     crate::log_info!(
-        "🔑 Desired trigger='{}', normalized='{}', flow={}",
+        "Desired trigger='{}', normalized='{}', flow={}",
         hotkey_str,
         normalized_trigger,
         flow.as_str()
@@ -261,7 +261,7 @@ pub async fn start_linux_portal_hotkey_engine(
             .map_err(|error| format!("Failed to read shortcut list response: {error}"))?;
 
         crate::log_info!(
-            "📋 ListShortcuts returned {} shortcuts",
+            "ListShortcuts returned {} shortcuts",
             listed.shortcuts().len()
         );
 
@@ -285,7 +285,7 @@ pub async fn start_linux_portal_hotkey_engine(
             };
 
             crate::log_info!(
-                "🔁 Restoring shortcut binding in current session using trigger='{}'",
+                "Restoring shortcut binding in current session using trigger='{}'",
                 preferred_trigger
             );
             active_trigger =
@@ -304,7 +304,7 @@ pub async fn start_linux_portal_hotkey_engine(
             return Err("No system shortcut found. Setup is required.".to_string());
         }
 
-        crate::log_info!("✅ Reusing existing portal shortcut: '{}'", active_trigger);
+        crate::log_info!("Reusing existing portal shortcut: '{}'", active_trigger);
     }
 
     {
@@ -327,7 +327,7 @@ pub async fn start_linux_portal_hotkey_engine(
 
     let app_handle_for_task = app_handle.clone();
     tauri::async_runtime::spawn(async move {
-        crate::log_info!("👂 Listening for shortcut events...");
+        crate::log_info!("Listening for shortcut events...");
         let mut shortcut_pressed = false;
         let repeat_activation_window =
             tokio::time::Duration::from_millis(REPEAT_ACTIVATION_WINDOW_MS);
@@ -342,187 +342,187 @@ pub async fn start_linux_portal_hotkey_engine(
 
         loop {
             tokio::select! {
-                _ = &mut cancel_rx => {
-                    crate::log_info!("🛑 Hotkey engine cancelled.");
-                    crate::set_hotkey_binding_state(
-                        &app_handle_for_task,
-                        false,
-                        false,
-                        Some("Hotkey engine stopped.".to_string()),
-                        None,
-                    );
-                    break;
-                }
-                activated_event = activated_stream.next() => {
-                    match activated_event {
-                        Some(event) => {
-                            let shortcut_id = event.shortcut_id().to_string();
-                            let timestamp_ms = event.timestamp().as_millis();
-                            let activation_now = tokio::time::Instant::now();
-                            let state = app_handle_for_task.state::<AppState>();
-                            let was_recording = *state.is_recording.lock().unwrap();
-                            crate::log_info!(
-                                "🎤 Portal Activated: id='{}', ts={}ms, shortcut_pressed={}, is_recording={} ",
-                                shortcut_id,
-                                timestamp_ms,
-                                shortcut_pressed,
-                                was_recording
-                            );
+                            _ = &mut cancel_rx => {
+                                crate::log_info!("Hotkey engine cancelled.");
+                                crate::set_hotkey_binding_state(
+                                    &app_handle_for_task,
+                                    false,
+                                    false,
+                                    Some("Hotkey engine stopped.".to_string()),
+                                    None,
+                                );
+                                break;
+                            }
+                            activated_event = activated_stream.next() => {
+                                match activated_event {
+                                    Some(event) => {
+                                        let shortcut_id = event.shortcut_id().to_string();
+                                        let timestamp_ms = event.timestamp().as_millis();
+                                        let activation_now = tokio::time::Instant::now();
+                                        let state = app_handle_for_task.state::<AppState>();
+                                        let was_recording = *state.is_recording.lock().unwrap();
+            crate::log_info!(
+                                        "Portal Activated: id='{}', ts={}ms, shortcut_pressed={}, is_recording={} ",
+                                            shortcut_id,
+                                            timestamp_ms,
+                                            shortcut_pressed,
+                                            was_recording
+                                        );
 
-                            if shortcut_id == RECORD_SHORTCUT_ID {
-                                if was_recording {
-                                    if let Some(previous_activation) = last_activation_at {
-                                        let activation_gap = activation_now.duration_since(previous_activation);
-                                        if activation_gap <= repeat_activation_window {
-                                            repeated_activation_count = repeated_activation_count.saturating_add(1);
-                                            if repeated_activation_count >= 2 && !repeat_mode_active {
-                                                repeat_mode_active = true;
-                                                crate::log_warn!(
-                                                    "⚠️  Portal repeat-activation mode detected (gap={}ms, count={}); waiting for activation silence fallback.",
-                                                    activation_gap.as_millis(),
+                                        if shortcut_id == RECORD_SHORTCUT_ID {
+                                            if was_recording {
+                                                if let Some(previous_activation) = last_activation_at {
+                                                    let activation_gap = activation_now.duration_since(previous_activation);
+                                                    if activation_gap <= repeat_activation_window {
+                                                        repeated_activation_count = repeated_activation_count.saturating_add(1);
+                                                        if repeated_activation_count >= 2 && !repeat_mode_active {
+                                                            repeat_mode_active = true;
+            crate::log_warn!(
+                                                            "Portal repeat-activation mode detected (gap={}ms, count={}); waiting for activation silence fallback.",
+                                                                activation_gap.as_millis(),
+                                                                repeated_activation_count
+                                                            );
+                                                        }
+                                                    } else {
+                                                        if repeat_mode_active {
+            crate::log_info!(
+                                                            "Portal activation cadence reset (gap={}ms); leaving repeat mode.",
+                                                                activation_gap.as_millis()
+                                                            );
+                                                        }
+                                                        repeat_mode_active = false;
+                                                        repeated_activation_count = 0;
+                                                    }
+                                                } else {
+                                                    repeated_activation_count = 0;
+                                                }
+
+                                                last_activation_at = Some(activation_now);
+                                                shortcut_pressed = true;
+                                                crate::log_info!(
+                                                    "Portal Activated while recording: repeat_mode_active={}, repeated_activation_count={}",
+                                                    repeat_mode_active,
                                                     repeated_activation_count
+                                                );
+                                            } else {
+                                                shortcut_pressed = true;
+                                                repeat_mode_active = false;
+                                                repeated_activation_count = 0;
+                                                last_activation_at = Some(activation_now);
+                                                crate::log_info!("Portal: Hotkey Pressed -> invoking start_recording");
+                                                let _ = crate::start_recording(state, app_handle_for_task.clone()).await;
+                                            }
+                                        } else {
+            crate::log_info!(
+                                            "Portal Activated ignored: id='{}', shortcut_pressed={} ",
+                                                shortcut_id,
+                                                shortcut_pressed
+                                            );
+                                        }
+                                    }
+                                    None => {
+                                        crate::log_warn!("GlobalShortcuts activated stream ended unexpectedly.");
+                                        crate::set_hotkey_binding_state(
+                                            &app_handle_for_task,
+                                            false,
+                                            false,
+                                            Some("Global shortcut listener disconnected (activated stream ended).".to_string()),
+                                            None,
+                                        );
+                                        break;
+                                    }
+                                }
+                            }
+                            deactivated_event = deactivated_stream.next() => {
+                                match deactivated_event {
+                                    Some(event) => {
+                                        let shortcut_id = event.shortcut_id().to_string();
+                                        let timestamp_ms = event.timestamp().as_millis();
+                                        let state = app_handle_for_task.state::<AppState>();
+                                        let was_recording = *state.is_recording.lock().unwrap();
+            crate::log_info!(
+                                        "Portal Deactivated: id='{}', ts={}ms, shortcut_pressed={}, is_recording={}",
+                                            shortcut_id,
+                                            timestamp_ms,
+                                            shortcut_pressed,
+                                            was_recording
+                                        );
+
+                                        if shortcut_id == RECORD_SHORTCUT_ID {
+                                            shortcut_pressed = false;
+                                            repeat_mode_active = false;
+                                            repeated_activation_count = 0;
+                                            last_activation_at = None;
+
+                                            if was_recording {
+                                                crate::log_info!("Portal: Hotkey Released -> invoking stop_recording");
+                                                let _ = crate::stop_recording(state).await;
+                                            } else {
+            crate::log_info!(
+                                            "Portal Deactivated received while not recording; ignoring"
                                                 );
                                             }
                                         } else {
-                                            if repeat_mode_active {
-                                                crate::log_info!(
-                                                    "🎤 Portal activation cadence reset (gap={}ms); leaving repeat mode.",
-                                                    activation_gap.as_millis()
-                                                );
-                                            }
-                                            repeat_mode_active = false;
-                                            repeated_activation_count = 0;
+            crate::log_info!(
+                                            "Portal Deactivated ignored: id='{}', shortcut_pressed={}",
+                                                shortcut_id,
+                                                shortcut_pressed
+                                            );
                                         }
-                                    } else {
-                                        repeated_activation_count = 0;
                                     }
+                                    None => {
+                                        crate::log_warn!("GlobalShortcuts deactivated stream ended unexpectedly.");
+                                        crate::set_hotkey_binding_state(
+                                            &app_handle_for_task,
+                                            false,
+                                            false,
+                                            Some("Global shortcut listener disconnected (deactivated stream ended).".to_string()),
+                                            None,
+                                        );
+                                        break;
+                                    }
+                                }
+                            }
+                            _ = repeat_watchdog.tick() => {
+                                if !repeat_mode_active {
+                                    continue;
+                                }
 
-                                    last_activation_at = Some(activation_now);
-                                    shortcut_pressed = true;
-                                    crate::log_info!(
-                                        "🎤 Portal Activated while recording: repeat_mode_active={}, repeated_activation_count={}",
-                                        repeat_mode_active,
-                                        repeated_activation_count
-                                    );
-                                } else {
-                                    shortcut_pressed = true;
+                                let Some(last_activation) = last_activation_at else {
                                     repeat_mode_active = false;
                                     repeated_activation_count = 0;
-                                    last_activation_at = Some(activation_now);
-                                    crate::log_info!("🎤 Portal: Hotkey Pressed -> invoking start_recording");
-                                    let _ = crate::start_recording(state, app_handle_for_task.clone()).await;
+                                    continue;
+                                };
+
+                                let state = app_handle_for_task.state::<AppState>();
+                                let is_recording = *state.is_recording.lock().unwrap();
+                                if !is_recording {
+                                    repeat_mode_active = false;
+                                    repeated_activation_count = 0;
+                                    shortcut_pressed = false;
+                                    last_activation_at = None;
+                                    continue;
                                 }
-                            } else {
-                                crate::log_info!(
-                                    "🎤 Portal Activated ignored: id='{}', shortcut_pressed={} ",
-                                    shortcut_id,
-                                    shortcut_pressed
-                                );
-                            }
-                        }
-                        None => {
-                            crate::log_warn!("GlobalShortcuts activated stream ended unexpectedly.");
-                            crate::set_hotkey_binding_state(
-                                &app_handle_for_task,
-                                false,
-                                false,
-                                Some("Global shortcut listener disconnected (activated stream ended).".to_string()),
-                                None,
-                            );
-                            break;
-                        }
-                    }
-                }
-                deactivated_event = deactivated_stream.next() => {
-                    match deactivated_event {
-                        Some(event) => {
-                            let shortcut_id = event.shortcut_id().to_string();
-                            let timestamp_ms = event.timestamp().as_millis();
-                            let state = app_handle_for_task.state::<AppState>();
-                            let was_recording = *state.is_recording.lock().unwrap();
-                            crate::log_info!(
-                                "⏹️  Portal Deactivated: id='{}', ts={}ms, shortcut_pressed={}, is_recording={}",
-                                shortcut_id,
-                                timestamp_ms,
-                                shortcut_pressed,
-                                was_recording
-                            );
 
-                            if shortcut_id == RECORD_SHORTCUT_ID {
-                                shortcut_pressed = false;
-                                repeat_mode_active = false;
-                                repeated_activation_count = 0;
-                                last_activation_at = None;
-
-                                if was_recording {
-                                    crate::log_info!("⏹️  Portal: Hotkey Released -> invoking stop_recording");
-                                    let _ = crate::stop_recording(state).await;
-                                } else {
-                                    crate::log_info!(
-                                        "⏹️  Portal Deactivated received while not recording; ignoring"
+                                let silence = tokio::time::Instant::now().duration_since(last_activation);
+                                if silence >= repeat_silence_timeout {
+                                    // Rationale: in Fedora Wayland repeat-mode edge cases,
+                                    // the portal may stop sending Activated heartbeat after
+                                    // keys are released but still not emit Deactivated.
+                                    // Treating heartbeat silence as release prevents stuck
+                                    // recording while preserving normal Deactivated flow.
+                                    crate::log_warn!(
+                                        "Portal activation heartbeat stopped for {}ms in repeat mode; forcing stop_recording.",
+                                        silence.as_millis()
                                     );
+                                    repeat_mode_active = false;
+                                    repeated_activation_count = 0;
+                                    shortcut_pressed = false;
+                                    last_activation_at = None;
+                                    let _ = crate::stop_recording(state).await;
                                 }
-                            } else {
-                                crate::log_info!(
-                                    "⏹️  Portal Deactivated ignored: id='{}', shortcut_pressed={}",
-                                    shortcut_id,
-                                    shortcut_pressed
-                                );
                             }
                         }
-                        None => {
-                            crate::log_warn!("GlobalShortcuts deactivated stream ended unexpectedly.");
-                            crate::set_hotkey_binding_state(
-                                &app_handle_for_task,
-                                false,
-                                false,
-                                Some("Global shortcut listener disconnected (deactivated stream ended).".to_string()),
-                                None,
-                            );
-                            break;
-                        }
-                    }
-                }
-                _ = repeat_watchdog.tick() => {
-                    if !repeat_mode_active {
-                        continue;
-                    }
-
-                    let Some(last_activation) = last_activation_at else {
-                        repeat_mode_active = false;
-                        repeated_activation_count = 0;
-                        continue;
-                    };
-
-                    let state = app_handle_for_task.state::<AppState>();
-                    let is_recording = *state.is_recording.lock().unwrap();
-                    if !is_recording {
-                        repeat_mode_active = false;
-                        repeated_activation_count = 0;
-                        shortcut_pressed = false;
-                        last_activation_at = None;
-                        continue;
-                    }
-
-                    let silence = tokio::time::Instant::now().duration_since(last_activation);
-                    if silence >= repeat_silence_timeout {
-                        // Rationale: in Fedora Wayland repeat-mode edge cases,
-                        // the portal may stop sending Activated heartbeat after
-                        // keys are released but still not emit Deactivated.
-                        // Treating heartbeat silence as release prevents stuck
-                        // recording while preserving normal Deactivated flow.
-                        crate::log_warn!(
-                            "⏱️  Portal activation heartbeat stopped for {}ms in repeat mode; forcing stop_recording.",
-                            silence.as_millis()
-                        );
-                        repeat_mode_active = false;
-                        repeated_activation_count = 0;
-                        shortcut_pressed = false;
-                        last_activation_at = None;
-                        let _ = crate::stop_recording(state).await;
-                    }
-                }
-            }
         }
 
         if let Err(error) = session.close().await {

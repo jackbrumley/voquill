@@ -316,7 +316,7 @@ pub async fn set_configuring_hotkey(
         let mut config_flag = state.is_configuring_hotkey.lock().unwrap();
         *config_flag = is_configuring;
     }
-    crate::log_info!("🔧 set_configuring_hotkey: {}", is_configuring);
+    crate::log_info!("set_configuring_hotkey: {}", is_configuring);
 
     if is_wayland_session() {
         if is_configuring {
@@ -330,7 +330,7 @@ pub async fn set_configuring_hotkey(
                 }
             };
             if cancelled {
-                crate::log_info!("⏸️  Paused Wayland hotkey engine while configuring shortcut");
+                crate::log_info!("Paused Wayland hotkey engine while configuring shortcut");
             }
         } else {
             let should_resume = {
@@ -367,7 +367,7 @@ pub async fn set_configuring_hotkey(
         let mut config_flag = state.is_configuring_hotkey.lock().unwrap();
         *config_flag = is_configuring;
     }
-    crate::log_info!("🔧 set_configuring_hotkey: {}", is_configuring);
+    crate::log_info!("set_configuring_hotkey: {}", is_configuring);
     Ok(())
 }
 

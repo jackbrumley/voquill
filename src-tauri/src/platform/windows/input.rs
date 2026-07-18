@@ -59,7 +59,7 @@ pub fn type_text_hardware(
     let hold_duration = Duration::from_millis(key_press_duration_ms);
 
     crate::log_info!(
-        "⌨️  [Hardware Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)",
+        "[Hardware Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)",
         text,
         interval_ms,
         key_press_duration_ms
@@ -87,7 +87,7 @@ pub fn type_text_hardware(
         }
     }
 
-    crate::log_info!("✅ Hardware typing complete");
+    crate::log_info!("Hardware typing complete");
     Ok(())
 }
 

@@ -15,6 +15,80 @@ pub struct WaylandTypeRequest {
 
 pub type WaylandTypeSender = tokio::sync::mpsc::UnboundedSender<WaylandTypeRequest>;
 
+async fn create_portal_session(
+    restore_token: Option<&str>,
+) -> Result<
+    (
+        RemoteDesktop<'static>,
+        ashpd::desktop::Session<'static, RemoteDesktop<'static>>,
+        Option<String>,
+    ),
+    String,
+> {
+    let remote_desktop = RemoteDesktop::new()
+        .await
+        .map_err(|error| format!("Remote Desktop Portal not available: {error}"))?;
+    let session = remote_desktop
+        .create_session()
+        .await
+        .map_err(|error| format!("Failed to create remote desktop session: {error}"))?;
+
+    let select_request = remote_desktop
+        .select_devices(
+            &session,
+            DeviceType::Keyboard.into(),
+            restore_token,
+            PersistMode::ExplicitlyRevoked,
+        )
+        .await
+        .map_err(|error| format!("Failed to select keyboard devices: {error}"))?;
+    select_request
+        .response()
+        .map_err(|error| format!("Input device selection denied or cancelled: {error}"))?;
+
+    let start_request = remote_desktop
+        .start(&session, None)
+        .await
+        .map_err(|error| format!("Failed to start remote desktop session: {error}"))?;
+    let selected_devices = start_request
+        .response()
+        .map_err(|error| format!("Input emulation request denied or cancelled: {error}"))?;
+
+    let new_token = selected_devices
+        .restore_token()
+        .map(|token| token.to_string());
+
+    Ok((remote_desktop, session, new_token))
+}
+
+async fn reconnect_portal_session(
+    app_handle: &tauri::AppHandle,
+) -> Result<
+    (
+        RemoteDesktop<'static>,
+        ashpd::desktop::Session<'static, RemoteDesktop<'static>>,
+    ),
+    String,
+> {
+    let stored_token = {
+        let state = app_handle.state::<AppState>();
+        let config = state.config.lock().unwrap();
+        config.input_token.clone()
+    };
+
+    let (remote_desktop, session, new_token) =
+        create_portal_session(stored_token.as_deref()).await?;
+
+    if let Some(ref token) = new_token {
+        let state = app_handle.state::<AppState>();
+        let mut config = state.config.lock().unwrap();
+        config.input_token = Some(token.clone());
+        let _ = crate::config::save_config(&config);
+    }
+
+    Ok((remote_desktop, session))
+}
+
 pub async fn establish_input_session(
     app_handle: &tauri::AppHandle,
     force_rebind: bool,
@@ -43,38 +117,8 @@ pub async fn establish_input_session(
         }
     };
 
-    let remote_desktop = RemoteDesktop::new()
-        .await
-        .map_err(|error| format!("Remote Desktop Portal not available: {error}"))?;
-    let session = remote_desktop
-        .create_session()
-        .await
-        .map_err(|error| format!("Failed to create remote desktop session: {error}"))?;
-
-    let select_request = remote_desktop
-        .select_devices(
-            &session,
-            DeviceType::Keyboard.into(),
-            requested_restore_token.as_deref(),
-            PersistMode::ExplicitlyRevoked,
-        )
-        .await
-        .map_err(|error| format!("Failed to select keyboard devices: {error}"))?;
-    select_request
-        .response()
-        .map_err(|error| format!("Input device selection denied or cancelled: {error}"))?;
-
-    let start_request = remote_desktop
-        .start(&session, None)
-        .await
-        .map_err(|error| format!("Failed to start remote desktop session: {error}"))?;
-    let selected_devices = start_request
-        .response()
-        .map_err(|error| format!("Input emulation request denied or cancelled: {error}"))?;
-
-    let input_token = selected_devices
-        .restore_token()
-        .map(|token| token.to_string());
+    let (remote_desktop, session, input_token) =
+        create_portal_session(requested_restore_token.as_deref()).await?;
 
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<WaylandTypeRequest>();
     let (cancel_sender, mut cancel_receiver) = tokio::sync::oneshot::channel::<()>();
@@ -102,31 +146,85 @@ pub async fn establish_input_session(
 
     let app_handle_for_task = app_handle.clone();
     tauri::async_runtime::spawn(async move {
-        crate::log_info!("⌨️ Wayland input emulation session started");
+        crate::log_info!("Wayland input emulation session started");
+
+        let mut current_remote_desktop = remote_desktop;
+        let mut current_session = session;
 
         loop {
             tokio::select! {
                 _ = &mut cancel_receiver => {
-                    crate::log_info!("🛑 Wayland input session cancelled.");
+                    crate::log_info!("Wayland input session cancelled.");
                     break;
                 }
                 maybe_request = receiver.recv() => {
                     let Some(request) = maybe_request else {
                         break;
                     };
+
                     let result = send_text_over_portal(
-                        &remote_desktop,
-                        &session,
+                        &current_remote_desktop,
+                        &current_session,
                         &request.text,
                         request.interval_ms,
                         request.hold_ms,
                     ).await;
+
+                    let result = match result {
+                        Ok(()) => Ok(()),
+                        Err(error) => {
+                            crate::log_warn!(
+                                "Wayland typing failed (session may have expired): {}. Attempting reconnect...",
+                                error
+                            );
+
+                            {
+                                let state = app_handle_for_task.state::<AppState>();
+                                *state.wayland_input_ready.lock().unwrap() = false;
+                            }
+
+                            let _ = current_session.close().await;
+
+                            match reconnect_portal_session(&app_handle_for_task).await {
+                                Ok((new_rd, new_sess)) => {
+                                    current_remote_desktop = new_rd;
+                                    current_session = new_sess;
+                                    {
+                                        let state = app_handle_for_task.state::<AppState>();
+                                        *state.wayland_input_ready.lock().unwrap() = true;
+                                    }
+                                    crate::log_info!("Wayland input session reconnected. Retrying typing...");
+
+                                    send_text_over_portal(
+                                        &current_remote_desktop,
+                                        &current_session,
+                                        &request.text,
+                                        request.interval_ms,
+                                        request.hold_ms,
+                                    ).await
+                                }
+                                Err(reconnect_error) => {
+                                    crate::log_warn!(
+                                        "Failed to reconnect Wayland input session: {}",
+                                        reconnect_error
+                                    );
+                                    let state = app_handle_for_task.state::<AppState>();
+                                    *state.wayland_input_ready.lock().unwrap() = false;
+                                    Err(format!(
+                                        "Input session expired and reconnection failed: {}",
+                                        reconnect_error
+                                    ))
+                                }
+                            }
+                        }
+                    };
+
                     let _ = request.response.send(result);
                 }
             }
         }
 
-        if let Err(error) = session.close().await {
+        if let Err(error) = current_session.close().await {
             crate::log_warn!("Failed to close Wayland input session cleanly: {}", error);
         }
 
@@ -211,7 +309,7 @@ async fn send_text_over_portal(
     hold_ms: u64,
 ) -> Result<(), String> {
     crate::log_info!(
-        "⌨️  [Wayland Portal Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)",
+        "[Wayland Portal Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)",
         text,
         interval_ms,
         hold_ms
@@ -236,7 +334,7 @@ async fn send_text_over_portal(
         }
     }
 
-    crate::log_info!("✅ Wayland portal typing complete");
+    crate::log_info!("Wayland portal typing complete");
     Ok(())
 }
 

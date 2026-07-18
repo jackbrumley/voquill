@@ -14,14 +14,14 @@ pub async fn start_windows_hotkey_engine(app_handle: tauri::AppHandle) -> Result
     match crate::hotkey::parse_hotkey_string(&hotkey_string) {
         Ok(shortcut) => {
             if let Err(e) = app_handle.global_shortcut().register(shortcut) {
-                crate::log_info!("❌ Failed to register global hotkey: {}", e);
+                crate::log_info!("Failed to register global hotkey: {}", e);
                 return Err(format!("Failed to register global hotkey: {e}"));
             } else {
-                crate::log_info!("✅ Global hotkey registered: {}", hotkey_string);
+                crate::log_info!("Global hotkey registered: {}", hotkey_string);
             }
         }
         Err(e) => {
-            crate::log_info!("❌ Failed to parse hotkey string: {}", e);
+            crate::log_info!("Failed to parse hotkey string: {}", e);
             return Err(format!("Failed to parse hotkey string: {e}"));
         }
     }

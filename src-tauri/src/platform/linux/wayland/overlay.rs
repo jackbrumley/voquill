@@ -22,7 +22,7 @@ pub fn apply_linux_unfocusable_hints(window: &WebviewWindow, pixels_from_bottom_
     let layer_shell_supported = gtk_layer_shell::is_supported();
     OVERLAY_LAYER_SHELL_SUPPORT.store(if layer_shell_supported { 1 } else { 2 }, Ordering::Relaxed);
     crate::log_info!(
-        "🧭 Wayland overlay capability: manual_offset_supported={}",
+        "Wayland overlay capability: manual_offset_supported={}",
         layer_shell_supported
     );
 
@@ -32,7 +32,7 @@ pub fn apply_linux_unfocusable_hints(window: &WebviewWindow, pixels_from_bottom_
             if layer_shell_supported {
                 let was_initialized = OVERLAY_LAYER_SHELL_INITIALIZED.swap(true, Ordering::SeqCst);
                 if !was_initialized {
-                    crate::log_info!("🛠️  Initializing Wayland Layer Shell for overlay...");
+                    crate::log_info!("Initializing Wayland Layer Shell for overlay...");
                     gtk_window.init_layer_shell();
                     gtk_window.set_layer(gtk_layer_shell::Layer::Overlay);
                     gtk_window.set_anchor(gtk_layer_shell::Edge::Bottom, true);
@@ -46,7 +46,7 @@ pub fn apply_linux_unfocusable_hints(window: &WebviewWindow, pixels_from_bottom_
                 );
             } else {
                 crate::log_warn!(
-                    "⚠️  Layer Shell not supported by compositor, using standard window hints"
+                    "Layer Shell not supported by compositor, using standard window hints"
                 );
             }
 

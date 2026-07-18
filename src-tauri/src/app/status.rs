@@ -32,7 +32,7 @@ async fn hide_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
     if let Some(overlay_window) = app_handle.get_webview_window("overlay") {
         overlay_window.hide().map_err(|error| error.to_string())?;
     } else {
-        crate::log_warn!("⚠️ hide_overlay_window: overlay window not found");
+        crate::log_warn!("hide_overlay_window: overlay window not found");
     }
     Ok(())
 }
@@ -89,7 +89,7 @@ pub async fn emit_status_update(status: &str) {
     }
 
     crate::log_info!(
-        "🔄 App Status Change: '{}' -> '{}'",
+        "App Status Change: '{}' -> '{}'",
         previous_status.as_deref().unwrap_or("<unknown>"),
         status
     );

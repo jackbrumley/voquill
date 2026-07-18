@@ -75,7 +75,7 @@ pub async fn record_and_transcribe(
         return Ok(());
     }
     if let Err(error) = validate_audio_duration(&audio_data) {
-        crate::log_info!("⚠️ Audio validation failed: {}", error);
+        crate::log_info!("Audio validation failed: {}", error);
         reset_status_on_exit().await;
         return Ok(());
     }
@@ -121,16 +121,16 @@ pub async fn record_and_transcribe(
             ));
 
         if let Err(error) = std::fs::create_dir_all(debug_path.parent().unwrap()) {
-            crate::log_info!("❌ Failed to create debug directory: {}", error);
+            crate::log_info!("Failed to create debug directory: {}", error);
         } else if let Err(error) = std::fs::write(&debug_path, &audio_data) {
-            crate::log_info!("❌ Failed to save debug recording: {}", error);
+            crate::log_info!("Failed to save debug recording: {}", error);
         } else {
-            crate::log_info!("🛡️ Debug recording saved to: {:?}", debug_path);
+            crate::log_info!("Debug recording saved to: {:?}", debug_path);
         }
     }
 
-    crate::log_info!("📡 Transcription Mode: {:?}", transcription_mode);
-    crate::log_info!("🌐 Language: {:?}, Hint: {:?}", lang_code, prompt_hint);
+    crate::log_info!("Transcription Mode: {:?}", transcription_mode);
+    crate::log_info!("Language: {:?}, Hint: {:?}", lang_code, prompt_hint);
 
     let service: Box<dyn transcription::TranscriptionService + Send + Sync> =
         match transcription_mode {
@@ -147,7 +147,7 @@ pub async fn record_and_transcribe(
                 match local_whisper::LocalWhisperService::new(&model_size, use_gpu) {
                     Ok(service) => Box::new(service),
                     Err(error) => {
-                        crate::log_info!("❌ Failed to initialize Local Whisper: {}", error);
+                        crate::log_info!("Failed to initialize Local Whisper: {}", error);
                         reset_status_on_exit().await;
                         return Err(error.into());
                     }
@@ -161,7 +161,7 @@ pub async fn record_and_transcribe(
     {
         Ok(text) => {
             crate::log_info!(
-                "📝 Transcription received ({}): \"{}\"",
+                "Transcription received ({}): \"{}\"",
                 service.service_name(),
                 text
             );
@@ -170,7 +170,7 @@ pub async fn record_and_transcribe(
 
         Err(error) => {
             crate::log_info!(
-                "❌ Transcription failed ({}): {}",
+                "Transcription failed ({}): {}",
                 service.service_name(),
                 error
             );
@@ -202,28 +202,28 @@ pub async fn record_and_transcribe(
             config::OutputMethod::Typewriter => {
                 if copy_on_typewriter {
                     if let Err(error) = typing::copy_to_clipboard(&text) {
-                        crate::log_info!("❌ CLIPBOARD ERROR: {}", error);
+                        crate::log_info!("CLIPBOARD ERROR: {}", error);
                     }
                 }
-                crate::log_info!("⌨️  Forwarding text to hardware typing engine...");
+                crate::log_info!("Forwarding text to hardware typing engine...");
                 let state = app_handle.state::<crate::AppState>();
                 if let Err(error) = state
                     .display_backend
                     .type_text_hardware(&app_handle, &text, typing_speed, hold_duration)
                     .await
                 {
-                    crate::log_info!("❌ TYPING ENGINE ERROR: {}", error);
+                    crate::log_info!("TYPING ENGINE ERROR: {}", error);
                 }
             }
             config::OutputMethod::Clipboard => {
-                crate::log_info!("📋 Copying text to clipboard (Clipboard Mode)...");
+                crate::log_info!("Copying text to clipboard (Clipboard Mode)...");
                 if let Err(error) = typing::copy_to_clipboard(&text) {
-                    crate::log_info!("❌ CLIPBOARD ERROR: {}", error);
+                    crate::log_info!("CLIPBOARD ERROR: {}", error);
                 }
             }
         }
     } else {
-        crate::log_info!("ℹ️ Transcription was empty, skipping typing.");
+        crate::log_info!("Transcription was empty, skipping typing.");
     }
 
     reset_status_on_exit().await;

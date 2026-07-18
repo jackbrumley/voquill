@@ -12,7 +12,7 @@ pub async fn start_x11_hotkey_engine(app_handle: tauri::AppHandle) -> Result<(),
         return Err("No hotkey configured for X11.".to_string());
     }
 
-    crate::log_info!("🔄 Re-registering X11 hotkey: {}", hotkey_str);
+    crate::log_info!("Re-registering X11 hotkey: {}", hotkey_str);
     app_handle
         .global_shortcut()
         .unregister_all()
@@ -26,7 +26,7 @@ pub async fn start_x11_hotkey_engine(app_handle: tauri::AppHandle) -> Result<(),
         .register(shortcut)
         .map_err(|error| format!("Failed to register global hotkey on X11: {error}"))?;
 
-    crate::log_info!("✅ X11 global hotkey registered: {}", hotkey_str);
+    crate::log_info!("X11 global hotkey registered: {}", hotkey_str);
 
     Ok(())
 }

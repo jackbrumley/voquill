@@ -22,12 +22,12 @@ pub fn check_wayland_display() {
         use gtk::glib::prelude::ObjectExt;
         let type_name = display.type_().name();
         let backend = if type_name.contains("Wayland") {
-            "Wayland ✅"
+            "Wayland"
         } else if type_name.contains("X11") {
-            "X11 ✅"
+            "X11"
         } else {
-            "Unknown ⚠️"
+            "Unknown"
         };
-        crate::log_info!("🖥️  GDK Backend: {} ({})", backend, type_name);
+        crate::log_info!("GDK Backend: {} ({})", backend, type_name);
     }
 }

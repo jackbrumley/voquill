@@ -62,7 +62,7 @@ impl TranscriptionService for LocalWhisperService {
             ..Default::default()
         };
         if self.use_gpu {
-            log_info!("🚀 Attempting to use GPU acceleration (Vulkan/Metal/CUDA)...");
+            log_info!("Attempting to use GPU acceleration (Vulkan/Metal/CUDA)...");
             // Note: whisper-rs handles the specific backend based on features enabled at build time.
             // We can also hint at the number of GPU layers if needed in the future.
         }

@@ -66,7 +66,7 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
         let hr = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
         if hr.is_err() && hr.0 != 0x00040101 {
             // RPC_E_CHANGED_MODE
-            crate::log_info!("⚠️ Windows Audio: CoInitializeEx failed: {:?}", hr);
+            crate::log_info!("Windows Audio: CoInitializeEx failed: {:?}", hr);
         }
 
         let enumerator: IMMDeviceEnumerator =
@@ -81,7 +81,7 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
             .GetCount()
             .map_err(|e| format!("Failed to get device count: {}", e))?;
 
-        crate::log_info!("📡 Windows Audio: Found {} active capture endpoints", count);
+        crate::log_info!("Windows Audio: Found {} active capture endpoints", count);
 
         for i in 0..count {
             if let Ok(device) = collection.Item(i) {
@@ -98,7 +98,7 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
 
                     if friendly_name.is_none() && device_desc.is_none() {
                         if let Ok(p_count) = props.GetCount() {
-                            crate::log_info!("⚠️ Windows Audio: Store for {} has {} properties but FriendlyName/Desc missing", id, p_count);
+                            crate::log_info!("Windows Audio: Store for {} has {} properties but FriendlyName/Desc missing", id, p_count);
                             for j in 0..p_count {
                                 let mut pk = PROPERTYKEY::default();
 
@@ -132,7 +132,7 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
                         friendly
                     };
 
-                    crate::log_info!("✅ Windows Audio: Enumerated '{}'", label);
+                    crate::log_info!("Windows Audio: Enumerated '{}'", label);
                     devices.push(AudioDevice { id, label });
                 }
             }
@@ -158,7 +158,7 @@ impl PersistentAudioEngine {
         let channels = config.channels();
 
         crate::log_info!(
-            "🎤 Audio Engine: Opening native stream ({}Hz, {} channels)",
+            "Audio Engine: Opening native stream ({}Hz, {} channels)",
             sample_rate,
             channels
         );
@@ -170,7 +170,7 @@ impl PersistentAudioEngine {
         let recording_tx = Arc::new(Mutex::new(None::<mpsc::SyncSender<f32>>));
         let recording_tx_clone = recording_tx.clone();
 
-        let err_fn = |err| crate::log_info!("❌ Audio stream error: {}", err);
+        let err_fn = |err| crate::log_info!("Audio stream error: {}", err);
 
         let stream_config: cpal::StreamConfig = config.clone().into();
         let channels_usize = channels as usize;
@@ -421,7 +421,7 @@ pub async fn record_audio_while_flag(
     is_recording: &Arc<Mutex<bool>>,
     engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-    crate::log_info!("🎙️ record_audio_while_flag: enter");
+    crate::log_info!("record_audio_while_flag: enter");
     let (tx, rx) = mpsc::sync_channel::<f32>(65536);
     let mut samples = Vec::new();
     let sample_rate;
@@ -464,13 +464,13 @@ pub async fn record_audio_while_flag(
     while *is_recording.lock().unwrap() {
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    crate::log_info!("🎙️ record_audio_while_flag: flag observed false, finalizing capture");
+    crate::log_info!("record_audio_while_flag: flag observed false, finalizing capture");
     if let Some(eng) = engine.lock().unwrap().as_ref() {
         *eng.recording_tx.lock().unwrap() = None;
     }
     let final_wav = data_rx.recv()?;
     crate::log_info!(
-        "🎙️ record_audio_while_flag: captured {} bytes of wav before whisper conversion",
+        "record_audio_while_flag: captured {} bytes of wav before whisper conversion",
         final_wav.len()
     );
     convert_audio_for_whisper(&final_wav, sample_rate, 1)
@@ -524,7 +524,7 @@ where
     let final_samples = data_rx.recv()?;
 
     crate::log_info!(
-        "✅ Mic test: Finished with {} samples at {}Hz",
+        "Mic test: Finished with {} samples at {}Hz",
         final_samples.len(),
         sample_rate
     );
@@ -572,7 +572,7 @@ where
     ));
     let chans = stream_config.channels as usize;
 
-    let err_fn = |err| crate::log_info!("🔊 Playback error: {}", err);
+    let err_fn = |err| crate::log_info!("Playback error: {}", err);
     let mut done = Some(on_done);
 
     let stream = match config.sample_format() {

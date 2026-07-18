@@ -50,7 +50,7 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
             Ok(device) => Some(device),
             Err(error) => {
                 crate::log_warn!(
-                    "❌ Initial audio device pre-warm failed (requested_device='{}'): {}",
+                    "Initial audio device pre-warm failed (requested_device='{}'): {}",
                     initial_config
                         .audio_device
                         .clone()
@@ -67,11 +67,11 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
                 Ok(engine) => {
                     let mut engine_guard = app_state.audio_engine.lock().unwrap();
                     *engine_guard = Some(engine);
-                    crate::log_info!("✅ Persistent audio engine initialized");
+                    crate::log_info!("Persistent audio engine initialized");
                 }
                 Err(error) => {
                     crate::log_warn!(
-                        "❌ Initial persistent audio engine initialization failed (requested_device='{}', sensitivity={:.2}): {}",
+                        "Initial persistent audio engine initialization failed (requested_device='{}', sensitivity={:.2}): {}",
                         initial_config
                             .audio_device
                             .clone()
@@ -82,7 +82,7 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
                 }
             }
         }
-        crate::log_info!("🔧 Initial pre-warm of audio device cache complete");
+        crate::log_info!("Initial pre-warm of audio device cache complete");
     }
 
     app_state
@@ -104,7 +104,7 @@ pub fn run_setup(
         let prg_name = gtk::glib::prgname();
         let detected = crate::platform::linux::detection::detect_display_server();
         crate::log_info!(
-            "🧭 Launch context: detected={:?}, XDG_SESSION_TYPE={:?}, WAYLAND_DISPLAY={:?}, DISPLAY={:?}, XDG_CURRENT_DESKTOP={:?}, prgname={:?}",
+            "Launch context: detected={:?}, XDG_SESSION_TYPE={:?}, WAYLAND_DISPLAY={:?}, DISPLAY={:?}, XDG_CURRENT_DESKTOP={:?}, prgname={:?}",
             detected,
             session_type,
             wayland_display,
@@ -112,9 +112,9 @@ pub fn run_setup(
             desktop,
             prg_name
         );
-        crate::log_info!("🧭 App version: {}", env!("CARGO_PKG_VERSION"));
+        crate::log_info!("App version: {}", env!("CARGO_PKG_VERSION"));
         if let Some(distro_name) = read_linux_distribution_name() {
-            crate::log_info!("🧭 Linux distro: {}", distro_name);
+            crate::log_info!("Linux distro: {}", distro_name);
         }
 
         if is_wayland_session() {
@@ -132,32 +132,32 @@ pub fn run_setup(
                     let mut registration_error =
                         state.wayland_host_app_registration_error.lock().unwrap();
                     *registration_error = None;
-                    crate::log_info!("✅ Registered host app ID with portal registry");
+                    crate::log_info!("Registered host app ID with portal registry");
                 }
                 Err(error) => {
                     let mut registration_error =
                         state.wayland_host_app_registration_error.lock().unwrap();
                     *registration_error = Some(error.clone());
-                    crate::log_warn!("⚠️ Host app registration failed: {}", error);
+                    crate::log_warn!("Host app registration failed: {}", error);
                 }
             }
 
             let tray_watcher_available =
                 tauri::async_runtime::block_on(is_status_notifier_watcher_available());
             crate::log_info!(
-                "🧭 StatusNotifier watcher available: {}",
+                "StatusNotifier watcher available: {}",
                 tray_watcher_available
             );
         }
     }
 
     if let Some(window) = app.get_webview_window("overlay") {
-        crate::log_info!("🔍 Overlay window found in setup");
+        crate::log_info!("Overlay window found in setup");
         let _ = window.hide();
         let state = app.state::<AppState>();
         state.display_backend.apply_overlay_hints(&window);
     } else {
-        crate::log_info!("❌ Overlay window NOT FOUND in setup!");
+        crate::log_info!("Overlay window NOT FOUND in setup!");
     }
     let _ = audio::get_input_devices();
 

@@ -67,7 +67,7 @@ pub async fn save_config(
         })?;
 
         crate::log_info!(
-            "🔧 Audio config changed, validating persistent engine restart (requested_device='{}', sensitivity={:.2})",
+            "Audio config changed, validating persistent engine restart (requested_device='{}', sensitivity={:.2})",
             merged_config
                 .audio_device
                 .clone()
@@ -109,13 +109,13 @@ pub async fn save_config(
             let mut engine_guard = state.audio_engine.lock().unwrap();
             *engine_guard = prepared_engine;
         }
-        crate::log_info!("✅ Persistent engine restarted");
+        crate::log_info!("Persistent engine restarted");
     } else {
         let cached = match audio::lookup_device(merged_config.audio_device.clone()) {
             Ok(device) => Some(device),
             Err(error) => {
                 crate::log_warn!(
-                    "❌ Failed to pre-warm audio device cache (requested_device='{}'): {}",
+                    "Failed to pre-warm audio device cache (requested_device='{}'): {}",
                     merged_config
                         .audio_device
                         .clone()
@@ -127,7 +127,7 @@ pub async fn save_config(
         };
         let mut cached_device = state.cached_device.lock().unwrap();
         *cached_device = cached;
-        crate::log_info!("🔧 Pre-warmed audio device cache");
+        crate::log_info!("Pre-warmed audio device cache");
     }
 
     if let Err(error) = config::save_config(&merged_config) {
@@ -156,7 +156,7 @@ pub async fn reset_application_to_defaults(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    crate::log_info!("🧹 Factory reset requested");
+    crate::log_info!("Factory reset requested");
 
     let root_dir = crate::get_app_config_root_dir()?;
 
@@ -172,7 +172,7 @@ pub async fn reset_application_to_defaults(
 
     if let Err(error) = crate::truncate_session_log_with_header() {
         crate::log_warn!(
-            "⚠️ Could not truncate session log during factory reset: {}",
+            "Could not truncate session log during factory reset: {}",
             error
         );
     }
@@ -222,6 +222,6 @@ pub async fn reset_application_to_defaults(
     let _ = app_handle.emit("config-updated", default_config.clone());
     let _ = app_handle.emit("setup-status-changed", serde_json::json!({}));
 
-    crate::log_info!("✅ Factory reset completed successfully");
+    crate::log_info!("Factory reset completed successfully");
     Ok(())
 }

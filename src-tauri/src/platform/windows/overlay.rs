@@ -4,7 +4,7 @@ pub fn apply_overlay_hints(window: &WebviewWindow) {
     let window_clone = window.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-        log_info!("👻 Applying Ghost Mode attributes...");
+        log_info!("Applying Ghost Mode attributes...");
         let _ = window_clone.set_focusable(false);
         let _ = window_clone.set_ignore_cursor_events(true);
     });
@@ -45,7 +45,7 @@ pub fn position_overlay_window(
         - pixels_from_bottom_physical;
 
     log_info!(
-        "📍 Positioning overlay at Physical: {}, {} (Monitor: {:?}x{:?} at {:?}, Scale: {})",
+        "Positioning overlay at Physical: {}, {} (Monitor: {:?}x{:?} at {:?}, Scale: {})",
         x,
         y,
         monitor_size.width,

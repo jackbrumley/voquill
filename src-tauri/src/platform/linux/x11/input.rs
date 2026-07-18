@@ -173,7 +173,7 @@ pub fn type_text_hardware(
     let hold_duration = Duration::from_millis(key_press_duration_ms);
 
     crate::log_info!(
-        "⌨️  [X11 Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)",
+        "[X11 Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)",
         text,
         interval_ms,
         key_press_duration_ms
@@ -191,12 +191,12 @@ pub fn type_text_hardware(
                 .collect::<Vec<String>>()
                 .join(", ");
             crate::log_warn!(
-                "⚠️ [X11 Engine] Unmappable characters detected ({}). Falling back to clipboard paste.",
+                "[X11 Engine] Unmappable characters detected ({}). Falling back to clipboard paste.",
                 unsupported
             );
             crate::typing::copy_to_clipboard(text)?;
             paste_via_clipboard_shortcut(&connection, &keyboard_map)?;
-            crate::log_info!("✅ X11 Clipboard fallback paste complete");
+            crate::log_info!("X11 Clipboard fallback paste complete");
             return Ok(());
         }
     };
@@ -222,6 +222,6 @@ pub fn type_text_hardware(
         }
     }
 
-    crate::log_info!("✅ X11 Hardware typing complete");
+    crate::log_info!("X11 Hardware typing complete");
     Ok(())
 }
