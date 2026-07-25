@@ -6,6 +6,8 @@ use tauri::Manager;
 
 use crate::AppState;
 
+const XK_SHIFT_L: i32 = 0xFFE1;
+
 pub struct WaylandTypeRequest {
     pub text: String,
     pub interval_ms: u64,
@@ -301,6 +303,69 @@ pub async fn type_text_hardware(
         .map_err(|_| "Wayland input emulation response channel closed unexpectedly.".to_string())?
 }
 
+async fn send_key(
+    remote_desktop: &RemoteDesktop<'_>,
+    session: &ashpd::desktop::Session<'_, RemoteDesktop<'_>>,
+    keysym: i32,
+    state: KeyState,
+) -> Result<(), String> {
+    remote_desktop
+        .notify_keyboard_keysym(session, keysym, state)
+        .await
+        .map_err(|error| format!("Portal key event failed for keysym {keysym:#x}: {error}"))
+}
+
+async fn release_shift(
+    remote_desktop: &RemoteDesktop<'_>,
+    session: &ashpd::desktop::Session<'_, RemoteDesktop<'_>>,
+) -> Result<(), String> {
+    send_key(remote_desktop, session, XK_SHIFT_L, KeyState::Released).await
+}
+
+async fn press_shift(
+    remote_desktop: &RemoteDesktop<'_>,
+    session: &ashpd::desktop::Session<'_, RemoteDesktop<'_>>,
+) -> Result<(), String> {
+    send_key(remote_desktop, session, XK_SHIFT_L, KeyState::Pressed).await
+}
+
+fn needs_shift(ch: char) -> bool {
+    match ch {
+        'A'..='Z' => true,
+        '!' | '@' | '#' | '$' | '%' | '^' | '&' | '*' | '(' | ')' => true,
+        '_' | '+' | '{' | '}' | '|' | ':' | '"' | '<' | '>' | '?' | '~' => true,
+        _ => false,
+    }
+}
+
+fn base_keysym_for_char(ch: char) -> u32 {
+    match ch {
+        'A'..='Z' => (ch as u32) + 32,
+        '!' => '1' as u32,
+        '@' => '2' as u32,
+        '#' => '3' as u32,
+        '$' => '4' as u32,
+        '%' => '5' as u32,
+        '^' => '6' as u32,
+        '&' => '7' as u32,
+        '*' => '8' as u32,
+        '(' => '9' as u32,
+        ')' => '0' as u32,
+        '_' => '-' as u32,
+        '+' => '=' as u32,
+        '{' => '[' as u32,
+        '}' => ']' as u32,
+        '|' => '\\' as u32,
+        ':' => ';' as u32,
+        '"' => '\'' as u32,
+        '<' => ',' as u32,
+        '>' => '.' as u32,
+        '?' => '/' as u32,
+        '~' => '`' as u32,
+        _ => ch as u32,
+    }
+}
+
 async fn send_text_over_portal(
     remote_desktop: &RemoteDesktop<'_>,
     session: &ashpd::desktop::Session<'_, RemoteDesktop<'_>>,
@@ -315,24 +380,29 @@ async fn send_text_over_portal(
         hold_ms
     );
 
+    release_shift(remote_desktop, session).await?;
+
     for ch in text.chars() {
-        let keysym = keysym_for_char(ch);
-        remote_desktop
-            .notify_keyboard_keysym(session, keysym as i32, KeyState::Pressed)
-            .await
-            .map_err(|error| format!("Portal key press failed for '{}': {error}", ch))?;
-
-        tokio::time::sleep(Duration::from_millis(hold_ms)).await;
-
-        remote_desktop
-            .notify_keyboard_keysym(session, keysym as i32, KeyState::Released)
-            .await
-            .map_err(|error| format!("Portal key release failed for '{}': {error}", ch))?;
+        if needs_shift(ch) {
+            let base = base_keysym_for_char(ch);
+            press_shift(remote_desktop, session).await?;
+            send_key(remote_desktop, session, base as i32, KeyState::Pressed).await?;
+            tokio::time::sleep(Duration::from_millis(hold_ms)).await;
+            send_key(remote_desktop, session, base as i32, KeyState::Released).await?;
+            release_shift(remote_desktop, session).await?;
+        } else {
+            let keysym = keysym_for_char(ch);
+            send_key(remote_desktop, session, keysym as i32, KeyState::Pressed).await?;
+            tokio::time::sleep(Duration::from_millis(hold_ms)).await;
+            send_key(remote_desktop, session, keysym as i32, KeyState::Released).await?;
+        }
 
         if interval_ms > 0 {
             tokio::time::sleep(Duration::from_millis(interval_ms)).await;
         }
     }
+
+    release_shift(remote_desktop, session).await?;
 
     crate::log_info!("Wayland portal typing complete");
     Ok(())
