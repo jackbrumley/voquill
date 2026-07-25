@@ -59,6 +59,8 @@ pub struct Config {
     pub input_token: Option<String>,
     #[serde(default = "default_enable_gpu")]
     pub enable_gpu: bool,
+    #[serde(default = "default_post_roll_ms")]
+    pub post_roll_ms: u64,
 }
 
 impl Config {
@@ -122,6 +124,9 @@ fn default_language() -> String {
 }
 fn default_enable_gpu() -> bool {
     false
+}
+fn default_post_roll_ms() -> u64 {
+    400
 }
 
 fn normalize_legacy_portal_hotkey(hotkey: &str) -> Option<String> {

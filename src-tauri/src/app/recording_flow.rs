@@ -62,7 +62,12 @@ pub async fn record_and_transcribe(
         crate::app::status::emit_status_to_frontend("Ready").await;
     };
 
-    let audio_data = match audio::record_audio_while_flag(&is_recording, audio_engine).await {
+    let audio_data = match audio::record_audio_while_flag(&is_recording, audio_engine, {
+        let config_guard = config.lock().unwrap();
+        config_guard.post_roll_ms
+    })
+    .await
+    {
         Ok(data) => data,
         Err(error) => {
             reset_status_on_exit().await;

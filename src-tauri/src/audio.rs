@@ -420,6 +420,7 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
 pub async fn record_audio_while_flag(
     is_recording: &Arc<Mutex<bool>>,
     engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
+    post_roll_ms: u64,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     crate::log_info!("record_audio_while_flag: enter");
     let (tx, rx) = mpsc::sync_channel::<f32>(65536);
@@ -465,6 +466,12 @@ pub async fn record_audio_while_flag(
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
     crate::log_info!("record_audio_while_flag: flag observed false, finalizing capture");
+
+    if post_roll_ms > 0 {
+        tokio::time::sleep(Duration::from_millis(post_roll_ms)).await;
+        crate::log_info!("record_audio_while_flag: post-roll of {post_roll_ms}ms complete");
+    }
+
     if let Some(eng) = engine.lock().unwrap().as_ref() {
         *eng.recording_tx.lock().unwrap() = None;
     }
