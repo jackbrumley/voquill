@@ -18,29 +18,20 @@ pub async fn start_recording(
         return Err("Currently configuring hotkey".to_string());
     }
 
-    let mut recording_flag = state.is_recording.lock().unwrap();
-    if *recording_flag {
-        return Err("Already recording".to_string());
+    {
+        let recording_flag = state.is_recording.lock().unwrap();
+        if *recording_flag {
+            return Err("Already recording".to_string());
+        }
     }
 
-    *recording_flag = true;
-    crate::log_info!(
-        "start_recording command - Flag set true (before={}, after={})",
-        recording_before,
-        *recording_flag
-    );
-
-    let is_recording_clone = state.is_recording.clone();
-    let config = state.config.clone();
-    let app_handle_clone = app_handle.clone();
-    let audio_engine = state.audio_engine.clone();
-
-    {
-        let mut engine_guard = audio_engine.lock().unwrap();
-        if engine_guard.is_none() {
+    let requested_device = { state.config.lock().unwrap().audio_device.clone() };
+    let engine_initialized_or_ready = {
+        let mut engine_guard = state.audio_engine.lock().unwrap();
+        if engine_guard.is_some() {
+            true
+        } else {
             crate::log_info!("Audio engine not found, attempting to initialize...");
-            let requested_device = { state.config.lock().unwrap().audio_device.clone() };
-
             let resolved_device = {
                 let cached_device = state.cached_device.lock().unwrap().clone();
                 if cached_device.is_some() {
@@ -73,26 +64,45 @@ pub async fn start_recording(
             };
 
             if let Some(device) = resolved_device {
-                let sensitivity = config.lock().unwrap().input_sensitivity;
+                let sensitivity = state.config.lock().unwrap().input_sensitivity;
                 match audio::PersistentAudioEngine::new(&device, sensitivity) {
                     Ok(new_engine) => {
                         *engine_guard = Some(new_engine);
                         crate::log_info!("Audio engine initialized on demand");
+                        true
                     }
                     Err(error) => {
                         crate::log_warn!(
                             "Failed to initialize audio engine on demand for recording: {}",
                             error
                         );
+                        false
                     }
                 }
             } else {
                 crate::log_warn!(
                     "Audio engine initialization skipped for recording: input device unresolved"
                 );
+                false
             }
         }
+    };
+
+    if !engine_initialized_or_ready {
+        crate::log_info!("Recording cannot start: no audio device available");
+        crate::app::status::emit_status_to_frontend("Error").await;
+        return Ok(());
     }
+
+    *state.is_recording.lock().unwrap() = true;
+    crate::log_info!(
+        "start_recording command - Flag set true"
+    );
+
+    let is_recording_clone = state.is_recording.clone();
+    let config = state.config.clone();
+    let app_handle_clone = app_handle.clone();
+    let audio_engine = state.audio_engine.clone();
 
     tokio::spawn(async move {
         crate::log_info!("Recording task started");
@@ -120,14 +130,21 @@ pub async fn start_recording(
 
 #[tauri::command]
 pub async fn stop_recording(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut recording = state.is_recording.lock().unwrap();
-    let before = *recording;
-    *recording = false;
-    crate::log_info!(
-        "stop_recording command - Flag set false (before={}, after={})",
-        before,
-        *recording
-    );
+    let was_recording = {
+        let mut recording = state.is_recording.lock().unwrap();
+        let before = *recording;
+        *recording = false;
+        crate::log_info!(
+            "stop_recording command - Flag set false (before={})",
+            before
+        );
+        before
+    };
+
+    if !was_recording {
+        crate::app::status::emit_status_to_frontend("Ready").await;
+    }
+
     Ok(())
 }
 

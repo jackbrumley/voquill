@@ -337,6 +337,9 @@ function App() {
       const payload = event.payload;
       const nextStatus = typeof payload === 'string' ? payload : payload.status;
       setCurrentStatus(nextStatus);
+      if (nextStatus === 'Error') {
+        showToast('Mic not found — check your audio device settings.', 'error');
+      }
     });
 
     const unlistenHistory = listen('history-updated', () => {

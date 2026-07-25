@@ -15,6 +15,15 @@ function Overlay() {
   const hasTauriRuntime = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in (window as Window & { __TAURI_INTERNALS__?: unknown });
   const isPreviewMode = !hasTauriRuntime;
 
+  const statusLabel = (s: string) => {
+    switch (s) {
+      case 'Error':
+        return 'Mic not found';
+      default:
+        return s;
+    }
+  };
+
   useEffect(() => {
     if (isPreviewMode) {
       return;
@@ -29,7 +38,7 @@ function Overlay() {
           const nextSeq = typeof payload === 'string' ? lastStatusSeqRef.current + 1 : payload.seq;
           const newStatus = typeof payload === 'string' ? payload : payload.status;
 
-          if (newStatus !== 'Recording' && newStatus !== 'Transcribing') {
+          if (newStatus !== 'Recording' && newStatus !== 'Transcribing' && newStatus !== 'Error') {
             return;
           }
 
@@ -80,6 +89,7 @@ function Overlay() {
         <div style={{ display: 'flex', gap: '8px' }}>
           <button type="button" onClick={() => setStatus('Recording')} style={{ border: 'none', borderRadius: '8px', padding: '8px 12px', background: status === 'Recording' ? '#5865f2' : 'rgba(255,255,255,0.12)', color: '#fff', cursor: 'pointer' }}>Recording</button>
           <button type="button" onClick={() => setStatus('Transcribing')} style={{ border: 'none', borderRadius: '8px', padding: '8px 12px', background: status === 'Transcribing' ? '#5865f2' : 'rgba(255,255,255,0.12)', color: '#fff', cursor: 'pointer' }}>Transcribing</button>
+          <button type="button" onClick={() => setStatus('Error')} style={{ border: 'none', borderRadius: '8px', padding: '8px 12px', background: status === 'Error' ? '#ef4444' : 'rgba(255,255,255,0.12)', color: '#fff', cursor: 'pointer' }}>Error</button>
         </div>
 
         <div style={{ width: '260px', height: '140px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: '0', background: 'rgba(255,255,255,0.04)' }}>
@@ -101,7 +111,7 @@ function Overlay() {
           >
             <StatusIcon status={status} size={40} />
             <span style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '18px', fontWeight: 500, textAlign: 'center', lineHeight: 1.2, whiteSpace: 'nowrap', textShadow: 'none', flex: 1 }}>
-              {status}
+              {statusLabel(status)}
             </span>
           </div>
         </div>
@@ -129,7 +139,7 @@ function Overlay() {
       >
         <StatusIcon status={status} size={40} />
         <span key={`overlay-status-${status}`} style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '18px', fontWeight: 500, textAlign: 'center', lineHeight: 1.2, whiteSpace: 'nowrap', textShadow: 'none', flex: 1 }}>
-          {status}
+          {statusLabel(status)}
         </span>
       </div>
     </div>

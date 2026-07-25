@@ -15,6 +15,8 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
         return '🎤';
       case 'Transcribing':
         return '🧠';
+      case 'Error':
+        return '✕';
       default:
         throw new Error(`Unknown status icon state: ${status}`);
     }
@@ -28,6 +30,8 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
         return 'status-recording';
       case 'Transcribing':
         return 'status-transcribing';
+      case 'Error':
+        return 'status-error';
       default:
         throw new Error(`Unknown status class state: ${status}`);
     }
