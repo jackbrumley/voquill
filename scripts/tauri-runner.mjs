@@ -6,6 +6,8 @@ if (process.platform === "win32") {
   process.env.CARGO_TARGET_DIR = "C:\\voquill-build";
 }
 
+process.env.GGML_NATIVE = "OFF";
+
 try {
   await run(process.argv.slice(2), "tauri");
 } catch (error) {
