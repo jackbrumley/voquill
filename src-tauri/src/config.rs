@@ -190,6 +190,7 @@ impl Default for Config {
             shortcuts_token: None,
             input_token: None,
             enable_gpu: default_enable_gpu(),
+            post_roll_ms: default_post_roll_ms(),
         }
     }
 }

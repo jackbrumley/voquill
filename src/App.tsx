@@ -52,6 +52,7 @@ interface Config {
   copy_on_typewriter: boolean;
   language: string;
   enable_gpu: boolean;
+  post_roll_ms: number;
   shortcuts_token?: string;
   input_token?: string;
 }
@@ -156,6 +157,7 @@ function App() {
     copy_on_typewriter: false,
     language: 'auto',
     enable_gpu: false,
+    post_roll_ms: 400,
   });
   
   const [activeRoute, setActiveRoute] = useState<AppRoute>(routeFromHash(window.location.hash));

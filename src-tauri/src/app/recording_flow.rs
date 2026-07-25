@@ -85,7 +85,6 @@ pub async fn record_and_transcribe(
         return Ok(());
     }
 
-    crate::app::status::emit_status_to_frontend("Transcribing").await;
     let (
         transcription_mode,
         api_key,

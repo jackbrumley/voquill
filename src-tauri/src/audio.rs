@@ -466,6 +466,7 @@ pub async fn record_audio_while_flag(
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
     crate::log_info!("record_audio_while_flag: flag observed false, finalizing capture");
+    crate::app::status::emit_status_to_frontend("Transcribing").await;
 
     if post_roll_ms > 0 {
         tokio::time::sleep(Duration::from_millis(post_roll_ms)).await;

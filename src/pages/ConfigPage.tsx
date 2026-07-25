@@ -36,6 +36,7 @@ interface ConfigPageProps {
     debug_mode: boolean;
     enable_gpu: boolean;
     enable_recording_logs: boolean;
+    post_roll_ms: number;
   };
   activeConfigSection: string | null;
   setActiveConfigSection: (value: string | null) => void;
@@ -296,6 +297,16 @@ export function ConfigPage(props: ConfigPageProps) {
 
             </>
           )}
+
+          <ConfigField label="Post-roll (ms)" description="Extra audio (in milliseconds) captured after releasing the hotkey. Helps prevent the last sentence from being cut off, especially with API models.">
+            <NumberField
+              value={config.post_roll_ms}
+              onChange={(value) => updateConfig('post_roll_ms', value)}
+              min={0}
+              max={2000}
+              step={50}
+            />
+          </ConfigField>
 
         </CollapsibleSection>
 
