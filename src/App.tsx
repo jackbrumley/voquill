@@ -22,7 +22,7 @@ import {
   modalShortcutNoteStyle,
   modalShortcutPathStyle,
   modalTextIntroStyle,
-  tabContentStyle,
+  appContentStyle,
   tabNavStyle,
   titleBarControlsStyle,
   titleBarStyle,
@@ -1087,44 +1087,46 @@ function App() {
       </div>
 
       {activeRoute === 'setup' ? (
-        <InitialSetupPage
-          permissions={permissions}
-          config={config}
-          availableModels={availableModels}
-          modelStatus={modelStatus}
-          downloadProgress={downloadProgress}
-          isDownloading={isDownloading}
-          portalVersion={portalVersion}
-          isSystemManagedShortcut={isSystemManagedShortcut}
-          systemShortcutContext={systemShortcutContext}
-          isApplyingHotkey={isApplyingHotkey}
-          availableMics={availableMics}
-          micTestStatus={micTestStatus}
-          micVolume={micVolume}
-          micTestPassed={micTestPassed}
-          isLocalModelReady={isLocalModelReady}
-          isAudioDeviceReady={isAudioDeviceReady}
-          isAllReady={isAllReady}
-          isRecordingHotkey={isRecordingHotkey}
-          setupTouched={setupTouched}
-          onTouchSetup={() => setSetupTouched(true)}
-          onAudioSetup={() => void handleAudioSetup()}
-          onInputSetup={() => void handleInputSetup()}
-          onConfigureHotkey={() => void handleConfigureHotkey()}
-          onHotkeyKeyDown={handleHotkeyKeyDown}
-          onHotkeyKeyUp={handleHotkeyKeyUp}
-          onHotkeyBlur={() => void setRecordingState(false)}
-          onChangeConfig={updateConfig}
-          onShowModelGuide={() => setShowModelGuide(true)}
-          onDownloadModel={(size) => void downloadModel(size)}
-          onRetryModels={() => void loadModels()}
-          onLoadMics={() => void loadMics()}
-          onStartMicTest={() => void startMicTest()}
-          onStopMicTest={() => void stopMicTest()}
-          onStopMicPlayback={() => void stopMicPlayback()}
-          onRefreshStatus={() => void checkSetupStatus()}
-          onFinishSetup={() => navigate('status')}
-        />
+        <div style={appContentStyle}>
+              <InitialSetupPage
+                permissions={permissions}
+                config={config}
+                availableModels={availableModels}
+                modelStatus={modelStatus}
+                downloadProgress={downloadProgress}
+                isDownloading={isDownloading}
+                portalVersion={portalVersion}
+                isSystemManagedShortcut={isSystemManagedShortcut}
+                systemShortcutContext={systemShortcutContext}
+                isApplyingHotkey={isApplyingHotkey}
+                availableMics={availableMics}
+                micTestStatus={micTestStatus}
+                micVolume={micVolume}
+                micTestPassed={micTestPassed}
+                isLocalModelReady={isLocalModelReady}
+                isAudioDeviceReady={isAudioDeviceReady}
+                isAllReady={isAllReady}
+                isRecordingHotkey={isRecordingHotkey}
+                setupTouched={setupTouched}
+                onTouchSetup={() => setSetupTouched(true)}
+                onAudioSetup={() => void handleAudioSetup()}
+                onInputSetup={() => void handleInputSetup()}
+                onConfigureHotkey={() => void handleConfigureHotkey()}
+                onHotkeyKeyDown={handleHotkeyKeyDown}
+                onHotkeyKeyUp={handleHotkeyKeyUp}
+                onHotkeyBlur={() => void setRecordingState(false)}
+                onChangeConfig={updateConfig}
+                onShowModelGuide={() => setShowModelGuide(true)}
+                onDownloadModel={(size) => void downloadModel(size)}
+                onRetryModels={() => void loadModels()}
+                onLoadMics={() => void loadMics()}
+                onStartMicTest={() => void startMicTest()}
+                onStopMicTest={() => void stopMicTest()}
+                onStopMicPlayback={() => void stopMicPlayback()}
+                onRefreshStatus={() => void checkSetupStatus()}
+                onFinishSetup={() => navigate('status')}
+              />
+            </div>
       ) : (
         <>
           <div style={tabNavStyle}>
@@ -1160,7 +1162,7 @@ function App() {
             </button>
           </div>
 
-          <div style={tabContentStyle} ref={tabContentRef}>
+          <div style={appContentStyle} ref={tabContentRef}>
             {activeRoute === 'status' && (
               <StatusPage
                 currentStatus={currentStatus}

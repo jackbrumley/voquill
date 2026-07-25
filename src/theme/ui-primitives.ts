@@ -53,7 +53,7 @@ export const tabNavStyle: Style = {
   alignItems: 'stretch',
 };
 
-export const tabContentStyle: Style = {
+export const appContentStyle: Style = {
   flex: 1,
   minHeight: 0,
   overflow: 'auto',
