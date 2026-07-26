@@ -1,7 +1,5 @@
-- Make the main app window a dash taller to fit all our content without scrolling.
-- Implement ability to download and run the Whisper model locally.
-- Create official v1.0 release for Windows, Mac and Linux with GitHub releases.
-- Add basic error handling for network/API failures with user-friendly messages.
-- Test and verify full functionality on all three platforms before release.
-- Keep license references consistent across docs/site (GNU AGPLv3).
-- Add option to auto start when Windows or OS starts
+- Add preferred language selection (e.g. "English Australia", "English US")
+- Support non-English / Unicode characters for Linux keyboard input
+- Add auto-start on login (Windows + Linux)
+- Make main window taller to eliminate content scrolling
+- Fix Fedora AppImage build (linuxdeploy strip vs RELR libraries)
