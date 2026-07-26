@@ -64,8 +64,29 @@ pub struct PortalDiagnostics {
     pub detail: Option<String>,
 }
 
+/// Logs detected CPU SIMD capabilities to the session log so crash reports
+/// include the reporter's actual hardware feature set (e.g. diagnosing
+/// illegal-instruction crashes from mismatched whisper.cpp builds).
+#[cfg(target_arch = "x86_64")]
+fn log_cpu_features() {
+    log_info!(
+        "CPU features: sse42={} avx={} avx2={} fma={} f16c={} avx512f={}",
+        std::arch::is_x86_feature_detected!("sse4.2"),
+        std::arch::is_x86_feature_detected!("avx"),
+        std::arch::is_x86_feature_detected!("avx2"),
+        std::arch::is_x86_feature_detected!("fma"),
+        std::arch::is_x86_feature_detected!("f16c"),
+        std::arch::is_x86_feature_detected!("avx512f"),
+    );
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+fn log_cpu_features() {}
+
 fn main() {
     app::session_log::initialize_session_logging();
+
+    log_cpu_features();
 
     #[cfg(target_os = "linux")]
     {
