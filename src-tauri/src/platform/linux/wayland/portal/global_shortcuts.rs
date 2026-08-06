@@ -1,3 +1,5 @@
+use crate::app::state::SessionState;
+use crate::config::HotkeyMode;
 use crate::AppState;
 use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
 use futures_util::StreamExt;
@@ -360,64 +362,107 @@ pub async fn start_linux_portal_hotkey_engine(
                                         let timestamp_ms = event.timestamp().as_millis();
                                         let activation_now = tokio::time::Instant::now();
                                         let state = app_handle_for_task.state::<AppState>();
-                                        let was_recording = *state.is_recording.lock().unwrap();
+                                        let session_state = *state.session_state.lock().unwrap();
+                                        let hotkey_mode = state.config.lock().unwrap().hotkey_mode.clone();
             crate::log_info!(
-                                        "Portal Activated: id='{}', ts={}ms, shortcut_pressed={}, is_recording={} ",
+                                        "Portal Activated: id='{}', ts={}ms, shortcut_pressed={}, session_state={:?}, hotkey_mode={:?}",
                                             shortcut_id,
                                             timestamp_ms,
                                             shortcut_pressed,
-                                            was_recording
+                                            session_state,
+                                            hotkey_mode
                                         );
 
-                                        if shortcut_id == RECORD_SHORTCUT_ID {
-                                            if was_recording {
-                                                if let Some(previous_activation) = last_activation_at {
-                                                    let activation_gap = activation_now.duration_since(previous_activation);
-                                                    if activation_gap <= repeat_activation_window {
-                                                        repeated_activation_count = repeated_activation_count.saturating_add(1);
-                                                        if repeated_activation_count >= 2 && !repeat_mode_active {
-                                                            repeat_mode_active = true;
-            crate::log_warn!(
-                                                            "Portal repeat-activation mode detected (gap={}ms, count={}); waiting for activation silence fallback.",
-                                                                activation_gap.as_millis(),
-                                                                repeated_activation_count
-                                                            );
-                                                        }
-                                                    } else {
-                                                        if repeat_mode_active {
-            crate::log_info!(
-                                                            "Portal activation cadence reset (gap={}ms); leaving repeat mode.",
-                                                                activation_gap.as_millis()
-                                                            );
-                                                        }
-                                                        repeat_mode_active = false;
-                                                        repeated_activation_count = 0;
-                                                    }
-                                                } else {
-                                                    repeated_activation_count = 0;
-                                                }
-
-                                                last_activation_at = Some(activation_now);
-                                                shortcut_pressed = true;
-                                                crate::log_info!(
-                                                    "Portal Activated while recording: repeat_mode_active={}, repeated_activation_count={}",
-                                                    repeat_mode_active,
-                                                    repeated_activation_count
-                                                );
-                                            } else {
-                                                shortcut_pressed = true;
-                                                repeat_mode_active = false;
-                                                repeated_activation_count = 0;
-                                                last_activation_at = Some(activation_now);
-                                                crate::log_info!("Portal: Hotkey Pressed -> invoking start_recording");
-                                                let _ = crate::start_recording(state, app_handle_for_task.clone()).await;
-                                            }
-                                        } else {
+                                        if shortcut_id != RECORD_SHORTCUT_ID {
             crate::log_info!(
                                             "Portal Activated ignored: id='{}', shortcut_pressed={} ",
                                                 shortcut_id,
                                                 shortcut_pressed
                                             );
+                                            continue;
+                                        }
+
+                                        match hotkey_mode {
+                                            HotkeyMode::HoldToTalk => match session_state {
+                                                SessionState::Recording => {
+                                                    // Held-chord heartbeat bookkeeping (GNOME repeat quirk).
+                                                    if let Some(previous_activation) = last_activation_at {
+                                                        let activation_gap = activation_now.duration_since(previous_activation);
+                                                        if activation_gap <= repeat_activation_window {
+                                                            repeated_activation_count = repeated_activation_count.saturating_add(1);
+                                                            if repeated_activation_count >= 2 && !repeat_mode_active {
+                                                                repeat_mode_active = true;
+            crate::log_warn!(
+                                                                "Portal repeat-activation mode detected (gap={}ms, count={}); waiting for activation silence fallback.",
+                                                                    activation_gap.as_millis(),
+                                                                    repeated_activation_count
+                                                                );
+                                                            }
+                                                        } else {
+                                                            if repeat_mode_active {
+            crate::log_info!(
+                                                                "Portal activation cadence reset (gap={}ms); leaving repeat mode.",
+                                                                activation_gap.as_millis()
+                                                                );
+                                                            }
+                                                            repeat_mode_active = false;
+                                                            repeated_activation_count = 0;
+                                                        }
+                                                    } else {
+                                                        repeated_activation_count = 0;
+                                                    }
+
+                                                    last_activation_at = Some(activation_now);
+                                                    shortcut_pressed = true;
+                                                    crate::log_info!(
+                                                        "Portal Activated while recording: repeat_mode_active={}, repeated_activation_count={}",
+                                                        repeat_mode_active,
+                                                        repeated_activation_count
+                                                    );
+                                                }
+                                                SessionState::Idle | SessionState::Transcribing | SessionState::Typing => {
+                                                    // GNOME can keep emitting heartbeat Activations
+                                                    // chained from a held chord (e.g. the press that
+                                                    // just cancelled a session). Only an activation
+                                                    // arriving after heartbeat silence is genuine.
+                                                    let is_genuine_press = last_activation_at
+                                                        .map(|previous_activation| {
+                                                            activation_now.duration_since(previous_activation) >= repeat_silence_timeout
+                                                        })
+                                                        .unwrap_or(true);
+                                                    if is_genuine_press {
+                                                        shortcut_pressed = true;
+                                                        repeat_mode_active = false;
+                                                        repeated_activation_count = 0;
+                                                        last_activation_at = Some(activation_now);
+                                                        crate::log_info!(
+                                                            "Portal: Hotkey Pressed (session_state={:?}) -> handle_hotkey_press",
+                                                            session_state
+                                                        );
+                                                        crate::app::hotkey_handler::handle_hotkey_press(state, app_handle_for_task.clone()).await;
+                                                    } else {
+                                                        last_activation_at = Some(activation_now);
+                                                        crate::log_info!(
+                                                            "Portal Activated (session_state={:?}): chained heartbeat; ignoring",
+                                                            session_state
+                                                        );
+                                                    }
+                                                }
+                                            },
+                                            HotkeyMode::Toggle => {
+                                                if !shortcut_pressed {
+                                                    shortcut_pressed = true;
+                                                    last_activation_at = Some(activation_now);
+                                                    crate::log_info!("Portal: Hotkey Pressed (toggle mode) -> handle_hotkey_press");
+                                                    crate::app::hotkey_handler::handle_hotkey_press(state, app_handle_for_task.clone()).await;
+                                                } else {
+                                                    // GNOME heartbeat while the chord is held: refresh the
+                                                    // silence timer so the watchdog knows it is still held,
+                                                    // but never toggle.
+                                                    last_activation_at = Some(activation_now);
+                                                    crate::log_info!("Portal Activated in toggle mode while pressed: heartbeat; ignoring");
+                                                }
+                                            }
                                         }
                                     }
                                     None => {
@@ -439,13 +484,13 @@ pub async fn start_linux_portal_hotkey_engine(
                                         let shortcut_id = event.shortcut_id().to_string();
                                         let timestamp_ms = event.timestamp().as_millis();
                                         let state = app_handle_for_task.state::<AppState>();
-                                        let was_recording = *state.is_recording.lock().unwrap();
+                                        let session_state = *state.session_state.lock().unwrap();
             crate::log_info!(
-                                        "Portal Deactivated: id='{}', ts={}ms, shortcut_pressed={}, is_recording={}",
+                                        "Portal Deactivated: id='{}', ts={}ms, shortcut_pressed={}, session_state={:?}",
                                             shortcut_id,
                                             timestamp_ms,
                                             shortcut_pressed,
-                                            was_recording
+                                            session_state
                                         );
 
                                         if shortcut_id == RECORD_SHORTCUT_ID {
@@ -454,14 +499,9 @@ pub async fn start_linux_portal_hotkey_engine(
                                             repeated_activation_count = 0;
                                             last_activation_at = None;
 
-                                            if was_recording {
-                                                crate::log_info!("Portal: Hotkey Released -> invoking stop_recording");
-                                                let _ = crate::stop_recording(state).await;
-                                            } else {
-            crate::log_info!(
-                                            "Portal Deactivated received while not recording; ignoring"
-                                                );
-                                            }
+                                            // Release semantics (hold mode stops recording, toggle
+                                            // mode ignores releases) live in the shared handler.
+                                            crate::app::hotkey_handler::handle_hotkey_release(state).await;
                                         } else {
             crate::log_info!(
                                             "Portal Deactivated ignored: id='{}', shortcut_pressed={}",
@@ -484,6 +524,30 @@ pub async fn start_linux_portal_hotkey_engine(
                                 }
                             }
                             _ = repeat_watchdog.tick() => {
+                                let state = app_handle_for_task.state::<AppState>();
+                                let hotkey_mode = state.config.lock().unwrap().hotkey_mode.clone();
+
+                                if hotkey_mode == HotkeyMode::Toggle {
+                                    // GNOME can miss the Deactivated signal. After heartbeat
+                                    // silence, treat the chord as released so the next press is
+                                    // seen as fresh — but never stop a latched recording.
+                                    if shortcut_pressed {
+                                        let silence_expired = last_activation_at
+                                            .map(|last_activation| {
+                                                tokio::time::Instant::now().duration_since(last_activation) >= repeat_silence_timeout
+                                            })
+                                            .unwrap_or(true);
+                                        if silence_expired {
+                                            crate::log_warn!(
+                                                "Portal toggle-mode: activation silence without Deactivated; resetting pressed latch (recording untouched)"
+                                            );
+                                            shortcut_pressed = false;
+                                            last_activation_at = None;
+                                        }
+                                    }
+                                    continue;
+                                }
+
                                 if !repeat_mode_active {
                                     continue;
                                 }
@@ -494,8 +558,10 @@ pub async fn start_linux_portal_hotkey_engine(
                                     continue;
                                 };
 
-                                let state = app_handle_for_task.state::<AppState>();
-                                let is_recording = *state.is_recording.lock().unwrap();
+                                let is_recording = matches!(
+                                    *state.session_state.lock().unwrap(),
+                                    SessionState::Recording
+                                );
                                 if !is_recording {
                                     repeat_mode_active = false;
                                     repeated_activation_count = 0;

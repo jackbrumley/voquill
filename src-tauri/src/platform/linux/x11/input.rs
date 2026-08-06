@@ -168,6 +168,7 @@ pub fn type_text_hardware(
     text: &str,
     typing_speed_interval: f64,
     key_press_duration_ms: u64,
+    session_state: &std::sync::Arc<std::sync::Mutex<crate::app::state::SessionState>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let interval_ms = (typing_speed_interval * 1000.0) as u64;
     let hold_duration = Duration::from_millis(key_press_duration_ms);
@@ -202,6 +203,11 @@ pub fn type_text_hardware(
     };
 
     for key in resolved_keys {
+        if *session_state.lock().unwrap() != crate::app::state::SessionState::Typing {
+            crate::log_info!("[X11 Engine] Typing aborted: session was cancelled");
+            break;
+        }
+
         if key.needs_shift {
             send_key_event(&connection, keyboard_map.shift_keycode, true)?;
         }

@@ -37,6 +37,8 @@ interface ConfigPageProps {
     enable_gpu: boolean;
     enable_recording_logs: boolean;
     post_roll_ms: number;
+    hotkey_mode: 'HoldToTalk' | 'Toggle';
+    max_recording_duration_minutes: number;
   };
   activeConfigSection: string | null;
   setActiveConfigSection: (value: string | null) => void;
@@ -196,7 +198,11 @@ export function ConfigPage(props: ConfigPageProps) {
         <CollapsibleSection title="Transcription" isOpen={activeConfigSection === 'transcription'} onToggle={() => setActiveConfigSection(activeConfigSection === 'transcription' ? null : 'transcription')}>
           <ConfigField
             label="Global Hotkey"
-            description={isSystemManagedShortcut ? 'Use your system shortcut to record and release to transcribe.' : 'Hold these keys to record, release to transcribe.'}
+            description={
+              config.hotkey_mode === 'Toggle'
+                ? (isSystemManagedShortcut ? 'Press your system shortcut to start recording, and again to stop.' : 'Press once to start recording, press again to stop and transcribe.')
+                : (isSystemManagedShortcut ? 'Use your system shortcut to record and release to transcribe.' : 'Hold these keys to record, release to transcribe.')
+            }
           >
             <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
               {!isSystemManagedShortcut && (
@@ -226,6 +232,29 @@ export function ConfigPage(props: ConfigPageProps) {
                 {hotkeyBindingState?.bound ? ' Listener is active.' : ''}
               </div>
             )}
+          </ConfigField>
+
+          <ConfigField
+            label="Recording Mode"
+            description="Hold the hotkey while speaking, or press it to start and again to stop. Pressing the hotkey while transcribing cancels."
+          >
+            <ModeSwitcher
+              value={config.hotkey_mode}
+              onToggle={(value) => updateConfig('hotkey_mode', value)}
+              options={[
+                { value: 'HoldToTalk', label: 'Hold to Talk', title: 'Record while the hotkey is held down' },
+                { value: 'Toggle', label: 'Press to Toggle', title: 'Press once to start recording, press again to stop' },
+              ]}
+            />
+          </ConfigField>
+
+          <ConfigField label="Max Recording Length (minutes)" description="Recording automatically stops and transcribes after this many minutes (1-60).">
+            <NumberField
+              value={config.max_recording_duration_minutes}
+              onChange={(value) => updateConfig('max_recording_duration_minutes', value)}
+              min={1}
+              max={60}
+            />
           </ConfigField>
 
           <ConfigField label="Transcription Method" description="Choose between cloud-based API or fully local processing.">

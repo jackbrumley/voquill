@@ -67,11 +67,9 @@ Managed via **npm** scripts and the Tauri CLI.
 - **Single Test:** `cargo test -- <name>` (Execute a specific test function).
 - **Doc:** `cargo doc --open` (Generate and view crate documentation).
 
-### Frontend (src/ui/)
+### Frontend (src/)
 - **Type Check:** `npm run typecheck`
   - Essential for verifying TypeScript integrity.
-- **Lint:** `npm run lint`
-  - Uses ESLint to enforce project styling rules.
 - **Dev Server:** `npm run dev`
   - Starts the Vite dev server for UI-only iteration.
 - **Preview:** `npm run preview`
@@ -86,11 +84,13 @@ Managed via **npm** scripts and the Tauri CLI.
 - **Error Handling:** Use `anyhow` for internal propagation to maintain context.
 - **Command Safety:** Return `Result<T, String>` for all `#[tauri::command]` functions. The error string is what the frontend `Promise.reject` receives.
 - **State Management:** Use `AppState` (managed by Tauri) to hold shared resources like `Config`, `AudioStream`, or `RecordingState`.
+- **Dictation Session Lifecycle:** `SessionState` (`Idle` / `Recording` / `Transcribing` / `Typing`) in `AppState` is the authoritative session guard; a new session may only start from `Idle`. Each session carries a cancel token in `AppState.active_session` so a cancelled pipeline can never clobber a newer session's state or status.
+- **Hotkey Gestures:** All press/release semantics (hold-to-talk, toggle mode, press-to-cancel) live in `app/hotkey_handler.rs`. Platform backends (the Wayland portal loop, the X11/Windows plugin handler in `main.rs`) only feed it events; never implement gesture logic inside a backend.
 - **Modularity:** Keep hardware-specific logic isolated in modules (e.g., `audio.rs`, `typing.rs`, `hotkey.rs`).
 
-### 2. Frontend (Preact)
+### 2. Frontend (Preact, lives in `src/`)
 - **Strict TypeScript:** No `any`. Explicit interfaces for all data structures (API responses, State slices).
-- **Hooks over Classes:** Use functional components and custom hooks (in `src/ui/src/hooks/`) for logic isolation.
+- **Hooks over Classes:** Use functional components. Shared state currently lives in `App.tsx` and is passed down via props.
 - **Styles (Current Convention):** Prefer component-local inline style objects with design tokens for layout, spacing, and color. Use global CSS (`index.css`) for resets, root-level variables, and truly global concerns only.
 - **Style Consistency:** When touching existing UI, follow the style approach already used in that component/file. Do not introduce a separate styling pattern unless there is a clear architectural reason.
 - **Tauri Core:** Use `@tauri-apps/api` for communication with the backend.
@@ -124,7 +124,7 @@ When adding a new feature, follow this sequence:
 ## 🚧 High-Priority Architectural Fixes (Current Debt)
 
 Any agent working on this repo should prioritize the following cleanups:
-1.  **Redundant Nesting:** The `src/src` structure is messy and redundant. We aim to flatten this into a logical `/backend` and `/frontend` structure while keeping the Tauri root clean.
+1.  **Redundant Nesting:** ~~The `src/src` structure is messy and redundant.~~ **Resolved:** the frontend now lives directly in `src/` and the backend in `src-tauri/`. Keep this flat structure clean.
 2.  **NPM/Cargo Synergy:** Keep frontend and Tauri script orchestration in npm, and Rust build logic in Cargo/Tauri.
 3.  **Local Whisper Integration:** Follow the roadmap in `src/LOCAL_WHISPER_INTEGRATION_PLAN.md` if working on transcription features. Ensure model management is clean and asynchronous.
 

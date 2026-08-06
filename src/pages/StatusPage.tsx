@@ -17,6 +17,7 @@ interface StatusPageProps {
     output_method: 'Typewriter' | 'Clipboard';
     local_model_size: string;
     hotkey: string;
+    hotkey_mode: 'HoldToTalk' | 'Toggle';
   };
   onToggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
   hasUpdateAvailable: boolean;
@@ -34,6 +35,7 @@ export function StatusPage({
   onOpenUpdateModal,
 }: StatusPageProps) {
   const [hoveredFooterIcon, setHoveredFooterIcon] = useState<'github' | 'heart' | null>(null);
+  const isToggleMode = config.hotkey_mode === 'Toggle';
 
   const howToSteps = [
     config.transcription_mode === 'Local'
@@ -42,10 +44,16 @@ export function StatusPage({
         : <>Download a <strong style={{ color: tokens.colors.textPrimary }}>Whisper model</strong> in Settings.</>)
       : <>Enter your <strong style={{ color: tokens.colors.textPrimary }}>OpenAI API key</strong> in Settings.</>,
     <>Position cursor in any text field.</>,
-    isSystemManagedShortcut
-      ? <>Hold your system shortcut and speak.</>
-      : <><span>Hold </span><strong style={{ color: tokens.colors.textPrimary }}>{config.hotkey}</strong><span> and speak.</span></>,
-    <>Release keys to transcribe and type.</>,
+    isToggleMode
+      ? (isSystemManagedShortcut
+        ? <>Press your system shortcut to start recording.</>
+        : <><span>Press </span><strong style={{ color: tokens.colors.textPrimary }}>{config.hotkey}</strong><span> to start recording.</span></>)
+      : (isSystemManagedShortcut
+        ? <>Hold your system shortcut and speak.</>
+        : <><span>Hold </span><strong style={{ color: tokens.colors.textPrimary }}>{config.hotkey}</strong><span> and speak.</span></>),
+    isToggleMode
+      ? <>Press it again to stop and transcribe.</>
+      : <>Release keys to transcribe and type.</>,
   ];
 
   return (
@@ -90,6 +98,12 @@ export function StatusPage({
             </ol>
           </div>
         </Card>
+
+        <div style={{ textAlign: 'center', fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, marginTop: tokens.spacing.xs }}>
+          {isToggleMode
+            ? 'Tip: press the hotkey while transcribing to cancel.'
+            : 'Tip: prefer tap-to-toggle? Change Recording Mode in Settings.'}
+        </div>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.xs, padding: `${tokens.spacing.xs} 0`, opacity: 0.6, transition: tokens.transitions.fast }}>
           <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center' }}>

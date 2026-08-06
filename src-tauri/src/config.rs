@@ -4,6 +4,8 @@ use std::path::PathBuf;
 
 pub const INPUT_SENSITIVITY_MIN: f32 = 0.1;
 pub const INPUT_SENSITIVITY_MAX: f32 = 2.0;
+pub const MAX_RECORDING_DURATION_MINUTES_MIN: u64 = 1;
+pub const MAX_RECORDING_DURATION_MINUTES_MAX: u64 = 60;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum OutputMethod {
@@ -15,6 +17,12 @@ pub enum OutputMethod {
 pub enum TranscriptionMode {
     API,
     Local,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum HotkeyMode {
+    HoldToTalk,
+    Toggle,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,10 +69,22 @@ pub struct Config {
     pub enable_gpu: bool,
     #[serde(default = "default_post_roll_ms")]
     pub post_roll_ms: u64,
+    #[serde(default = "default_hotkey_mode")]
+    pub hotkey_mode: HotkeyMode,
+    #[serde(default = "default_max_recording_duration_minutes")]
+    pub max_recording_duration_minutes: u64,
 }
 
 impl Config {
-    pub fn normalize_input_sensitivity(&mut self) {
+    pub fn normalize(&mut self) {
+        self.normalize_input_sensitivity();
+        self.max_recording_duration_minutes = self.max_recording_duration_minutes.clamp(
+            MAX_RECORDING_DURATION_MINUTES_MIN,
+            MAX_RECORDING_DURATION_MINUTES_MAX,
+        );
+    }
+
+    fn normalize_input_sensitivity(&mut self) {
         self.input_sensitivity = self
             .input_sensitivity
             .clamp(INPUT_SENSITIVITY_MIN, INPUT_SENSITIVITY_MAX);
@@ -127,6 +147,12 @@ fn default_enable_gpu() -> bool {
 }
 fn default_post_roll_ms() -> u64 {
     400
+}
+fn default_hotkey_mode() -> HotkeyMode {
+    HotkeyMode::HoldToTalk
+}
+fn default_max_recording_duration_minutes() -> u64 {
+    10
 }
 
 fn normalize_legacy_portal_hotkey(hotkey: &str) -> Option<String> {
@@ -191,6 +217,8 @@ impl Default for Config {
             input_token: None,
             enable_gpu: default_enable_gpu(),
             post_roll_ms: default_post_roll_ms(),
+            hotkey_mode: default_hotkey_mode(),
+            max_recording_duration_minutes: default_max_recording_duration_minutes(),
         }
     }
 }
@@ -234,7 +262,7 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
         }
 
         let mut config = serde_json::from_value::<Config>(config_value)?;
-        config.normalize_input_sensitivity();
+        config.normalize();
         // Persist migration to disk to keep config clean
         save_config(&config)?;
         Ok(config)
@@ -264,7 +292,7 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     log_info!("Attempting to save config to: {:?}", config_path);
 
     let mut normalized_config = config.clone();
-    normalized_config.normalize_input_sensitivity();
+    normalized_config.normalize();
     let config_str = serde_json::to_string_pretty(&normalized_config)?;
     log_info!(
         "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, gpu={}, input_sensitivity={:.2}",

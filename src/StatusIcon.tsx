@@ -15,6 +15,8 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
         return '🎤';
       case 'Transcribing':
         return '🧠';
+      case 'Typing':
+        return '⌨️';
       case 'Error':
         return '✕';
       default:
@@ -30,6 +32,8 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
         return 'status-recording';
       case 'Transcribing':
         return 'status-transcribing';
+      case 'Typing':
+        return 'status-typing';
       case 'Error':
         return 'status-error';
       default:

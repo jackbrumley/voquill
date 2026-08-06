@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useRef } from 'preact/hooks';
+import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import StatusIcon from './StatusIcon.tsx';
 import { tokens } from './design-tokens.ts';
@@ -9,8 +10,11 @@ interface StatusUpdatePayload {
   status: string;
 }
 
+type HotkeyMode = 'HoldToTalk' | 'Toggle';
+
 function Overlay() {
   const [status, setStatus] = useState<string>('Ready');
+  const [hotkeyMode, setHotkeyMode] = useState<HotkeyMode>('HoldToTalk');
   const lastStatusSeqRef = useRef<number>(0);
   const hasTauriRuntime = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in (window as Window & { __TAURI_INTERNALS__?: unknown });
   const isPreviewMode = !hasTauriRuntime;
@@ -30,9 +34,24 @@ function Overlay() {
     }
 
     let unlistenStatus: null | (() => void) = null;
+    let unlistenConfig: null | (() => void) = null;
+
+    const loadHotkeyMode = async () => {
+      try {
+        const config = await invoke<{ hotkey_mode: HotkeyMode }>('get_config');
+        setHotkeyMode(config.hotkey_mode);
+      } catch (error) {
+        console.error('❌ Failed to load overlay config:', error);
+      }
+    };
 
     const setupEventListeners = async () => {
       try {
+        void loadHotkeyMode();
+        unlistenConfig = await listen('config-updated', () => {
+          void loadHotkeyMode();
+        });
+
         unlistenStatus = await listen<string | StatusUpdatePayload>('status-update', (event) => {
           const payload = event.payload;
           const nextSeq = typeof payload === 'string' ? lastStatusSeqRef.current + 1 : payload.seq;
@@ -59,6 +78,9 @@ function Overlay() {
     return () => {
       if (unlistenStatus) {
         unlistenStatus();
+      }
+      if (unlistenConfig) {
+        unlistenConfig();
       }
     };
   }, [isPreviewMode]);
@@ -140,6 +162,9 @@ function Overlay() {
         <StatusIcon status={status} size={40} />
         <span key={`overlay-status-${status}`} style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '18px', fontWeight: 500, textAlign: 'center', lineHeight: 1.2, whiteSpace: 'nowrap', textShadow: 'none', flex: 1 }}>
           {statusLabel(status)}
+          {status === 'Recording' && hotkeyMode === 'Toggle' && (
+            <span style={{ display: 'block', fontSize: tokens.typography.sizeXs, opacity: 0.75 }}>press again to stop</span>
+          )}
         </span>
       </div>
     </div>

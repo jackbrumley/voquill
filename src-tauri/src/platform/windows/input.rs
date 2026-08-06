@@ -1,3 +1,5 @@
+use crate::app::state::SessionState;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
@@ -54,6 +56,7 @@ pub fn type_text_hardware(
     text: &str,
     typing_speed_interval: f64,
     key_press_duration_ms: u64,
+    session_state: &Arc<Mutex<SessionState>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let interval_ms = (typing_speed_interval * 1000.0) as u64;
     let hold_duration = Duration::from_millis(key_press_duration_ms);
@@ -66,6 +69,12 @@ pub fn type_text_hardware(
     );
 
     for ch in text.chars() {
+        // Best-effort cancel: stop typing if the session left the Typing phase.
+        if *session_state.lock().unwrap() != SessionState::Typing {
+            crate::log_info!("[Hardware Engine] Typing aborted: session cancelled");
+            break;
+        }
+
         let (vk_codes, needs_shift) = char_to_vks(ch);
         unsafe {
             if needs_shift {

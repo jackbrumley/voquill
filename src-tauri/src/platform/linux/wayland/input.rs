@@ -1,9 +1,11 @@
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use ashpd::desktop::remote_desktop::{DeviceType, KeyState, RemoteDesktop};
 use ashpd::desktop::PersistMode;
 use tauri::Manager;
 
+use crate::app::state::SessionState;
 use crate::AppState;
 
 const XK_SHIFT_L: i32 = 0xFFE1;
@@ -12,6 +14,7 @@ pub struct WaylandTypeRequest {
     pub text: String,
     pub interval_ms: u64,
     pub hold_ms: u64,
+    pub session_state: Arc<Mutex<SessionState>>,
     pub response: tokio::sync::oneshot::Sender<Result<(), String>>,
 }
 
@@ -170,6 +173,7 @@ pub async fn establish_input_session(
                         &request.text,
                         request.interval_ms,
                         request.hold_ms,
+                        &request.session_state,
                     ).await;
 
                     let result = match result {
@@ -203,6 +207,7 @@ pub async fn establish_input_session(
                                         &request.text,
                                         request.interval_ms,
                                         request.hold_ms,
+                                        &request.session_state,
                                     ).await
                                 }
                                 Err(reconnect_error) => {
@@ -289,11 +294,13 @@ pub async fn type_text_hardware(
     })?;
 
     let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
+    let session_state = app_handle.state::<AppState>().session_state.clone();
     sender
         .send(WaylandTypeRequest {
             text: text.to_string(),
             interval_ms,
             hold_ms: key_press_duration_ms,
+            session_state,
             response: response_sender,
         })
         .map_err(|_| "Wayland input emulation session is unavailable.".to_string())?;
@@ -372,6 +379,7 @@ async fn send_text_over_portal(
     text: &str,
     interval_ms: u64,
     hold_ms: u64,
+    session_state: &Arc<Mutex<SessionState>>,
 ) -> Result<(), String> {
     crate::log_info!(
         "[Wayland Portal Engine] Typing: '{}' (Speed: {}ms, Hold: {}ms)",
@@ -383,6 +391,11 @@ async fn send_text_over_portal(
     release_shift(remote_desktop, session).await?;
 
     for ch in text.chars() {
+        if *session_state.lock().unwrap() != SessionState::Typing {
+            crate::log_info!("[Wayland Portal Engine] Typing aborted: session was cancelled");
+            break;
+        }
+
         if needs_shift(ch) {
             let base = base_keysym_for_char(ch);
             press_shift(remote_desktop, session).await?;

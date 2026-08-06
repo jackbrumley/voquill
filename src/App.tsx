@@ -53,6 +53,8 @@ interface Config {
   language: string;
   enable_gpu: boolean;
   post_roll_ms: number;
+  hotkey_mode: 'HoldToTalk' | 'Toggle';
+  max_recording_duration_minutes: number;
   shortcuts_token?: string;
   input_token?: string;
 }
@@ -158,6 +160,8 @@ function App() {
     language: 'auto',
     enable_gpu: false,
     post_roll_ms: 400,
+    hotkey_mode: 'HoldToTalk',
+    max_recording_duration_minutes: 10,
   });
   
   const [activeRoute, setActiveRoute] = useState<AppRoute>(routeFromHash(window.location.hash));
@@ -315,14 +319,6 @@ function App() {
         console.log('Autostart state unavailable:', error);
       });
 
-    const unlistenPressed = listen('hotkey-pressed', () => {
-      setCurrentStatus('Recording');
-    });
-
-    const unlistenReleased = listen('hotkey-released', () => {
-      setCurrentStatus('Transcribing');
-    });
-
     const unlistenSetup = listen<string>('setup-status', (event) => {
       if (event.payload === 'configuring-system') {
         showToast('Configuring system permissions...', 'info');
@@ -379,8 +375,6 @@ function App() {
 
     return () => {
       window.removeEventListener('focus', onFocus);
-      unlistenPressed.then((fn: any) => fn());
-      unlistenReleased.then((fn: any) => fn());
       unlistenSetup.then((fn: any) => fn());
       unlistenStatus.then((fn: any) => fn());
       unlistenHistory.then((fn: any) => fn());
@@ -629,7 +623,12 @@ function App() {
       }
 
       lastCommittedConfigRef.current = { ...config };
-      persistConfig(config, hasChanges && previousConfig !== null);
+      // Only persist on actual changes (or the first run) — save_config emits
+      // config-updated, which re-loads config; persisting unconditionally
+      // would create a save loop.
+      if (previousConfig === null || hasChanges) {
+        persistConfig(config, hasChanges && previousConfig !== null);
+      }
     }, 500);
     return () => clearTimeout(timer);
   }, [config]);

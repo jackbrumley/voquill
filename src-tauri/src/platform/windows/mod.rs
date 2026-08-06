@@ -5,7 +5,7 @@ pub mod shortcuts;
 
 use async_trait::async_trait;
 use std::sync::Arc;
-use tauri::WebviewWindow;
+use tauri::{Manager, WebviewWindow};
 
 use crate::platform::traits::{
     DisplayBackend, GlobalShortcutEngine, InputSimulation, PermissionManager, WindowManagement,
@@ -27,13 +27,19 @@ pub fn initialize() -> Arc<dyn DisplayBackend> {
 impl InputSimulation for WindowsBackend {
     async fn type_text_hardware(
         &self,
-        _app_handle: &tauri::AppHandle,
+        app_handle: &tauri::AppHandle,
         text: &str,
         typing_speed_interval: f64,
         key_press_duration_ms: u64,
     ) -> Result<(), String> {
-        input::type_text_hardware(text, typing_speed_interval, key_press_duration_ms)
-            .map_err(|error| error.to_string())
+        let session_state = app_handle.state::<crate::AppState>().session_state.clone();
+        input::type_text_hardware(
+            text,
+            typing_speed_interval,
+            key_press_duration_ms,
+            &session_state,
+        )
+        .map_err(|error| error.to_string())
     }
 }
 

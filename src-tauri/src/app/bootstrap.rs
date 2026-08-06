@@ -2,8 +2,8 @@ use crate::app::commands::hotkey::re_register_hotkey;
 #[cfg(target_os = "linux")]
 use crate::app::commands::platform::is_status_notifier_watcher_available;
 use crate::app::state::AppState;
+use crate::audio;
 use crate::config::Config;
-use crate::{audio, hotkey};
 #[cfg(target_os = "linux")]
 use ashpd::{register_host_app, AppID};
 use std::sync::{Arc, Mutex};
@@ -38,9 +38,6 @@ fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::E
 pub fn build_app_state(initial_config: &Config) -> AppState {
     let app_state = AppState {
         config: Arc::new(Mutex::new(initial_config.clone())),
-        hardware_hotkey: Arc::new(Mutex::new(hotkey::parse_hardware_hotkey(
-            &initial_config.hotkey,
-        ))),
         ..Default::default()
     };
 

@@ -1,5 +1,7 @@
+use crate::app::state::SessionState;
 use crate::config::{self, Config, TranscriptionMode};
 use crate::{audio, history, local_whisper, transcription, typing};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -54,34 +56,95 @@ fn validate_audio_duration(
 
 pub async fn record_and_transcribe(
     config: Arc<Mutex<Config>>,
-    is_recording: Arc<Mutex<bool>>,
+    session_state: Arc<Mutex<SessionState>>,
+    session_token: Arc<AtomicBool>,
     app_handle: AppHandle,
     audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let reset_status_on_exit = || async {
-        crate::app::status::emit_status_to_frontend("Ready").await;
+    let result = record_and_transcribe_inner(
+        &config,
+        &session_state,
+        &session_token,
+        &app_handle,
+        audio_engine,
+    )
+    .await;
+    finish_session(&app_handle, &session_state, &session_token).await;
+    result
+}
+
+/// Returns the session to Idle and the status to Ready, but only if this
+/// pipeline still owns the active session. A cancelled-and-replaced pipeline
+/// must never clobber the state or status of a newer session.
+async fn finish_session(
+    app_handle: &AppHandle,
+    session_state: &Arc<Mutex<SessionState>>,
+    session_token: &Arc<AtomicBool>,
+) {
+    let state = app_handle.state::<crate::AppState>();
+    let is_active_session = {
+        let active_session = state.active_session.lock().unwrap();
+        active_session
+            .as_ref()
+            .is_some_and(|token| Arc::ptr_eq(token, session_token))
+    };
+    if !is_active_session {
+        crate::log_info!("finish_session: session was superseded; leaving state untouched");
+        return;
+    }
+    *state.active_session.lock().unwrap() = None;
+    *session_state.lock().unwrap() = SessionState::Idle;
+    crate::app::status::emit_status_to_frontend("Ready").await;
+}
+
+async fn record_and_transcribe_inner(
+    config: &Arc<Mutex<Config>>,
+    session_state: &Arc<Mutex<SessionState>>,
+    session_token: &Arc<AtomicBool>,
+    app_handle: &AppHandle,
+    audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let (post_roll_ms, max_recording_duration) = {
+        let config_guard = config.lock().unwrap();
+        (
+            config_guard.post_roll_ms,
+            std::time::Duration::from_secs(
+                config_guard
+                    .max_recording_duration_minutes
+                    .saturating_mul(60),
+            ),
+        )
     };
 
-    let audio_data = match audio::record_audio_while_flag(&is_recording, audio_engine, {
-        let config_guard = config.lock().unwrap();
-        config_guard.post_roll_ms
-    })
-    .await
+    let audio_data = audio::record_audio_while_flag(
+        session_state,
+        audio_engine,
+        post_roll_ms,
+        max_recording_duration,
+    )
+    .await?;
+
+    // Capture has ended, however it ended (release, toggle stop, cancel, or
+    // the max-duration auto-stop): the recording phase is over.
     {
-        Ok(data) => data,
-        Err(error) => {
-            reset_status_on_exit().await;
-            return Err(error);
+        let mut session = session_state.lock().unwrap();
+        if *session == SessionState::Recording {
+            *session = SessionState::Transcribing;
         }
-    };
+    }
+
+    if session_token.load(Ordering::SeqCst) {
+        crate::log_info!("Session cancelled during capture; discarding audio");
+        return Ok(());
+    }
+
+    crate::app::status::emit_status_to_frontend("Transcribing").await;
 
     if audio_data.is_empty() {
-        reset_status_on_exit().await;
         return Ok(());
     }
     if let Err(error) = validate_audio_duration(&audio_data) {
         crate::log_info!("Audio validation failed: {}", error);
-        reset_status_on_exit().await;
         return Ok(());
     }
 
@@ -152,7 +215,6 @@ pub async fn record_and_transcribe(
                     Ok(service) => Box::new(service),
                     Err(error) => {
                         crate::log_info!("Failed to initialize Local Whisper: {}", error);
-                        reset_status_on_exit().await;
                         return Err(error.into());
                     }
                 }
@@ -178,10 +240,14 @@ pub async fn record_and_transcribe(
                 service.service_name(),
                 error
             );
-            reset_status_on_exit().await;
             return Err(error.into());
         }
     };
+
+    if session_token.load(Ordering::SeqCst) {
+        crate::log_info!("Session cancelled during transcription; discarding result");
+        return Ok(());
+    }
 
     if !text.trim().is_empty() {
         let _ = history::add_history_item(&text);
@@ -189,6 +255,10 @@ pub async fn record_and_transcribe(
             let _ = window.emit("history-updated", ());
         }
 
+        {
+            let mut session = session_state.lock().unwrap();
+            *session = SessionState::Typing;
+        }
         crate::app::status::emit_status_to_frontend("Typing").await;
         let (typing_speed, hold_duration, output_method, copy_on_typewriter) = {
             let config_guard = config.lock().unwrap();
@@ -202,6 +272,11 @@ pub async fn record_and_transcribe(
 
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
+        if session_token.load(Ordering::SeqCst) {
+            crate::log_info!("Session cancelled before typing; discarding output");
+            return Ok(());
+        }
+
         match output_method {
             config::OutputMethod::Typewriter => {
                 if copy_on_typewriter {
@@ -213,7 +288,7 @@ pub async fn record_and_transcribe(
                 let state = app_handle.state::<crate::AppState>();
                 if let Err(error) = state
                     .display_backend
-                    .type_text_hardware(&app_handle, &text, typing_speed, hold_duration)
+                    .type_text_hardware(app_handle, &text, typing_speed, hold_duration)
                     .await
                 {
                     crate::log_info!("TYPING ENGINE ERROR: {}", error);
@@ -230,6 +305,5 @@ pub async fn record_and_transcribe(
         crate::log_info!("Transcription was empty, skipping typing.");
     }
 
-    reset_status_on_exit().await;
     Ok(())
 }

@@ -6,6 +6,8 @@ use ringbuf::{CachingCons, HeapRb};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
+use crate::app::state::SessionState;
+
 #[cfg(target_os = "linux")]
 use pulsectl::controllers::DeviceControl;
 
@@ -418,9 +420,10 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
 }
 
 pub async fn record_audio_while_flag(
-    is_recording: &Arc<Mutex<bool>>,
+    session_state: &Arc<Mutex<SessionState>>,
     engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
     post_roll_ms: u64,
+    max_recording_duration: Duration,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     crate::log_info!("record_audio_while_flag: enter");
     let (tx, rx) = mpsc::sync_channel::<f32>(65536);
@@ -462,11 +465,22 @@ pub async fn record_audio_while_flag(
         let _ = data_tx.send(out);
     });
 
-    while *is_recording.lock().unwrap() {
+    let capture_started = tokio::time::Instant::now();
+    loop {
+        let still_recording = matches!(*session_state.lock().unwrap(), SessionState::Recording);
+        if !still_recording {
+            break;
+        }
+        if capture_started.elapsed() >= max_recording_duration {
+            crate::log_warn!(
+                "record_audio_while_flag: max recording duration of {:?} reached; auto-stopping capture",
+                max_recording_duration
+            );
+            break;
+        }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    crate::log_info!("record_audio_while_flag: flag observed false, finalizing capture");
-    crate::app::status::emit_status_to_frontend("Transcribing").await;
+    crate::log_info!("record_audio_while_flag: capture loop ended, finalizing capture");
 
     if post_roll_ms > 0 {
         tokio::time::sleep(Duration::from_millis(post_roll_ms)).await;

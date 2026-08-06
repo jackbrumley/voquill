@@ -111,19 +111,18 @@ fn main() {
                     if std::env::var("WAYLAND_DISPLAY").is_ok() {
                         return;
                     }
-                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                        let app_handle = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let state = app_handle.state::<AppState>();
-                            let _ = start_recording(state, app_handle.clone()).await;
-                        });
-                    } else {
-                        let app_handle = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let state = app_handle.state::<AppState>();
-                            let _ = stop_recording(state).await;
-                        });
-                    }
+                    let app_handle = app.clone();
+                    let pressed =
+                        event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed;
+                    tauri::async_runtime::spawn(async move {
+                        let state = app_handle.state::<AppState>();
+                        if pressed {
+                            app::hotkey_handler::handle_hotkey_press(state, app_handle.clone())
+                                .await;
+                        } else {
+                            app::hotkey_handler::handle_hotkey_release(state).await;
+                        }
+                    });
                 })
                 .build(),
         )

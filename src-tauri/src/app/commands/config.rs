@@ -16,7 +16,7 @@ pub async fn save_config(
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let mut normalized_config = new_config;
-    normalized_config.normalize_input_sensitivity();
+    normalized_config.normalize();
 
     let is_mic_test_active = *state.is_mic_test_active.lock().unwrap();
 
@@ -147,6 +147,9 @@ pub async fn save_config(
             *error_lock = None;
         }
     }
+
+    // Notify all windows (including the overlay) that config values changed.
+    let _ = app_handle.emit("config-updated", ());
 
     Ok(())
 }

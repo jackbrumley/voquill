@@ -1,18 +1,31 @@
 use crate::audio;
 use crate::config::Config;
-use crate::hotkey::HardwareHotkey;
 use crate::platform;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
+
+/// Lifecycle of a single dictation session. This is the authoritative guard
+/// for hotkey gesture semantics and re-entrancy: a new session may only start
+/// from `Idle`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SessionState {
+    Idle,
+    Recording,
+    Transcribing,
+    Typing,
+}
 
 pub struct AppState {
     pub config: Arc<Mutex<Config>>,
-    pub is_recording: Arc<Mutex<bool>>,
+    pub session_state: Arc<Mutex<SessionState>>,
+    /// Cancel token for the in-flight dictation session. Each session gets a
+    /// fresh token so a cancelled pipeline can never clobber a newer session.
+    pub active_session: Arc<Mutex<Option<Arc<AtomicBool>>>>,
     pub is_mic_test_active: Arc<Mutex<bool>>,
     pub is_configuring_hotkey: Arc<Mutex<bool>>,
     pub hotkey_error: Arc<Mutex<Option<String>>>,
     pub hotkey_binding_state: Arc<Mutex<HotkeyBindingState>>,
     pub setup_status: Arc<Mutex<Option<String>>>,
-    pub hardware_hotkey: Arc<Mutex<HardwareHotkey>>,
     pub cached_device: Arc<Mutex<Option<cpal::Device>>>,
     pub playback_stream: Arc<Mutex<Option<cpal::Stream>>>,
     pub mic_test_samples: Arc<Mutex<Vec<f32>>>,
@@ -54,13 +67,13 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             config: Arc::new(Mutex::new(Config::default())),
-            is_recording: Arc::new(Mutex::new(false)),
+            session_state: Arc::new(Mutex::new(SessionState::Idle)),
+            active_session: Arc::new(Mutex::new(None)),
             is_mic_test_active: Arc::new(Mutex::new(false)),
             is_configuring_hotkey: Arc::new(Mutex::new(false)),
             hotkey_error: Arc::new(Mutex::new(None)),
             hotkey_binding_state: Arc::new(Mutex::new(HotkeyBindingState::default())),
             setup_status: Arc::new(Mutex::new(None)),
-            hardware_hotkey: Arc::new(Mutex::new(HardwareHotkey::default())),
             cached_device: Arc::new(Mutex::new(None)),
             playback_stream: Arc::new(Mutex::new(None)),
             mic_test_samples: Arc::new(Mutex::new(Vec::new())),
