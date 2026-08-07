@@ -94,11 +94,28 @@ pub async fn emit_status_update(status: &str) {
         status
     );
 
-    if let Some(app_handle) = APP_HANDLE.get() {
+    let Some(app_handle) = APP_HANDLE.get() else {
+        return;
+    };
+
+    // Window event delivery and overlay show/hide can block on desktop-specific
+    // main-loop behavior (observed on KDE Wayland, where it froze the hotkey
+    // event loop). Never let that stall the caller — delivery runs in its own
+    // task. The sequence number is assigned above, before spawning, so event
+    // ordering is preserved even if delivery tasks race.
+    let status_owned = status.to_string();
+    let app_handle = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        // A newer status may have superseded this one before delivery ran;
+        // skip stale deliveries so the final visible state is always correct.
+        if get_current_status() != status_owned {
+            return;
+        }
+
         let windows = ["main", "overlay"];
         let payload = StatusUpdatePayload {
             seq: sequence,
-            status: status.to_string(),
+            status: status_owned.clone(),
         };
         for window_label in &windows {
             if let Some(window) = app_handle.get_webview_window(window_label) {
@@ -106,12 +123,12 @@ pub async fn emit_status_update(status: &str) {
             }
         }
 
-        if status == "Ready" || status == "Typing" {
-            let _ = hide_overlay_window(app_handle).await;
+        if status_owned == "Ready" || status_owned == "Typing" {
+            let _ = hide_overlay_window(&app_handle).await;
         } else {
-            let _ = show_overlay_window(app_handle).await;
+            let _ = show_overlay_window(&app_handle).await;
         }
-    }
+    });
 }
 
 pub async fn emit_status_to_frontend(status: &str) {

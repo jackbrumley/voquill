@@ -245,14 +245,7 @@ pub async fn start_linux_portal_hotkey_engine(
                 active_trigger,
                 normalized_trigger
             );
-            let effective_hotkey = trigger_description_to_hotkey(&active_trigger)
-                .unwrap_or_else(|| hotkey_str.clone());
-            {
-                let mut config = state.config.lock().unwrap();
-                config.hotkey = effective_hotkey;
-                let _ = crate::config::save_config(&config);
-            }
-            let _ = app_handle.emit("config-updated", ());
+            realign_config_to_portal_trigger(&state, &app_handle, &active_trigger);
         }
     } else {
         let listed = proxy
@@ -307,6 +300,7 @@ pub async fn start_linux_portal_hotkey_engine(
         }
 
         crate::log_info!("Reusing existing portal shortcut: '{}'", active_trigger);
+        realign_config_to_portal_trigger(&state, &app_handle, &active_trigger);
     }
 
     {
@@ -597,6 +591,38 @@ pub async fn start_linux_portal_hotkey_engine(
     });
 
     Ok(())
+}
+
+/// The portal's active trigger is authoritative on Wayland. If it diverged
+/// from the configured hotkey (e.g. the user changed it in system settings),
+/// rewrite the config to match and notify the UI so it shows what actually
+/// triggers recording.
+fn realign_config_to_portal_trigger(
+    state: &tauri::State<'_, AppState>,
+    app_handle: &tauri::AppHandle,
+    active_trigger: &str,
+) {
+    let Some(portal_hotkey) = trigger_description_to_hotkey(active_trigger) else {
+        return;
+    };
+    let diverged = {
+        let config = state.config.lock().unwrap();
+        !config.hotkey.eq_ignore_ascii_case(&portal_hotkey)
+    };
+    if !diverged {
+        return;
+    }
+    crate::log_warn!(
+        "Portal trigger '{}' differs from configured hotkey; realigning config to '{}'.",
+        active_trigger,
+        portal_hotkey
+    );
+    {
+        let mut config = state.config.lock().unwrap();
+        config.hotkey = portal_hotkey;
+        let _ = crate::config::save_config(&config);
+    }
+    let _ = app_handle.emit("config-updated", ());
 }
 
 fn trigger_description_matches_request(description: &str, normalized_request: &str) -> bool {
