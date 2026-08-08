@@ -1,19 +1,20 @@
 import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
-import type { Config, ModelInfo } from '../types.ts';
+import type { Config, EngineCapabilities, ModelInfo } from '../types.ts';
 
 interface UseConfigReturn {
   config: Config;
   availableEngines: string[];
   availableModels: ModelInfo[];
   modelStatus: Record<string, boolean>;
+  engineCapabilities: EngineCapabilities | null;
   downloadProgress: number;
   isDownloading: boolean;
   loadConfig: () => Promise<void>;
   loadModels: () => Promise<void>;
   downloadModel: (size: string) => Promise<void>;
   persistConfig: (configToPersist: Config, showSavedConfirmation?: boolean) => Promise<void>;
-  updateConfig: (key: string, value: string | number | boolean | null) => void;
+  updateConfig: (key: string, value: string | number | boolean | null | Record<string, unknown>) => void;
   toggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
   formatConfigValueForLog: (key: keyof Config, value: Config[keyof Config]) => string;
   hasLoadedConfig: boolean;
@@ -42,10 +43,12 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     post_roll_ms: 400,
     hotkey_mode: 'HoldToTalk',
     max_recording_duration_minutes: 10,
+    engine_config: null,
   });
   const availableEngines = useSignal<string[]>([]);
   const availableModels = useSignal<ModelInfo[]>([]);
   const modelStatus = useSignal<Record<string, boolean>>({});
+  const engineCapabilities = useSignal<EngineCapabilities | null>(null);
   const downloadProgress = useSignal<number>(0);
   const isDownloading = useSignal(false);
   const hasLoadedConfig = useSignal(false);
@@ -93,7 +96,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
 
       const status: Record<string, boolean> = {};
       for (const model of (models || [])) {
-        status[model.size] = await invoke<boolean>('check_model_status', { modelSize: model.size });
+        status[model.size] = await invoke<boolean>('check_model_status', { modelSize: model.size, engineName: model.engine });
       }
       modelStatus.value = status;
     } catch (error) {
@@ -107,7 +110,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     isDownloading.value = true;
     downloadProgress.value = 0;
     try {
-      await invoke('download_model', { modelSize: size });
+      await invoke('download_model', { modelSize: size, engineName: config.value.local_engine });
       showToast(`${size} model downloaded successfully!`, 'success');
       await loadModels();
     } catch (error) {
@@ -134,7 +137,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     }
   };
 
-  const updateConfig = (key: string, value: string | number | boolean | null) => {
+  const updateConfig = (key: string, value: string | number | boolean | null | Record<string, unknown>) => {
     const normalizedValue = key === 'input_sensitivity'
       ? (() => {
           const parsedValue = Number(value);
@@ -198,11 +201,24 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     }
   });
 
+  // Load engine capabilities when the engine changes
+  useSignalEffect(() => {
+    const engine = config.value.local_engine;
+    if (config.value.transcription_mode === 'Local' && engine) {
+      invoke<EngineCapabilities>('get_engine_capabilities', { engineName: engine })
+        .then((caps) => { engineCapabilities.value = caps; })
+        .catch(() => { engineCapabilities.value = null; });
+    } else {
+      engineCapabilities.value = null;
+    }
+  });
+
   return {
     config: config.value,
     availableEngines: availableEngines.value,
     availableModels: availableModels.value,
     modelStatus: modelStatus.value,
+    engineCapabilities: engineCapabilities.value,
     downloadProgress: downloadProgress.value,
     isDownloading: isDownloading.value,
     loadConfig,

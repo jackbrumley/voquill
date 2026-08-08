@@ -8,7 +8,8 @@ import { NumberField } from '../components/NumberField.tsx';
 import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
 import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
 import { SelectField } from '../components/SelectField.tsx';
-import type { GpuStatus } from '../types.ts';
+import type { GpuStatus, EngineCapabilities } from '../types.ts';
+import { EngineSettingsPanel } from '../components/EngineSettingsPanel.tsx';
 import { helperTextStyle, inputBaseStyle, selectWrapperStyle, tabPanelContentStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 
@@ -50,6 +51,7 @@ interface ConfigPageProps {
     post_roll_ms: number;
     hotkey_mode: 'HoldToTalk' | 'Toggle';
     max_recording_duration_minutes: number;
+    engine_config: Record<string, unknown> | null;
   };
   activeConfigSection: string | null;
   setActiveConfigSection: (value: string | null) => void;
@@ -67,7 +69,7 @@ interface ConfigPageProps {
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   overlayPositioningCapabilities: { manual_offset_supported: boolean; detail?: string };
-  updateConfig: (key: string, value: string | number | boolean | null) => void;
+  updateConfig: (key: string, value: string | number | boolean | null | Record<string, unknown>) => void;
   testApiKey: () => void;
   downloadModel: (size: string) => void;
   loadModels: () => void;
@@ -86,6 +88,7 @@ interface ConfigPageProps {
   autostartEnabled: boolean;
   onToggleAutostart: (enabled: boolean) => void;
   gpuStatus: GpuStatus | null;
+  engineCapabilities: EngineCapabilities | null;
 }
 
 const languageOptions = [
@@ -141,6 +144,7 @@ export function ConfigPage(props: ConfigPageProps) {
     autostartEnabled,
     onToggleAutostart,
     gpuStatus,
+    engineCapabilities,
   } = props;
 
   const configGhostPillStyle = {
@@ -344,6 +348,20 @@ export function ConfigPage(props: ConfigPageProps) {
                   onRetryModels={loadModels}
                 />
               </ConfigField>
+
+              {engineCapabilities && engineCapabilities.settings.length > 0 && (
+                <ConfigField label="Engine Settings" description="Fine-tune how this engine processes your speech.">
+                  <EngineSettingsPanel
+                    capabilities={engineCapabilities}
+                    values={(config.engine_config || {})}
+                    onChange={(key, value) => {
+                      const current = { ...(config.engine_config || {}) };
+                      (current as Record<string, unknown>)[key] = value;
+                      updateConfig('engine_config', current);
+                    }}
+                  />
+                </ConfigField>
+              )}
 
             </>
           )}

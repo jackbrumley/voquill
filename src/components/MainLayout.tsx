@@ -6,7 +6,7 @@ import { HistoryPage } from '../pages/HistoryPage.tsx';
 import { UiLabPage } from '../pages/UiLabPage.tsx';
 import { appContentStyle, tabNavStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
-import type { Config, HistoryItem, AudioDevice, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, UpdateCheckResult, AppRoute } from '../types.ts';
+import type { Config, HistoryItem, AudioDevice, EngineCapabilities, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, UpdateCheckResult, AppRoute } from '../types.ts';
 
 interface MainLayoutProps {
   activeRoute: AppRoute;
@@ -34,11 +34,12 @@ interface MainLayoutProps {
   history: HistoryItem[];
   updateResult: UpdateCheckResult | null;
   gpuStatus: GpuStatus | null;
+  engineCapabilities: EngineCapabilities | null;
   onNavigate: (route: AppRoute) => void;
   onLogUI: (msg: string) => void;
   onSetHoveredTab: (route: AppRoute | null) => void;
   onSetActiveConfigSection: (value: string | null) => void;
-  onUpdateConfig: (key: string, value: string | number | boolean | null) => void;
+  onUpdateConfig: (key: string, value: string | number | boolean | null | Record<string, unknown>) => void;
   onTestApiKey: () => void;
   onDownloadModel: (size: string) => void;
   onLoadModels: () => void;
@@ -147,6 +148,7 @@ export function MainLayout(props: MainLayoutProps) {
           <ConfigPage
             config={props.config}
             gpuStatus={props.gpuStatus}
+            engineCapabilities={props.engineCapabilities}
             activeConfigSection={props.activeConfigSection}
             setActiveConfigSection={props.onSetActiveConfigSection}
             availableEngines={props.availableEngines}

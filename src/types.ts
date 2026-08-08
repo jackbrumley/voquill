@@ -19,6 +19,7 @@ export interface Config {
   post_roll_ms: number;
   hotkey_mode: 'HoldToTalk' | 'Toggle';
   max_recording_duration_minutes: number;
+  engine_config: Record<string, unknown> | null;
   shortcuts_token?: string;
   input_token?: string;
 }
@@ -96,6 +97,25 @@ export interface GpuStatus {
   tested: boolean;
   available: boolean;
   detail: string | null;
+}
+
+export interface SettingOption {
+  value: string;
+  label: string;
+}
+
+export interface EngineSetting {
+  key: string;
+  label: string;
+  description: string;
+  settingType: string;
+  default: unknown;
+  options: SettingOption[] | null;
+}
+
+export interface EngineCapabilities {
+  gpu_supported: boolean;
+  settings: EngineSetting[];
 }
 
 export interface StatusUpdatePayload {

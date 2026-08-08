@@ -249,6 +249,7 @@ function App() {
           history={historyHook.history}
           updateResult={updatesHook.updateResult}
           gpuStatus={gpuStatus.value}
+          engineCapabilities={configHook.engineCapabilities}
           tabContentRef={tabContentRef}
           onNavigate={navigate}
           onLogUI={logUI}

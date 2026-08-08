@@ -84,3 +84,59 @@ impl Default for AppState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn session_state_defaults_to_idle() {
+        assert_eq!(SessionState::Idle, SessionState::Idle);
+    }
+
+    #[test]
+    fn session_state_transitions_are_distinct() {
+        let states = [
+            SessionState::Idle,
+            SessionState::Recording,
+            SessionState::Transcribing,
+            SessionState::Typing,
+        ];
+        for i in 0..states.len() {
+            for j in 0..states.len() {
+                if i == j {
+                    assert_eq!(states[i], states[j]);
+                } else {
+                    assert_ne!(states[i], states[j]);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn session_state_cycle() {
+        let mut state = SessionState::Idle;
+        assert_eq!(state, SessionState::Idle);
+
+        state = SessionState::Recording;
+        assert_eq!(state, SessionState::Recording);
+
+        state = SessionState::Transcribing;
+        assert_eq!(state, SessionState::Transcribing);
+
+        state = SessionState::Typing;
+        assert_eq!(state, SessionState::Typing);
+
+        state = SessionState::Idle;
+        assert_eq!(state, SessionState::Idle);
+    }
+
+    #[test]
+    fn session_state_debug_output() {
+        let s = format!("{:?}", SessionState::Idle);
+        assert_eq!(s, "Idle");
+        assert_eq!(format!("{:?}", SessionState::Recording), "Recording");
+        assert_eq!(format!("{:?}", SessionState::Transcribing), "Transcribing");
+        assert_eq!(format!("{:?}", SessionState::Typing), "Typing");
+    }
+}

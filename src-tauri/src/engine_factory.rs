@@ -1,6 +1,8 @@
 use crate::config::Config;
 use crate::local_whisper::{self, WhisperEngineCache};
+use crate::parakeet;
 use crate::transcription::{self, TranscriptionError, TranscriptionService};
+use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -17,6 +19,31 @@ pub struct EngineFactory {
 /// Returns true if the engine name indicates GPU acceleration should be used.
 fn engine_uses_gpu(engine_name: &str) -> bool {
     engine_name.contains("(GPU)")
+}
+
+/// Describes what settings an engine supports, so the frontend can render the
+/// appropriate configuration UI.
+#[derive(Serialize)]
+pub struct EngineCapabilities {
+    pub gpu_supported: bool,
+    pub settings: Vec<EngineSetting>,
+}
+
+#[derive(Serialize)]
+pub struct EngineSetting {
+    pub key: String,
+    pub label: String,
+    pub description: String,
+    #[serde(rename = "settingType")]
+    pub setting_type: String,
+    pub default: serde_json::Value,
+    pub options: Option<Vec<SettingOption>>,
+}
+
+#[derive(Serialize)]
+pub struct SettingOption {
+    pub value: String,
+    pub label: String,
 }
 
 impl EngineFactory {
@@ -39,7 +66,51 @@ impl EngineFactory {
         self.whisper_last_gpu_error.lock().unwrap().clone()
     }
 
-    pub fn create_service(
+    /// Returns the capabilities and settings for a given engine name, so the
+    /// frontend can render per-engine configuration controls.
+    pub fn engine_capabilities(engine_name: &str) -> EngineCapabilities {
+        match engine_name {
+            "Whisper.cpp" => EngineCapabilities {
+                gpu_supported: false,
+                settings: vec![EngineSetting {
+                    key: "whisper.num_threads".to_string(),
+                    label: "Thread Count".to_string(),
+                    description: "CPU threads for whisper.cpp inference. More threads = faster, but uses more CPU.".to_string(),
+                    setting_type: "number".to_string(),
+                    default: serde_json::json!(4),
+                    options: None,
+                }],
+            },
+            "Whisper.cpp (GPU)" => EngineCapabilities {
+                gpu_supported: true,
+                settings: vec![EngineSetting {
+                    key: "whisper.num_threads".to_string(),
+                    label: "Thread Count".to_string(),
+                    description: "CPU threads for whisper.cpp inference. More threads = faster, but uses more CPU.".to_string(),
+                    setting_type: "number".to_string(),
+                    default: serde_json::json!(4),
+                    options: None,
+                }],
+            },
+            "Parakeet" => EngineCapabilities {
+                gpu_supported: false,
+                settings: vec![EngineSetting {
+                    key: "parakeet.num_threads".to_string(),
+                    label: "Thread Count".to_string(),
+                    description: "CPU threads for sherpa-onnx inference. More threads = faster, but uses more CPU.".to_string(),
+                    setting_type: "number".to_string(),
+                    default: serde_json::json!(2),
+                    options: None,
+                }],
+            },
+            _ => EngineCapabilities {
+                gpu_supported: false,
+                settings: vec![],
+            },
+        }
+    }
+
+    pub async fn create_service(
         &self,
         config: &Config,
     ) -> Result<Box<dyn TranscriptionService + Send + Sync>, TranscriptionError> {
@@ -66,8 +137,34 @@ impl EngineFactory {
                         )?;
                         Ok(Box::new(service))
                     }
+                    "Parakeet" => {
+                        let model_info =
+                            crate::model_manager::ModelManager::find_model(
+                                "Parakeet",
+                                &config.local_model_size,
+                            )
+                            .ok_or_else(|| {
+                                TranscriptionError::Model(format!(
+                                    "Model {} not found for Parakeet engine",
+                                    config.local_model_size
+                                ))
+                            })?;
+                        let model_dir = crate::model_manager::ModelManager::new()
+                            .map_err(TranscriptionError::Model)?
+                            .get_model_path(&model_info);
+                        if !model_dir.exists() {
+                            return Err(TranscriptionError::Model(format!(
+                                "Model {} is not downloaded. Please download it in settings.",
+                                config.local_model_size
+                            )));
+                        }
+                        let service =
+                            parakeet::ParakeetService::new(model_dir, &config.local_model_size)
+                                .await?;
+                        Ok(Box::new(service))
+                    }
                     other => Err(TranscriptionError::Model(format!(
-                        "Unknown local engine: {}. Available engines: Whisper.cpp, Whisper.cpp (GPU)",
+                        "Unknown local engine: {}. Available engines: Whisper.cpp, Whisper.cpp (GPU), Parakeet",
                         other
                     ))),
                 }
@@ -80,8 +177,23 @@ impl EngineFactory {
             return;
         }
 
+        let model_info = match crate::model_manager::ModelManager::find_model(
+            &config.local_engine,
+            &config.local_model_size,
+        ) {
+            Some(m) => m,
+            None => {
+                crate::log_info!(
+                    "Engine preload: model {} not found for engine {}; skipping",
+                    config.local_model_size,
+                    config.local_engine
+                );
+                return;
+            }
+        };
+
         let model_path = match crate::model_manager::ModelManager::new()
-            .map(|m| m.get_model_path(&config.local_model_size))
+            .map(|m| m.get_model_path(&model_info))
         {
             Ok(p) if p.exists() => p,
             _ => {
@@ -144,5 +256,65 @@ impl EngineFactory {
 
     pub fn unload_all(&self) {
         local_whisper::unload_model(&self.whisper_cache);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn engine_uses_gpu_true_for_gpu_engine() {
+        assert!(engine_uses_gpu("Whisper.cpp (GPU)"));
+    }
+
+    #[test]
+    fn engine_uses_gpu_false_for_cpu_engine() {
+        assert!(!engine_uses_gpu("Whisper.cpp"));
+        assert!(!engine_uses_gpu("Parakeet"));
+    }
+
+    #[test]
+    fn engine_capabilities_whisper_cpp() {
+        let caps = EngineFactory::engine_capabilities("Whisper.cpp");
+        assert!(!caps.gpu_supported);
+        assert!(!caps.settings.is_empty());
+        assert!(caps.settings.iter().any(|s| s.key == "whisper.num_threads"));
+    }
+
+    #[test]
+    fn engine_capabilities_whisper_cpp_gpu() {
+        let caps = EngineFactory::engine_capabilities("Whisper.cpp (GPU)");
+        assert!(caps.gpu_supported);
+        assert!(!caps.settings.is_empty());
+    }
+
+    #[test]
+    fn engine_capabilities_parakeet() {
+        let caps = EngineFactory::engine_capabilities("Parakeet");
+        assert!(!caps.gpu_supported);
+        assert!(!caps.settings.is_empty());
+        assert!(caps
+            .settings
+            .iter()
+            .any(|s| s.key == "parakeet.num_threads"));
+    }
+
+    #[test]
+    fn engine_capabilities_unknown_engine() {
+        let caps = EngineFactory::engine_capabilities("UnknownEngine");
+        assert!(!caps.gpu_supported);
+        assert!(caps.settings.is_empty());
+    }
+
+    #[test]
+    fn engine_capabilities_setting_types() {
+        let caps = EngineFactory::engine_capabilities("Whisper.cpp");
+        for setting in &caps.settings {
+            assert!(!setting.key.is_empty());
+            assert!(!setting.label.is_empty());
+            assert!(!setting.description.is_empty());
+            assert!(["number", "bool", "select"].contains(&setting.setting_type.as_str()));
+        }
     }
 }

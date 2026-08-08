@@ -38,6 +38,7 @@ mod history;
 mod hotkey;
 mod local_whisper;
 mod model_manager;
+mod parakeet;
 pub mod platform;
 mod transcription;
 mod typing;
@@ -182,7 +183,8 @@ fn main() {
             get_system_shortcut_context,
             get_overlay_positioning_capabilities,
             check_for_updates,
-            get_gpu_status
+            get_gpu_status,
+            get_engine_capabilities
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -219,7 +219,9 @@ impl LocalWhisperService {
         last_gpu_error: Option<Arc<Mutex<Option<String>>>>,
     ) -> Result<Self, TranscriptionError> {
         let model_manager = ModelManager::new().map_err(TranscriptionError::Model)?;
-        let model_path = model_manager.get_model_path(model_size);
+        let model_path = model_manager
+            .models_dir
+            .join(format!("ggml-{}.bin", model_size));
         if !model_path.exists() {
             return Err(TranscriptionError::Model(format!(
                 "Model {} not found. Please download it in settings.",
@@ -264,7 +266,9 @@ impl TranscriptionService for LocalWhisperService {
 
         let model_path = {
             let model_manager = ModelManager::new().map_err(TranscriptionError::Model)?;
-            model_manager.get_model_path(&self.model_size)
+            model_manager
+                .models_dir
+                .join(format!("ggml-{}.bin", self.model_size))
         };
 
         let outcome = ensure_model_loaded_with_fallback(

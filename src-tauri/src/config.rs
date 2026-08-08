@@ -72,6 +72,8 @@ pub struct Config {
     pub hotkey_mode: HotkeyMode,
     #[serde(default = "default_max_recording_duration_minutes")]
     pub max_recording_duration_minutes: u64,
+    #[serde(default)]
+    pub engine_config: Option<serde_json::Value>,
 }
 
 impl Config {
@@ -214,6 +216,7 @@ impl Default for Config {
             post_roll_ms: default_post_roll_ms(),
             hotkey_mode: default_hotkey_mode(),
             max_recording_duration_minutes: default_max_recording_duration_minutes(),
+            engine_config: None,
         }
     }
 }

@@ -189,10 +189,11 @@ async fn record_and_transcribe_inner(
 
     crate::log_info!("Language: {:?}, Hint: {:?}", lang_code, prompt_hint);
 
-    let service = {
-        let config_guard = config.lock().unwrap();
-        engine_factory.create_service(&config_guard)
+    let current_config = {
+        let guard = config.lock().unwrap();
+        guard.clone()
     };
+    let service = engine_factory.create_service(&current_config).await;
     let service = match service {
         Ok(s) => s,
         Err(error) => {

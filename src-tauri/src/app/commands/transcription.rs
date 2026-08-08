@@ -1,3 +1,4 @@
+use crate::engine_factory;
 use crate::{history, model_manager, transcription};
 use tauri::Emitter;
 
@@ -19,20 +20,30 @@ pub async fn get_available_models() -> Result<Vec<model_manager::ModelInfo>, Str
 }
 
 #[tauri::command]
-pub async fn check_model_status(model_size: String) -> Result<bool, String> {
+pub fn get_engine_capabilities(engine_name: String) -> engine_factory::EngineCapabilities {
+    engine_factory::EngineFactory::engine_capabilities(&engine_name)
+}
+
+#[tauri::command]
+pub async fn check_model_status(model_size: String, engine_name: String) -> Result<bool, String> {
+    let model = model_manager::ModelManager::find_model(&engine_name, &model_size)
+        .ok_or_else(|| format!("Model {} not found for engine {}", model_size, engine_name))?;
     let manager = model_manager::ModelManager::new().map_err(|error| error.to_string())?;
-    Ok(manager.is_model_downloaded(&model_size))
+    Ok(manager.is_model_downloaded(&model))
 }
 
 #[tauri::command]
 pub async fn download_model(
     model_size: String,
+    engine_name: String,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    let model = model_manager::ModelManager::find_model(&engine_name, &model_size)
+        .ok_or_else(|| format!("Model {} not found for engine {}", model_size, engine_name))?;
     let manager = model_manager::ModelManager::new().map_err(|error| error.to_string())?;
 
     manager
-        .download_model(&model_size, move |progress| {
+        .download_model(&model, move |progress| {
             let _ = app_handle.emit("model-download-progress", progress);
         })
         .await?;
