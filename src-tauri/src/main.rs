@@ -9,7 +9,7 @@ macro_rules! log_info {
             let __timestamp = ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
             let __message = format!($($arg)*);
             println!("[{}] {}", __timestamp, __message);
-            crate::append_session_log("INFO", &__timestamp, &__message);
+            $crate::append_session_log("INFO", &__timestamp, &__message);
         }
     };
 }
@@ -21,7 +21,7 @@ macro_rules! log_warn {
             let __timestamp = ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
             let __message = format!($($arg)*);
             eprintln!("[{}] WARNING: {}", __timestamp, __message);
-            crate::append_session_log("WARN", &__timestamp, &__message);
+            $crate::append_session_log("WARN", &__timestamp, &__message);
         }
     };
 }

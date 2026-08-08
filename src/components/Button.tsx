@@ -34,7 +34,7 @@ function extractText(children: ComponentChildren): string {
   }
 
   if (children && typeof children === 'object') {
-    const vnode = children as VNode<any>;
+    const vnode = children as VNode;
     return extractText(vnode.props?.children);
   }
 

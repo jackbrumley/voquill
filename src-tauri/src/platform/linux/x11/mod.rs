@@ -10,13 +10,8 @@ use crate::platform::traits::{
     GlobalShortcutEngine, InputSimulation, PermissionManager, WindowManagement,
 };
 
+#[derive(Default)]
 pub struct X11Backend;
-
-impl X11Backend {
-    pub fn new() -> Self {
-        Self
-    }
-}
 
 #[async_trait]
 impl InputSimulation for X11Backend {

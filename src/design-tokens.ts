@@ -67,19 +67,19 @@ export const tokens = {
 export type DesignTokens = typeof tokens;
 
 // Helper to convert camelCase to kebab-case for CSS variables
-export const tokensToCssVars = (obj: any, prefix = '--'): Record<string, string> => {
+export const tokensToCssVars = (obj: Record<string, unknown>, prefix = '--'): Record<string, string> => {
   const vars: Record<string, string> = {};
   
-  const iterate = (current: any, currentPrefix: string) => {
+  const iterate = (current: Record<string, unknown>, currentPrefix: string) => {
     for (const key in current) {
       const value = current[key];
       const kebabKey = key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
       const newPrefix = `${currentPrefix}${kebabKey}`;
       
-      if (typeof value === 'object' && value !== null) {
-        iterate(value, `${newPrefix}-`);
-      } else {
-        vars[newPrefix] = value;
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        iterate(value as Record<string, unknown>, `${newPrefix}-`);
+      } else if (value !== undefined) {
+        vars[newPrefix] = String(value);
       }
     }
   };

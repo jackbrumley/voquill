@@ -109,6 +109,17 @@ interface OverlayPositioningCapabilities {
   detail?: string;
 }
 
+interface ModelInfo {
+  engine: string;
+  size: string;
+  file_size: number;
+  download_url: string;
+  sha256: string;
+  label: string;
+  description: string;
+  recommended: boolean;
+}
+
 interface UpdateCheckResult {
   currentVersion: string;
   latestVersion: string;
@@ -176,7 +187,7 @@ function App() {
   const [activeConfigSection, setActiveConfigSection] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState<string>('');
   const [availableEngines, setAvailableEngines] = useState<string[]>([]);
-  const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [isDownloading, setIsDownloading] = useState(false);
   const [modelStatus, setModelStatus] = useState<Record<string, boolean>>({});
@@ -360,11 +371,11 @@ function App() {
       setMicTestPassed(true);
     });
 
-    const unlistenMicVolume = listen<number>('mic-test-volume', (event: any) => {
+    const unlistenMicVolume = listen<number>('mic-test-volume', (event) => {
       setMicVolume(event.payload as number);
     });
 
-    const unlistenDownloadProgress = listen<number>('model-download-progress', (event: any) => {
+    const unlistenDownloadProgress = listen<number>('model-download-progress', (event) => {
       setDownloadProgress(event.payload as number);
     });
 
@@ -375,15 +386,15 @@ function App() {
 
     return () => {
       window.removeEventListener('focus', onFocus);
-      unlistenSetup.then((fn: any) => fn());
-      unlistenStatus.then((fn: any) => fn());
-      unlistenHistory.then((fn: any) => fn());
-      unlistenConfigUpdated.then((fn: any) => fn());
-      unlistenHotkeyBindingState.then((fn: any) => fn());
-      unlistenMicTestStarted.then((fn: any) => fn());
-      unlistenMicTestFinished.then((fn: any) => fn());
-      unlistenMicVolume.then((fn: any) => fn());
-      unlistenDownloadProgress.then((fn: any) => fn());
+      unlistenSetup.then((fn) => fn());
+      unlistenStatus.then((fn) => fn());
+      unlistenHistory.then((fn) => fn());
+      unlistenConfigUpdated.then((fn) => fn());
+      unlistenHotkeyBindingState.then((fn) => fn());
+      unlistenMicTestStarted.then((fn) => fn());
+      unlistenMicTestFinished.then((fn) => fn());
+      unlistenMicVolume.then((fn) => fn());
+      unlistenDownloadProgress.then((fn) => fn());
     };
   }, []);
 
@@ -523,7 +534,7 @@ function App() {
 
   const loadHistory = async () => {
     try {
-      const savedHistory = await invoke<any>('get_history');
+      const savedHistory = await invoke<{ items: HistoryItem[] }>('get_history');
       setHistory(savedHistory.items || []);
     } catch (error) {
       console.error('Failed to load history:', error);
@@ -536,7 +547,7 @@ function App() {
       const engines = await invoke<string[]>('get_available_engines');
       setAvailableEngines(engines || []);
 
-      const models = await invoke<any[]>('get_available_models');
+      const models = await invoke<ModelInfo[]>('get_available_models');
       console.log('✅ Models received:', models);
       if (!models || models.length === 0) {
         console.warn('⚠️ No models returned from backend.');
@@ -577,7 +588,7 @@ function App() {
       await invoke('clear_history');
       setHistory([]);
       showToast('History cleared', 'success');
-    } catch (_error) {
+    } catch {
       showToast('Failed to clear history', 'error');
     }
   };
@@ -586,7 +597,7 @@ function App() {
     try {
       await invoke('plugin:clipboard-manager|write_text', { text });
       showToast('Copied to clipboard', 'success');
-    } catch (_error) {
+    } catch {
       showToast('Failed to copy', 'error');
     }
   };
@@ -646,7 +657,7 @@ function App() {
     }
   }, [config.local_engine, availableModels]);
 
-  const updateConfig = (key: string, value: any) => {
+  const updateConfig = (key: string, value: string | number | boolean | null) => {
     const normalizedValue = key === 'input_sensitivity'
       ? (() => {
           const parsedValue = Number(value);
@@ -702,7 +713,7 @@ function App() {
   const openDebugFolder = async () => {
     try {
       await invoke('open_debug_folder');
-    } catch (_error) {
+    } catch {
       showToast('Failed to open debug folder', 'error');
     }
   };

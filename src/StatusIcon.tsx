@@ -108,7 +108,7 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
           }}
         ></div>
         {status === 'Ready' ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'translateY(calc(var(--jump-height) / -2))', ['--jump-height' as any]: jumpHeight, zIndex: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'translateY(calc(var(--jump-height) / -2))', '--jump-height': jumpHeight, zIndex: 2 } as Record<string, string | number | undefined>}>
             <span
               style={{
                 width: `${readyDotSize}px`,
@@ -116,8 +116,8 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
                 backgroundColor: '#fff',
                 borderRadius: '50%',
                 animation: 'voquill-ready-dot-jump 3s infinite ease-in-out',
-                ['--jump-height' as any]: jumpHeight,
-              }}
+                '--jump-height': `${jumpHeight}px`,
+              } as Record<string, string | number>}
             ></span>
           </div>
         ) : (

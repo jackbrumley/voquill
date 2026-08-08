@@ -31,6 +31,8 @@ const sampleModels = [
     file_size: 260_000_000,
     description: 'Balanced quality and speed for most hardware.',
     engine: 'Whisper.cpp',
+    download_url: '',
+    sha256: '',
   },
   {
     size: 'base',
@@ -39,6 +41,8 @@ const sampleModels = [
     file_size: 145_000_000,
     description: 'Lightweight option with faster runtime.',
     engine: 'Whisper.cpp',
+    download_url: '',
+    sha256: '',
   },
 ];
 

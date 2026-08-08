@@ -1,7 +1,6 @@
 use crate::model_manager::ModelManager;
 use crate::transcription::{TranscriptionError, TranscriptionService};
 use async_trait::async_trait;
-use hound;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -84,7 +83,7 @@ fn ensure_model_loaded(
 
     let path_str = model_path
         .to_str()
-        .ok_or_else(|| TranscriptionError::ModelError("Invalid model path".to_string()))?
+        .ok_or_else(|| TranscriptionError::Model("Invalid model path".to_string()))?
         .to_string();
     let ctx = WhisperContext::new_with_params(
         &path_str,
@@ -94,7 +93,7 @@ fn ensure_model_loaded(
         },
     )
     .map_err(|e| {
-        TranscriptionError::ModelError(format!(
+        TranscriptionError::Model(format!(
             "Failed to load model {} (gpu={}): {}",
             model_size, use_gpu, e
         ))
@@ -137,7 +136,7 @@ async fn ensure_model_loaded_with_timeout(
 
     match tokio::time::timeout(Duration::from_secs(MODEL_LOAD_TIMEOUT_SECS), handle).await {
         Ok(Ok(result)) => result,
-        Ok(Err(join_error)) => Err(TranscriptionError::ModelError(format!(
+        Ok(Err(join_error)) => Err(TranscriptionError::Model(format!(
             "Model loading thread panicked: {}",
             join_error
         ))),
@@ -148,7 +147,7 @@ async fn ensure_model_loaded_with_timeout(
                 size_for_err,
                 use_gpu
             );
-            Err(TranscriptionError::ModelError(format!(
+            Err(TranscriptionError::Model(format!(
                 "Model loading timed out after {}s",
                 MODEL_LOAD_TIMEOUT_SECS
             )))
@@ -215,10 +214,10 @@ impl LocalWhisperService {
         use_gpu: bool,
         last_gpu_error: Option<Arc<Mutex<Option<String>>>>,
     ) -> Result<Self, TranscriptionError> {
-        let model_manager = ModelManager::new().map_err(TranscriptionError::ModelError)?;
+        let model_manager = ModelManager::new().map_err(TranscriptionError::Model)?;
         let model_path = model_manager.get_model_path(model_size);
         if !model_path.exists() {
-            return Err(TranscriptionError::ModelError(format!(
+            return Err(TranscriptionError::Model(format!(
                 "Model {} not found. Please download it in settings.",
                 model_size
             )));
@@ -243,11 +242,11 @@ impl TranscriptionService for LocalWhisperService {
         let start_total = Instant::now();
 
         let mut reader = hound::WavReader::new(std::io::Cursor::new(audio_data))
-            .map_err(|e| TranscriptionError::AudioError(e.to_string()))?;
+            .map_err(|e| TranscriptionError::Audio(e.to_string()))?;
 
         let spec = reader.spec();
         if spec.channels != 1 || spec.sample_rate != 16000 {
-            return Err(TranscriptionError::AudioError(format!(
+            return Err(TranscriptionError::Audio(format!(
                 "Unsupported audio format: {} channels, {}Hz. Expected 1 channel, 16000Hz.",
                 spec.channels, spec.sample_rate
             )));
@@ -257,10 +256,10 @@ impl TranscriptionService for LocalWhisperService {
             .samples::<i16>()
             .map(|s| s.map(|v| v as f32 / 32768.0))
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| TranscriptionError::AudioError(e.to_string()))?;
+            .map_err(|e| TranscriptionError::Audio(e.to_string()))?;
 
         let model_path = {
-            let model_manager = ModelManager::new().map_err(TranscriptionError::ModelError)?;
+            let model_manager = ModelManager::new().map_err(TranscriptionError::Model)?;
             model_manager.get_model_path(&self.model_size)
         };
 
@@ -282,12 +281,12 @@ impl TranscriptionService for LocalWhisperService {
         let mut state = {
             let guard = self.cache.lock().unwrap();
             let loaded = guard.as_ref().ok_or_else(|| {
-                TranscriptionError::ModelError("Cache emptied unexpectedly".to_string())
+                TranscriptionError::Model("Cache emptied unexpectedly".to_string())
             })?;
             loaded
                 .context
                 .create_state()
-                .map_err(|e| TranscriptionError::ModelError(e.to_string()))?
+                .map_err(|e| TranscriptionError::Model(e.to_string()))?
         };
 
         let owned_language = language.map(|l| l.to_string());
@@ -323,7 +322,7 @@ impl TranscriptionService for LocalWhisperService {
                     }
                     Ok(text)
                 }
-                Err(e) => Err(TranscriptionError::ModelError(e.to_string())),
+                Err(e) => Err(TranscriptionError::Model(e.to_string())),
             }
         });
 
@@ -336,14 +335,14 @@ impl TranscriptionService for LocalWhisperService {
             Ok(Ok(Ok(text))) => text,
             Ok(Ok(Err(e))) => return Err(e),
             Ok(Err(join_error)) => {
-                return Err(TranscriptionError::ModelError(format!(
+                return Err(TranscriptionError::Model(format!(
                     "Transcription thread panicked: {}",
                     join_error
                 )));
             }
             Err(_elapsed) => {
                 crate::log_warn!("Transcription timed out after {}s", TRANSCRIBE_TIMEOUT_SECS);
-                return Err(TranscriptionError::ModelError(format!(
+                return Err(TranscriptionError::Model(format!(
                     "Transcription timed out after {}s",
                     TRANSCRIBE_TIMEOUT_SECS
                 )));

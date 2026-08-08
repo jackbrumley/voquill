@@ -18,6 +18,17 @@ interface AudioDevice {
   label: string;
 }
 
+interface ModelInfo {
+  engine: string;
+  size: string;
+  file_size: number;
+  download_url: string;
+  sha256: string;
+  label: string;
+  description: string;
+  recommended: boolean;
+}
+
 interface LinuxPermissions {
   audio: boolean;
   shortcuts: boolean;
@@ -45,7 +56,7 @@ interface SetupConfig {
 interface InitialSetupPageProps {
   permissions: LinuxPermissions | null;
   config: SetupConfig;
-  availableModels: any[];
+  availableModels: ModelInfo[];
   modelStatus: Record<string, boolean>;
   downloadProgress: number;
   isDownloading: boolean;
@@ -69,7 +80,7 @@ interface InitialSetupPageProps {
   onHotkeyKeyDown: (event: KeyboardEvent) => void;
   onHotkeyKeyUp: (event: KeyboardEvent) => void;
   onHotkeyBlur: () => void;
-  onChangeConfig: (key: string, value: any) => void;
+  onChangeConfig: (key: string, value: string | number | boolean | null) => void;
   onShowModelGuide: () => void;
   onDownloadModel: (size: string) => void;
   onRetryModels: () => void;

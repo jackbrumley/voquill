@@ -643,7 +643,7 @@ fn trigger_description_matches_request(description: &str, normalized_request: &s
 
     let key = description
         .split('>')
-        .last()
+        .next_back()
         .map(str::trim)
         .unwrap_or_default();
 
@@ -673,7 +673,7 @@ fn trigger_description_to_hotkey(description: &str) -> Option<String> {
 
     let key = description
         .split('>')
-        .last()
+        .next_back()
         .map(str::trim)
         .filter(|segment| !segment.is_empty())?
         .to_lowercase();

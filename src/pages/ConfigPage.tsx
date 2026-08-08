@@ -16,6 +16,17 @@ interface AudioDevice {
   label: string;
 }
 
+interface ModelInfo {
+  engine: string;
+  size: string;
+  file_size: number;
+  download_url: string;
+  sha256: string;
+  label: string;
+  description: string;
+  recommended: boolean;
+}
+
 interface ConfigPageProps {
   config: {
     transcription_mode: 'API' | 'Local';
@@ -43,7 +54,7 @@ interface ConfigPageProps {
   activeConfigSection: string | null;
   setActiveConfigSection: (value: string | null) => void;
   availableEngines: string[];
-  availableModels: any[];
+  availableModels: ModelInfo[];
   modelStatus: Record<string, boolean>;
   downloadProgress: number;
   isDownloading: boolean;
@@ -56,7 +67,7 @@ interface ConfigPageProps {
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   overlayPositioningCapabilities: { manual_offset_supported: boolean; detail?: string };
-  updateConfig: (key: string, value: any) => void;
+  updateConfig: (key: string, value: string | number | boolean | null) => void;
   testApiKey: () => void;
   downloadModel: (size: string) => void;
   loadModels: () => void;

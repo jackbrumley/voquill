@@ -207,7 +207,7 @@ async fn record_and_transcribe_inner(
 
     let service: Box<dyn transcription::TranscriptionService + Send + Sync> =
         match transcription_mode {
-            TranscriptionMode::API => Box::new(transcription::APITranscriptionService {
+            TranscriptionMode::Api => Box::new(transcription::APITranscriptionService {
                 api_key,
                 api_url,
                 api_model,

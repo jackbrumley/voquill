@@ -156,7 +156,7 @@ impl PersistentAudioEngine {
         let config = device
             .default_input_config()
             .map_err(|e| format!("Failed to get default input config: {}", e))?;
-        let sample_rate = u32::from(config.sample_rate());
+        let sample_rate = config.sample_rate();
         let channels = config.channels();
 
         crate::log_info!(
@@ -371,10 +371,10 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
                 #[cfg(target_os = "linux")]
                 {
                     let pulse_sources = summarize_pulse_sources();
-                    return format!(
+                    format!(
                         "Failed to resolve Pulse source '{}': no default input device available after setting PULSE_SOURCE. pulse_sources=[{}], input_devices=[{}]",
                         stripped, pulse_sources, available_inputs
-                    );
+                    )
                 }
 
                 #[cfg(not(target_os = "linux"))]
@@ -709,7 +709,7 @@ pub fn resample_audio(samples: &[i16], from: u32, to: u32) -> Vec<i16> {
         return samples.to_vec();
     }
 
-    if from > to && from % to == 0 {
+    if from > to && from.is_multiple_of(to) {
         let ratio = (from / to) as usize;
         let mut out = Vec::with_capacity(samples.len() / ratio);
         for chunk in samples.chunks_exact(ratio) {

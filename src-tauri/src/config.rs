@@ -15,7 +15,8 @@ pub enum OutputMethod {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum TranscriptionMode {
-    API,
+    #[serde(rename = "API")]
+    Api,
     Local,
 }
 

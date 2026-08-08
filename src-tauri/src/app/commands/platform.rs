@@ -122,11 +122,11 @@ pub async fn get_system_shortcut_context() -> Result<SystemShortcutContext, Stri
             _ => "System Settings -> search for 'Voquill' or 'Keyboard Shortcuts'".to_string(),
         };
 
-        return Ok(SystemShortcutContext {
+        Ok(SystemShortcutContext {
             distro,
             desktop,
             settings_path,
-        });
+        })
     }
 
     #[cfg(not(target_os = "linux"))]
@@ -198,7 +198,7 @@ pub async fn request_audio_permission() -> Result<(), String> {
             .request_access()
             .await
             .map_err(|error| format!("Audio access denied: {}", error))?;
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(target_os = "linux"))]
     {
@@ -220,7 +220,7 @@ pub async fn request_input_permission(
         } else {
             let _ = state;
         }
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(target_os = "linux"))]
     {
@@ -300,7 +300,7 @@ pub async fn minimize_to_tray_or_taskbar(app_handle: tauri::AppHandle) -> Result
         }
 
         window.minimize().map_err(|error| error.to_string())?;
-        return Ok("taskbar".to_string());
+        Ok("taskbar".to_string())
     }
 
     #[cfg(not(target_os = "linux"))]

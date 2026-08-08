@@ -4,8 +4,19 @@ import { SelectField } from './SelectField.tsx';
 import { selectWrapperStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 
+interface ModelInfo {
+  engine: string;
+  size: string;
+  file_size: number;
+  download_url: string;
+  sha256: string;
+  label: string;
+  description: string;
+  recommended: boolean;
+}
+
 interface ModelSelectionPanelProps {
-  availableModels: any[];
+  availableModels: ModelInfo[];
   localEngine: string;
   localModelSize: string;
   modelStatus: Record<string, boolean>;
