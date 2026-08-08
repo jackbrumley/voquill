@@ -156,6 +156,7 @@ export function ConfigPage(props: ConfigPageProps) {
   return (
     <div style={{ ...tabPanelStyle, padding: 0, height: '100%', overflow: 'hidden' }} key="settings">
       <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0, flex: 1, overflow: 'hidden' }}>
+        {!activeConfigSection || activeConfigSection === 'general' ? (
         <CollapsibleSection title="General" isOpen={activeConfigSection === 'general'} onToggle={() => setActiveConfigSection(activeConfigSection === 'general' ? null : 'general')}>
           <ConfigField label="Output Method" description="Choose how transcriptions are inserted when dictation finishes.">
             <ModeSwitcher
@@ -211,7 +212,9 @@ export function ConfigPage(props: ConfigPageProps) {
             </div>
           </ConfigField>
         </CollapsibleSection>
+      ) : null}
 
+        {!activeConfigSection || activeConfigSection === 'transcription' ? (
         <CollapsibleSection title="Transcription" isOpen={activeConfigSection === 'transcription'} onToggle={() => setActiveConfigSection(activeConfigSection === 'transcription' ? null : 'transcription')}>
           <ConfigField
             label="Global Hotkey"
@@ -377,7 +380,9 @@ export function ConfigPage(props: ConfigPageProps) {
           </ConfigField>
 
         </CollapsibleSection>
+      ) : null}
 
+      {!activeConfigSection || activeConfigSection === 'audio' ? (
         <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
           <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
             <div style={selectWrapperStyle}>
@@ -405,7 +410,9 @@ export function ConfigPage(props: ConfigPageProps) {
             />
           </ConfigField>
         </CollapsibleSection>
+      ) : null}
 
+      {!activeConfigSection || activeConfigSection === 'typing' ? (
         <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>
           <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
             <NumberField value={config.typing_speed_interval} onChange={(value) => updateConfig('typing_speed_interval', value)} min={1} />
@@ -416,7 +423,9 @@ export function ConfigPage(props: ConfigPageProps) {
           </ConfigField>
 
         </CollapsibleSection>
+      ) : null}
 
+      {!activeConfigSection || activeConfigSection === 'debug' ? (
         <CollapsibleSection title="Debug" isOpen={activeConfigSection === 'debug'} onToggle={() => setActiveConfigSection(activeConfigSection === 'debug' ? null : 'debug')}>
           <ConfigField label="Logs" description="Open logs for troubleshooting and support.">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
@@ -446,6 +455,7 @@ export function ConfigPage(props: ConfigPageProps) {
           </ConfigField>
 
         </CollapsibleSection>
+      ) : null}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import type { AppRoute } from '../types.ts';
 
+const BG_SLIDER = '#3A3D47';
 const ACCENT = '#5865f2';
 const TEXT_INACTIVE = '#A9ACB5';
 
@@ -40,10 +41,10 @@ export function TabBar({ active, tabs, onNavigate, onLogUI }: TabBarProps) {
             left: '4px',
             width: sliderWidth,
             height: 'calc(100% - 8px)',
-            background: 'transparent',
+            background: BG_SLIDER,
             borderRadius: '26px',
             transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            border: `1px solid ${ACCENT}`,
+            borderBottom: `2px solid ${ACCENT}`,
             zIndex: 1,
             transform: sliderTransform,
           }}

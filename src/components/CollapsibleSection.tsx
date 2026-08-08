@@ -34,7 +34,7 @@ export const CollapsibleSection = ({ title, children, isOpen, onToggle }: Collap
           position: 'sticky',
           top: 0,
           zIndex: 1,
-          borderBottom: isOpen ? `1px solid rgba(88, 101, 242, 0.25)` : '1px solid transparent',
+          borderBottom: isOpen ? `1px solid rgba(255, 255, 255, 0.2)` : '1px solid transparent',
         }}
       >
         <div
@@ -44,7 +44,7 @@ export const CollapsibleSection = ({ title, children, isOpen, onToggle }: Collap
             gap: tokens.spacing.sm,
             fontWeight: 700,
             fontSize: tokens.typography.sizeSm,
-            color: isOpen ? tokens.colors.accentPrimary : tokens.colors.textSecondary,
+            color: isOpen ? tokens.colors.textPrimary : tokens.colors.textSecondary,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
             transition: tokens.transitions.fast,
@@ -56,7 +56,7 @@ export const CollapsibleSection = ({ title, children, isOpen, onToggle }: Collap
           style={{
             transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
             transition: tokens.transitions.normal,
-            color: isOpen ? tokens.colors.accentPrimary : tokens.colors.textMuted,
+            color: isOpen ? tokens.colors.textPrimary : tokens.colors.textMuted,
           }}
         >
           <IconChevronDown size={20} />
@@ -70,7 +70,6 @@ export const CollapsibleSection = ({ title, children, isOpen, onToggle }: Collap
           gap: tokens.spacing.md,
           overflowY: 'auto',
           minHeight: 0,
-          borderBottom: `1px solid rgba(88, 101, 242, 0.25)`,
         }}>
           {children}
         </div>
