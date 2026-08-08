@@ -1,16 +1,14 @@
 
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { disable as disableAutostart, enable as enableAutostart, isEnabled as isAutostartEnabled } from '@tauri-apps/plugin-autostart';
 import { open } from '@tauri-apps/plugin-shell';
-import { IconMinus, IconSquare, IconX } from '@tabler/icons-preact';
 import { Button } from './components/Button.tsx';
 import { ActionFooter } from './components/ActionFooter.tsx';
-import { ModelInfoModal } from './components/ModelInfoModal.tsx';
-import { Modal } from './components/Modal.tsx';
+import { TitleBar } from './components/TitleBar.tsx';
+import { Modals } from './components/Modals.tsx';
 import { StatusPage } from './pages/StatusPage.tsx';
 import { ConfigPage } from './pages/ConfigPage.tsx';
 import { HistoryPage } from './pages/HistoryPage.tsx';
@@ -18,122 +16,25 @@ import { InitialSetupPage } from './pages/InitialSetupPage.tsx';
 import { UiLabPage } from './pages/UiLabPage.tsx';
 import {
   appShellStyle,
-  helperTextStyle,
-  modalShortcutNoteStyle,
-  modalShortcutPathStyle,
-  modalTextIntroStyle,
   appContentStyle,
   tabNavStyle,
-  titleBarControlsStyle,
-  titleBarStyle,
-  titleBarTitleStyle,
-  toastContainerStyle,
-  getToastMessageStyle,
-  getToastStyle,
 } from './theme/ui-primitives.ts';
 import { tokens } from './design-tokens.ts';
-
-interface Config {
-  openai_api_key: string;
-  api_url: string;
-  api_model: string;
-  transcription_mode: 'API' | 'Local';
-  local_model_size: string;
-  local_engine: string;
-  hotkey: string;
-  typing_speed_interval: number;
-  key_press_duration_ms: number;
-  pixels_from_bottom: number;
-  audio_device: string | null;
-  debug_mode: boolean;
-  enable_recording_logs: boolean;
-  input_sensitivity: number;
-  output_method: 'Typewriter' | 'Clipboard';
-  copy_on_typewriter: boolean;
-  language: string;
-  enable_gpu: boolean;
-  post_roll_ms: number;
-  hotkey_mode: 'HoldToTalk' | 'Toggle';
-  max_recording_duration_minutes: number;
-  shortcuts_token?: string;
-  input_token?: string;
-}
-
-interface Toast {
-  id: number;
-  message: string;
-  type: 'success' | 'error' | 'info' | 'saved';
-}
-
-interface HistoryItem {
-  id: number;
-  text: string;
-  timestamp: string;
-}
-
-interface AudioDevice {
-  id: string;
-  label: string;
-}
-
-interface LinuxPermissions {
-  audio: boolean;
-  shortcuts: boolean;
-  input_emulation: boolean;
-  shortcuts_status: string;
-  shortcuts_detail?: string;
-  manual_overlay_offset_supported?: boolean;
-  overlay_positioning_detail?: string;
-}
-
-interface ConfigureHotkeyResult {
-  outcome: 'configured' | 'requires_in_app_capture' | 'system_managed';
-  detail?: string;
-}
-
-interface HotkeyBindingState {
-  bound: boolean;
-  listening: boolean;
-  detail?: string;
-  active_trigger?: string;
-}
-
-interface SystemShortcutContext {
-  distro?: string;
-  desktop?: string;
-  settings_path: string;
-}
-
-interface OverlayPositioningCapabilities {
-  manual_offset_supported: boolean;
-  detail?: string;
-}
-
-interface ModelInfo {
-  engine: string;
-  size: string;
-  file_size: number;
-  download_url: string;
-  sha256: string;
-  label: string;
-  description: string;
-  recommended: boolean;
-}
-
-interface UpdateCheckResult {
-  currentVersion: string;
-  latestVersion: string;
-  updateAvailable: boolean;
-  releaseUrl: string;
-  notesUrl?: string;
-}
-
-interface StatusUpdatePayload {
-  seq: number;
-  status: string;
-}
-
-type AppRoute = 'setup' | 'status' | 'history' | 'settings' | 'ui-lab';
+import { useToast } from './hooks/useToast.tsx';
+import { useTauriEvents } from './hooks/useTauriEvents.ts';
+import type {
+  Config,
+  HistoryItem,
+  AudioDevice,
+  LinuxPermissions,
+  ConfigureHotkeyResult,
+  HotkeyBindingState,
+  SystemShortcutContext,
+  OverlayPositioningCapabilities,
+  ModelInfo,
+  UpdateCheckResult,
+  AppRoute,
+} from './types.ts';
 
 const DEFAULT_ROUTE: AppRoute = 'status';
 
@@ -177,7 +78,7 @@ function App() {
   
   const [activeRoute, setActiveRoute] = useState<AppRoute>(routeFromHash(window.location.hash));
   const [isTestingApi, setIsTestingApi] = useState(false);
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const { showToast, ToastContainer } = useToast();
   const [currentStatus, setCurrentStatus] = useState<string>('Ready');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [availableMics, setAvailableMics] = useState<AudioDevice[]>([]);
@@ -222,12 +123,6 @@ function App() {
   const trayFallbackNotifiedRef = useRef(false);
 
   useEffect(() => {
-    const syncRouteFromHash = () => {
-      setActiveRoute(routeFromHash(window.location.hash));
-    };
-
-    window.addEventListener('hashchange', syncRouteFromHash);
-
     invoke<number>('get_wayland_portal_version')
       .then(setPortalVersion)
       .catch(e => console.log("Not running Wayland portal version check:", e));
@@ -249,12 +144,6 @@ function App() {
         });
         console.log('Overlay positioning capabilities unavailable:', e);
       });
-
-    syncRouteFromHash();
-
-    return () => {
-      window.removeEventListener('hashchange', syncRouteFromHash);
-    };
   }, []);
 
   const navigate = (route: AppRoute, replace = false) => {
@@ -329,73 +218,6 @@ function App() {
       .catch((error: unknown) => {
         console.log('Autostart state unavailable:', error);
       });
-
-    const unlistenSetup = listen<string>('setup-status', (event) => {
-      if (event.payload === 'configuring-system') {
-        showToast('Configuring system permissions...', 'info');
-      } else if (event.payload === 'restart-required') {
-        showToast('Permissions updated! Please restart your session.', 'success');
-      } else if (event.payload === 'setup-failed') {
-        showToast('System configuration failed.', 'error');
-      }
-    });
-
-    const unlistenStatus = listen<string | StatusUpdatePayload>('status-update', (event) => {
-      const payload = event.payload;
-      const nextStatus = typeof payload === 'string' ? payload : payload.status;
-      setCurrentStatus(nextStatus);
-      if (nextStatus === 'Error') {
-        showToast('Mic not found — check your audio device settings.', 'error');
-      }
-    });
-
-    const unlistenHistory = listen('history-updated', () => {
-      loadHistory();
-    });
-
-    const unlistenConfigUpdated = listen('config-updated', () => {
-      loadConfig();
-    });
-
-    const unlistenHotkeyBindingState = listen<HotkeyBindingState>('hotkey-binding-state', (event) => {
-      setHotkeyBindingState(event.payload);
-    });
-    
-    const unlistenMicTestStarted = listen('mic-test-playback-started', () => {
-      setMicTestStatus('playing');
-    });
-
-    const unlistenMicTestFinished = listen('mic-test-playback-finished', () => {
-      setMicTestStatus('idle');
-      setMicVolume(0);
-      setMicTestPassed(true);
-    });
-
-    const unlistenMicVolume = listen<number>('mic-test-volume', (event) => {
-      setMicVolume(event.payload as number);
-    });
-
-    const unlistenDownloadProgress = listen<number>('model-download-progress', (event) => {
-      setDownloadProgress(event.payload as number);
-    });
-
-    const onFocus = () => {
-      checkSetupStatus();
-    };
-    window.addEventListener('focus', onFocus);
-
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      unlistenSetup.then((fn) => fn());
-      unlistenStatus.then((fn) => fn());
-      unlistenHistory.then((fn) => fn());
-      unlistenConfigUpdated.then((fn) => fn());
-      unlistenHotkeyBindingState.then((fn) => fn());
-      unlistenMicTestStarted.then((fn) => fn());
-      unlistenMicTestFinished.then((fn) => fn());
-      unlistenMicVolume.then((fn) => fn());
-      unlistenDownloadProgress.then((fn) => fn());
-    };
   }, []);
 
   // Handle hotkey recording separately
@@ -811,42 +633,6 @@ function App() {
     }
   };
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'saved' = 'info') => {
-    // Log to console/backend
-    const emoji = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'saved' ? '💾' : 'ℹ️';
-    logUI(`${emoji} Toast: ${message}`);
-
-    const id = Date.now();
-    setToasts(prev => {
-      if (type === 'saved') {
-        return [...prev.filter(toast => toast.type !== 'saved'), { id, message, type }];
-      }
-      return [...prev, { id, message, type }];
-    });
-    
-    // Errors stay longer (10s), saved confirmations are brief, others 3s
-    const duration = type === 'error' ? 10000 : type === 'saved' ? 900 : 3000;
-    
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, duration);
-  };
-
-  const handleToastClick = async (toast: Toast) => {
-    if (toast.type === 'saved') {
-      setToasts(prev => prev.filter(t => t.id !== toast.id));
-      return;
-    }
-
-    try {
-      await invoke('plugin:clipboard-manager|write_text', { text: toast.message });
-    } catch (error) {
-      console.error('Failed to copy toast message:', error);
-    } finally {
-      setToasts(prev => prev.filter(t => t.id !== toast.id));
-    }
-  };
-
   const handleFactoryReset = async () => {
     try {
       await invoke('reset_application_to_defaults');
@@ -1088,16 +874,49 @@ function App() {
     } as const;
   };
 
+  useTauriEvents({
+    onSetupStatus: (payload) => {
+      if (payload === 'configuring-system') {
+        showToast('Configuring system permissions...', 'info');
+      } else if (payload === 'restart-required') {
+        showToast('Permissions updated! Please restart your session.', 'success');
+      } else if (payload === 'setup-failed') {
+        showToast('System configuration failed.', 'error');
+      }
+    },
+    onStatusUpdate: (payload) => {
+      const nextStatus = typeof payload === 'string' ? payload : payload.status;
+      setCurrentStatus(nextStatus);
+      if (nextStatus === 'Error') {
+        showToast('Mic not found — check your audio device settings.', 'error');
+      }
+    },
+    onHistoryUpdated: () => { loadHistory(); },
+    onConfigUpdated: () => { loadConfig(); },
+    onHotkeyBindingState: setHotkeyBindingState,
+    onMicTestStarted: () => { setMicTestStatus('playing'); },
+    onMicTestFinished: () => {
+      setMicTestStatus('idle');
+      setMicVolume(0);
+      setMicTestPassed(true);
+    },
+    onMicVolume: setMicVolume,
+    onDownloadProgress: setDownloadProgress,
+    onFocus: checkSetupStatus,
+    onHashChange: () => {
+      setActiveRoute(routeFromHash(window.location.hash));
+    },
+  });
+
   return (
     <div style={appShellStyle}>
-      <div style={titleBarStyle} onMouseDown={handleTitleBarMouseDown} onDblClick={handleTitleBarDoubleClick}>
-        <div style={titleBarTitleStyle}>Voquill</div>
-        <div style={titleBarControlsStyle}>
-          <Button variant="titlebarIcon" onClick={handleMinimize}><IconMinus size={14} stroke={2.2} /></Button>
-          <Button variant="titlebarIcon" onClick={() => void toggleWindowMaximize()}><IconSquare size={12} stroke={2.2} /></Button>
-          <Button variant="titlebarClose" onClick={handleClose}><IconX size={14} stroke={2.2} /></Button>
-        </div>
-      </div>
+      <TitleBar
+        onMinimize={handleMinimize}
+        onMaximize={() => void toggleWindowMaximize()}
+        onClose={handleClose}
+        onMouseDown={handleTitleBarMouseDown}
+        onDoubleClick={handleTitleBarDoubleClick}
+      />
 
       {activeRoute === 'setup' ? (
         <div style={appContentStyle}>
@@ -1253,147 +1072,35 @@ function App() {
         </>
       )}
 
-      <div style={toastContainerStyle}>
-        {toasts.map(toast => (
-          <div
-            key={toast.id}
-            style={getToastStyle(toast.type)}
-            title={toast.type === 'saved' ? undefined : 'Click to copy'}
-            onClick={() => void handleToastClick(toast)}
-          >
-            <span style={getToastMessageStyle(toast.type)}>{toast.message}</span>
-          </div>
-        ))}
-      </div>
+      <ToastContainer />
 
-      {showHotkeyCaptureModal && (
-        <Modal
-          title="Configure Hotkey"
-          onClose={() => void cancelHotkeyCapture()}
-          maxWidth="440px"
-          footerAlign="center"
-          footer={
-            <Button
-              variant="ghost"
-              pill
-              onClick={() => void cancelHotkeyCapture()}
-              disabled={isApplyingHotkey}
-            >
-              Cancel
-            </Button>
-          }
-        >
-          <p style={helperTextStyle}>
-            Press your desired key combination, or press Escape to cancel.
-          </p>
-          <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px 12px', textAlign: 'center', fontWeight: 700 }}>
-            {isRecordingHotkey ? 'Listening for keys...' : config.hotkey}
-          </div>
-        </Modal>
-      )}
-
-      {showSystemShortcutModal && (
-        <Modal
-          title="Change Shortcut"
-          onClose={() => setShowSystemShortcutModal(false)}
-          maxWidth="560px"
-          footerAlign="center"
-          footer={
-            <>
-              <Button variant="ghost" pill onClick={() => setShowSystemShortcutModal(false)}>
-                Close
-              </Button>
-              <Button
-                variant="primary"
-                pill
-                onClick={() => {
-                  void (async () => {
-                    setShowSystemShortcutModal(false);
-                    await checkSetupStatus();
-                    await loadConfig();
-                  })();
-                }}
-              >
-                I changed it
-              </Button>
-            </>
-          }
-        >
-          <p style={{ ...modalTextIntroStyle, fontSize: tokens.typography.sizeMd }}>
-            {systemShortcutContext?.desktop
-              ? `Your ${systemShortcutContext.desktop} desktop manages this shortcut${systemShortcutContext?.distro ? ` on ${systemShortcutContext.distro}` : ''}. To change it, open:`
-              : systemShortcutContext?.distro
-                ? `Your ${systemShortcutContext.distro} system manages this shortcut. To change it, open:`
-                : 'Your system manages this shortcut. To change it, open:'}
-          </p>
-          <p style={modalShortcutPathStyle}>
-            {systemShortcutContext?.settings_path || 'Settings -> Apps -> Voquill -> Global Shortcuts'}
-          </p>
-          {hotkeyBindingState?.active_trigger && (
-            <p style={modalShortcutNoteStyle}>
-              Current shortcut: {hotkeyBindingState.active_trigger}
-            </p>
-          )}
-          <p style={modalShortcutNoteStyle}>
-            If you can&apos;t find it, you may need to search through your system settings for &quot;Voquill&quot; or &quot;shortcuts&quot;.
-          </p>
-        </Modal>
-      )}
-
-      {showFactoryResetModal && (
-        <Modal
-          title="Factory Reset"
-          onClose={() => setShowFactoryResetModal(false)}
-          maxWidth="560px"
-          footerAlign="center"
-          footer={
-            <>
-              <Button variant="ghost" pill onClick={() => setShowFactoryResetModal(false)}>
-                Cancel
-              </Button>
-              <Button variant="danger" pill onClick={() => void handleFactoryReset()}>
-                Reset Everything
-              </Button>
-            </>
-          }
-        >
-          <p style={modalTextIntroStyle}>
-            This will reset Voquill to defaults and permanently clear downloaded models, logs, and history.
-          </p>
-          <p style={modalShortcutNoteStyle}>This action cannot be undone.</p>
-        </Modal>
-      )}
-
-      {showUpdateModal && (
-        <Modal
-          title={updateResult?.updateAvailable ? 'Update Available' : 'Voquill is Up to Date'}
-          onClose={() => setShowUpdateModal(false)}
-          maxWidth="560px"
-          footerAlign="center"
-          footer={
-            <>
-              <Button variant="ghost" pill onClick={() => setShowUpdateModal(false)}>
-                Later
-              </Button>
-              <Button variant="primary" pill onClick={() => void openLatestReleasePage()}>
-                Download Latest
-              </Button>
-            </>
-          }
-        >
-          <p style={modalTextIntroStyle}>
-            {updateResult?.updateAvailable
-              ? `A newer Voquill version is available. Current: v${updateResult.currentVersion} -> Latest: v${updateResult.latestVersion}.`
-              : `You are on the latest version (v${updateResult?.currentVersion || appVersion}).`}
-          </p>
-          <p style={modalShortcutNoteStyle}>
-            Updates are currently installed manually by downloading the latest release package.
-          </p>
-          <p style={modalShortcutNoteStyle}>Last checked: {getLastCheckedLabel()}</p>
-        </Modal>
-      )}
-
-      {showModelGuide && <ModelInfoModal onClose={() => setShowModelGuide(false)} />}
+      <Modals
+        showHotkeyCaptureModal={showHotkeyCaptureModal}
+        showSystemShortcutModal={showSystemShortcutModal}
+        showFactoryResetModal={showFactoryResetModal}
+        showUpdateModal={showUpdateModal}
+        showModelGuide={showModelGuide}
+        isRecordingHotkey={isRecordingHotkey}
+        isApplyingHotkey={isApplyingHotkey}
+        configHotkey={config.hotkey}
+        systemShortcutContext={systemShortcutContext}
+        hotkeyBindingState={hotkeyBindingState}
+        updateResult={updateResult}
+        appVersion={appVersion}
+        getLastCheckedLabel={getLastCheckedLabel}
+        onCancelHotkeyCapture={() => void cancelHotkeyCapture()}
+        onCloseSystemShortcut={() => setShowSystemShortcutModal(false)}
+        onChangedSystemShortcut={() => {
+          setShowSystemShortcutModal(false);
+          void checkSetupStatus();
+          void loadConfig();
+        }}
+        onCloseFactoryReset={() => setShowFactoryResetModal(false)}
+        onFactoryReset={() => void handleFactoryReset()}
+        onCloseUpdate={() => setShowUpdateModal(false)}
+        onOpenLatestRelease={() => void openLatestReleasePage()}
+        onCloseModelGuide={() => setShowModelGuide(false)}
+      />
     </div>
   );
 }

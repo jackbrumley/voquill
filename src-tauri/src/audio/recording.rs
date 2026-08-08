@@ -1,0 +1,144 @@
+use std::sync::{mpsc, Arc, Mutex};
+
+use hound::{WavSpec, WavWriter};
+use ringbuf::traits::Consumer;
+
+use crate::app::state::SessionState;
+
+use super::conversion::{convert_audio_for_whisper, process_sample};
+use super::engine::PersistentAudioEngine;
+
+pub async fn record_audio_while_flag(
+    session_state: &Arc<Mutex<SessionState>>,
+    engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
+    post_roll_ms: u64,
+    max_recording_duration: std::time::Duration,
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    crate::log_info!("record_audio_while_flag: enter");
+    let (tx, rx) = mpsc::sync_channel::<f32>(65536);
+    let mut samples = Vec::new();
+    let sample_rate;
+    {
+        let mut guard = engine.lock().unwrap();
+        let eng = guard.as_mut().ok_or("Audio engine not initialized")?;
+        sample_rate = eng.sample_rate;
+        if let Ok(mut cons) = eng.pre_roll_consumer.lock() {
+            while let Some(s) = cons.try_pop() {
+                samples.push(s);
+            }
+        }
+        *eng.recording_tx.lock().unwrap() = Some(tx);
+    }
+
+    let (data_tx, data_rx) = mpsc::channel::<Vec<u8>>();
+    std::thread::spawn(move || {
+        let mut all = samples;
+        while let Ok(s) = rx.recv() {
+            all.push(s);
+        }
+        let mut out = Vec::new();
+        if let Ok(mut w) = WavWriter::new(
+            std::io::Cursor::new(&mut out),
+            WavSpec {
+                channels: 1,
+                sample_rate,
+                bits_per_sample: 16,
+                sample_format: hound::SampleFormat::Int,
+            },
+        ) {
+            for s in all {
+                let _ = w.write_sample(process_sample(s));
+            }
+            let _ = w.finalize();
+        }
+        let _ = data_tx.send(out);
+    });
+
+    let capture_started = tokio::time::Instant::now();
+    loop {
+        let still_recording = matches!(*session_state.lock().unwrap(), SessionState::Recording);
+        if !still_recording {
+            break;
+        }
+        if capture_started.elapsed() >= max_recording_duration {
+            crate::log_warn!(
+                "record_audio_while_flag: max recording duration of {:?} reached; auto-stopping capture",
+                max_recording_duration
+            );
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    crate::log_info!("record_audio_while_flag: capture loop ended, finalizing capture");
+
+    if post_roll_ms > 0 {
+        tokio::time::sleep(std::time::Duration::from_millis(post_roll_ms)).await;
+        crate::log_info!("record_audio_while_flag: post-roll of {post_roll_ms}ms complete");
+    }
+
+    if let Some(eng) = engine.lock().unwrap().as_ref() {
+        *eng.recording_tx.lock().unwrap() = None;
+    }
+    let final_wav = data_rx.recv()?;
+    crate::log_info!(
+        "record_audio_while_flag: captured {} bytes of wav before whisper conversion",
+        final_wav.len()
+    );
+    convert_audio_for_whisper(&final_wav, sample_rate, 1)
+}
+
+pub async fn record_mic_test<F>(
+    is_mic_test: &Arc<Mutex<bool>>,
+    engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
+    on_volume: F,
+) -> Result<Vec<f32>, Box<dyn std::error::Error + Send + Sync>>
+where
+    F: Fn(f32) + Send + 'static,
+{
+    let (tx, rx) = mpsc::sync_channel::<f32>(65536);
+    let sample_rate;
+    {
+        let mut guard = engine.lock().unwrap();
+        let eng = guard.as_mut().ok_or("Audio engine not initialized")?;
+        sample_rate = eng.sample_rate;
+        *eng.recording_tx.lock().unwrap() = Some(tx);
+    }
+
+    let (data_tx, data_rx) = mpsc::channel::<Vec<f32>>();
+    std::thread::spawn(move || {
+        let mut samples = Vec::new();
+        let mut peak = 0.0f32;
+        let mut count = 0;
+        let throttle_window = 800;
+        while let Ok(s) = rx.recv() {
+            let abs_s = s.abs();
+            if abs_s > peak {
+                peak = abs_s;
+            }
+            count += 1;
+            if count >= throttle_window {
+                on_volume(peak);
+                peak = 0.0;
+                count = 0;
+            }
+            samples.push(s);
+        }
+        let _ = data_tx.send(samples);
+    });
+
+    while *is_mic_test.lock().unwrap() {
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    if let Some(eng) = engine.lock().unwrap().as_ref() {
+        *eng.recording_tx.lock().unwrap() = None;
+    }
+    let final_samples = data_rx.recv()?;
+
+    crate::log_info!(
+        "Mic test: Finished with {} samples at {}Hz",
+        final_samples.len(),
+        sample_rate
+    );
+
+    Ok(final_samples)
+}
