@@ -1,6 +1,5 @@
 import { IconInfoCircle, IconRefresh, IconX } from '@tabler/icons-preact';
 import { useSignal } from '@preact/signals';
-import { invoke } from '@tauri-apps/api/core';
 import { ConfigField } from '../components/ConfigField.tsx';
 import { Switch } from '../components/Switch.tsx';
 import { CollapsibleSection } from '../components/CollapsibleSection.tsx';
@@ -79,7 +78,7 @@ interface ConfigPageProps {
   overlayPositioningCapabilities: { manual_offset_supported: boolean; detail?: string };
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown>) => void;
   testApiKey: () => void;
-  downloadModel: (size: string) => void;
+  downloadModel: (size: string, engine?: string) => void;
   loadModels: () => void;
   loadMics: () => void;
   handleConfigureHotkey: () => void;
@@ -551,7 +550,7 @@ export function ConfigPage(props: ConfigPageProps) {
                     isDownloading={isDownloading}
                     downloadProgress={downloadProgress}
                     onChangeModel={(size) => updateConfig('post_process_model', size)}
-onDownloadModel={(size) => invoke('download_model', { modelSize: size, engineName: 'Post-Process (Local)' }).catch((e) => console.error('Download failed:', e))}
+onDownloadModel={(size) => downloadModel(size, 'Post-Process (Local)')}
                     onRetryModels={loadModels}
                     onShowModelGuide={() => setShowPostProcessGuide(true)}
                   />

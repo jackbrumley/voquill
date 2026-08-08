@@ -40,7 +40,7 @@ interface MainLayoutProps {
   onSetActiveConfigSection: (value: string | null) => void;
   onUpdateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown>) => void;
   onTestApiKey: () => void;
-  onDownloadModel: (size: string) => void;
+  onDownloadModel: (size: string, engine?: string) => void;
   onLoadModels: () => void;
   onLoadMics: () => void;
   onHandleConfigureHotkey: () => void;

@@ -12,7 +12,7 @@ interface UseConfigReturn {
   isDownloading: boolean;
   loadConfig: () => Promise<void>;
   loadModels: () => Promise<void>;
-  downloadModel: (size: string) => Promise<void>;
+  downloadModel: (size: string, engine?: string) => Promise<void>;
   persistConfig: (configToPersist: Config, showSavedConfirmation?: boolean) => Promise<void>;
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown>) => void;
   toggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
@@ -112,11 +112,12 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     }
   };
 
-  const downloadModel = async (size: string) => {
+  const downloadModel = async (size: string, engine?: string) => {
     isDownloading.value = true;
     downloadProgress.value = 0;
     try {
-      await invoke('download_model', { modelSize: size, engineName: config.value.local_engine });
+      const engineName = engine || config.value.local_engine;
+      await invoke('download_model', { modelSize: size, engineName });
       showToast(`${size} model downloaded successfully!`, 'success');
       await loadModels();
     } catch (error) {
