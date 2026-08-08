@@ -131,7 +131,7 @@ export const getToastStyle = (type: 'success' | 'error' | 'info' | 'saved'): Sty
   alignItems: 'center',
   justifyContent: 'center',
   padding: type === 'saved' ? '6px 12px' : '10px 12px',
-  borderRadius: type === 'saved' ? '999px' : '10px',
+  borderRadius: '999px',
   border: 'none',
   background: type === 'saved'
     ? '#10b981'

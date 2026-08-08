@@ -1,5 +1,8 @@
 import { useSignal } from '@preact/signals';
 import { ActionFooter } from '../components/ActionFooter.tsx';
+import { AudioWave } from '../components/AudioWave.tsx';
+import { BouncingDots } from '../components/BouncingDots.tsx';
+import { ReadySweep } from '../components/ReadySweep.tsx';
 import { Button } from '../components/Button.tsx';
 import { ConfigField } from '../components/ConfigField.tsx';
 import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
@@ -28,6 +31,19 @@ interface UiLabPageProps {
   onOpenUpdateModal: () => void;
 }
 
+function generateWaveKeyframes(): string {
+  const rand = () => (0.1 + Math.random() * 0.9).toFixed(2);
+  return `
+    @keyframes voquill-wave-bar {
+      0%, 100% { transform: scaleY(0.1); }
+      20% { transform: scaleY(${rand()}); }
+      40% { transform: scaleY(${rand()}); }
+      60% { transform: scaleY(${rand()}); }
+      80% { transform: scaleY(${rand()}); }
+    }
+  `;
+}
+
 export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: UiLabPageProps) {
   const showUpdateBadge = useSignal(true);
   const updateAvailableCopy = useSignal(true);
@@ -43,6 +59,7 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
   const isDownloading = useSignal(false);
   const downloadProgress = useSignal(0);
   const activeStatus = useSignal<'Ready' | 'Recording' | 'Transcribing'>('Ready');
+  const waveKeyframes = useSignal(generateWaveKeyframes());
 
   return (
     <div style={{ ...tabPanelStyle, position: 'relative' }}>
@@ -52,6 +69,21 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
       </div>
 
       <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0, gap: tokens.spacing.md, padding: tokens.spacing.sm }}>
+        <style>{`
+              ${waveKeyframes.value}
+              @keyframes voquill-bounce-dot {
+                0% { transform: translateY(-14px); }
+                50% { transform: translateY(14px); }
+                100% { transform: translateY(-14px); }
+              }
+              @keyframes voquill-sweep {
+                0% { width: 12px; left: 0; }
+                25% { width: 100%; left: 0; }
+                50% { width: 12px; left: calc(100% - 12px); }
+                75% { width: 100%; left: 0; }
+                100% { width: 12px; left: 0; }
+              }
+            `}</style>
         <ConfigField label="StatusIcon" description="Live status indicator with animations.">
           <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center' }}>
             <StatusIcon status={activeStatus.value} />
@@ -240,12 +272,107 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
             <Button variant="ghost" pill>Error</Button>
           </div>
         </ConfigField>
+
+        <ConfigField label="Ready Sweep" description="Horizontal sweeping line animation for ready state.">
+          <div style={{
+            width: '120px',
+            height: '120px',
+            border: '1px dashed rgba(255,255,255,0.2)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <ReadySweep />
+          </div>
+        </ConfigField>
+
+        <ConfigField label="Audio Wave" description="Animated audio visualizer using Voquill brand colors.">
+          <div style={{
+            width: '120px',
+            height: '120px',
+            border: '1px dashed rgba(255,255,255,0.2)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <AudioWave containerHeight={120} />
+          </div>
+        </ConfigField>
+
+        <ConfigField label="Bouncing Dots" description="Bouncing dots animation for transcribing state.">
+          <div style={{
+            width: '120px',
+            height: '120px',
+            border: '1px dashed rgba(255,255,255,0.2)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <BouncingDots />
+          </div>
+        </ConfigField>
+
+        <ConfigField label="Status Icon Comparison" description="Compare the old status orb, the new audio wave design, and the overlay pill.">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.md, width: '100%' }}>
+            <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center', justifyContent: 'center' }}>
+              <SelectField
+                value={activeStatus.value}
+                options={[
+                  { value: 'Ready', label: 'Ready' },
+                  { value: 'Recording', label: 'Recording' },
+                  { value: 'Transcribing', label: 'Transcribing' },
+                ]}
+                onChange={(v) => { activeStatus.value = v as 'Ready' | 'Recording' | 'Transcribing'; }}
+                style={{ width: '180px' }}
+              />
+            </div>
+<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.sm }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: tokens.colors.textSecondary }}>Overlay Pill</div>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  isolation: 'isolate',
+                  contain: 'paint',
+                  overflow: 'hidden',
+                  background: `linear-gradient(135deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 50%, ${tokens.colors.bgGradientCool} 100%)`,
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '999px',
+                  padding: '6px 12px 6px 8px',
+                  minWidth: '194px',
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    justifyContent: 'center',
+                    gap: '3px',
+                    height: '32px',
+                    width: '40px',
+                  }}>
+                    {activeStatus.value === 'Transcribing' ? (
+                      <BouncingDots dotSize={8} gap={3} />
+                    ) : activeStatus.value === 'Ready' ? (
+                      <ReadySweep />
+                    ) : (
+                      <AudioWave barWidth={4} containerHeight={32} gap={2} />
+                    )}
+                  </div>
+                  <span style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '18px', fontWeight: 500, textAlign: 'center', flex: 1, whiteSpace: 'nowrap' }}>
+                    {activeStatus.value}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ConfigField>
       </div>
 
       <ActionFooter>
-        <p style={{ color: tokens.colors.textSecondary, fontSize: tokens.typography.sizeXs }}>
-          UI Lab lets you test components in isolation.
-        </p>
+        <></>
       </ActionFooter>
     </div>
   );
