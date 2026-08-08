@@ -8,9 +8,10 @@ interface StatusIndicatorProps {
   size?: number;
   label?: string;
   subtitle?: string;
+  fixedWidth?: number;
 }
 
-export function StatusIndicator({ status, size = 40, label, subtitle }: StatusIndicatorProps) {
+export function StatusIndicator({ status, size = 40, label, subtitle, fixedWidth }: StatusIndicatorProps) {
   const animSize = Math.max(size - 8, 24);
 
   return (
@@ -25,7 +26,8 @@ export function StatusIndicator({ status, size = 40, label, subtitle }: StatusIn
       border: '1px solid rgba(255, 255, 255, 0.1)',
       borderRadius: '999px',
       padding: label ? `${Math.max(4, Math.round(size * 0.1))}px ${Math.max(10, Math.round(size * 0.25))}px ${Math.max(4, Math.round(size * 0.1))}px ${Math.max(6, Math.round(size * 0.15))}px` : '0',
-      minWidth: label ? `${Math.round(size * 2.5)}px` : `${size}px`,
+      minWidth: fixedWidth ? `${fixedWidth}px` : (label ? `${Math.round(size * 2.5)}px` : `${size}px`),
+      width: fixedWidth ? `${fixedWidth}px` : undefined,
       height: label ? `${size}px` : `${size}px`,
     }}>
       <div style={{
