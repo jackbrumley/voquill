@@ -1,4 +1,4 @@
-import { IconRocket, IconTarget, IconScale, IconBolt } from '@tabler/icons-preact';
+import { IconTarget, IconScale, IconBolt } from '@tabler/icons-preact';
 import { Button } from './Button.tsx';
 import { Modal } from './Modal.tsx';
 import { tokens } from '../design-tokens.ts';
@@ -15,7 +15,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
       fullScreen
     >
       <p style={{ fontSize: tokens.typography.sizeMd, color: tokens.colors.textSecondary, lineHeight: 1.6, margin: 0 }}>
-        Voquill uses AI models to transcribe your voice. Choose the one that best fits your computer's power.
+        Pick an engine in Settings first, then choose a model size below. The right model depends on your computer and how fast you need results.
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.md }}>
@@ -25,7 +25,7 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
           </div>
           <div>
             <h3 style={{ margin: '0 0 4px 0', fontSize: tokens.typography.sizeSm, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Lightning Fast</h3>
-            <p style={{ margin: 0, fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, lineHeight: 1.5 }}><strong>Tiny / Distil-Small</strong>: Fastest and lightest, great for older laptops.</p>
+            <p style={{ margin: 0, fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, lineHeight: 1.5 }}><strong>Tiny / Distil-Small</strong>: Fastest and lightest, great for older laptops. Works with both CPU and GPU Whisper engines.</p>
           </div>
         </div>
 
@@ -45,19 +45,9 @@ export function ModelInfoModal({ onClose }: ModelInfoModalProps) {
           </div>
           <div>
             <h3 style={{ margin: '0 0 4px 0', fontSize: tokens.typography.sizeSm, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Highest Accuracy</h3>
-            <p style={{ margin: 0, fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, lineHeight: 1.5 }}><strong>Small / Medium</strong>: Best for complex vocabulary or accents. Requires a modern PC or a GPU.</p>
+            <p style={{ margin: 0, fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, lineHeight: 1.5 }}><strong>Small / Medium</strong>: Best for complex vocabulary or accents. Needs a modern PC.</p>
           </div>
         </div>
-      </div>
-
-      <div style={{ padding: tokens.spacing.md, background: '#26282e', borderRadius: '12px', borderLeft: '4px solid #f1c40f' }}>
-        <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center', marginBottom: '8px' }}>
-          <IconRocket size={20} color="#f1c40f" />
-          <h3 style={{ margin: 0, fontSize: tokens.typography.sizeSm, fontWeight: 700 }}>Turbo Mode (GPU)</h3>
-        </div>
-        <p style={{ margin: 0, fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary, lineHeight: 1.6 }}>
-          If you have a dedicated graphics card (AMD or NVIDIA), try <strong>Turbo Mode</strong> in Settings (look for the Experimental badge). It can speed up transcription on some systems, but results vary by hardware and model.
-        </p>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', marginTop: tokens.spacing.sm, paddingBottom: tokens.spacing.md }}>
