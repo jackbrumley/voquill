@@ -5,21 +5,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { disable as disableAutostart, enable as enableAutostart, isEnabled as isAutostartEnabled } from '@tauri-apps/plugin-autostart';
 import { open } from '@tauri-apps/plugin-shell';
-import { Button } from './components/Button.tsx';
-import { ActionFooter } from './components/ActionFooter.tsx';
 import { TitleBar } from './components/TitleBar.tsx';
 import { Modals } from './components/Modals.tsx';
-import { StatusPage } from './pages/StatusPage.tsx';
-import { ConfigPage } from './pages/ConfigPage.tsx';
-import { HistoryPage } from './pages/HistoryPage.tsx';
+import { MainLayout } from './components/MainLayout.tsx';
 import { InitialSetupPage } from './pages/InitialSetupPage.tsx';
-import { UiLabPage } from './pages/UiLabPage.tsx';
-import {
-  appShellStyle,
-  appContentStyle,
-  tabNavStyle,
-} from './theme/ui-primitives.ts';
-import { tokens } from './design-tokens.ts';
+import { appShellStyle, appContentStyle } from './theme/ui-primitives.ts';
 import { useToast } from './hooks/useToast.tsx';
 import { useTauriEvents } from './hooks/useTauriEvents.ts';
 import type {
@@ -839,41 +829,6 @@ function App() {
     }
   };
 
-  const topTabBaseStyle = {
-    border: 'none',
-    borderRadius: `${tokens.radii.input} ${tokens.radii.input} 0 0`,
-    background: 'transparent',
-    color: tokens.colors.textSecondary,
-    fontSize: '12px',
-    fontWeight: 600,
-    letterSpacing: '0.005em',
-    padding: `12px ${tokens.spacing.sm}`,
-    cursor: 'pointer',
-    transition: tokens.transitions.normal,
-    flex: 1,
-    textAlign: 'center',
-    position: 'relative',
-    zIndex: 1,
-    marginBottom: 0,
-  } as const;
-
-  const getTopTabStyle = (route: AppRoute) => {
-    const isActive = activeRoute === route;
-    const isHovered = hoveredTopTab === route;
-    return {
-      ...topTabBaseStyle,
-      background: isActive
-        ? 'rgba(54, 57, 63, 0.5)'
-        : isHovered
-          ? 'rgba(255, 255, 255, 0.05)'
-          : 'transparent',
-      color: isActive ? tokens.colors.textPrimary : tokens.colors.textSecondary,
-      backdropFilter: isActive ? 'blur(5px)' : undefined,
-      WebkitBackdropFilter: isActive ? 'blur(5px)' : undefined,
-      boxShadow: isActive ? `inset 0 -1px 0 ${tokens.colors.bgPrimary}` : 'none',
-    } as const;
-  };
-
   useTauriEvents({
     onSetupStatus: (payload) => {
       if (payload === 'configuring-system') {
@@ -960,116 +915,57 @@ function App() {
               />
             </div>
       ) : (
-        <>
-          <div style={tabNavStyle}>
-            <button
-              type="button"
-              style={getTopTabStyle('status')}
-              onClick={() => { logUI('🖱️ Button clicked: Status Tab'); navigate('status'); }}
-              onMouseEnter={() => setHoveredTopTab('status')}
-              onMouseLeave={() => setHoveredTopTab(null)}
-              aria-current={activeRoute === 'status' ? 'page' : undefined}
-            >
-              Status
-            </button>
-            <button
-              type="button"
-              style={getTopTabStyle('history')}
-              onClick={() => { logUI('🖱️ Button clicked: History Tab'); navigate('history'); }}
-              onMouseEnter={() => setHoveredTopTab('history')}
-              onMouseLeave={() => setHoveredTopTab(null)}
-              aria-current={activeRoute === 'history' ? 'page' : undefined}
-            >
-              History
-            </button>
-            <button
-              type="button"
-              style={getTopTabStyle('settings')}
-              onClick={() => { logUI('🖱️ Button clicked: Settings Tab'); navigate('settings'); }}
-              onMouseEnter={() => setHoveredTopTab('settings')}
-              onMouseLeave={() => setHoveredTopTab(null)}
-              aria-current={activeRoute === 'settings' ? 'page' : undefined}
-            >
-              Settings
-            </button>
-          </div>
-
-          <div style={appContentStyle} ref={tabContentRef}>
-            {activeRoute === 'status' && (
-              <StatusPage
-                currentStatus={currentStatus}
-                appVersion={appVersion}
-                modelStatus={modelStatus}
-                config={config}
-                isSystemManagedShortcut={isSystemManagedShortcut}
-                onToggleOutputMethod={toggleOutputMethod}
-                hasUpdateAvailable={updateResult?.updateAvailable === true}
-                onOpenUpdateModal={() => setShowUpdateModal(true)}
-              />
-            )}
-
-            {activeRoute === 'settings' && (
-              <ConfigPage
-                config={config}
-                activeConfigSection={activeConfigSection}
-                setActiveConfigSection={handleSetActiveConfigSection}
-                availableEngines={availableEngines}
-                availableModels={availableModels}
-                modelStatus={modelStatus}
-                downloadProgress={downloadProgress}
-                isDownloading={isDownloading}
-                isTestingApi={isTestingApi}
-                portalVersion={portalVersion}
-                isSystemManagedShortcut={isSystemManagedShortcut}
-                hotkeyBindingState={hotkeyBindingState}
-                isApplyingHotkey={isApplyingHotkey}
-                availableMics={availableMics}
-                micTestStatus={micTestStatus}
-                micVolume={micVolume}
-                overlayPositioningCapabilities={overlayPositioningCapabilities}
-                updateConfig={updateConfig}
-                testApiKey={testApiKey}
-                downloadModel={downloadModel}
-                loadModels={loadModels}
-                loadMics={loadMics}
-                handleConfigureHotkey={handleConfigureHotkey}
-                setShowModelGuide={setShowModelGuide}
-                startMicTest={() => void startMicTest()}
-                stopMicTest={() => void stopMicTest()}
-                stopMicPlayback={() => void stopMicPlayback()}
-                openDebugFolder={openDebugFolder}
-                onReopenInitialSetup={() => {
-                  setSetupTouched(true);
-                  navigate('setup');
-                }}
-                onFactoryReset={() => setShowFactoryResetModal(true)}
-                checkingUpdates={checkingUpdates}
-                onCheckForUpdates={() => void checkForUpdates(true)}
-                onOpenUiLab={() => navigate('ui-lab')}
-                autostartEnabled={autostartEnabled}
-                onToggleAutostart={(enabled) => void toggleAutostart(enabled)}
-              />
-            )}
-
-            {activeRoute === 'history' && (
-              <HistoryPage history={history} onCopyToClipboard={copyToClipboard} />
-            )}
-
-            {activeRoute === 'ui-lab' && (
-              <UiLabPage
-                appVersion={appVersion}
-                onBackToSettings={() => navigate('settings')}
-                onOpenUpdateModal={() => setShowUpdateModal(true)}
-              />
-            )}
-          </div>
-
-          {activeRoute === 'history' && (
-            <ActionFooter>
-              <Button variant="danger" pill floating onClick={clearHistory}>Clear History</Button>
-            </ActionFooter>
-          )}
-        </>
+        <MainLayout
+          activeRoute={activeRoute}
+          config={config}
+          currentStatus={currentStatus}
+          appVersion={appVersion}
+          availableEngines={availableEngines}
+          availableModels={availableModels}
+          modelStatus={modelStatus}
+          downloadProgress={downloadProgress}
+          isDownloading={isDownloading}
+          isTestingApi={isTestingApi}
+          activeConfigSection={activeConfigSection}
+          portalVersion={portalVersion}
+          isSystemManagedShortcut={isSystemManagedShortcut}
+          hotkeyBindingState={hotkeyBindingState}
+          isApplyingHotkey={isApplyingHotkey}
+          availableMics={availableMics}
+          micTestStatus={micTestStatus}
+          micVolume={micVolume}
+          overlayPositioningCapabilities={overlayPositioningCapabilities}
+          checkingUpdates={checkingUpdates}
+          autostartEnabled={autostartEnabled}
+          hoveredTopTab={hoveredTopTab}
+          history={history}
+          updateResult={updateResult}
+          tabContentRef={tabContentRef}
+          onNavigate={navigate}
+          onLogUI={logUI}
+          onSetHoveredTab={setHoveredTopTab}
+          onSetActiveConfigSection={handleSetActiveConfigSection}
+          onUpdateConfig={updateConfig}
+          onTestApiKey={testApiKey}
+          onDownloadModel={downloadModel}
+          onLoadModels={loadModels}
+          onLoadMics={loadMics}
+          onHandleConfigureHotkey={handleConfigureHotkey}
+          onSetShowModelGuide={setShowModelGuide}
+          onStartMicTest={startMicTest}
+          onStopMicTest={stopMicTest}
+          onStopMicPlayback={stopMicPlayback}
+          onOpenDebugFolder={openDebugFolder}
+          onReopenInitialSetup={() => { setSetupTouched(true); navigate('setup'); }}
+          onFactoryReset={() => setShowFactoryResetModal(true)}
+          onCheckForUpdates={() => void checkForUpdates(true)}
+          onOpenUiLab={() => navigate('ui-lab')}
+          onToggleAutostart={(enabled) => void toggleAutostart(enabled)}
+          onCopyToClipboard={copyToClipboard}
+          onClearHistory={clearHistory}
+          onToggleOutputMethod={toggleOutputMethod}
+          onOpenUpdateModal={() => setShowUpdateModal(true)}
+        />
       )}
 
       <ToastContainer />
