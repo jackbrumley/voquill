@@ -153,6 +153,7 @@ fn main() {
             test_api_key,
             get_current_status,
             get_history,
+            search_history,
             clear_history,
             check_hotkey_status,
             manual_register_hotkey,

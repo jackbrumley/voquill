@@ -57,8 +57,13 @@ pub fn get_current_status() -> String {
 }
 
 #[tauri::command]
-pub async fn get_history() -> Result<history::History, String> {
+pub async fn get_history() -> Result<Vec<history::HistoryItem>, String> {
     history::load_history().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn search_history(query: String) -> Result<Vec<history::HistoryItem>, String> {
+    history::search_history(&query).map_err(|error| error.to_string())
 }
 
 #[tauri::command]

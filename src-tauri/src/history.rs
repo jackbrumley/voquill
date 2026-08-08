@@ -1,7 +1,8 @@
 use chrono::Utc;
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoryItem {
@@ -10,72 +11,178 @@ pub struct HistoryItem {
     pub timestamp: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct History {
-    pub items: Vec<HistoryItem>,
-}
-
-fn get_history_file_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn db_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let mut path = dirs::config_dir().ok_or("Could not find config directory")?;
     path.push("foss-voquill");
-
-    // Create directory if it doesn't exist
-    if !path.exists() {
-        fs::create_dir_all(&path)?;
-    }
-
-    path.push("history.json");
+    std::fs::create_dir_all(&path)?;
+    path.push("history.db");
     Ok(path)
 }
 
-pub fn load_history() -> Result<History, Box<dyn std::error::Error>> {
-    let path = get_history_file_path()?;
+fn open_db() -> Result<Connection, Box<dyn std::error::Error>> {
+    let path = db_path()?;
+    let conn = Connection::open(&path)?;
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;")?;
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS history (
+            id    INTEGER PRIMARY KEY AUTOINCREMENT,
+            text  TEXT NOT NULL,
+            timestamp TEXT NOT NULL
+        );
+        CREATE VIRTUAL TABLE IF NOT EXISTS history_fts
+            USING fts5(text, content='history', content_rowid='id');",
+    )?;
 
-    if !path.exists() {
-        return Ok(History::default());
-    }
+    conn.execute_batch(
+        "CREATE TRIGGER IF NOT EXISTS history_ai AFTER INSERT ON history BEGIN
+            INSERT INTO history_fts(rowid, text) VALUES (new.id, new.text);
+        END;
+        CREATE TRIGGER IF NOT EXISTS history_ad AFTER DELETE ON history BEGIN
+            INSERT INTO history_fts(history_fts, rowid, text) VALUES ('delete', old.id, old.text);
+        END;
+        CREATE TRIGGER IF NOT EXISTS history_au AFTER UPDATE ON history BEGIN
+            INSERT INTO history_fts(history_fts, rowid, text) VALUES ('delete', old.id, old.text);
+            INSERT INTO history_fts(rowid, text) VALUES (new.id, new.text);
+        END;",
+    )?;
 
-    let content = fs::read_to_string(path)?;
-    let history: History = serde_json::from_str(&content)?;
-    Ok(history)
+    Ok(conn)
 }
 
-pub fn save_history(history: &History) -> Result<(), Box<dyn std::error::Error>> {
-    let path = get_history_file_path()?;
-    let content = serde_json::to_string_pretty(history)?;
-    fs::write(path, content)?;
+fn global_db() -> &'static Mutex<Connection> {
+    static DB: OnceLock<Mutex<Connection>> = OnceLock::new();
+    DB.get_or_init(|| match open_db() {
+        Ok(conn) => {
+            migrate_from_json(&conn).ok();
+            Mutex::new(conn)
+        }
+        Err(e) => {
+            eprintln!("Failed to open history database: {}", e);
+            std::process::abort();
+        }
+    })
+}
+
+fn migrate_from_json(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    let mut json_path = dirs::config_dir().ok_or("Could not find config directory")?;
+    json_path.push("foss-voquill");
+    json_path.push("history.json");
+
+    if !json_path.exists() {
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(&json_path)?;
+    let legacy: serde_json::Value = serde_json::from_str(&content)?;
+    if let Some(items) = legacy.get("items").and_then(|v| v.as_array()) {
+        if items.is_empty() {
+            std::fs::remove_file(&json_path).ok();
+            return Ok(());
+        }
+        for item in items {
+            let text = item.get("text").and_then(|v| v.as_str()).unwrap_or("");
+            let timestamp = item.get("timestamp").and_then(|v| v.as_str()).unwrap_or("");
+
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM history WHERE id = ?",
+                params![item.get("id").and_then(|v| v.as_u64()).unwrap_or(0) as i64],
+                |row| row.get(0),
+            )?;
+            if count == 0 {
+                let id = item.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
+                conn.execute(
+                    "INSERT INTO history (id, text, timestamp) VALUES (?1, ?2, ?3)",
+                    params![id as i64, text, timestamp],
+                )?;
+            }
+        }
+    }
+
+    std::fs::remove_file(&json_path).ok();
     Ok(())
 }
 
+fn sanitize_fts_query(raw: &str) -> String {
+    if raw.trim().is_empty() {
+        return String::new();
+    }
+    let escaped: String = raw
+        .chars()
+        .map(|c| match c {
+            '^' | '$' | '*' | '"' | '(' | ')' | '+' | '-' | '~' | ':' | '!' | '&' | '|' => ' ',
+            _ => c,
+        })
+        .collect();
+    let trimmed = escaped.split_whitespace().collect::<Vec<_>>().join(" ");
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    format!("{}*", trimmed)
+}
+
 pub fn add_history_item(text: &str) -> Result<HistoryItem, Box<dyn std::error::Error>> {
-    let mut history = load_history()?;
-
-    // Store as ISO 8601 UTC timestamp for easy parsing in frontend
+    let conn = global_db().lock().unwrap();
     let timestamp = Utc::now().to_rfc3339();
-    let id = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_millis() as u64;
-
-    let item = HistoryItem {
+    conn.execute(
+        "INSERT INTO history (text, timestamp) VALUES (?1, ?2)",
+        params![text, timestamp],
+    )?;
+    let id = conn.last_insert_rowid() as u64;
+    Ok(HistoryItem {
         id,
         text: text.to_string(),
         timestamp,
-    };
+    })
+}
 
-    // Add to beginning of list (most recent first)
-    history.items.insert(0, item.clone());
+pub fn load_history() -> Result<Vec<HistoryItem>, Box<dyn std::error::Error>> {
+    let conn = global_db().lock().unwrap();
+    let mut stmt =
+        conn.prepare("SELECT id, text, timestamp FROM history ORDER BY id DESC LIMIT 500")?;
+    let items = stmt
+        .query_map([], |row| {
+            Ok(HistoryItem {
+                id: row.get::<_, i64>(0)? as u64,
+                text: row.get(1)?,
+                timestamp: row.get(2)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(items)
+}
 
-    // Keep only last 100 items
-    if history.items.len() > 100 {
-        history.items.truncate(100);
+pub fn search_history(query: &str) -> Result<Vec<HistoryItem>, Box<dyn std::error::Error>> {
+    let sanitized = sanitize_fts_query(query);
+    if sanitized.is_empty() {
+        return load_history();
     }
-
-    save_history(&history)?;
-    Ok(item)
+    let conn = global_db().lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT h.id, h.text, h.timestamp
+         FROM history_fts f
+         JOIN history h ON h.id = f.rowid
+         WHERE history_fts MATCH ?1
+         ORDER BY rank
+         LIMIT 500",
+    )?;
+    let items = stmt
+        .query_map(params![sanitized], |row| {
+            Ok(HistoryItem {
+                id: row.get::<_, i64>(0)? as u64,
+                text: row.get(1)?,
+                timestamp: row.get(2)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(items)
 }
 
 pub fn clear_history() -> Result<(), Box<dyn std::error::Error>> {
-    let history = History::default();
-    save_history(&history)?;
+    let conn = global_db().lock().unwrap();
+    conn.execute("DELETE FROM history", [])?;
+    conn.execute(
+        "INSERT INTO history_fts(history_fts) VALUES ('rebuild')",
+        [],
+    )?;
     Ok(())
 }

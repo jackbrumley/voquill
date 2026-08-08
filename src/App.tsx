@@ -6,7 +6,7 @@ import { TitleBar } from './components/TitleBar.tsx';
 import { Modals } from './components/Modals.tsx';
 import { MainLayout } from './components/MainLayout.tsx';
 import { InitialSetupPage } from './pages/InitialSetupPage.tsx';
-import { appShellStyle, appContentStyle } from './theme/ui-primitives.ts';
+import { appShellStyle, appContentStyle, resizeCornerOverlayStyle, resizeCornerStyles } from './theme/ui-primitives.ts';
 import { useToast } from './hooks/useToast.tsx';
 import { useTauriEvents } from './hooks/useTauriEvents.ts';
 import { useConfig } from './hooks/useConfig.ts';
@@ -46,7 +46,6 @@ function App() {
   const autostartHook = useAutostart(showToast);
   const windowControls = useWindowControls(showToast);
 
-  const currentStatus = useSignal<string>('Ready');
   const showModelGuide = useSignal(false);
   const activeConfigSection = useSignal<string | null>(null);
   const appVersion = useSignal<string>('');
@@ -124,6 +123,7 @@ function App() {
   }, [hotkeySetup.isRecordingHotkey]);
 
   useEffect(() => {
+    activeConfigSection.value = null;
     if (tabContentRef.current) {
       tabContentRef.current.scrollTop = 0;
     }
@@ -141,7 +141,6 @@ function App() {
     },
     onStatusUpdate: (payload) => {
       const nextStatus = typeof payload === 'string' ? payload : payload.status;
-      currentStatus.value = nextStatus;
       if (nextStatus === 'Error') {
         showToast('Mic not found — check your audio device settings.', 'error');
       }
@@ -225,7 +224,6 @@ function App() {
         <MainLayout
           activeRoute={activeRoute.value}
           config={configHook.config}
-          currentStatus={currentStatus.value}
           appVersion={appVersion.value}
           availableEngines={configHook.availableEngines}
           availableModels={configHook.availableModels}
@@ -245,6 +243,8 @@ function App() {
           checkingUpdates={updatesHook.checkingUpdates}
           autostartEnabled={autostartHook.autostartEnabled}
           history={historyHook.history}
+          searchQuery={historyHook.searchQuery}
+          searchResults={historyHook.searchResults}
           updateResult={updatesHook.updateResult}
           gpuStatus={gpuStatus.value}
           engineCapabilities={configHook.engineCapabilities}
@@ -270,10 +270,22 @@ function App() {
           onToggleAutostart={autostartHook.toggleAutostart}
           onCopyToClipboard={historyHook.copyToClipboard}
           onClearHistory={historyHook.clearHistory}
+          onSearchHistory={historyHook.setSearchQuery}
           onToggleOutputMethod={configHook.toggleOutputMethod}
           onOpenUpdateModal={() => updatesHook.setShowUpdateModal(true)}
         />
       )}
+
+      <div style={resizeCornerOverlayStyle}>
+        <div style={resizeCornerStyles.nw}
+          onMouseDown={windowControls.handleResizeCornerMouseDown('NorthWest')} />
+        <div style={resizeCornerStyles.ne}
+          onMouseDown={windowControls.handleResizeCornerMouseDown('NorthEast')} />
+        <div style={resizeCornerStyles.sw}
+          onMouseDown={windowControls.handleResizeCornerMouseDown('SouthWest')} />
+        <div style={resizeCornerStyles.se}
+          onMouseDown={windowControls.handleResizeCornerMouseDown('SouthEast')} />
+      </div>
 
       <ToastContainer />
 

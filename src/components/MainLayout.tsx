@@ -11,7 +11,6 @@ import type { Config, HistoryItem, AudioDevice, EngineCapabilities, GpuStatus, H
 interface MainLayoutProps {
   activeRoute: AppRoute;
   config: Config;
-  currentStatus: string;
   appVersion: string;
   availableEngines: string[];
   availableModels: ModelInfo[];
@@ -31,6 +30,8 @@ interface MainLayoutProps {
   checkingUpdates: boolean;
   autostartEnabled: boolean;
   history: HistoryItem[];
+  searchQuery: string;
+  searchResults: HistoryItem[];
   updateResult: UpdateCheckResult | null;
   gpuStatus: GpuStatus | null;
   engineCapabilities: EngineCapabilities | null;
@@ -55,6 +56,7 @@ interface MainLayoutProps {
   onToggleAutostart: (enabled: boolean) => void;
   onCopyToClipboard: (text: string) => void;
   onClearHistory: () => void;
+  onSearchHistory: (query: string) => void;
   onToggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
   onOpenUpdateModal: () => void;
   tabContentRef: { current: HTMLDivElement | null };
@@ -77,7 +79,6 @@ export function MainLayout(props: MainLayoutProps) {
       <div style={appContentStyle} ref={props.tabContentRef}>
         {props.activeRoute === 'status' && (
           <StatusPage
-            currentStatus={props.currentStatus}
             appVersion={props.appVersion}
             modelStatus={props.modelStatus}
             config={props.config}
@@ -131,7 +132,13 @@ export function MainLayout(props: MainLayoutProps) {
         )}
 
         {props.activeRoute === 'history' && (
-          <HistoryPage history={props.history} onCopyToClipboard={props.onCopyToClipboard} />
+          <HistoryPage
+            history={props.history}
+            searchQuery={props.searchQuery}
+            searchResults={props.searchResults}
+            onCopyToClipboard={props.onCopyToClipboard}
+            onSearch={props.onSearchHistory}
+          />
         )}
 
         {props.activeRoute === 'ui-lab' && (
