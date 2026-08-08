@@ -274,6 +274,16 @@ function App() {
           onCopyToClipboard={historyHook.copyToClipboard}
           onClearHistory={historyHook.clearHistory}
           onSearchHistory={historyHook.setSearchQuery}
+          onTestCleanupApi={() => {
+            const cfg = configHook.config;
+            invoke('test_cleanup_api', {
+              apiKey: cfg.post_process_api_key,
+              apiUrl: cfg.post_process_api_url,
+              model: cfg.post_process_model,
+            })
+              .then((result) => showToast(`Post-processing test: ${result}`, 'success'))
+              .catch((err) => showToast(`Post-processing test failed: ${err}`, 'error'));
+          }}
           onToggleOutputMethod={configHook.toggleOutputMethod}
           onOpenUpdateModal={() => updatesHook.setShowUpdateModal(true)}
         />

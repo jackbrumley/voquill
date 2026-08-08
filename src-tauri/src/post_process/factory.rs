@@ -1,0 +1,23 @@
+use crate::config::Config;
+use crate::post_process::provider_api::APIPostProcessService;
+use crate::post_process::PostProcessService;
+
+pub struct PostProcessFactory;
+
+impl PostProcessFactory {
+    pub async fn create_service(
+        config: &Config,
+    ) -> Result<Box<dyn PostProcessService + Send + Sync>, String> {
+        match config.post_process_provider {
+            crate::config::PostProcessProvider::Api => Ok(Box::new(APIPostProcessService {
+                api_key: config.post_process_api_key.clone(),
+                api_url: config.post_process_api_url.clone(),
+                model: config.post_process_model.clone(),
+            })),
+            crate::config::PostProcessProvider::Local => Err(
+                "Local cleanup models are not yet implemented. Use API mode or check for updates."
+                    .to_string(),
+            ),
+        }
+    }
+}

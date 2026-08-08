@@ -38,7 +38,7 @@ interface MainLayoutProps {
   onNavigate: (route: AppRoute) => void;
   onLogUI: (msg: string) => void;
   onSetActiveConfigSection: (value: string | null) => void;
-  onUpdateConfig: (key: string, value: string | number | boolean | null | Record<string, unknown>) => void;
+  onUpdateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown>) => void;
   onTestApiKey: () => void;
   onDownloadModel: (size: string) => void;
   onLoadModels: () => void;
@@ -54,6 +54,7 @@ interface MainLayoutProps {
   onCheckForUpdates: () => void;
   onOpenUiLab: () => void;
   onToggleAutostart: (enabled: boolean) => void;
+  onTestCleanupApi: () => void;
   onCopyToClipboard: (text: string) => void;
   onClearHistory: () => void;
   onSearchHistory: (query: string) => void;
@@ -128,6 +129,7 @@ export function MainLayout(props: MainLayoutProps) {
             onOpenUiLab={props.onOpenUiLab}
             autostartEnabled={props.autostartEnabled}
             onToggleAutostart={props.onToggleAutostart}
+            testCleanupApi={props.onTestCleanupApi}
           />
         )}
 

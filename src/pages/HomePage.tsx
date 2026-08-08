@@ -124,7 +124,7 @@ export function HomePage({
 
   const dropZoneBorderColor = isDragOver.value
     ? tokens.colors.accentPrimary
-    : 'rgba(255, 255, 255, 0.12)';
+    : tokens.colors.accentPrimary;
 
   return (
     <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="home">
@@ -149,48 +149,47 @@ export function HomePage({
             </div>
         </div>
 
-        <Card style={{ padding: 0 }}>
-          <div style={{ fontSize: tokens.typography.sizeSm, lineHeight: 1.5, color: tokens.colors.textPrimary, padding: `${tokens.spacing.xs} ${tokens.spacing.md}` }}>
-            <h3 style={{ margin: '0 0 2px 0', fontSize: tokens.typography.sizeLg, textAlign: 'center', color: tokens.colors.textPrimary }}>
-              Transcribe Your Voice
-            </h3>
-            <ol style={{ listStyle: 'none', margin: 0, padding: 0, textAlign: 'left' }}>
-              {howToSteps.map((step, index) => (
-                <li key={index} style={{ display: 'grid', gridTemplateColumns: '20px 1fr', alignItems: 'start', marginBottom: '2px', color: tokens.colors.textSecondary }}>
-                  <span style={{ color: tokens.colors.accentPrimary, fontWeight: 800, fontFamily: tokens.typography.fontMono, fontSize: tokens.typography.sizeMd }}>
-                    {index + 1}.
-                  </span>
-                  <span>{step}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
+        <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, marginBottom: '-10px' }}>
+          Transcribe Your Voice
+        </div>
+
+        <Card>
+          <ol style={{ listStyle: 'none', margin: 0, padding: 0, textAlign: 'left', fontSize: tokens.typography.sizeSm }}>
+            {howToSteps.map((step, index) => (
+              <li key={index} style={{ display: 'grid', gridTemplateColumns: '20px 1fr', alignItems: 'start', marginBottom: '2px', color: tokens.colors.textSecondary }}>
+                <span style={{ color: tokens.colors.accentPrimary, fontWeight: 800, fontFamily: tokens.typography.fontMono, fontSize: tokens.typography.sizeSm }}>
+                  {index + 1}.
+                </span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
         </Card>
 
-        <Card style={{ padding: 0 }}>
-          <div style={{ padding: `${tokens.spacing.xs} ${tokens.spacing.md}` }}>
-            <h3 style={{ margin: '0 0 2px 0', fontSize: tokens.typography.sizeLg, textAlign: 'center', color: tokens.colors.textPrimary }}>
-              Transcribe an Audio File
-            </h3>
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={handleFilePick}
-              style={{
-                border: `2px dashed ${dropZoneBorderColor}`,
-                borderRadius: '10px',
-                padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-                textAlign: 'center',
-                cursor: 'pointer',
-                background: isDragOver.value ? 'rgba(255, 255, 255, 0.04)' : 'transparent',
-                transition: tokens.transitions.fast,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '2px',
-              }}
-            >
+        <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, marginBottom: '-10px' }}>
+          Transcribe an Audio File
+        </div>
+
+        <Card>
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={handleFilePick}
+            style={{
+              border: `2px dashed ${dropZoneBorderColor}`,
+              borderRadius: '10px',
+              padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+              textAlign: 'center',
+              cursor: 'pointer',
+              background: isDragOver.value ? 'rgba(255, 255, 255, 0.04)' : 'transparent',
+              transition: tokens.transitions.fast,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '2px',
+            }}
+          >
             {importStatus.value === 'idle' && (
               <>
                 <IconUpload size={28} style={{ color: tokens.colors.textMuted }} />
@@ -276,7 +275,6 @@ export function HomePage({
                 </button>
               </>
             )}
-          </div>
           </div>
         </Card>
 

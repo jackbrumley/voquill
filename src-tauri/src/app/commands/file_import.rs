@@ -25,17 +25,67 @@ pub async fn transcribe_audio_file(
         .map_err(|e| format!("Failed to create transcription service: {}", e))?;
 
     let language = current_config.language.clone();
-    let (lang_code, prompt_hint) = match language.as_str() {
-        "auto" => (None, None),
-        "en-AU" => (Some("en"), Some("Australian spelling.")),
-        "en-GB" => (Some("en"), Some("British spelling.")),
-        "en-US" => (Some("en"), Some("American spelling.")),
-        code => (Some(code), None),
+    let dictionary_words = current_config.dictionary.clone();
+    let lang_code = match language.as_str() {
+        "auto" => None,
+        "en-AU" => Some("en"),
+        "en-GB" => Some("en"),
+        "en-US" => Some("en"),
+        code => Some(code),
     };
 
-    let text = match service.transcribe(&wav_data, lang_code, prompt_hint).await {
+    let mut prompt_hint: Option<String> = match language.as_str() {
+        "en-AU" => Some("Australian spelling.".to_string()),
+        "en-GB" => Some("British spelling.".to_string()),
+        "en-US" => Some("American spelling.".to_string()),
+        _ => None,
+    };
+
+    if !dictionary_words.is_empty() {
+        let dict_str = dictionary_words.join(", ");
+        prompt_hint = match prompt_hint {
+            Some(hint) => Some(format!("{}, {}", hint, dict_str)),
+            None => Some(dict_str),
+        };
+    }
+
+    let text = match service
+        .transcribe(&wav_data, lang_code, prompt_hint.as_deref())
+        .await
+    {
         Ok(t) => t,
         Err(e) => return Err(format!("Transcription failed: {}", e)),
+    };
+
+    let text = if !text.trim().is_empty() && current_config.post_process_enabled {
+        crate::log_info!("Post-processing file transcription...");
+        match crate::post_process::factory::PostProcessFactory::create_service(&current_config)
+            .await
+        {
+            Ok(processor) => match processor.post_process(&text).await {
+                Ok(cleaned) => {
+                    crate::log_info!(
+                        "Post-processed ({}): \"{}\"",
+                        processor.service_name(),
+                        cleaned
+                    );
+                    cleaned
+                }
+                Err(e) => {
+                    crate::log_warn!("Post-processing failed, using raw text: {}", e);
+                    text
+                }
+            },
+            Err(e) => {
+                crate::log_warn!(
+                    "Could not create post-process service, using raw text: {}",
+                    e
+                );
+                text
+            }
+        }
+    } else {
+        text
     };
 
     if !text.trim().is_empty() {

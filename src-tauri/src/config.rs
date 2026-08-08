@@ -26,6 +26,14 @@ pub enum HotkeyMode {
     Toggle,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum PostProcessProvider {
+    #[serde(rename = "Local")]
+    Local,
+    #[serde(rename = "API")]
+    Api,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default = "default_api_key")]
@@ -74,6 +82,18 @@ pub struct Config {
     pub max_recording_duration_minutes: u64,
     #[serde(default)]
     pub engine_config: Option<serde_json::Value>,
+    #[serde(default)]
+    pub dictionary: Vec<String>,
+    #[serde(default)]
+    pub post_process_enabled: bool,
+    #[serde(default = "default_post_process_provider")]
+    pub post_process_provider: PostProcessProvider,
+    #[serde(default = "default_post_process_model")]
+    pub post_process_model: String,
+    #[serde(default)]
+    pub post_process_api_url: String,
+    #[serde(default)]
+    pub post_process_api_key: String,
 }
 
 impl Config {
@@ -149,6 +169,12 @@ fn default_post_roll_ms() -> u64 {
 fn default_hotkey_mode() -> HotkeyMode {
     HotkeyMode::HoldToTalk
 }
+fn default_post_process_provider() -> PostProcessProvider {
+    PostProcessProvider::Local
+}
+fn default_post_process_model() -> String {
+    "qwen2.5-1.5b-instruct".to_string()
+}
 fn default_max_recording_duration_minutes() -> u64 {
     10
 }
@@ -217,6 +243,12 @@ impl Default for Config {
             hotkey_mode: default_hotkey_mode(),
             max_recording_duration_minutes: default_max_recording_duration_minutes(),
             engine_config: None,
+            dictionary: Vec::new(),
+            post_process_enabled: false,
+            post_process_provider: default_post_process_provider(),
+            post_process_model: default_post_process_model(),
+            post_process_api_url: String::new(),
+            post_process_api_key: String::new(),
         }
     }
 }

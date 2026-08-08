@@ -40,6 +40,7 @@ mod local_whisper;
 mod model_manager;
 mod parakeet;
 pub mod platform;
+mod post_process;
 mod transcription;
 mod typing;
 
@@ -177,6 +178,7 @@ fn main() {
             check_model_status,
             download_model,
             transcribe_audio_file,
+            test_cleanup_api,
             get_linux_setup_status,
             request_audio_permission,
             request_input_permission,

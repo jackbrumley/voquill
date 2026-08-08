@@ -1,4 +1,5 @@
-import { IconInfoCircle, IconRefresh } from '@tabler/icons-preact';
+import { IconInfoCircle, IconRefresh, IconX } from '@tabler/icons-preact';
+import { useSignal } from '@preact/signals';
 import { ConfigField } from '../components/ConfigField.tsx';
 import { Switch } from '../components/Switch.tsx';
 import { CollapsibleSection } from '../components/CollapsibleSection.tsx';
@@ -52,6 +53,12 @@ interface ConfigPageProps {
     hotkey_mode: 'HoldToTalk' | 'Toggle';
     max_recording_duration_minutes: number;
     engine_config: Record<string, unknown> | null;
+    dictionary: string[];
+    post_process_enabled: boolean;
+    post_process_provider: 'Local' | 'API';
+    post_process_model: string;
+    post_process_api_url: string;
+    post_process_api_key: string;
   };
   activeConfigSection: string | null;
   setActiveConfigSection: (value: string | null) => void;
@@ -69,7 +76,7 @@ interface ConfigPageProps {
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   overlayPositioningCapabilities: { manual_offset_supported: boolean; detail?: string };
-  updateConfig: (key: string, value: string | number | boolean | null | Record<string, unknown>) => void;
+  updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown>) => void;
   testApiKey: () => void;
   downloadModel: (size: string) => void;
   loadModels: () => void;
@@ -87,6 +94,7 @@ interface ConfigPageProps {
   onOpenUiLab: () => void;
   autostartEnabled: boolean;
   onToggleAutostart: (enabled: boolean) => void;
+  testCleanupApi: () => void;
   gpuStatus: GpuStatus | null;
   engineCapabilities: EngineCapabilities | null;
 }
@@ -143,9 +151,12 @@ export function ConfigPage(props: ConfigPageProps) {
     onOpenUiLab,
     autostartEnabled,
     onToggleAutostart,
+    testCleanupApi,
     gpuStatus,
     engineCapabilities,
   } = props;
+
+  const dictionaryInput = useSignal('');
 
   const configGhostPillStyle = {
     borderRadius: '40px',
@@ -422,6 +433,133 @@ export function ConfigPage(props: ConfigPageProps) {
             <NumberField value={config.key_press_duration_ms} onChange={(value) => updateConfig('key_press_duration_ms', value)} min={1} />
           </ConfigField>
 
+        </CollapsibleSection>
+      ) : null}
+
+      {!activeConfigSection || activeConfigSection === 'post-process' ? (
+        <CollapsibleSection title="Post-Processing" isOpen={activeConfigSection === 'post-process'} onToggle={() => setActiveConfigSection(activeConfigSection === 'post-process' ? null : 'post-process')}>
+          <ConfigField label="Post-Processing" description="Run transcribed text through a language model to fix punctuation, capitalization, and remove filler words.">
+            <Switch checked={config.post_process_enabled} onChange={(checked) => updateConfig('post_process_enabled', checked)} />
+          </ConfigField>
+
+          {config.post_process_enabled && (
+            <>
+              <ConfigField label="Method" description="Choose between a local model or a cloud API for post-processing.">
+                <ModeSwitcher
+                  value={config.post_process_provider}
+                  onToggle={(val) => updateConfig('post_process_provider', val)}
+                  options={[
+                    { value: 'Local', label: 'Local', title: 'Use a local GGUF model (coming soon)' },
+                    { value: 'API', label: 'Cloud API', title: 'Use an OpenAI-compatible API' },
+                  ]}
+                />
+              </ConfigField>
+
+              {config.post_process_provider === 'API' ? (
+                <>
+                  <ConfigField label="API Key" description="Used to authenticate with the post-processing service (OpenAI, OpenRouter, etc.).">
+                    <div style={{ ...selectWrapperStyle }}>
+                      <input style={inputBaseStyle} type="text" value={config.post_process_api_key} onChange={(e: Event) => updateConfig('post_process_api_key', (e.target as HTMLInputElement).value)} placeholder="sk-..." />
+                      <Button variant="configAction" onClick={testCleanupApi}>Test</Button>
+                    </div>
+                  </ConfigField>
+
+                  <ConfigField label="API URL" description="The OpenAI-compatible endpoint for post-processing (e.g. OpenRouter, local llama-server).">
+                    <input style={inputBaseStyle} type="url" value={config.post_process_api_url} onChange={(e: Event) => updateConfig('post_process_api_url', (e.target as HTMLInputElement).value)} placeholder="https://openrouter.ai/api/v1/chat/completions" />
+                  </ConfigField>
+
+                  <ConfigField label="Model" description="The model name to use with your post-processing API provider.">
+                    <input style={inputBaseStyle} type="text" value={config.post_process_model} onChange={(e: Event) => updateConfig('post_process_model', (e.target as HTMLInputElement).value)} placeholder="openai/gpt-4o-mini" />
+                  </ConfigField>
+                </>
+              ) : (
+                <ConfigField label="Local Model" description="Local GGUF models for on-device post-processing (coming in a future update).">
+                  <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, fontStyle: 'italic' }}>
+                    Local post-processing models are not yet available. Use API mode instead.
+                  </div>
+                </ConfigField>
+              )}
+            </>
+          )}
+        </CollapsibleSection>
+      ) : null}
+
+      {!activeConfigSection || activeConfigSection === 'dictionary' ? (
+        <CollapsibleSection title="Dictionary" isOpen={activeConfigSection === 'dictionary'} onToggle={() => setActiveConfigSection(activeConfigSection === 'dictionary' ? null : 'dictionary')}>
+          <ConfigField label="Custom Words" description="Add names, jargon, or terms Whisper often gets wrong. Helps improve accuracy.">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+              <div style={{ display: 'flex', gap: tokens.spacing.xs, width: '100%' }}>
+                <input
+                  type="text"
+                  value={dictionaryInput.value}
+                  onInput={(e) => { dictionaryInput.value = (e.target as HTMLInputElement).value; }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const trimmed = dictionaryInput.value.trim();
+                      if (trimmed && !(config.dictionary || []).includes(trimmed)) {
+                        updateConfig('dictionary', [...(config.dictionary || []), trimmed]);
+                      }
+                      dictionaryInput.value = '';
+                    }
+                  }}
+                  placeholder="e.g. Anthropic, Rust, Voquill"
+                  style={{ ...inputBaseStyle, flex: 1 }}
+                />
+                <Button
+                  variant="configAction"
+                  onClick={() => {
+                    const trimmed = dictionaryInput.value.trim();
+                    if (trimmed && !(config.dictionary || []).includes(trimmed)) {
+                      updateConfig('dictionary', [...(config.dictionary || []), trimmed]);
+                    }
+                    dictionaryInput.value = '';
+                  }}
+                  disabled={!dictionaryInput.value.trim()}
+                >
+                  Add
+                </Button>
+              </div>
+              {(config.dictionary || []).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: tokens.spacing.xs }}>
+                  {(config.dictionary || []).map((word, i) => (
+                    <div key={i} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      background: 'rgba(255,255,255,0.06)',
+                      fontSize: tokens.typography.sizeXs,
+                      color: tokens.colors.textPrimary,
+                    }}>
+                      <span>{word}</span>
+                      <button
+                        onClick={() => {
+                          const updated = [...(config.dictionary || [])];
+                          updated.splice(i, 1);
+                          updateConfig('dictionary', updated);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: tokens.colors.textMuted,
+                          cursor: 'pointer',
+                          padding: '0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          lineHeight: 1,
+                        }}
+                        title={`Remove "${word}"`}
+                      >
+                        <IconX size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </ConfigField>
         </CollapsibleSection>
       ) : null}
 

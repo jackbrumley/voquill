@@ -160,13 +160,33 @@ async fn record_and_transcribe_inner(
         )
     };
 
-    let (lang_code, prompt_hint) = match language_choice.as_str() {
-        "auto" => (None, None),
-        "en-AU" => (Some("en"), Some("Australian spelling.")),
-        "en-GB" => (Some("en"), Some("British spelling.")),
-        "en-US" => (Some("en"), Some("American spelling.")),
-        code => (Some(code), None),
+    let dictionary_words = {
+        let config_guard = config.lock().unwrap();
+        config_guard.dictionary.clone()
     };
+
+    let lang_code = match language_choice.as_str() {
+        "auto" => None,
+        "en-AU" => Some("en"),
+        "en-GB" => Some("en"),
+        "en-US" => Some("en"),
+        code => Some(code),
+    };
+
+    let mut prompt_hint: Option<String> = match language_choice.as_str() {
+        "en-AU" => Some("Australian spelling.".to_string()),
+        "en-GB" => Some("British spelling.".to_string()),
+        "en-US" => Some("American spelling.".to_string()),
+        _ => None,
+    };
+
+    if !dictionary_words.is_empty() {
+        let dict_str = dictionary_words.join(", ");
+        prompt_hint = match prompt_hint {
+            Some(hint) => Some(format!("{}, {}", hint, dict_str)),
+            None => Some(dict_str),
+        };
+    }
 
     if debug_mode && enable_recording_logs {
         let debug_path = dirs::config_dir()
@@ -203,7 +223,7 @@ async fn record_and_transcribe_inner(
     };
 
     let text = match service
-        .transcribe(&audio_data, lang_code, prompt_hint)
+        .transcribe(&audio_data, lang_code, prompt_hint.as_deref())
         .await
     {
         Ok(text) => {
@@ -223,6 +243,40 @@ async fn record_and_transcribe_inner(
             );
             return Err(error.into());
         }
+    };
+
+    let text = if !text.trim().is_empty() && current_config.post_process_enabled {
+        crate::log_info!("Post-processing transcription...");
+        match crate::post_process::factory::PostProcessFactory::create_service(&current_config)
+            .await
+        {
+            Ok(processor) => {
+                crate::app::status::emit_status_to_frontend("Processing").await;
+                match processor.post_process(&text).await {
+                    Ok(cleaned) => {
+                        crate::log_info!(
+                            "Post-processed ({}): \"{}\"",
+                            processor.service_name(),
+                            cleaned
+                        );
+                        cleaned
+                    }
+                    Err(e) => {
+                        crate::log_warn!("Post-processing failed, using raw text: {}", e);
+                        text
+                    }
+                }
+            }
+            Err(e) => {
+                crate::log_warn!(
+                    "Could not create post-process service, using raw text: {}",
+                    e
+                );
+                text
+            }
+        }
+    } else {
+        text
     };
 
     if session_token.load(Ordering::SeqCst) {

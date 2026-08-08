@@ -14,7 +14,7 @@ interface UseConfigReturn {
   loadModels: () => Promise<void>;
   downloadModel: (size: string) => Promise<void>;
   persistConfig: (configToPersist: Config, showSavedConfirmation?: boolean) => Promise<void>;
-  updateConfig: (key: string, value: string | number | boolean | null | Record<string, unknown>) => void;
+  updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown>) => void;
   toggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
   formatConfigValueForLog: (key: keyof Config, value: Config[keyof Config]) => string;
   hasLoadedConfig: boolean;
@@ -44,6 +44,12 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     hotkey_mode: 'HoldToTalk',
     max_recording_duration_minutes: 10,
     engine_config: null,
+    dictionary: [],
+    post_process_enabled: false,
+    post_process_provider: 'Local',
+    post_process_model: 'openai/gpt-4o-mini',
+    post_process_api_url: '',
+    post_process_api_key: '',
   });
   const availableEngines = useSignal<string[]>([]);
   const availableModels = useSignal<ModelInfo[]>([]);
@@ -137,7 +143,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     }
   };
 
-  const updateConfig = (key: string, value: string | number | boolean | null | Record<string, unknown>) => {
+  const updateConfig = (key: string, value: string | number | boolean | null | string[] | Record<string, unknown>) => {
     const normalizedValue = key === 'input_sensitivity'
       ? (() => {
           const parsedValue = Number(value);
@@ -163,7 +169,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
       let hasChanges = false;
       if (previousConfig) {
         (Object.keys(currentConfig) as (keyof Config)[]).forEach((key) => {
-          if (previousConfig[key] !== currentConfig[key]) {
+          if (JSON.stringify(previousConfig[key]) !== JSON.stringify(currentConfig[key])) {
             hasChanges = true;
             const formattedValue = formatConfigValueForLog(key, currentConfig[key]);
             logUI('Setting changed: ' + key + ' -> ' + formattedValue);

@@ -20,6 +20,12 @@ export interface Config {
   hotkey_mode: 'HoldToTalk' | 'Toggle';
   max_recording_duration_minutes: number;
   engine_config: Record<string, unknown> | null;
+  dictionary: string[];
+  post_process_enabled: boolean;
+  post_process_provider: 'Local' | 'API';
+  post_process_model: string;
+  post_process_api_url: string;
+  post_process_api_key: string;
   shortcuts_token?: string;
   input_token?: string;
 }
