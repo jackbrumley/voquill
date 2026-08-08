@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'preact/hooks';
+import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import type { AppRoute } from '../types.ts';
 
@@ -20,27 +20,25 @@ interface UseInitialRouteReturn {
 }
 
 export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRouteReturn {
-  const { isPortalSetupReady, isAudioDeviceReady, isLocalModelReady, startupChecksLoaded, showToast } = options;
-  const [setupTouched, setSetupTouched] = useState(false);
-  const [initialRouteChecked, setInitialRouteChecked] = useState(false);
-  const [isTestingApi, setIsTestingApi] = useState(false);
+  const { showToast } = options;
+  const setupTouched = useSignal(false);
+  const initialRouteChecked = useSignal(false);
+  const isTestingApi = useSignal(false);
 
-  const isAllReady = isPortalSetupReady && isAudioDeviceReady && isLocalModelReady;
-
-  const routeFromHash = useCallback((hash: string): AppRoute => {
+  const routeFromHash = (hash: string): AppRoute => {
     const normalized = hash.replace(/^#\/?/, '').split('/')[0].trim().toLowerCase();
     if (normalized === 'setup' || normalized === 'status' || normalized === 'history' || normalized === 'settings' || normalized === 'ui-lab') {
       return normalized;
     }
     return 'status';
-  }, []);
+  };
 
-  const hashHasExplicitRoute = useCallback((hash: string): boolean => {
+  const hashHasExplicitRoute = (hash: string): boolean => {
     const normalized = hash.replace(/^#\/?/, '').trim().toLowerCase();
     return normalized.length > 0;
-  }, []);
+  };
 
-  const navigate = useCallback((route: AppRoute, replace = false) => {
+  const navigate = (route: AppRoute, replace = false) => {
     const nextHash = `#/${route}`;
     if (window.location.hash === nextHash) {
       return;
@@ -52,11 +50,10 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
     }
 
     window.location.hash = nextHash;
-  }, []);
+  };
 
-  // Initial route redirection
-  useEffect(() => {
-    if (initialRouteChecked || !startupChecksLoaded) {
+  useSignalEffect(() => {
+    if (initialRouteChecked.value || !options.startupChecksLoaded) {
       return;
     }
 
@@ -64,9 +61,11 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
     const currentHashRoute = routeFromHash(window.location.hash);
 
     if (currentHashRoute === 'ui-lab') {
-      setInitialRouteChecked(true);
+      initialRouteChecked.value = true;
       return;
     }
+
+    const isAllReady = options.isPortalSetupReady && options.isAudioDeviceReady && options.isLocalModelReady;
 
     if (isAllReady) {
       if (!hasExplicitRoute || currentHashRoute === 'setup') {
@@ -76,10 +75,10 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
       navigate('setup', true);
     }
 
-    setInitialRouteChecked(true);
-  }, [initialRouteChecked, startupChecksLoaded, isAllReady, navigate, routeFromHash, hashHasExplicitRoute]);
+    initialRouteChecked.value = true;
+  });
 
-  const handleFactoryReset = useCallback(async (
+  const handleFactoryReset = async (
     loadConfig: () => Promise<void>,
     loadMics: () => Promise<void>,
     loadModels: () => Promise<void>,
@@ -98,16 +97,16 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
         checkSetupStatus(),
       ]);
 
-      setSetupTouched(false);
-      setInitialRouteChecked(false);
+      setupTouched.value = false;
+      initialRouteChecked.value = false;
       navigate('setup', true);
     } catch (error) {
       showToast(`Factory reset failed: ${error}`, 'error');
     }
-  }, [showToast, navigate]);
+  };
 
-  const testApiKey = useCallback(async (apiKey: string, apiUrl: string) => {
-    setIsTestingApi(true);
+  const testApiKey = async (apiKey: string, apiUrl: string) => {
+    isTestingApi.value = true;
     try {
       const isValid = await invoke<boolean>('test_api_key', { apiKey, apiUrl });
       if (isValid) {
@@ -118,16 +117,16 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
     } catch (error) {
       showToast(`API Test Failed: ${error}`, 'error');
     } finally {
-      setIsTestingApi(false);
+      isTestingApi.value = false;
     }
-  }, [showToast]);
+  };
 
   return {
-    setupTouched,
-    setSetupTouched,
+    setupTouched: setupTouched.value,
+    setSetupTouched: (touched) => { setupTouched.value = touched; },
     navigate,
     handleFactoryReset,
     testApiKey,
-    isTestingApi,
+    isTestingApi: isTestingApi.value,
   };
 }

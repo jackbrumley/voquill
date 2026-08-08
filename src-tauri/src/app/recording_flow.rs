@@ -1,6 +1,6 @@
 use crate::app::state::SessionState;
-use crate::config::{self, Config, TranscriptionMode};
-use crate::{audio, history, local_whisper, transcription, typing};
+use crate::config::{Config, OutputMethod};
+use crate::{audio, engine_factory, history, typing};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
@@ -60,8 +60,7 @@ pub async fn record_and_transcribe(
     session_token: Arc<AtomicBool>,
     app_handle: AppHandle,
     audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
-    whisper_engine: local_whisper::WhisperEngineCache,
-    whisper_last_gpu_error: Arc<Mutex<Option<String>>>,
+    engine_factory: Arc<engine_factory::EngineFactory>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let result = record_and_transcribe_inner(
         &config,
@@ -69,8 +68,7 @@ pub async fn record_and_transcribe(
         &session_token,
         &app_handle,
         audio_engine,
-        &whisper_engine,
-        &whisper_last_gpu_error,
+        &engine_factory,
     )
     .await;
     finish_session(&app_handle, &session_state, &session_token).await;
@@ -107,8 +105,7 @@ async fn record_and_transcribe_inner(
     session_token: &Arc<AtomicBool>,
     app_handle: &AppHandle,
     audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
-    whisper_engine: &local_whisper::WhisperEngineCache,
-    whisper_last_gpu_error: &Arc<Mutex<Option<String>>>,
+    engine_factory: &Arc<engine_factory::EngineFactory>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (post_roll_ms, max_recording_duration) = {
         let config_guard = config.lock().unwrap();
@@ -154,21 +151,9 @@ async fn record_and_transcribe_inner(
         return Ok(());
     }
 
-    let (
-        transcription_mode,
-        api_key,
-        api_url,
-        api_model,
-        debug_mode,
-        enable_recording_logs,
-        language_choice,
-    ) = {
+    let (debug_mode, enable_recording_logs, language_choice) = {
         let config_guard = config.lock().unwrap();
         (
-            config_guard.transcription_mode.clone(),
-            config_guard.openai_api_key.clone(),
-            config_guard.api_url.clone(),
-            config_guard.api_model.clone(),
             config_guard.debug_mode,
             config_guard.enable_recording_logs,
             config_guard.language.clone(),
@@ -202,35 +187,19 @@ async fn record_and_transcribe_inner(
         }
     }
 
-    crate::log_info!("Transcription Mode: {:?}", transcription_mode);
     crate::log_info!("Language: {:?}, Hint: {:?}", lang_code, prompt_hint);
 
-    let service: Box<dyn transcription::TranscriptionService + Send + Sync> =
-        match transcription_mode {
-            TranscriptionMode::Api => Box::new(transcription::APITranscriptionService {
-                api_key,
-                api_url,
-                api_model,
-            }),
-            TranscriptionMode::Local => {
-                let (model_size, use_gpu) = {
-                    let config_lock = config.lock().unwrap();
-                    (config_lock.local_model_size.clone(), config_lock.enable_gpu)
-                };
-                match local_whisper::LocalWhisperService::new_full(
-                    whisper_engine.clone(),
-                    &model_size,
-                    use_gpu,
-                    Some(whisper_last_gpu_error.clone()),
-                ) {
-                    Ok(service) => Box::new(service),
-                    Err(error) => {
-                        crate::log_info!("Failed to initialize Local Whisper: {}", error);
-                        return Err(error.into());
-                    }
-                }
-            }
-        };
+    let service = {
+        let config_guard = config.lock().unwrap();
+        engine_factory.create_service(&config_guard)
+    };
+    let service = match service {
+        Ok(s) => s,
+        Err(error) => {
+            crate::log_info!("Failed to create transcription service: {}", error);
+            return Err(error.into());
+        }
+    };
 
     let text = match service
         .transcribe(&audio_data, lang_code, prompt_hint)
@@ -289,7 +258,7 @@ async fn record_and_transcribe_inner(
         }
 
         match output_method {
-            config::OutputMethod::Typewriter => {
+            OutputMethod::Typewriter => {
                 if copy_on_typewriter {
                     if let Err(error) = typing::copy_to_clipboard(&text) {
                         crate::log_info!("CLIPBOARD ERROR: {}", error);
@@ -305,7 +274,7 @@ async fn record_and_transcribe_inner(
                     crate::log_info!("TYPING ENGINE ERROR: {}", error);
                 }
             }
-            config::OutputMethod::Clipboard => {
+            OutputMethod::Clipboard => {
                 crate::log_info!("Copying text to clipboard (Clipboard Mode)...");
                 if let Err(error) = typing::copy_to_clipboard(&text) {
                     crate::log_info!("CLIPBOARD ERROR: {}", error);

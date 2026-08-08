@@ -1,33 +1,31 @@
-import { useState, useCallback, useRef } from 'preact/hooks';
+import { useSignal } from '@preact/signals';
 import { Toast } from '../types.ts';
 import { getToastMessageStyle, getToastStyle, toastContainerStyle } from '../theme/ui-primitives.ts';
 
 export function useToast() {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const nextToastId = useRef(0);
+  const toasts = useSignal<Toast[]>([]);
+  let nextToastId = 0;
 
-  const showToast = useCallback((message: string, type: Toast['type']) => {
-    const id = nextToastId.current++;
-    setToasts((prev) => [...prev, { id, message, type }]);
+  const showToast = (message: string, type: Toast['type']) => {
+    const id = nextToastId++;
+    toasts.value = [...toasts.value, { id, message, type }];
     const duration = type === 'error' ? 10000 : type === 'saved' ? 900 : 3000;
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
+      toasts.value = toasts.value.filter((t) => t.id !== id);
     }, duration);
-  }, []);
-
-  const handleToastClick = useCallback((toast: Toast) => {
-    if (toast.type === 'saved') {
-      setToasts((prev) => prev.filter((t) => t.id !== toast.id));
-    }
-  }, []);
+  };
 
   const ToastContainer = () => (
     <div style={toastContainerStyle}>
-      {toasts.map((toast) => (
+      {toasts.value.map((toast) => (
         <div
           key={toast.id}
           style={getToastStyle(toast.type)}
-          onClick={() => handleToastClick(toast)}
+          onClick={() => {
+            if (toast.type === 'saved') {
+              toasts.value = toasts.value.filter((t) => t.id !== toast.id);
+            }
+          }}
         >
           <span style={getToastMessageStyle(toast.type)}>{toast.message}</span>
         </div>
@@ -35,5 +33,5 @@ export function useToast() {
     </div>
   );
 
-  return { toasts, showToast, ToastContainer };
+  return { showToast, ToastContainer };
 }

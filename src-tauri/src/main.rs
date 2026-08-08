@@ -33,6 +33,7 @@ use tauri::Manager;
 mod app;
 mod audio;
 mod config;
+mod engine_factory;
 mod history;
 mod hotkey;
 mod local_whisper;

@@ -1,6 +1,6 @@
 use crate::audio;
 use crate::config::Config;
-use crate::local_whisper;
+use crate::engine_factory;
 use crate::platform;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -43,8 +43,7 @@ pub struct AppState {
     #[cfg(target_os = "linux")]
     pub wayland_host_app_registration_error: Arc<Mutex<Option<String>>>,
     pub display_backend: Arc<dyn platform::traits::DisplayBackend>,
-    pub whisper_engine: local_whisper::WhisperEngineCache,
-    pub whisper_last_gpu_error: Arc<Mutex<Option<String>>>,
+    pub engine_factory: Arc<engine_factory::EngineFactory>,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize)]
@@ -81,8 +80,7 @@ impl Default for AppState {
             #[cfg(target_os = "linux")]
             wayland_host_app_registration_error: Arc::new(Mutex::new(None)),
             display_backend: platform::initialize(),
-            whisper_engine: Arc::new(Mutex::new(None)),
-            whisper_last_gpu_error: Arc::new(Mutex::new(None)),
+            engine_factory: Arc::new(engine_factory::EngineFactory::new()),
         }
     }
 }

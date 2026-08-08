@@ -18,6 +18,7 @@
     "tauri:build": "node scripts/tauri-runner.mjs build"
   },
   "dependencies": {
+    "@preact/signals": "^2.11.0",
     "@tabler/icons-preact": "^3.36.1",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-autostart": "^2",

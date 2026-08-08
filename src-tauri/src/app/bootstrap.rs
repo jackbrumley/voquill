@@ -3,8 +3,8 @@ use crate::app::commands::hotkey::re_register_hotkey;
 use crate::app::commands::platform::is_status_notifier_watcher_available;
 use crate::app::state::AppState;
 use crate::audio;
-use crate::config::{Config, TranscriptionMode};
-use crate::local_whisper;
+use crate::config::Config;
+use crate::engine_factory;
 #[cfg(target_os = "linux")]
 use ashpd::{register_host_app, AppID};
 use std::sync::{Arc, Mutex};
@@ -231,68 +231,19 @@ pub fn run_setup(
         }
     }
 
-    spawn_whisper_preload(app.handle().clone(), initial_config);
+    spawn_engine_preload(
+        app.state::<AppState>().engine_factory.clone(),
+        initial_config,
+    );
 
     Ok(())
 }
 
-/// Pre-loads the Whisper model into the shared cache at startup so the first
-/// recording reuses a warm model instead of paying the full load cost.
-fn spawn_whisper_preload(app_handle: tauri::AppHandle, config: &Config) {
-    if config.transcription_mode != TranscriptionMode::Local {
-        return;
-    }
-    let model_size = config.local_model_size.clone();
-    let use_gpu = config.enable_gpu;
-
-    // Check that the model file exists before attempting a preload.
-    let model_path =
-        match crate::model_manager::ModelManager::new().map(|m| m.get_model_path(&model_size)) {
-            Ok(p) if p.exists() => p,
-            _ => {
-                crate::log_info!(
-                    "Whisper preload: model {} not downloaded yet; skipping",
-                    model_size
-                );
-                return;
-            }
-        };
-
-    let engine_cache = app_handle.state::<AppState>().whisper_engine.clone();
-
+/// Pre-loads the transcription engine model into its cache at startup so the
+/// first recording reuses a warm model instead of paying the full load cost.
+fn spawn_engine_preload(factory: Arc<engine_factory::EngineFactory>, config: &Config) {
+    let config = config.clone();
     tauri::async_runtime::spawn(async move {
-        crate::log_info!(
-            "Whisper preload: starting (model={}, gpu={})",
-            model_size,
-            use_gpu
-        );
-        let result = local_whisper::ensure_model_loaded_with_fallback(
-            &engine_cache,
-            model_path,
-            model_size.clone(),
-            use_gpu,
-            None,
-        )
-        .await;
-        match result {
-            Ok(outcome) => {
-                if let Some(ref reason) = outcome.fell_back_from_gpu {
-                    crate::log_warn!(
-                        "Whisper preload: model {} loaded on CPU; GPU error: {}",
-                        model_size,
-                        reason
-                    );
-                } else {
-                    crate::log_info!(
-                        "Whisper preload: model {} loaded (gpu={})",
-                        model_size,
-                        outcome.use_gpu
-                    );
-                }
-            }
-            Err(e) => {
-                crate::log_warn!("Whisper preload: failed to load {}: {}", model_size, e);
-            }
-        }
+        factory.preload(&config).await;
     });
 }

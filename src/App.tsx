@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
+import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { TitleBar } from './components/TitleBar.tsx';
@@ -21,13 +22,7 @@ import type { AppRoute } from './types.ts';
 function App() {
   const { showToast, ToastContainer } = useToast();
 
-  const logUIRef = useRef<(msg: string) => void>(() => {});
-  const logUI = useCallback((msg: string) => {
-    logUIRef.current(msg);
-  }, []);
-
-  const configHook = useConfig(showToast, logUI);
-  logUIRef.current = (msg: string) => {
+  const logUI = (msg: string) => {
     if (
       !configHook.config.debug_mode &&
       !msg.includes('Button clicked') &&
@@ -43,25 +38,19 @@ function App() {
       console.error(`Failed to send log to backend: ${err}`);
     });
   };
+
+  const configHook = useConfig(showToast, logUI);
   const audioSetup = useAudioSetup(showToast);
   const historyHook = useHistory(showToast);
   const updatesHook = useUpdates(showToast);
   const autostartHook = useAutostart(showToast);
   const windowControls = useWindowControls(showToast);
 
-  const [activeRoute] = useState<AppRoute>(() => {
-    const hash = window.location.hash;
-    const normalized = hash.replace(/^#\/?/, '').split('/')[0].trim().toLowerCase();
-    if (normalized === 'setup' || normalized === 'status' || normalized === 'history' || normalized === 'settings' || normalized === 'ui-lab') {
-      return normalized;
-    }
-    return 'status';
-  });
-  const [currentStatus, setCurrentStatus] = useState<string>('Ready');
-  const [showModelGuide, setShowModelGuide] = useState(false);
-  const [activeConfigSection, setActiveConfigSection] = useState<string | null>(null);
-  const [appVersion, setAppVersion] = useState<string>('');
-  const [hoveredTopTab, setHoveredTopTab] = useState<AppRoute | null>(null);
+  const currentStatus = useSignal<string>('Ready');
+  const showModelGuide = useSignal(false);
+  const activeConfigSection = useSignal<string | null>(null);
+  const appVersion = useSignal<string>('');
+  const hoveredTopTab = useSignal<AppRoute | null>(null);
   const tabContentRef = useRef<HTMLDivElement | null>(null);
 
   const routeFromHash = (hash: string): AppRoute => {
@@ -71,6 +60,8 @@ function App() {
     }
     return 'status';
   };
+
+  const activeRoute = useSignal<AppRoute>(routeFromHash(window.location.hash));
 
   const hotkeySetup = useHotkeySetup({
     showToast,
@@ -107,19 +98,17 @@ function App() {
     showToast,
   });
 
-  // Initialize app data on mount
   useEffect(() => {
     configHook.loadConfig();
     audioSetup.loadMics();
     historyHook.loadHistory();
     configHook.loadModels();
     audioSetup.checkSetupStatus();
-    getVersion().then(setAppVersion).catch(err => console.error("Failed to get version:", err));
+    getVersion().then((v) => { appVersion.value = v; }).catch(err => console.error("Failed to get version:", err));
     updatesHook.checkForUpdates(false);
     autostartHook.loadAutostart();
   }, []);
 
-  // Hotkey recording keydown/keyup listeners
   useEffect(() => {
     if (!hotkeySetup.isRecordingHotkey) return;
 
@@ -130,14 +119,13 @@ function App() {
       window.removeEventListener('keydown', hotkeySetup.handleHotkeyKeyDown);
       window.removeEventListener('keyup', hotkeySetup.handleHotkeyKeyUp);
     };
-  }, [hotkeySetup.isRecordingHotkey, hotkeySetup.recordedKeys]);
+  }, [hotkeySetup.isRecordingHotkey]);
 
-  // Scroll tab content to top on route change
   useEffect(() => {
     if (tabContentRef.current) {
       tabContentRef.current.scrollTop = 0;
     }
-  }, [activeRoute]);
+  }, [activeRoute.value]);
 
   useTauriEvents({
     onSetupStatus: (payload) => {
@@ -151,7 +139,7 @@ function App() {
     },
     onStatusUpdate: (payload) => {
       const nextStatus = typeof payload === 'string' ? payload : payload.status;
-      setCurrentStatus(nextStatus);
+      currentStatus.value = nextStatus;
       if (nextStatus === 'Error') {
         showToast('Mic not found — check your audio device settings.', 'error');
       }
@@ -169,12 +157,12 @@ function App() {
     onDownloadProgress: (_progress) => {},
     onFocus: () => { audioSetup.checkSetupStatus(); },
     onHashChange: () => {
-      navigate(routeFromHash(window.location.hash), true);
+      activeRoute.value = routeFromHash(window.location.hash);
     },
   });
 
   const handleSetActiveConfigSection = (value: string | null) => {
-    setActiveConfigSection(value);
+    activeConfigSection.value = value;
     if (tabContentRef.current) {
       tabContentRef.current.scrollTop = 0;
     }
@@ -190,7 +178,7 @@ function App() {
         onDoubleClick={windowControls.handleTitleBarDoubleClick}
       />
 
-      {activeRoute === 'setup' ? (
+      {activeRoute.value === 'setup' ? (
         <div style={appContentStyle}>
           <InitialSetupPage
             permissions={audioSetup.permissions}
@@ -220,7 +208,7 @@ function App() {
             onHotkeyKeyUp={hotkeySetup.handleHotkeyKeyUp}
             onHotkeyBlur={() => void hotkeySetup.setRecordingState(false)}
             onChangeConfig={configHook.updateConfig}
-            onShowModelGuide={() => setShowModelGuide(true)}
+            onShowModelGuide={() => { showModelGuide.value = true; }}
             onDownloadModel={(size) => void configHook.downloadModel(size)}
             onRetryModels={() => void configHook.loadModels()}
             onLoadMics={() => void audioSetup.loadMics()}
@@ -233,17 +221,17 @@ function App() {
         </div>
       ) : (
         <MainLayout
-          activeRoute={activeRoute}
+          activeRoute={activeRoute.value}
           config={configHook.config}
-          currentStatus={currentStatus}
-          appVersion={appVersion}
+          currentStatus={currentStatus.value}
+          appVersion={appVersion.value}
           availableEngines={configHook.availableEngines}
           availableModels={configHook.availableModels}
           modelStatus={configHook.modelStatus}
           downloadProgress={configHook.downloadProgress}
           isDownloading={configHook.isDownloading}
           isTestingApi={isTestingApi}
-          activeConfigSection={activeConfigSection}
+          activeConfigSection={activeConfigSection.value}
           portalVersion={hotkeySetup.portalVersion}
           isSystemManagedShortcut={hotkeySetup.isSystemManagedShortcut}
           hotkeyBindingState={hotkeySetup.hotkeyBindingState}
@@ -254,13 +242,13 @@ function App() {
           overlayPositioningCapabilities={hotkeySetup.overlayPositioningCapabilities}
           checkingUpdates={updatesHook.checkingUpdates}
           autostartEnabled={autostartHook.autostartEnabled}
-          hoveredTopTab={hoveredTopTab}
+          hoveredTopTab={hoveredTopTab.value}
           history={historyHook.history}
           updateResult={updatesHook.updateResult}
           tabContentRef={tabContentRef}
           onNavigate={navigate}
           onLogUI={logUI}
-          onSetHoveredTab={setHoveredTopTab}
+          onSetHoveredTab={(route) => { hoveredTopTab.value = route; }}
           onSetActiveConfigSection={handleSetActiveConfigSection}
           onUpdateConfig={configHook.updateConfig}
           onTestApiKey={() => void testApiKey(configHook.config.openai_api_key, configHook.config.api_url)}
@@ -268,7 +256,7 @@ function App() {
           onLoadModels={configHook.loadModels}
           onLoadMics={audioSetup.loadMics}
           onHandleConfigureHotkey={hotkeySetup.handleConfigureHotkey}
-          onSetShowModelGuide={setShowModelGuide}
+          onSetShowModelGuide={(v) => { showModelGuide.value = v; }}
           onStartMicTest={audioSetup.startMicTest}
           onStopMicTest={audioSetup.stopMicTest}
           onStopMicPlayback={audioSetup.stopMicPlayback}
@@ -292,14 +280,14 @@ function App() {
         showSystemShortcutModal={hotkeySetup.showSystemShortcutModal}
         showFactoryResetModal={hotkeySetup.showFactoryResetModal}
         showUpdateModal={updatesHook.showUpdateModal}
-        showModelGuide={showModelGuide}
+        showModelGuide={showModelGuide.value}
         isRecordingHotkey={hotkeySetup.isRecordingHotkey}
         isApplyingHotkey={hotkeySetup.isApplyingHotkey}
         configHotkey={configHook.config.hotkey}
         systemShortcutContext={hotkeySetup.systemShortcutContext}
         hotkeyBindingState={hotkeySetup.hotkeyBindingState}
         updateResult={updatesHook.updateResult}
-        appVersion={appVersion}
+        appVersion={appVersion.value}
         getLastCheckedLabel={updatesHook.getLastCheckedLabel}
         onCancelHotkeyCapture={() => void hotkeySetup.cancelHotkeyCapture()}
         onCloseSystemShortcut={() => hotkeySetup.setShowSystemShortcutModal(false)}
@@ -312,7 +300,7 @@ function App() {
         onFactoryReset={() => void handleFactoryReset(configHook.loadConfig, audioSetup.loadMics, configHook.loadModels, historyHook.loadHistory, () => audioSetup.checkSetupStatus().then(() => {}))}
         onCloseUpdate={() => updatesHook.setShowUpdateModal(false)}
         onOpenLatestRelease={() => void updatesHook.openLatestReleasePage()}
-        onCloseModelGuide={() => setShowModelGuide(false)}
+        onCloseModelGuide={() => { showModelGuide.value = false; }}
       />
     </div>
   );

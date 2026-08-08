@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'preact/hooks';
+import { useRef } from 'preact/hooks';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
@@ -13,15 +13,15 @@ interface UseWindowControlsReturn {
 export function useWindowControls(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseWindowControlsReturn {
   const trayFallbackNotifiedRef = useRef(false);
 
-  const handleClose = useCallback(async () => {
+  const handleClose = async () => {
     try {
       await invoke('quit_application');
     } catch {
       await getCurrentWindow().close();
     }
-  }, []);
+  };
 
-  const handleMinimize = useCallback(async () => {
+  const handleMinimize = async () => {
     try {
       const target = await invoke<string>('minimize_to_tray_or_taskbar');
       if (target === 'taskbar' && !trayFallbackNotifiedRef.current) {
@@ -31,9 +31,9 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
     } catch {
       await getCurrentWindow().minimize();
     }
-  }, [showToast]);
+  };
 
-  const toggleWindowMaximize = useCallback(async () => {
+  const toggleWindowMaximize = async () => {
     try {
       const win = getCurrentWindow();
       if (await win.isMaximized()) {
@@ -44,9 +44,9 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
     } catch {
       // no-op if maximize is unavailable
     }
-  }, []);
+  };
 
-  const handleTitleBarMouseDown = useCallback(async (event: MouseEvent) => {
+  const handleTitleBarMouseDown = async (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
     if (event.detail > 1) {
       event.preventDefault();
@@ -57,9 +57,9 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
       event.preventDefault();
       await getCurrentWindow().startDragging();
     }
-  }, []);
+  };
 
-  const handleTitleBarDoubleClick = useCallback(async (event: MouseEvent) => {
+  const handleTitleBarDoubleClick = async (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
     if (target?.closest('button')) {
       return;
@@ -67,7 +67,7 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
 
     event.preventDefault();
     await toggleWindowMaximize();
-  }, [toggleWindowMaximize]);
+  };
 
   return { handleClose, handleMinimize, toggleWindowMaximize, handleTitleBarMouseDown, handleTitleBarDoubleClick };
 }

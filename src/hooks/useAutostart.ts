@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'preact/hooks';
-import { disable as disableAutostart, enable as enableAutostart, isEnabled } from '@tauri-apps/plugin-autostart';
+import { useSignal } from '@preact/signals';
+import { enable as enableAutostart, disable as disableAutostart, isEnabled } from '@tauri-apps/plugin-autostart';
 
 interface UseAutostartReturn {
   autostartEnabled: boolean;
@@ -8,30 +8,29 @@ interface UseAutostartReturn {
 }
 
 export function useAutostart(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseAutostartReturn {
-  const [autostartEnabled, setAutostartEnabled] = useState(false);
+  const autostartEnabled = useSignal(false);
 
-  const loadAutostart = useCallback(async () => {
+  const loadAutostart = async () => {
     try {
-      const enabled = await isEnabled();
-      setAutostartEnabled(enabled);
+      autostartEnabled.value = await isEnabled();
     } catch (error: unknown) {
       console.log('Autostart state unavailable:', error);
     }
-  }, []);
+  };
 
-  const toggleAutostart = useCallback(async (enabled: boolean) => {
+  const toggleAutostart = async (enabled: boolean) => {
     try {
       if (enabled) {
         await enableAutostart();
       } else {
         await disableAutostart();
       }
-      setAutostartEnabled(enabled);
+      autostartEnabled.value = enabled;
       showToast(`Auto-start ${enabled ? 'enabled' : 'disabled'}`, 'success');
     } catch (error) {
       showToast(`Failed to toggle auto-start: ${error}`, 'error');
     }
-  }, [showToast]);
+  };
 
-  return { autostartEnabled, toggleAutostart, loadAutostart };
+  return { autostartEnabled: autostartEnabled.value, toggleAutostart, loadAutostart };
 }

@@ -1,5 +1,6 @@
 import type { JSX } from 'preact';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useRef } from 'preact/hooks';
+import { useSignal, useSignalEffect, useComputed } from '@preact/signals';
 import { IconCheck, IconChevronDown } from '@tabler/icons-preact';
 import { tokens } from '../design-tokens.ts';
 
@@ -37,11 +38,11 @@ export function SelectField({
   style,
   ariaLabel,
 }: SelectFieldProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [isTriggerHovered, setIsTriggerHovered] = useState(false);
-  const [isTriggerFocused, setIsTriggerFocused] = useState(false);
+  const isOpen = useSignal(false);
+  const searchQuery = useSignal('');
+  const highlightedIndex = useSignal(-1);
+  const isTriggerHovered = useSignal(false);
+  const isTriggerFocused = useSignal(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -50,12 +51,12 @@ export function SelectField({
 
   const selectedOption = options.find((option) => option.value === value) || null;
 
-  const filteredOptions = useMemo(() => {
+  const filteredOptions = useComputed(() => {
     if (!searchable) {
       return options;
     }
 
-    const query = searchQuery.trim().toLowerCase();
+    const query = searchQuery.value.trim().toLowerCase();
     if (!query) {
       return options;
     }
@@ -64,17 +65,18 @@ export function SelectField({
       const searchPool = `${option.label} ${option.value} ${option.searchText || ''}`.toLowerCase();
       return searchPool.includes(query);
     });
-  }, [options, searchable, searchQuery]);
+  });
 
   const findNextEnabledIndex = (startIndex: number, direction: 1 | -1) => {
-    if (filteredOptions.length === 0 || filteredOptions.every((option) => option.disabled)) {
+    const filtered = filteredOptions.value;
+    if (filtered.length === 0 || filtered.every((option) => option.disabled)) {
       return -1;
     }
 
     let index = startIndex;
-    for (let step = 0; step < filteredOptions.length; step += 1) {
-      index = (index + direction + filteredOptions.length) % filteredOptions.length;
-      if (!filteredOptions[index].disabled) {
+    for (let step = 0; step < filtered.length; step += 1) {
+      index = (index + direction + filtered.length) % filtered.length;
+      if (!filtered[index].disabled) {
         return index;
       }
     }
@@ -83,9 +85,9 @@ export function SelectField({
   };
 
   const closeDropdown = (focusTrigger: boolean) => {
-    setIsOpen(false);
-    setSearchQuery('');
-    setHighlightedIndex(-1);
+    isOpen.value = false;
+    searchQuery.value = '';
+    highlightedIndex.value = -1;
     if (focusTrigger) {
       triggerRef.current?.focus();
     }
@@ -95,7 +97,7 @@ export function SelectField({
     if (disabled) {
       return;
     }
-    setIsOpen(true);
+    isOpen.value = true;
   };
 
   const selectOption = (optionValue: string) => {
@@ -107,10 +109,9 @@ export function SelectField({
     closeDropdown(true);
   };
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
+  // Outside click handler
+  useSignalEffect(() => {
+    if (!isOpen.value) return;
 
     const handleOutsidePointer = (event: PointerEvent) => {
       const target = event.target as Node | null;
@@ -123,12 +124,11 @@ export function SelectField({
     return () => {
       window.removeEventListener('pointerdown', handleOutsidePointer);
     };
-  }, [isOpen]);
+  });
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
+  // Focus search input on open, set initial highlight
+  useSignalEffect(() => {
+    if (!isOpen.value) return;
 
     if (searchable) {
       requestAnimationFrame(() => {
@@ -137,44 +137,42 @@ export function SelectField({
       return;
     }
 
-    const selectedIndex = filteredOptions.findIndex((option) => option.value === value && !option.disabled);
+    const selectedIndex = filteredOptions.value.findIndex((o) => o.value === value && !o.disabled);
     if (selectedIndex >= 0) {
-      setHighlightedIndex(selectedIndex);
+      highlightedIndex.value = selectedIndex;
       return;
     }
 
-    setHighlightedIndex(findNextEnabledIndex(-1, 1));
-  }, [isOpen, searchable, filteredOptions, value]);
+    highlightedIndex.value = findNextEnabledIndex(-1, 1);
+  });
 
-  useEffect(() => {
-    if (!isOpen || !searchable) {
-      return;
-    }
+  // Re-highlight on search query change
+  useSignalEffect(() => {
+    if (!isOpen.value || !searchable) return;
 
-    const selectedIndex = filteredOptions.findIndex((option) => option.value === value && !option.disabled);
+    const selectedIndex = filteredOptions.value.findIndex((o) => o.value === value && !o.disabled);
     if (selectedIndex >= 0) {
-      setHighlightedIndex(selectedIndex);
+      highlightedIndex.value = selectedIndex;
       return;
     }
 
-    setHighlightedIndex(findNextEnabledIndex(-1, 1));
-  }, [searchQuery, isOpen, searchable, filteredOptions, value]);
+    highlightedIndex.value = findNextEnabledIndex(-1, 1);
+  });
 
-  useEffect(() => {
-    if (!isOpen || highlightedIndex < 0) {
-      return;
-    }
+  // Scroll highlighted option into view
+  useSignalEffect(() => {
+    if (!isOpen.value || highlightedIndex.value < 0) return;
 
-    const highlightedOption = containerRef.current?.querySelector<HTMLButtonElement>(`[data-option-index=\"${highlightedIndex}\"]`);
-    highlightedOption?.scrollIntoView({ block: 'nearest' });
-  }, [highlightedIndex, isOpen]);
+    const el = containerRef.current?.querySelector<HTMLButtonElement>(`[data-option-index="${highlightedIndex.value}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
+  });
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if (disabled) {
       return;
     }
 
-    if (!isOpen) {
+    if (!isOpen.value) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         openDropdown();
@@ -195,34 +193,34 @@ export function SelectField({
 
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setHighlightedIndex((index) => findNextEnabledIndex(index, 1));
+      highlightedIndex.value = findNextEnabledIndex(highlightedIndex.value, 1);
       return;
     }
 
     if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setHighlightedIndex((index) => findNextEnabledIndex(index, -1));
+      highlightedIndex.value = findNextEnabledIndex(highlightedIndex.value, -1);
       return;
     }
 
     if (event.key === 'Home') {
       event.preventDefault();
-      setHighlightedIndex(findNextEnabledIndex(-1, 1));
+      highlightedIndex.value = findNextEnabledIndex(-1, 1);
       return;
     }
 
     if (event.key === 'End') {
       event.preventDefault();
-      setHighlightedIndex(findNextEnabledIndex(0, -1));
+      highlightedIndex.value = findNextEnabledIndex(0, -1);
       return;
     }
 
     if (event.key === 'Enter') {
       event.preventDefault();
-      if (highlightedIndex < 0) {
+      if (highlightedIndex.value < 0) {
         return;
       }
-      const option = filteredOptions[highlightedIndex];
+      const option = filteredOptions.value[highlightedIndex.value];
       if (!option?.disabled) {
         selectOption(option.value);
       }
@@ -231,9 +229,9 @@ export function SelectField({
 
   const triggerStyle: JSX.CSSProperties = {
     width: '100%',
-    background: isTriggerHovered && !disabled ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.05)',
+    background: isTriggerHovered.value && !disabled ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.05)',
     color: tokens.colors.textPrimary,
-    border: `1px solid ${(isOpen || isTriggerFocused) ? tokens.colors.accentPrimary : 'rgba(255, 255, 255, 0.1)'}`,
+    border: `1px solid ${(isOpen.value || isTriggerFocused.value) ? tokens.colors.accentPrimary : 'rgba(255, 255, 255, 0.1)'}`,
     borderRadius: tokens.radii.input,
     padding: '10px 12px',
     fontSize: tokens.typography.sizeSm,
@@ -245,7 +243,7 @@ export function SelectField({
     cursor: disabled ? 'not-allowed' : 'pointer',
     transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
     opacity: disabled ? 0.55 : 1,
-    boxShadow: isOpen || isTriggerFocused ? '0 0 0 2px rgba(88, 101, 242, 0.22)' : 'none',
+    boxShadow: isOpen.value || isTriggerFocused.value ? '0 0 0 2px rgba(88, 101, 242, 0.22)' : 'none',
   };
 
   const menuStyle: JSX.CSSProperties = {
@@ -291,23 +289,23 @@ export function SelectField({
         ref={triggerRef}
         type="button"
         role="combobox"
-        aria-expanded={isOpen}
+        aria-expanded={isOpen.value}
         aria-haspopup="listbox"
         aria-controls={listboxIdRef.current}
         aria-label={ariaLabel}
         disabled={disabled}
         style={triggerStyle}
         onClick={() => {
-          if (isOpen) {
+          if (isOpen.value) {
             closeDropdown(false);
             return;
           }
           openDropdown();
         }}
-        onMouseEnter={() => setIsTriggerHovered(true)}
-        onMouseLeave={() => setIsTriggerHovered(false)}
-        onFocus={() => setIsTriggerFocused(true)}
-        onBlur={() => setIsTriggerFocused(false)}
+        onMouseEnter={() => { isTriggerHovered.value = true; }}
+        onMouseLeave={() => { isTriggerHovered.value = false; }}
+        onFocus={() => { isTriggerFocused.value = true; }}
+        onBlur={() => { isTriggerFocused.value = false; }}
       >
         <span
           style={{
@@ -327,21 +325,21 @@ export function SelectField({
           style={{
             color: tokens.colors.textSecondary,
             flexShrink: 0,
-            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+            transform: isOpen.value ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 0.2s ease',
           }}
         />
       </button>
 
-      {isOpen && (
+      {isOpen.value && (
         <div role="listbox" id={listboxIdRef.current} style={menuStyle}>
           {searchable && (
             <div style={{ padding: tokens.spacing.sm, borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
               <input
                 ref={searchInputRef}
                 type="text"
-                value={searchQuery}
-                onInput={(event) => setSearchQuery((event.target as HTMLInputElement).value)}
+                value={searchQuery.value}
+                onInput={(event) => { searchQuery.value = (event.target as HTMLInputElement).value; }}
                 placeholder={searchPlaceholder}
                 style={{
                   width: '100%',
@@ -358,7 +356,7 @@ export function SelectField({
           )}
 
           <div style={{ maxHeight: '260px', overflow: 'auto', padding: '6px' }}>
-            {filteredOptions.length === 0 ? (
+            {filteredOptions.value.length === 0 ? (
               <div
                 style={{
                   color: tokens.colors.textSecondary,
@@ -370,9 +368,9 @@ export function SelectField({
                 {emptyMessage}
               </div>
             ) : (
-              filteredOptions.map((option, index) => {
+              filteredOptions.value.map((option, index) => {
                 const isSelected = option.value === value;
-                const isHighlighted = index === highlightedIndex;
+                const isHighlighted = index === highlightedIndex.value;
                 const isInteractive = !option.disabled;
 
                 const optionStyle: JSX.CSSProperties = {
@@ -402,7 +400,7 @@ export function SelectField({
                     style={optionStyle}
                     onMouseEnter={() => {
                       if (!option.disabled) {
-                        setHighlightedIndex(index);
+                        highlightedIndex.value = index;
                       }
                     }}
                     onClick={() => selectOption(option.value)}

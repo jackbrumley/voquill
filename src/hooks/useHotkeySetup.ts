@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'preact/hooks';
+import { useSignal } from '@preact/signals';
+import { useEffect } from 'preact/hooks';
 import { invoke } from '@tauri-apps/api/core';
 import type { HotkeyBindingState, SystemShortcutContext, OverlayPositioningCapabilities, ConfigureHotkeyResult } from '../types.ts';
 
@@ -14,7 +15,6 @@ interface UseHotkeySetupReturn {
   portalVersion: number;
   isSystemManagedShortcut: boolean;
   isRecordingHotkey: boolean;
-  recordedKeys: Set<string>;
   isApplyingHotkey: boolean;
   showHotkeyCaptureModal: boolean;
   showSystemShortcutModal: boolean;
@@ -34,71 +34,71 @@ interface UseHotkeySetupReturn {
 
 export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupReturn {
   const { showToast, onApplyCapturedHotkey } = options;
-  const [hotkeyBindingState, setHotkeyBindingState] = useState<HotkeyBindingState | null>(null);
-  const [systemShortcutContext, setSystemShortcutContext] = useState<SystemShortcutContext | null>(null);
-  const [overlayPositioningCapabilities, setOverlayPositioningCapabilities] = useState<OverlayPositioningCapabilities>({
+  const hotkeyBindingState = useSignal<HotkeyBindingState | null>(null);
+  const systemShortcutContext = useSignal<SystemShortcutContext | null>(null);
+  const overlayPositioningCapabilities = useSignal<OverlayPositioningCapabilities>({
     manual_offset_supported: false,
     detail: 'Manual overlay position adjustment is not available on your system.',
   });
-  const [portalVersion, setPortalVersion] = useState<number>(0);
-  const [isRecordingHotkey, setIsRecordingHotkey] = useState(false);
-  const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
-  const [isApplyingHotkey, setIsApplyingHotkey] = useState(false);
-  const [showHotkeyCaptureModal, setShowHotkeyCaptureModal] = useState(false);
-  const [showSystemShortcutModal, setShowSystemShortcutModal] = useState(false);
-  const [showFactoryResetModal, setShowFactoryResetModal] = useState(false);
+  const portalVersion = useSignal<number>(0);
+  const isRecordingHotkey = useSignal(false);
+  const recordedKeys = useSignal<Set<string>>(new Set());
+  const isApplyingHotkey = useSignal(false);
+  const showHotkeyCaptureModal = useSignal(false);
+  const showSystemShortcutModal = useSignal(false);
+  const showFactoryResetModal = useSignal(false);
 
-  const isSystemManagedShortcut = portalVersion >= 1;
+  const isSystemManagedShortcut = portalVersion.value >= 1;
 
   useEffect(() => {
     invoke<number>('get_wayland_portal_version')
-      .then(setPortalVersion)
+      .then((v) => { portalVersion.value = v; })
       .catch(e => console.log("Not running Wayland portal version check:", e));
 
     invoke<HotkeyBindingState>('get_hotkey_binding_state')
-      .then(setHotkeyBindingState)
+      .then((v) => { hotkeyBindingState.value = v; })
       .catch(e => console.log('Hotkey binding state unavailable:', e));
 
     invoke<SystemShortcutContext>('get_system_shortcut_context')
-      .then(setSystemShortcutContext)
+      .then((v) => { systemShortcutContext.value = v; })
       .catch(e => console.log('System shortcut context unavailable:', e));
 
     invoke<OverlayPositioningCapabilities>('get_overlay_positioning_capabilities')
-      .then(setOverlayPositioningCapabilities)
+      .then((v) => { overlayPositioningCapabilities.value = v; })
       .catch(e => {
-        setOverlayPositioningCapabilities({
+        overlayPositioningCapabilities.value = {
           manual_offset_supported: false,
           detail: 'Manual overlay position adjustment is not available on your system.',
-        });
+        };
         console.log('Overlay positioning capabilities unavailable:', e);
       });
   }, []);
 
-  const handleConfigureHotkey = useCallback(async () => {
-    if (isApplyingHotkey) return;
+  const handleConfigureHotkey = async () => {
+    if (isApplyingHotkey.value) return;
 
     try {
-      setIsApplyingHotkey(true);
+      isApplyingHotkey.value = true;
       const result = await invoke<ConfigureHotkeyResult>('configure_hotkey');
 
       if (result.outcome === 'requires_in_app_capture') {
-        setShowHotkeyCaptureModal(true);
-        setIsRecordingHotkey(true);
-        setRecordedKeys(new Set());
+        showHotkeyCaptureModal.value = true;
+        isRecordingHotkey.value = true;
+        recordedKeys.value = new Set();
         showToast('Press your desired key combination in the modal.', 'info');
       } else if (result.outcome === 'system_managed') {
-        setShowSystemShortcutModal(true);
+        showSystemShortcutModal.value = true;
       } else {
         showToast(result.detail || 'Shortcut configured successfully!', 'success');
       }
     } catch (error) {
       showToast(`Failed to configure shortcut: ${error}`, 'error');
     } finally {
-      setIsApplyingHotkey(false);
+      isApplyingHotkey.value = false;
     }
-  }, [isApplyingHotkey, showToast]);
+  };
 
-  const normalizeHotkey = useCallback((keys: Set<string>): string => {
+  const normalizeHotkey = (keys: Set<string>): string => {
     const modifiers: string[] = [];
     let primaryKey = '';
 
@@ -118,26 +118,26 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
     });
 
     return [...modifiers.sort(), primaryKey].filter(Boolean).join('+');
-  }, []);
+  };
 
-  const setRecordingState = useCallback(async (isRecording: boolean) => {
-    setIsRecordingHotkey(isRecording);
+  const setRecordingState = async (isRecording: boolean) => {
+    isRecordingHotkey.value = isRecording;
     try {
       await invoke('set_configuring_hotkey', { isConfiguring: isRecording });
     } catch (e) {
       console.error('Failed to sync configuring hotkey state', e);
     }
-  }, []);
+  };
 
-  const cancelHotkeyCapture = useCallback(async () => {
+  const cancelHotkeyCapture = async () => {
     await setRecordingState(false);
-    setRecordedKeys(new Set());
-    setShowHotkeyCaptureModal(false);
+    recordedKeys.value = new Set();
+    showHotkeyCaptureModal.value = false;
     showToast('Hotkey configuration cancelled.', 'info');
-  }, [showToast, setRecordingState]);
+  };
 
-  const handleHotkeyKeyDown = useCallback((e: KeyboardEvent) => {
-    if (!isRecordingHotkey) return;
+  const handleHotkeyKeyDown = (e: KeyboardEvent) => {
+    if (!isRecordingHotkey.value) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -149,7 +149,7 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
       return;
     }
 
-    const newKeys = new Set(recordedKeys);
+    const newKeys = new Set(recordedKeys.value);
     if (e.ctrlKey) newKeys.add('Control');
     if (e.shiftKey) newKeys.add('Shift');
     if (e.altKey) newKeys.add('Alt');
@@ -166,39 +166,38 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
       const normalized = normalizeHotkey(newKeys).toLowerCase();
       if (!normalized || ['ctrl', 'shift', 'alt', 'super'].includes(normalized)) {
         showToast('Please include a non-modifier key in the shortcut.', 'error');
-        setRecordedKeys(newKeys);
+        recordedKeys.value = newKeys;
         return;
       }
       void onApplyCapturedHotkey(normalized);
     } else {
-      setRecordedKeys(newKeys);
+      recordedKeys.value = newKeys;
     }
-  }, [isRecordingHotkey, recordedKeys, cancelHotkeyCapture, normalizeHotkey, showToast, onApplyCapturedHotkey]);
+  };
 
-  const handleHotkeyKeyUp = useCallback((e: KeyboardEvent) => {
-    if (!isRecordingHotkey) return;
+  const handleHotkeyKeyUp = (e: KeyboardEvent) => {
+    if (!isRecordingHotkey.value) return;
     e.preventDefault();
     e.stopPropagation();
-  }, [isRecordingHotkey]);
+  };
 
   return {
-    hotkeyBindingState,
-    systemShortcutContext,
-    overlayPositioningCapabilities,
-    portalVersion,
+    hotkeyBindingState: hotkeyBindingState.value,
+    systemShortcutContext: systemShortcutContext.value,
+    overlayPositioningCapabilities: overlayPositioningCapabilities.value,
+    portalVersion: portalVersion.value,
     isSystemManagedShortcut,
-    isRecordingHotkey,
-    recordedKeys,
-    isApplyingHotkey,
-    showHotkeyCaptureModal,
-    showSystemShortcutModal,
-    showFactoryResetModal,
-    setHotkeyBindingState,
-    setSystemShortcutContext,
-    setShowHotkeyCaptureModal,
-    setShowSystemShortcutModal,
-    setShowFactoryResetModal,
-    setIsApplyingHotkey,
+    isRecordingHotkey: isRecordingHotkey.value,
+    isApplyingHotkey: isApplyingHotkey.value,
+    showHotkeyCaptureModal: showHotkeyCaptureModal.value,
+    showSystemShortcutModal: showSystemShortcutModal.value,
+    showFactoryResetModal: showFactoryResetModal.value,
+    setHotkeyBindingState: (state) => { hotkeyBindingState.value = state; },
+    setSystemShortcutContext: (context) => { systemShortcutContext.value = context; },
+    setShowHotkeyCaptureModal: (show) => { showHotkeyCaptureModal.value = show; },
+    setShowSystemShortcutModal: (show) => { showSystemShortcutModal.value = show; },
+    setShowFactoryResetModal: (show) => { showFactoryResetModal.value = show; },
+    setIsApplyingHotkey: (applying) => { isApplyingHotkey.value = applying; },
     handleConfigureHotkey,
     setRecordingState,
     cancelHotkeyCapture,

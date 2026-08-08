@@ -1,11 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
+import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import type { Config, ModelInfo } from '../types.ts';
 
 interface UseConfigReturn {
   config: Config;
-  setConfig: (config: Config) => void;
-  lastCommittedConfigRef: { current: Config | null };
   availableEngines: string[];
   availableModels: ModelInfo[];
   modelStatus: Record<string, boolean>;
@@ -23,7 +21,7 @@ interface UseConfigReturn {
 }
 
 export function useConfig(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void, logUI: (msg: string) => void): UseConfigReturn {
-  const [config, setConfig] = useState<Config>({
+  const config = useSignal<Config>({
     openai_api_key: '',
     api_url: 'https://api.openai.com/v1/audio/transcriptions',
     api_model: 'whisper-1',
@@ -46,16 +44,16 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     hotkey_mode: 'HoldToTalk',
     max_recording_duration_minutes: 10,
   });
-  const [availableEngines, setAvailableEngines] = useState<string[]>([]);
-  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
-  const [modelStatus, setModelStatus] = useState<Record<string, boolean>>({});
-  const [downloadProgress, setDownloadProgress] = useState<number>(0);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [hasLoadedConfig, setHasLoadedConfig] = useState(false);
-  const [hasLoadedModels, setHasLoadedModels] = useState(false);
-  const lastCommittedConfigRef = useRef<Config | null>(null);
+  const availableEngines = useSignal<string[]>([]);
+  const availableModels = useSignal<ModelInfo[]>([]);
+  const modelStatus = useSignal<Record<string, boolean>>({});
+  const downloadProgress = useSignal<number>(0);
+  const isDownloading = useSignal(false);
+  const hasLoadedConfig = useSignal(false);
+  const hasLoadedModels = useSignal(false);
+  const lastCommittedConfig = useSignal<Config | null>(null);
 
-  const formatConfigValueForLog = useCallback((key: keyof Config, value: Config[keyof Config]) => {
+  const formatConfigValueForLog = (key: keyof Config, value: Config[keyof Config]) => {
     if (key === 'openai_api_key') {
       const length = typeof value === 'string' ? value.length : 0;
       return length > 0 ? `[redacted:${length} chars]` : '[empty]';
@@ -70,45 +68,45 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
       return value;
     }
     return String(value);
-  }, []);
+  };
 
-  const loadConfig = useCallback(async () => {
+  const loadConfig = async () => {
     try {
       const savedConfig = await invoke<Config>('get_config');
-      setConfig({
+      config.value = {
         ...savedConfig,
         typing_speed_interval: Math.round(savedConfig.typing_speed_interval * 1000),
-      });
+      };
     } catch (error) {
       showToast(`Failed to load config: ${error}`, 'error');
     } finally {
-      setHasLoadedConfig(true);
+      hasLoadedConfig.value = true;
     }
-  }, [showToast]);
+  };
 
-  const loadModels = useCallback(async () => {
+  const loadModels = async () => {
     try {
       const engines = await invoke<string[]>('get_available_engines');
-      setAvailableEngines(engines || []);
+      availableEngines.value = engines || [];
 
       const models = await invoke<ModelInfo[]>('get_available_models');
-      setAvailableModels(models || []);
+      availableModels.value = models || [];
 
       const status: Record<string, boolean> = {};
       for (const model of (models || [])) {
         status[model.size] = await invoke<boolean>('check_model_status', { modelSize: model.size });
       }
-      setModelStatus(status);
+      modelStatus.value = status;
     } catch (error) {
       showToast(`Failed to load models: ${error}`, 'error');
     } finally {
-      setHasLoadedModels(true);
+      hasLoadedModels.value = true;
     }
-  }, [showToast]);
+  };
 
-  const downloadModel = useCallback(async (size: string) => {
-    setIsDownloading(true);
-    setDownloadProgress(0);
+  const downloadModel = async (size: string) => {
+    isDownloading.value = true;
+    downloadProgress.value = 0;
     try {
       await invoke('download_model', { modelSize: size });
       showToast(`${size} model downloaded successfully!`, 'success');
@@ -116,12 +114,12 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     } catch (error) {
       showToast(`Failed to download model: ${error}`, 'error');
     } finally {
-      setIsDownloading(false);
-      setDownloadProgress(0);
+      isDownloading.value = false;
+      downloadProgress.value = 0;
     }
-  }, [showToast, loadModels]);
+  };
 
-  const persistConfig = useCallback(async (configToPersist: Config, showSavedConfirmation = false) => {
+  const persistConfig = async (configToPersist: Config, showSavedConfirmation = false) => {
     try {
       const configToSave = {
         ...configToPersist,
@@ -135,9 +133,9 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     } catch (error) {
       showToast(`Failed to save: ${error}`, 'error');
     }
-  }, [showToast]);
+  };
 
-  const updateConfig = useCallback((key: string, value: string | number | boolean | null) => {
+  const updateConfig = (key: string, value: string | number | boolean | null) => {
     const normalizedValue = key === 'input_sensitivity'
       ? (() => {
           const parsedValue = Number(value);
@@ -147,66 +145,67 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
           return Math.min(2.0, Math.max(0.1, parsedValue));
         })()
       : value;
-    setConfig(prev => ({ ...prev, [key]: normalizedValue } as Config));
-  }, []);
+    config.value = { ...config.value, [key]: normalizedValue } as Config;
+  };
 
-  const toggleOutputMethod = useCallback((method: 'Typewriter' | 'Clipboard') => {
+  const toggleOutputMethod = (method: 'Typewriter' | 'Clipboard') => {
     logUI('Output Method changed to: ' + method);
     updateConfig('output_method', method);
-  }, [logUI, updateConfig]);
+  };
 
   // Auto-save config with 500ms debounce
-  useEffect(() => {
+  useSignalEffect(() => {
+    const currentConfig = config.value;
     const timer = setTimeout(() => {
-      const previousConfig = lastCommittedConfigRef.current;
+      const previousConfig = lastCommittedConfig.value;
       let hasChanges = false;
       if (previousConfig) {
-        (Object.keys(config) as (keyof Config)[]).forEach((key) => {
-          if (previousConfig[key] !== config[key]) {
+        (Object.keys(currentConfig) as (keyof Config)[]).forEach((key) => {
+          if (previousConfig[key] !== currentConfig[key]) {
             hasChanges = true;
-            const formattedValue = formatConfigValueForLog(key, config[key]);
+            const formattedValue = formatConfigValueForLog(key, currentConfig[key]);
             logUI('Setting changed: ' + key + ' -> ' + formattedValue);
           }
         });
       }
 
-      lastCommittedConfigRef.current = { ...config };
+      lastCommittedConfig.value = { ...currentConfig };
       if (previousConfig === null || hasChanges) {
-        persistConfig(config, hasChanges && previousConfig !== null);
+        persistConfig(currentConfig, hasChanges && previousConfig !== null);
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [config, persistConfig, formatConfigValueForLog, logUI]);
+  });
 
   // Validate model selection when engine changes
-  useEffect(() => {
-    if (availableModels.length > 0) {
-      const modelsForEngine = availableModels.filter(m => m.engine === config.local_engine);
-      const isCurrentModelValid = modelsForEngine.some(m => m.size === config.local_model_size);
+  useSignalEffect(() => {
+    const models = availableModels.value;
+    const localEngine = config.value.local_engine;
+    if (models.length > 0) {
+      const modelsForEngine = models.filter(m => m.engine === localEngine);
+      const isCurrentModelValid = modelsForEngine.some(m => m.size === config.value.local_model_size);
 
       if (!isCurrentModelValid && modelsForEngine.length > 0) {
         const recommended = modelsForEngine.find(m => m.recommended) || modelsForEngine[0];
         updateConfig('local_model_size', recommended.size);
       }
     }
-  }, [config.local_engine, availableModels, updateConfig]);
+  });
 
   // Auto-load models when switching to Local mode
-  useEffect(() => {
-    if (config.transcription_mode === 'Local' && availableModels.length === 0) {
+  useSignalEffect(() => {
+    if (config.value.transcription_mode === 'Local' && availableModels.value.length === 0) {
       loadModels();
     }
-  }, [config.transcription_mode, availableModels.length, loadModels]);
+  });
 
   return {
-    config,
-    setConfig,
-    lastCommittedConfigRef,
-    availableEngines,
-    availableModels,
-    modelStatus,
-    downloadProgress,
-    isDownloading,
+    config: config.value,
+    availableEngines: availableEngines.value,
+    availableModels: availableModels.value,
+    modelStatus: modelStatus.value,
+    downloadProgress: downloadProgress.value,
+    isDownloading: isDownloading.value,
     loadConfig,
     loadModels,
     downloadModel,
@@ -214,7 +213,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     updateConfig,
     toggleOutputMethod,
     formatConfigValueForLog,
-    hasLoadedConfig,
-    hasLoadedModels,
+    hasLoadedConfig: hasLoadedConfig.value,
+    hasLoadedModels: hasLoadedModels.value,
   };
 }

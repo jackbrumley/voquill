@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'preact/hooks';
+import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-shell';
 import type { UpdateCheckResult } from '../types.ts';
@@ -15,21 +15,21 @@ interface UseUpdatesReturn {
 }
 
 export function useUpdates(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseUpdatesReturn {
-  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
-  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
-  const [checkingUpdates, setCheckingUpdates] = useState(false);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const updateResult = useSignal<UpdateCheckResult | null>(null);
+  const lastCheckedAt = useSignal<number | null>(null);
+  const checkingUpdates = useSignal(false);
+  const showUpdateModal = useSignal(false);
 
-  const checkForUpdates = useCallback(async (showUpToDateModal: boolean) => {
-    if (checkingUpdates) return;
+  const checkForUpdates = async (showUpToDateModal: boolean) => {
+    if (checkingUpdates.value) return;
 
-    setCheckingUpdates(true);
+    checkingUpdates.value = true;
     try {
       const result = await invoke<UpdateCheckResult>('check_for_updates');
-      setUpdateResult(result);
-      setLastCheckedAt(Date.now());
+      updateResult.value = result;
+      lastCheckedAt.value = Date.now();
       if (result.updateAvailable || showUpToDateModal) {
-        setShowUpdateModal(true);
+        showUpdateModal.value = true;
       }
       if (!result.updateAvailable && showUpToDateModal) {
         showToast('You are already on the latest version.', 'info');
@@ -41,25 +41,25 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
         console.log('Background update check failed:', error);
       }
     } finally {
-      setCheckingUpdates(false);
+      checkingUpdates.value = false;
     }
-  }, [checkingUpdates, showToast]);
+  };
 
-  const openLatestReleasePage = useCallback(async () => {
-    const releaseUrl = updateResult?.releaseUrl || 'https://github.com/jackbrumley/voquill/releases/latest';
+  const openLatestReleasePage = async () => {
+    const releaseUrl = updateResult.value?.releaseUrl || 'https://github.com/jackbrumley/voquill/releases/latest';
     try {
       await open(releaseUrl);
     } catch (error) {
       showToast(`Failed to open release page: ${error}`, 'error');
     }
-  }, [updateResult, showToast]);
+  };
 
-  const getLastCheckedLabel = useCallback((): string => {
-    if (!lastCheckedAt) {
+  const getLastCheckedLabel = (): string => {
+    if (!lastCheckedAt.value) {
       return 'Not checked yet';
     }
 
-    const elapsedMs = Date.now() - lastCheckedAt;
+    const elapsedMs = Date.now() - lastCheckedAt.value;
     if (elapsedMs < 60_000) {
       return 'Just now';
     }
@@ -76,14 +76,14 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
 
     const elapsedDays = Math.floor(elapsedHours / 24);
     return `${elapsedDays} day${elapsedDays === 1 ? '' : 's'} ago`;
-  }, [lastCheckedAt]);
+  };
 
   return {
-    updateResult,
-    lastCheckedAt,
-    checkingUpdates,
-    showUpdateModal,
-    setShowUpdateModal,
+    updateResult: updateResult.value,
+    lastCheckedAt: lastCheckedAt.value,
+    checkingUpdates: checkingUpdates.value,
+    showUpdateModal: showUpdateModal.value,
+    setShowUpdateModal: (show) => { showUpdateModal.value = show; },
     checkForUpdates,
     openLatestReleasePage,
     getLastCheckedLabel,

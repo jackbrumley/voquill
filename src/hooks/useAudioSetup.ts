@@ -1,10 +1,9 @@
-import { useState, useCallback } from 'preact/hooks';
+import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import type { AudioDevice, LinuxPermissions, HotkeyBindingState } from '../types.ts';
 
 interface UseAudioSetupReturn {
   permissions: LinuxPermissions | null;
-  setPermissions: (perms: LinuxPermissions | null) => void;
   availableMics: AudioDevice[];
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
@@ -21,43 +20,42 @@ interface UseAudioSetupReturn {
   setMicTestStatus: (status: 'idle' | 'recording' | 'playing' | 'processing') => void;
   setMicVolume: (volume: number) => void;
   setMicTestPassed: (passed: boolean) => void;
-  setHasLoadedSetupStatus: (loaded: boolean) => void;
 }
 
 export function useAudioSetup(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseAudioSetupReturn {
-  const [permissions, setPermissions] = useState<LinuxPermissions | null>(null);
-  const [availableMics, setAvailableMics] = useState<AudioDevice[]>([]);
-  const [micTestStatus, setMicTestStatus] = useState<'idle' | 'recording' | 'playing' | 'processing'>('idle');
-  const [micVolume, setMicVolume] = useState<number>(0);
-  const [micTestPassed, setMicTestPassed] = useState(false);
-  const [hasLoadedSetupStatus, setHasLoadedSetupStatus] = useState(false);
-  const [hasLoadedMics, setHasLoadedMics] = useState(false);
+  const permissions = useSignal<LinuxPermissions | null>(null);
+  const availableMics = useSignal<AudioDevice[]>([]);
+  const micTestStatus = useSignal<'idle' | 'recording' | 'playing' | 'processing'>('idle');
+  const micVolume = useSignal<number>(0);
+  const micTestPassed = useSignal(false);
+  const hasLoadedSetupStatus = useSignal(false);
+  const hasLoadedMics = useSignal(false);
 
-  const checkSetupStatus = useCallback(async () => {
+  const checkSetupStatus = async () => {
     try {
       const perms = await invoke<LinuxPermissions>('get_linux_setup_status');
-      setPermissions(perms);
+      permissions.value = perms;
       const bindingState = await invoke<HotkeyBindingState>('get_hotkey_binding_state');
       return { perms, bindingState };
     } catch (error) {
       console.error('Failed to check setup status:', error);
     } finally {
-      setHasLoadedSetupStatus(true);
+      hasLoadedSetupStatus.value = true;
     }
-  }, []);
+  };
 
-  const loadMics = useCallback(async () => {
+  const loadMics = async () => {
     try {
       const devices = await invoke<AudioDevice[]>('get_audio_devices');
-      setAvailableMics(devices);
+      availableMics.value = devices;
     } catch (error) {
       showToast(`Failed to load microphones: ${error}`, 'error');
     } finally {
-      setHasLoadedMics(true);
+      hasLoadedMics.value = true;
     }
-  }, [showToast]);
+  };
 
-  const handleAudioSetup = useCallback(async () => {
+  const handleAudioSetup = async () => {
     try {
       await invoke('request_audio_permission');
       showToast('Audio permission granted!', 'success');
@@ -65,9 +63,9 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
     } catch (error) {
       showToast(`Failed to get audio permission: ${error}`, 'error');
     }
-  }, [showToast, checkSetupStatus]);
+  };
 
-  const handleInputSetup = useCallback(async () => {
+  const handleInputSetup = async () => {
     try {
       await invoke('request_input_permission');
       showToast('Input permission granted!', 'success');
@@ -75,46 +73,45 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
     } catch (error) {
       showToast(`Failed to get input permission: ${error}`, 'error');
     }
-  }, [showToast, checkSetupStatus]);
+  };
 
-  const startMicTest = useCallback(async () => {
+  const startMicTest = async () => {
     try {
-      setMicTestStatus('recording');
+      micTestStatus.value = 'recording';
       await invoke('start_mic_test');
     } catch (error) {
-      setMicTestStatus('idle');
+      micTestStatus.value = 'idle';
       showToast(`Failed to start mic test: ${error}`, 'error');
     }
-  }, [showToast]);
+  };
 
-  const stopMicTest = useCallback(async () => {
-    setMicTestStatus('processing');
+  const stopMicTest = async () => {
+    micTestStatus.value = 'processing';
     try {
       await invoke('stop_mic_test');
     } catch (error) {
-      setMicTestStatus('idle');
+      micTestStatus.value = 'idle';
       showToast(`Failed to stop mic test: ${error}`, 'error');
     }
-  }, [showToast]);
+  };
 
-  const stopMicPlayback = useCallback(async () => {
+  const stopMicPlayback = async () => {
     try {
       await invoke('stop_mic_playback');
-      setMicTestStatus('idle');
+      micTestStatus.value = 'idle';
     } catch (error) {
       showToast(`Failed to stop playback: ${error}`, 'error');
     }
-  }, [showToast]);
+  };
 
   return {
-    permissions,
-    setPermissions,
-    availableMics,
-    micTestStatus,
-    micVolume,
-    micTestPassed,
-    hasLoadedSetupStatus,
-    hasLoadedMics,
+    permissions: permissions.value,
+    availableMics: availableMics.value,
+    micTestStatus: micTestStatus.value,
+    micVolume: micVolume.value,
+    micTestPassed: micTestPassed.value,
+    hasLoadedSetupStatus: hasLoadedSetupStatus.value,
+    hasLoadedMics: hasLoadedMics.value,
     loadMics,
     startMicTest,
     stopMicTest,
@@ -122,9 +119,8 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
     handleAudioSetup,
     handleInputSetup,
     checkSetupStatus,
-    setMicTestStatus,
-    setMicVolume,
-    setMicTestPassed,
-    setHasLoadedSetupStatus,
+    setMicTestStatus: (status) => { micTestStatus.value = status; },
+    setMicVolume: (volume) => { micVolume.value = volume; },
+    setMicTestPassed: (passed) => { micTestPassed.value = passed; },
   };
 }
