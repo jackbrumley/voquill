@@ -60,10 +60,7 @@ export function StatusPage({
     <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="status">
       <div style={{ ...tabPanelPaddedStyle, flex: 1 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <StatusIndicator status={currentStatus} size={108} />
-          <div style={{ fontSize: '20px', fontWeight: 700 }} key={`text-${currentStatus}`}>
-            {currentStatus === 'Transcribing' ? `Transcribing (${config.transcription_mode})` : currentStatus}
-          </div>
+          <StatusIndicator status={currentStatus} size={108} label={currentStatus === 'Transcribing' ? `Transcribing (${config.transcription_mode})` : currentStatus} />
           <div style={{ width: '100%', maxWidth: '520px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
               <ModeSwitcher

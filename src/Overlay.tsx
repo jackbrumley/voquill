@@ -114,59 +114,16 @@ function Overlay() {
           <button type="button" onClick={() => { status.value = 'Error'; }} style={{ border: 'none', borderRadius: '8px', padding: '8px 12px', background: status.value === 'Error' ? '#ef4444' : 'rgba(255,255,255,0.12)', color: '#fff', cursor: 'pointer' }}>Error</button>
         </div>
 
-        <div style={{ width: '260px', height: '140px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: '0', background: 'rgba(255,255,255,0.04)' }}>
-          <div
-            key={`overlay-preview-${status.value}`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '10px',
-              isolation: 'isolate',
-              contain: 'paint',
-              overflow: 'hidden',
-              background: `linear-gradient(135deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 50%, ${tokens.colors.bgGradientCool} 100%)`,
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '999px',
-              padding: '6px 12px 6px 8px',
-              minWidth: '194px',
-            }}
-          >
-            <StatusIndicator status={status.value} size={40} />
-            <span style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '18px', fontWeight: 500, textAlign: 'center', lineHeight: 1.2, whiteSpace: 'nowrap', textShadow: 'none', flex: 1 }}>
-              {statusLabel(status.value)}
-            </span>
+        <div style={{ width: '260px', height: '140px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', padding: '12px', background: 'rgba(255,255,255,0.04)' }}>
+            <StatusIndicator status={status.value} size={40} label={statusLabel(status.value)} />
           </div>
-        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100vh', width: '100vw', backgroundColor: 'transparent', paddingBottom: '0' }}>
-      <div
-        key={`overlay-content-${status.value}`}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '10px',
-          isolation: 'isolate',
-          contain: 'paint',
-          overflow: 'hidden',
-          background: `linear-gradient(135deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 50%, ${tokens.colors.bgGradientCool} 100%)`,
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '999px',
-          padding: '6px 12px 6px 8px',
-          minWidth: '194px',
-        }}
-      >
-        <StatusIndicator status={status.value} size={40} />
-        <span key={`overlay-status-${status.value}`} style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '18px', fontWeight: 500, textAlign: 'center', lineHeight: 1.2, whiteSpace: 'nowrap', textShadow: 'none', flex: 1 }}>
-          {statusLabel(status.value)}
-          {status.value === 'Recording' && hotkeyMode.value === 'Toggle' && (
-            <span style={{ display: 'block', fontSize: tokens.typography.sizeXs, opacity: 0.75 }}>press again to stop</span>
-          )}
-        </span>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100vh', width: '100vw', backgroundColor: 'transparent', paddingBottom: '20px' }}>
+      <StatusIndicator status={status.value} size={44} label={statusLabel(status.value)} subtitle={status.value === 'Recording' && hotkeyMode.value === 'Toggle' ? 'press again to stop' : undefined} />
     </div>
   );
 }
