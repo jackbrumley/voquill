@@ -47,6 +47,7 @@ function App() {
   const windowControls = useWindowControls(showToast);
 
   const showModelGuide = useSignal(false);
+  const showPostProcessGuide = useSignal(false);
   const activeConfigSection = useSignal<string | null>(null);
   const appVersion = useSignal<string>('');
   const tabContentRef = useRef<HTMLDivElement | null>(null);
@@ -262,6 +263,7 @@ function App() {
           onLoadMics={audioSetup.loadMics}
           onHandleConfigureHotkey={hotkeySetup.handleConfigureHotkey}
           onSetShowModelGuide={(v) => { showModelGuide.value = v; }}
+          onSetShowPostProcessGuide={(v) => { showPostProcessGuide.value = v; }}
           onStartMicTest={audioSetup.startMicTest}
           onStopMicTest={audioSetup.stopMicTest}
           onStopMicPlayback={audioSetup.stopMicPlayback}
@@ -308,6 +310,7 @@ function App() {
         showFactoryResetModal={hotkeySetup.showFactoryResetModal}
         showUpdateModal={updatesHook.showUpdateModal}
         showModelGuide={showModelGuide.value}
+        showPostProcessGuide={showPostProcessGuide.value}
         isRecordingHotkey={hotkeySetup.isRecordingHotkey}
         isApplyingHotkey={hotkeySetup.isApplyingHotkey}
         configHotkey={configHook.config.hotkey}
@@ -328,6 +331,7 @@ function App() {
         onCloseUpdate={() => updatesHook.setShowUpdateModal(false)}
         onOpenLatestRelease={() => void updatesHook.openLatestReleasePage()}
         onCloseModelGuide={() => { showModelGuide.value = false; }}
+        onClosePostProcessGuide={() => { showPostProcessGuide.value = false; }}
       />
     </div>
   );

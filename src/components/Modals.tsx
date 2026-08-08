@@ -1,6 +1,7 @@
 import { Button } from './Button.tsx';
 import { Modal } from './Modal.tsx';
 import { ModelInfoModal } from './ModelInfoModal.tsx';
+import { PostProcessModelInfoModal } from './PostProcessModelInfoModal.tsx';
 import { helperTextStyle, modalShortcutNoteStyle, modalShortcutPathStyle, modalTextIntroStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 import type { HotkeyBindingState, SystemShortcutContext, UpdateCheckResult } from '../types.ts';
@@ -11,6 +12,7 @@ interface ModalsProps {
   showFactoryResetModal: boolean;
   showUpdateModal: boolean;
   showModelGuide: boolean;
+  showPostProcessGuide: boolean;
   isRecordingHotkey: boolean;
   isApplyingHotkey: boolean;
   configHotkey: string;
@@ -27,6 +29,7 @@ interface ModalsProps {
   onCloseUpdate: () => void;
   onOpenLatestRelease: () => void;
   onCloseModelGuide: () => void;
+  onClosePostProcessGuide: () => void;
 }
 
 export function Modals(props: ModalsProps) {
@@ -145,6 +148,9 @@ export function Modals(props: ModalsProps) {
       )}
 
       {props.showModelGuide && <ModelInfoModal onClose={props.onCloseModelGuide} />}
+      {props.showPostProcessGuide && (
+        <PostProcessModelInfoModal onClose={props.onClosePostProcessGuide} />
+      )}
     </>
   );
 }

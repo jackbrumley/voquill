@@ -3,11 +3,12 @@ import { open } from '@tauri-apps/plugin-shell';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Card } from '../components/Card.tsx';
 import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
 import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 
 interface HomePageProps {
   appVersion: string;
@@ -42,6 +43,26 @@ export function HomePage({
   const importResult = useSignal<string>('');
   const importError = useSignal<string>('');
   const isDragOver = useSignal(false);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    (async () => {
+      unlisten = await getCurrentWindow().onDragDropEvent((event) => {
+        if (event.payload.type === 'enter' || event.payload.type === 'over') {
+          isDragOver.value = true;
+        } else if (event.payload.type === 'leave') {
+          isDragOver.value = false;
+        } else if (event.payload.type === 'drop') {
+          isDragOver.value = false;
+          const path = event.payload.paths[0];
+          if (path) {
+            transcribeFile(path);
+          }
+        }
+      });
+    })();
+    return () => { unlisten?.(); };
+  }, []);
 
   const howToSteps = [
     config.transcription_mode === 'Local'
@@ -94,26 +115,6 @@ export function HomePage({
     }
   };
 
-  const handleDragOver = (e: Event) => {
-    e.preventDefault();
-    isDragOver.value = true;
-  };
-
-  const handleDragLeave = () => {
-    isDragOver.value = false;
-  };
-
-  const handleDrop = async (e: DragEvent) => {
-    e.preventDefault();
-    isDragOver.value = false;
-    if (e.dataTransfer && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0] as { path?: string };
-      if (file.path) {
-        await transcribeFile(file.path);
-      }
-    }
-  };
-
   const copyResult = async () => {
     try {
       await invoke('plugin:clipboard-manager|write_text', { text: importResult.value });
@@ -124,7 +125,7 @@ export function HomePage({
 
   const dropZoneBorderColor = isDragOver.value
     ? tokens.colors.accentPrimary
-    : tokens.colors.accentPrimary;
+    : 'rgba(255, 255, 255, 0.15)';
 
   return (
     <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="home">
@@ -170,97 +171,45 @@ export function HomePage({
           Transcribe an Audio File
         </div>
 
-        <Card>
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={handleFilePick}
-            style={{
-              border: `2px dashed ${dropZoneBorderColor}`,
-              borderRadius: '10px',
-              padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-              textAlign: 'center',
-              cursor: 'pointer',
-              background: isDragOver.value ? 'rgba(255, 255, 255, 0.04)' : 'transparent',
-              transition: tokens.transitions.fast,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '2px',
-            }}
-          >
-            {importStatus.value === 'idle' && (
-              <>
-                <IconUpload size={28} style={{ color: tokens.colors.textMuted }} />
-                <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary }}>
+        <Card
+          onClick={handleFilePick}
+          style={{
+            border: `2px dashed ${dropZoneBorderColor}`,
+            cursor: 'pointer',
+            boxShadow: isDragOver.value ? tokens.shadows.accent : tokens.shadows.md,
+            transition: tokens.transitions.fast,
+          }}
+        >
+          {importStatus.value === 'idle' && (
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', gap: tokens.spacing.md }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary, lineHeight: 1.4 }}>
                   Drop an audio file here or click to browse
                 </div>
                 <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted }}>
                   WAV, MP3, M4A, OGG, FLAC, Opus
                 </div>
-              </>
-            )}
-            {importStatus.value === 'transcribing' && (
-              <>
-                <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.accentPrimary }}>
-                  Transcribing...
-                </div>
-              </>
-            )}
-            {importStatus.value === 'done' && (
-              <>
-                <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.success || '#43b581', marginBottom: '4px' }}>
-                  Transcription complete
-                </div>
-                <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textPrimary, lineHeight: 1.45, maxHeight: '80px', overflow: 'auto', width: '100%', textAlign: 'left' }}>
-                  {importResult.value}
-                </div>
-                <div style={{ display: 'flex', gap: tokens.spacing.sm, marginTop: tokens.spacing.xs }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); copyResult(); }}
-                    title="Copy to clipboard"
-                    style={{
-                      background: 'rgba(255,255,255,0.08)',
-                      border: 'none',
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      color: tokens.colors.textSecondary,
-                      cursor: 'pointer',
-                      fontSize: tokens.typography.sizeXs,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                  >
-                    <IconClipboard size={14} />
-                    Copy
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); importStatus.value = 'idle'; }}
-                    title="Transcribe another file"
-                    style={{
-                      background: 'transparent',
-                      border: '1px solid rgba(255,255,255,0.12)',
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      color: tokens.colors.textSecondary,
-                      cursor: 'pointer',
-                      fontSize: tokens.typography.sizeXs,
-                    }}
-                  >
-                    New Import
-                  </button>
-                </div>
-              </>
-            )}
-            {importStatus.value === 'error' && (
-              <>
-                <div style={{ fontSize: tokens.typography.sizeSm, color: '#f04747', marginBottom: '4px' }}>
-                  {importError.value}
-                </div>
+              </div>
+              <IconUpload size={28} style={{ color: tokens.colors.textMuted, flexShrink: 0 }} />
+            </div>
+          )}
+          {importStatus.value === 'transcribing' && (
+            <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.accentPrimary }}>
+              Transcribing...
+            </div>
+          )}
+          {importStatus.value === 'done' && (
+            <>
+              <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.success || '#43b581', marginBottom: '4px' }}>
+                Transcription complete
+              </div>
+              <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textPrimary, lineHeight: 1.45, maxHeight: '80px', overflow: 'auto', width: '100%', textAlign: 'left' }}>
+                {importResult.value}
+              </div>
+              <div style={{ display: 'flex', gap: tokens.spacing.sm, marginTop: tokens.spacing.xs }}>
                 <button
-                  onClick={(e) => { e.stopPropagation(); importStatus.value = 'idle'; }}
+                  onClick={(e) => { e.stopPropagation(); copyResult(); }}
+                  title="Copy to clipboard"
                   style={{
                     background: 'rgba(255,255,255,0.08)',
                     border: 'none',
@@ -269,13 +218,53 @@ export function HomePage({
                     color: tokens.colors.textSecondary,
                     cursor: 'pointer',
                     fontSize: tokens.typography.sizeXs,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
                   }}
                 >
-                  Try Again
+                  <IconClipboard size={14} />
+                  Copy
                 </button>
-              </>
-            )}
-          </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); importStatus.value = 'idle'; }}
+                  title="Transcribe another file"
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    color: tokens.colors.textSecondary,
+                    cursor: 'pointer',
+                    fontSize: tokens.typography.sizeXs,
+                  }}
+                >
+                  New Import
+                </button>
+              </div>
+            </>
+          )}
+          {importStatus.value === 'error' && (
+            <>
+              <div style={{ fontSize: tokens.typography.sizeSm, color: '#f04747', marginBottom: '4px' }}>
+                {importError.value}
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); importStatus.value = 'idle'; }}
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  border: 'none',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  color: tokens.colors.textSecondary,
+                  cursor: 'pointer',
+                  fontSize: tokens.typography.sizeXs,
+                }}
+              >
+                Try Again
+              </button>
+            </>
+          )}
         </Card>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.xs, padding: `${tokens.spacing.xs} 0`, opacity: 0.6, transition: tokens.transitions.fast }}>

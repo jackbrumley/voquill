@@ -47,7 +47,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     dictionary: [],
     post_process_enabled: false,
     post_process_provider: 'Local',
-    post_process_model: 'openai/gpt-4o-mini',
+    post_process_model: 'qwen2.5-1.5b-instruct',
     post_process_api_url: '',
     post_process_api_key: '',
   });

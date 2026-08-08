@@ -12,7 +12,7 @@ pub struct APIPostProcessService {
 #[async_trait]
 impl PostProcessService for APIPostProcessService {
     async fn post_process(&self, text: &str) -> Result<String, PostProcessError> {
-        let messages = super::prompt::build_cleanup_messages(text);
+        let messages = super::prompt::build_post_process_messages(text);
 
         let body = serde_json::json!({
             "model": self.model,
@@ -63,7 +63,7 @@ impl PostProcessService for APIPostProcessService {
 }
 
 pub async fn test_connection(api_key: &str, api_url: &str, model: &str) -> Result<String, String> {
-    let messages = super::prompt::build_cleanup_messages("This is a test um sentence");
+    let messages = super::prompt::build_post_process_messages("This is a test um sentence");
 
     let body = serde_json::json!({
         "model": model,

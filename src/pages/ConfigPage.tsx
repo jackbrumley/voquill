@@ -83,6 +83,7 @@ interface ConfigPageProps {
   loadMics: () => void;
   handleConfigureHotkey: () => void;
   setShowModelGuide: (show: boolean) => void;
+  setShowPostProcessGuide: (show: boolean) => void;
   startMicTest: () => void;
   stopMicTest: () => void;
   stopMicPlayback: () => void;
@@ -140,6 +141,7 @@ export function ConfigPage(props: ConfigPageProps) {
     loadMics,
     handleConfigureHotkey,
     setShowModelGuide,
+    setShowPostProcessGuide,
     startMicTest,
     stopMicTest,
     stopMicPlayback,
@@ -165,8 +167,8 @@ export function ConfigPage(props: ConfigPageProps) {
   } as const;
 
   return (
-    <div style={{ ...tabPanelStyle, padding: 0, height: '100%', overflow: 'hidden' }} key="settings">
-      <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0, flex: 1, overflow: 'hidden' }}>
+    <div style={{ ...tabPanelStyle, padding: 0, height: '100%' }} key="settings">
+      <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0, flex: 1, overflow: 'visible' }}>
         {!activeConfigSection || activeConfigSection === 'general' ? (
         <CollapsibleSection title="General" isOpen={activeConfigSection === 'general'} onToggle={() => setActiveConfigSection(activeConfigSection === 'general' ? null : 'general')}>
           <ConfigField
@@ -239,7 +241,116 @@ export function ConfigPage(props: ConfigPageProps) {
         </CollapsibleSection>
       ) : null}
 
-        {!activeConfigSection || activeConfigSection === 'transcription' ? (
+      {!activeConfigSection || activeConfigSection === 'audio' ? (
+        <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
+          <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
+            <div style={selectWrapperStyle}>
+              <SelectField
+                value={config.audio_device || 'default'}
+                options={availableMics.map((mic) => ({ value: mic.id, label: mic.label }))}
+                onChange={(nextMicId) => updateConfig('audio_device', nextMicId)}
+                ariaLabel="Microphone"
+              />
+              <Button variant="icon" onClick={loadMics} title="Refresh Devices">
+                <IconRefresh size={16} />
+              </Button>
+            </div>
+          </ConfigField>
+
+          <ConfigField label="Mic Test & Sensitivity" description="Adjust capture gain and verify your microphone playback.">
+            <MicSetupPanel
+              inputSensitivity={config.input_sensitivity}
+              onInputSensitivityChange={(value) => updateConfig('input_sensitivity', value)}
+              micTestStatus={micTestStatus}
+              micVolume={micVolume}
+              onStartMicTest={startMicTest}
+              onStopMicTest={stopMicTest}
+              onStopMicPlayback={stopMicPlayback}
+            />
+          </ConfigField>
+        </CollapsibleSection>
+      ) : null}
+
+      {!activeConfigSection || activeConfigSection === 'dictionary' ? (
+        <CollapsibleSection title="Dictionary" isOpen={activeConfigSection === 'dictionary'} onToggle={() => setActiveConfigSection(activeConfigSection === 'dictionary' ? null : 'dictionary')}>
+          <ConfigField label="Custom Words" description="Add names, jargon, or terms Whisper often gets wrong. Helps improve accuracy.">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+              <div style={{ display: 'flex', gap: tokens.spacing.xs, width: '100%' }}>
+                <input
+                  type="text"
+                  value={dictionaryInput.value}
+                  onInput={(e) => { dictionaryInput.value = (e.target as HTMLInputElement).value; }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const trimmed = dictionaryInput.value.trim();
+                      if (trimmed && !(config.dictionary || []).includes(trimmed)) {
+                        updateConfig('dictionary', [...(config.dictionary || []), trimmed]);
+                      }
+                      dictionaryInput.value = '';
+                    }
+                  }}
+                  placeholder="e.g. Anthropic, Rust, Voquill"
+                  style={{ ...inputBaseStyle, flex: 1 }}
+                />
+                <Button
+                  variant="configAction"
+                  onClick={() => {
+                    const trimmed = dictionaryInput.value.trim();
+                    if (trimmed && !(config.dictionary || []).includes(trimmed)) {
+                      updateConfig('dictionary', [...(config.dictionary || []), trimmed]);
+                    }
+                    dictionaryInput.value = '';
+                  }}
+                  disabled={!dictionaryInput.value.trim()}
+                >
+                  Add
+                </Button>
+              </div>
+              {(config.dictionary || []).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: tokens.spacing.xs }}>
+                  {(config.dictionary || []).map((word, i) => (
+                    <div key={i} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      background: 'rgba(255,255,255,0.06)',
+                      fontSize: tokens.typography.sizeXs,
+                      color: tokens.colors.textPrimary,
+                    }}>
+                      <span>{word}</span>
+                      <button
+                        onClick={() => {
+                          const updated = [...(config.dictionary || [])];
+                          updated.splice(i, 1);
+                          updateConfig('dictionary', updated);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: tokens.colors.textMuted,
+                          cursor: 'pointer',
+                          padding: '0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          lineHeight: 1,
+                        }}
+                        title={`Remove "${word}"`}
+                      >
+                        <IconX size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </ConfigField>
+        </CollapsibleSection>
+      ) : null}
+
+      {!activeConfigSection || activeConfigSection === 'transcription' ? (
         <CollapsibleSection title="Transcription" isOpen={activeConfigSection === 'transcription'} onToggle={() => setActiveConfigSection(activeConfigSection === 'transcription' ? null : 'transcription')}>
           <ConfigField
             label="Global Hotkey"
@@ -393,49 +504,6 @@ export function ConfigPage(props: ConfigPageProps) {
         </CollapsibleSection>
       ) : null}
 
-      {!activeConfigSection || activeConfigSection === 'audio' ? (
-        <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
-          <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
-            <div style={selectWrapperStyle}>
-              <SelectField
-                value={config.audio_device || 'default'}
-                options={availableMics.map((mic) => ({ value: mic.id, label: mic.label }))}
-                onChange={(nextMicId) => updateConfig('audio_device', nextMicId)}
-                ariaLabel="Microphone"
-              />
-              <Button variant="icon" onClick={loadMics} title="Refresh Devices">
-                <IconRefresh size={16} />
-              </Button>
-            </div>
-          </ConfigField>
-
-          <ConfigField label="Mic Test & Sensitivity" description="Adjust capture gain and verify your microphone playback.">
-            <MicSetupPanel
-              inputSensitivity={config.input_sensitivity}
-              onInputSensitivityChange={(value) => updateConfig('input_sensitivity', value)}
-              micTestStatus={micTestStatus}
-              micVolume={micVolume}
-              onStartMicTest={startMicTest}
-              onStopMicTest={stopMicTest}
-              onStopMicPlayback={stopMicPlayback}
-            />
-          </ConfigField>
-        </CollapsibleSection>
-      ) : null}
-
-      {!activeConfigSection || activeConfigSection === 'typing' ? (
-        <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>
-          <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
-            <NumberField value={config.typing_speed_interval} onChange={(value) => updateConfig('typing_speed_interval', value)} min={1} />
-          </ConfigField>
-
-          <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
-            <NumberField value={config.key_press_duration_ms} onChange={(value) => updateConfig('key_press_duration_ms', value)} min={1} />
-          </ConfigField>
-
-        </CollapsibleSection>
-      ) : null}
-
       {!activeConfigSection || activeConfigSection === 'post-process' ? (
         <CollapsibleSection title="Post-Processing" isOpen={activeConfigSection === 'post-process'} onToggle={() => setActiveConfigSection(activeConfigSection === 'post-process' ? null : 'post-process')}>
           <ConfigField label="Post-Processing" description="Run transcribed text through a language model to fix punctuation, capitalization, and remove filler words.">
@@ -472,11 +540,20 @@ export function ConfigPage(props: ConfigPageProps) {
                     <input style={inputBaseStyle} type="text" value={config.post_process_model} onChange={(e: Event) => updateConfig('post_process_model', (e.target as HTMLInputElement).value)} placeholder="openai/gpt-4o-mini" />
                   </ConfigField>
                 </>
-              ) : (
-                <ConfigField label="Local Model" description="Local GGUF models for on-device post-processing (coming in a future update).">
-                  <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, fontStyle: 'italic' }}>
-                    Local post-processing models are not yet available. Use API mode instead.
-                  </div>
+) : (
+                <ConfigField label="Local Model" description="Download a GGUF model for on-device post-processing. No internet connection needed after download.">
+                  <ModelSelectionPanel
+                    availableModels={(availableModels || []).filter((m) => m.engine === 'Post-Process (Local)')}
+                    localEngine="Post-Process (Local)"
+                    localModelSize={config.post_process_model}
+                    modelStatus={modelStatus}
+                    isDownloading={isDownloading}
+                    downloadProgress={downloadProgress}
+                    onChangeModel={(size) => updateConfig('post_process_model', size)}
+                    onDownloadModel={downloadModel}
+                    onRetryModels={loadModels}
+                    onShowModelGuide={() => setShowPostProcessGuide(true)}
+                  />
                 </ConfigField>
               )}
             </>
@@ -484,82 +561,16 @@ export function ConfigPage(props: ConfigPageProps) {
         </CollapsibleSection>
       ) : null}
 
-      {!activeConfigSection || activeConfigSection === 'dictionary' ? (
-        <CollapsibleSection title="Dictionary" isOpen={activeConfigSection === 'dictionary'} onToggle={() => setActiveConfigSection(activeConfigSection === 'dictionary' ? null : 'dictionary')}>
-          <ConfigField label="Custom Words" description="Add names, jargon, or terms Whisper often gets wrong. Helps improve accuracy.">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
-              <div style={{ display: 'flex', gap: tokens.spacing.xs, width: '100%' }}>
-                <input
-                  type="text"
-                  value={dictionaryInput.value}
-                  onInput={(e) => { dictionaryInput.value = (e.target as HTMLInputElement).value; }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const trimmed = dictionaryInput.value.trim();
-                      if (trimmed && !(config.dictionary || []).includes(trimmed)) {
-                        updateConfig('dictionary', [...(config.dictionary || []), trimmed]);
-                      }
-                      dictionaryInput.value = '';
-                    }
-                  }}
-                  placeholder="e.g. Anthropic, Rust, Voquill"
-                  style={{ ...inputBaseStyle, flex: 1 }}
-                />
-                <Button
-                  variant="configAction"
-                  onClick={() => {
-                    const trimmed = dictionaryInput.value.trim();
-                    if (trimmed && !(config.dictionary || []).includes(trimmed)) {
-                      updateConfig('dictionary', [...(config.dictionary || []), trimmed]);
-                    }
-                    dictionaryInput.value = '';
-                  }}
-                  disabled={!dictionaryInput.value.trim()}
-                >
-                  Add
-                </Button>
-              </div>
-              {(config.dictionary || []).length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: tokens.spacing.xs }}>
-                  {(config.dictionary || []).map((word, i) => (
-                    <div key={i} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '3px 8px',
-                      borderRadius: '6px',
-                      background: 'rgba(255,255,255,0.06)',
-                      fontSize: tokens.typography.sizeXs,
-                      color: tokens.colors.textPrimary,
-                    }}>
-                      <span>{word}</span>
-                      <button
-                        onClick={() => {
-                          const updated = [...(config.dictionary || [])];
-                          updated.splice(i, 1);
-                          updateConfig('dictionary', updated);
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: tokens.colors.textMuted,
-                          cursor: 'pointer',
-                          padding: '0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          lineHeight: 1,
-                        }}
-                        title={`Remove "${word}"`}
-                      >
-                        <IconX size={12} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+      {!activeConfigSection || activeConfigSection === 'typing' ? (
+        <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>
+          <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
+            <NumberField value={config.typing_speed_interval} onChange={(value) => updateConfig('typing_speed_interval', value)} min={1} />
           </ConfigField>
+
+          <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
+            <NumberField value={config.key_press_duration_ms} onChange={(value) => updateConfig('key_press_duration_ms', value)} min={1} />
+          </ConfigField>
+
         </CollapsibleSection>
       ) : null}
 

@@ -1,4 +1,4 @@
-pub fn build_cleanup_messages(text: &str) -> Vec<serde_json::Value> {
+pub fn build_post_process_messages(text: &str) -> Vec<serde_json::Value> {
     vec![
         serde_json::json!({
             "role": "system",

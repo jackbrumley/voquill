@@ -53,6 +53,7 @@ impl ModelManager {
         all.extend(cpu_models);
         all.extend(gpu_models);
         all.extend(Self::parakeet_models());
+        all.extend(Self::post_process_models());
         all
     }
 
@@ -64,6 +65,10 @@ impl ModelManager {
             e if e.contains("Whisper.cpp") => {
                 self.models_dir.join(format!("ggml-{}.bin", model.size))
             }
+            e if e.starts_with("Post-Process") => self
+                .models_dir
+                .join("post-process")
+                .join(format!("{}.gguf", model.size)),
             _ => self.models_dir.join("parakeet").join(&model.size),
         }
     }
@@ -228,6 +233,20 @@ impl ModelManager {
                 "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming.tar.bz2",
                 "",
                 "NVIDIA Parakeet English-only model. Requires sherpa-onnx sidecar. Fast on CPU.", false),
+        ]
+    }
+
+    fn post_process_models() -> Vec<ModelInfo> {
+        vec![
+            Self::model_info("Post-Process (Local)", "qwen2.5-1.5b-instruct", "Qwen 2.5 1.5B (Recommended)", 700_000_000,
+                "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+                "",
+                "Small local model for post-processing. Fixes punctuation, capitalization, and removes filler words. ~3-5s on CPU.",
+                true),
+            Self::model_info("Post-Process (Local)", "llama-3.2-1b-instruct", "Llama 3.2 1B", 650_000_000,
+                "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+                "",
+                "Meta's lightweight instruct model. Good for post-processing on modest hardware.", false),
         ]
     }
 

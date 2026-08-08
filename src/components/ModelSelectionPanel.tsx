@@ -74,7 +74,7 @@ export function ModelSelectionPanel({
                 <IconInfoCircle size={20} />
               </Button>
             </div>
-            {!modelStatus[localModelSize] && (
+            {localModelSize && availableModels.some(m => m.size === localModelSize && m.engine === localEngine) && !modelStatus[localModelSize] && (
               <div style={actionButtonRowStyle}>
                 <Button variant="configAction" size={actionButtonSize} onClick={() => onDownloadModel(localModelSize)} disabled={isDownloading}>
                   {isDownloading ? '...' : 'Download'}

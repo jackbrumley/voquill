@@ -26,3 +26,4 @@ pub trait PostProcessService: Send + Sync {
 pub mod factory;
 pub mod prompt;
 pub mod provider_api;
+pub mod provider_local;

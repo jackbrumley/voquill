@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::post_process::provider_api::APIPostProcessService;
+use crate::post_process::provider_local::SidecarPostProcess;
 use crate::post_process::PostProcessService;
 
 pub struct PostProcessFactory;
@@ -14,10 +15,12 @@ impl PostProcessFactory {
                 api_url: config.post_process_api_url.clone(),
                 model: config.post_process_model.clone(),
             })),
-            crate::config::PostProcessProvider::Local => Err(
-                "Local cleanup models are not yet implemented. Use API mode or check for updates."
-                    .to_string(),
-            ),
+            crate::config::PostProcessProvider::Local => {
+                let service = SidecarPostProcess::new(&config.post_process_model)
+                    .await
+                    .map_err(|e| format!("Failed to start local post-process: {}", e))?;
+                Ok(Box::new(service))
+            }
         }
     }
 }

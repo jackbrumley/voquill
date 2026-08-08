@@ -37,10 +37,14 @@ export const CollapsibleSection = ({ title, children, isOpen, onToggle }: Collap
           userSelect: 'none',
           WebkitUserSelect: 'none',
           MozUserSelect: 'none',
-          background: isHovered.value ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+          background: isOpen
+            ? tokens.colors.bgPrimary
+            : isHovered.value
+              ? 'rgba(255, 255, 255, 0.08)'
+              : 'transparent',
           position: 'sticky',
           top: 0,
-          zIndex: 1,
+          zIndex: 2,
           borderBottom: isOpen ? `1px solid rgba(255, 255, 255, 0.2)` : '1px solid transparent',
           transition: 'background 0.15s ease',
         }}

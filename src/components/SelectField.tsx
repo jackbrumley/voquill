@@ -48,6 +48,7 @@ export function SelectField({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const listboxId = `voquill-select-listbox-${Math.random().toString(36).slice(2, 11)}`;
+  const openUpward = useSignal(false);
 
   const selectedOption = options.find((option) => option.value === value) || null;
 
@@ -96,6 +97,11 @@ export function SelectField({
   const openDropdown = () => {
     if (disabled) {
       return;
+    }
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      openUpward.value = spaceBelow < 280;
     }
     isOpen.value = true;
   };
@@ -248,7 +254,8 @@ export function SelectField({
 
   const menuStyle: JSX.CSSProperties = {
     position: 'absolute',
-    top: 'calc(100% + 6px)',
+    top: openUpward.value ? undefined : 'calc(100% + 6px)',
+    bottom: openUpward.value ? 'calc(100% + 6px)' : undefined,
     left: 0,
     width: '100%',
     zIndex: 120,

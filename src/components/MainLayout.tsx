@@ -45,6 +45,7 @@ interface MainLayoutProps {
   onLoadMics: () => void;
   onHandleConfigureHotkey: () => void;
   onSetShowModelGuide: (v: boolean) => void;
+  onSetShowPostProcessGuide: (v: boolean) => void;
   onStartMicTest: () => void;
   onStopMicTest: () => void;
   onStopMicPlayback: () => void;
@@ -118,6 +119,7 @@ export function MainLayout(props: MainLayoutProps) {
             loadMics={props.onLoadMics}
             handleConfigureHotkey={props.onHandleConfigureHotkey}
             setShowModelGuide={props.onSetShowModelGuide}
+            setShowPostProcessGuide={props.onSetShowPostProcessGuide}
             startMicTest={props.onStartMicTest}
             stopMicTest={props.onStopMicTest}
             stopMicPlayback={props.onStopMicPlayback}

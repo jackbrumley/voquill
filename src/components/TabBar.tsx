@@ -16,12 +16,15 @@ interface TabBarProps {
 }
 
 export function TabBar({ active, tabs, onNavigate, onLogUI }: TabBarProps) {
+  const activeIndex = tabs.findIndex(t => t.value === active);
+
   return (
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
       <div
         style={{
           display: 'flex',
           width: '100%',
+          position: 'relative',
         }}
       >
         {tabs.map((tab) => {
@@ -38,7 +41,7 @@ export function TabBar({ active, tabs, onNavigate, onLogUI }: TabBarProps) {
                 fontSize: '16px',
                 fontWeight: 400,
                 fontFamily: 'system-ui, -apple-system, sans-serif',
-                padding: '10px 16px',
+                padding: '10px 16px 8px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -52,8 +55,6 @@ export function TabBar({ active, tabs, onNavigate, onLogUI }: TabBarProps) {
             >
               <span style={{
                 display: 'inline-block',
-                position: 'relative',
-                paddingBottom: '8px',
                 color: isActive ? '#ffffff' : TEXT_INACTIVE,
                 fontSize: '16px',
                 fontWeight: 400,
@@ -61,19 +62,20 @@ export function TabBar({ active, tabs, onNavigate, onLogUI }: TabBarProps) {
                 transition: 'color 0.15s ease',
               }}>
                 {tab.label}
-                <span style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: '2px',
-                  background: isActive ? ACCENT : 'transparent',
-                  transition: 'background 0.15s ease',
-                }} />
               </span>
             </button>
           );
         })}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: `${((activeIndex + 0.5) / tabs.length) * 100}%`,
+          width: '72px',
+          height: '2px',
+          background: ACCENT,
+          transform: 'translateX(-50%)',
+          transition: 'left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        }} />
       </div>
     </div>
   );
