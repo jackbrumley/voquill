@@ -47,7 +47,6 @@ interface SetupConfig {
   transcription_mode: 'API' | 'Local';
   local_model_size: string;
   local_engine: string;
-  enable_gpu: boolean;
   hotkey: string;
   audio_device: string | null;
   input_sensitivity: number;

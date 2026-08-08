@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::local_whisper::{self, WhisperEngineCache};
 use crate::transcription::{self, TranscriptionError, TranscriptionService};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 /// Single owner of all engine-specific shared state. Provides a factory method
@@ -10,6 +11,12 @@ use std::sync::{Arc, Mutex};
 pub struct EngineFactory {
     whisper_cache: WhisperEngineCache,
     whisper_last_gpu_error: Arc<Mutex<Option<String>>>,
+    gpu_tested: AtomicBool,
+}
+
+/// Returns true if the engine name indicates GPU acceleration should be used.
+fn engine_uses_gpu(engine_name: &str) -> bool {
+    engine_name.contains("(GPU)")
 }
 
 impl EngineFactory {
@@ -17,7 +24,19 @@ impl EngineFactory {
         Self {
             whisper_cache: Arc::new(Mutex::new(None)),
             whisper_last_gpu_error: Arc::new(Mutex::new(None)),
+            gpu_tested: AtomicBool::new(false),
         }
+    }
+
+    /// Whether a GPU load attempt has been made since startup.
+    pub fn gpu_has_been_tested(&self) -> bool {
+        self.gpu_tested.load(Ordering::SeqCst)
+    }
+
+    /// The most recent GPU error, if any. Returns `None` if the last GPU
+    /// attempt succeeded, or if no GPU attempt has been made yet.
+    pub fn last_gpu_error(&self) -> Option<String> {
+        self.whisper_last_gpu_error.lock().unwrap().clone()
     }
 
     pub fn create_service(
@@ -32,21 +51,27 @@ impl EngineFactory {
                     api_model: config.api_model.clone(),
                 }))
             }
-            crate::config::TranscriptionMode::Local => match config.local_engine.as_str() {
-                "Whisper.cpp" => {
-                    let service = local_whisper::LocalWhisperService::new_full(
-                        self.whisper_cache.clone(),
-                        &config.local_model_size,
-                        config.enable_gpu,
-                        Some(self.whisper_last_gpu_error.clone()),
-                    )?;
-                    Ok(Box::new(service))
+            crate::config::TranscriptionMode::Local => {
+                let use_gpu = engine_uses_gpu(&config.local_engine);
+                if use_gpu {
+                    self.gpu_tested.store(true, Ordering::SeqCst);
                 }
-                other => Err(TranscriptionError::Model(format!(
-                    "Unknown local engine: {}. Available engines: Whisper.cpp",
-                    other
-                ))),
-            },
+                match config.local_engine.as_str() {
+                    "Whisper.cpp" | "Whisper.cpp (GPU)" => {
+                        let service = local_whisper::LocalWhisperService::new_full(
+                            self.whisper_cache.clone(),
+                            &config.local_model_size,
+                            use_gpu,
+                            Some(self.whisper_last_gpu_error.clone()),
+                        )?;
+                        Ok(Box::new(service))
+                    }
+                    other => Err(TranscriptionError::Model(format!(
+                        "Unknown local engine: {}. Available engines: Whisper.cpp, Whisper.cpp (GPU)",
+                        other
+                    ))),
+                }
+            }
         }
     }
 
@@ -68,18 +93,23 @@ impl EngineFactory {
             }
         };
 
+        let use_gpu = engine_uses_gpu(&config.local_engine);
+        if use_gpu {
+            self.gpu_tested.store(true, Ordering::SeqCst);
+        }
+
         crate::log_info!(
             "Engine preload: starting (engine={}, model={}, gpu={})",
             config.local_engine,
             config.local_model_size,
-            config.enable_gpu
+            use_gpu
         );
 
         let result = local_whisper::ensure_model_loaded_with_fallback(
             &self.whisper_cache,
             model_path,
             config.local_model_size.clone(),
-            config.enable_gpu,
+            use_gpu,
             None,
         )
         .await;
@@ -92,6 +122,7 @@ impl EngineFactory {
                         config.local_model_size,
                         reason
                     );
+                    *self.whisper_last_gpu_error.lock().unwrap() = Some(reason.clone());
                 } else {
                     crate::log_info!(
                         "Engine preload: model {} loaded (gpu={})",

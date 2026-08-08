@@ -178,6 +178,10 @@ pub(crate) async fn ensure_model_loaded_with_fallback(
         });
     }
 
+    if let Some(err_slot) = &last_gpu_error {
+        *err_slot.lock().unwrap() = None;
+    }
+
     match ensure_model_loaded_with_timeout(cache, model_path.clone(), model_size.clone(), true)
         .await
     {

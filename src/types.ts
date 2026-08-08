@@ -16,7 +16,6 @@ export interface Config {
   output_method: 'Typewriter' | 'Clipboard';
   copy_on_typewriter: boolean;
   language: string;
-  enable_gpu: boolean;
   post_roll_ms: number;
   hotkey_mode: 'HoldToTalk' | 'Toggle';
   max_recording_duration_minutes: number;
@@ -91,6 +90,12 @@ export interface UpdateCheckResult {
   updateAvailable: boolean;
   releaseUrl: string;
   notesUrl?: string;
+}
+
+export interface GpuStatus {
+  tested: boolean;
+  available: boolean;
+  detail: string | null;
 }
 
 export interface StatusUpdatePayload {

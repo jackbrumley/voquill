@@ -47,7 +47,7 @@ export function SelectField({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const listboxIdRef = useRef(`voquill-select-listbox-${Math.random().toString(36).slice(2, 11)}`);
+  const listboxId = `voquill-select-listbox-${Math.random().toString(36).slice(2, 11)}`;
 
   const selectedOption = options.find((option) => option.value === value) || null;
 
@@ -291,7 +291,7 @@ export function SelectField({
         role="combobox"
         aria-expanded={isOpen.value}
         aria-haspopup="listbox"
-        aria-controls={listboxIdRef.current}
+        aria-controls={listboxId}
         aria-label={ariaLabel}
         disabled={disabled}
         style={triggerStyle}
@@ -332,7 +332,7 @@ export function SelectField({
       </button>
 
       {isOpen.value && (
-        <div role="listbox" id={listboxIdRef.current} style={menuStyle}>
+        <div role="listbox" id={listboxId} style={menuStyle}>
           {searchable && (
             <div style={{ padding: tokens.spacing.sm, borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
               <input

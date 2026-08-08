@@ -1,4 +1,4 @@
-import { useRef } from 'preact/hooks';
+import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
@@ -11,7 +11,7 @@ interface UseWindowControlsReturn {
 }
 
 export function useWindowControls(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseWindowControlsReturn {
-  const trayFallbackNotifiedRef = useRef(false);
+  const trayFallbackNotified = useSignal(false);
 
   const handleClose = async () => {
     try {
@@ -24,8 +24,8 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
   const handleMinimize = async () => {
     try {
       const target = await invoke<string>('minimize_to_tray_or_taskbar');
-      if (target === 'taskbar' && !trayFallbackNotifiedRef.current) {
-        trayFallbackNotifiedRef.current = true;
+      if (target === 'taskbar' && !trayFallbackNotified.value) {
+        trayFallbackNotified.value = true;
         showToast('System tray is unavailable on this desktop. Minimized to taskbar instead.', 'info');
       }
     } catch {

@@ -138,6 +138,8 @@ Voquill is built for performance and security:
 
 This project is licensed under the GNU Affero General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
+**Why AGPLv3?** Voquill uses the AGPLv3 license so that the software and all derivative versions remain open source. Unlike the GPL, AGPLv3 closes the "SaaS loophole" — if someone builds on Voquill and makes it available to users over a network, they must also provide access to the corresponding source code. This ensures that improvements to the project benefit the entire community, whether the software is distributed or hosted as a service.
+
 ---
 
 ### Project Provenance

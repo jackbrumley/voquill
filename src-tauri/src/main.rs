@@ -181,7 +181,8 @@ fn main() {
             get_portal_diagnostics,
             get_system_shortcut_context,
             get_overlay_positioning_capabilities,
-            check_for_updates
+            check_for_updates,
+            get_gpu_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

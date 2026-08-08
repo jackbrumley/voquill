@@ -6,7 +6,7 @@ import { HistoryPage } from '../pages/HistoryPage.tsx';
 import { UiLabPage } from '../pages/UiLabPage.tsx';
 import { appContentStyle, tabNavStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
-import type { Config, HistoryItem, AudioDevice, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, UpdateCheckResult, AppRoute } from '../types.ts';
+import type { Config, HistoryItem, AudioDevice, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, UpdateCheckResult, AppRoute } from '../types.ts';
 
 interface MainLayoutProps {
   activeRoute: AppRoute;
@@ -33,6 +33,7 @@ interface MainLayoutProps {
   hoveredTopTab: AppRoute | null;
   history: HistoryItem[];
   updateResult: UpdateCheckResult | null;
+  gpuStatus: GpuStatus | null;
   onNavigate: (route: AppRoute) => void;
   onLogUI: (msg: string) => void;
   onSetHoveredTab: (route: AppRoute | null) => void;
@@ -145,6 +146,7 @@ export function MainLayout(props: MainLayoutProps) {
         {props.activeRoute === 'settings' && (
           <ConfigPage
             config={props.config}
+            gpuStatus={props.gpuStatus}
             activeConfigSection={props.activeConfigSection}
             setActiveConfigSection={props.onSetActiveConfigSection}
             availableEngines={props.availableEngines}

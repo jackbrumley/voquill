@@ -17,7 +17,7 @@ import { useUpdates } from './hooks/useUpdates.ts';
 import { useAutostart } from './hooks/useAutostart.ts';
 import { useWindowControls } from './hooks/useWindowControls.ts';
 import { useInitialRoute } from './hooks/useInitialRoute.ts';
-import type { AppRoute } from './types.ts';
+import type { AppRoute, GpuStatus } from './types.ts';
 
 function App() {
   const { showToast, ToastContainer } = useToast();
@@ -63,6 +63,8 @@ function App() {
 
   const activeRoute = useSignal<AppRoute>(routeFromHash(window.location.hash));
 
+  const gpuStatus = useSignal<GpuStatus | null>(null);
+
   const hotkeySetup = useHotkeySetup({
     showToast,
     onApplyCapturedHotkey: async (normalized) => {
@@ -107,6 +109,7 @@ function App() {
     getVersion().then((v) => { appVersion.value = v; }).catch(err => console.error("Failed to get version:", err));
     updatesHook.checkForUpdates(false);
     autostartHook.loadAutostart();
+    invoke<GpuStatus>('get_gpu_status').then((s) => { gpuStatus.value = s; }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -245,6 +248,7 @@ function App() {
           hoveredTopTab={hoveredTopTab.value}
           history={historyHook.history}
           updateResult={updatesHook.updateResult}
+          gpuStatus={gpuStatus.value}
           tabContentRef={tabContentRef}
           onNavigate={navigate}
           onLogUI={logUI}

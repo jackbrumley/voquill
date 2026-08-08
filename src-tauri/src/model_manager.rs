@@ -32,58 +32,85 @@ impl ModelManager {
     }
 
     pub fn get_available_models() -> Vec<ModelInfo> {
+        let cpu_models = Self::cpu_models();
+        let gpu_models = Self::gpu_models();
+        let mut all = Vec::with_capacity(cpu_models.len() + gpu_models.len());
+        all.extend(cpu_models);
+        all.extend(gpu_models);
+        all
+    }
+
+    fn cpu_models() -> Vec<ModelInfo> {
         vec![
-            ModelInfo {
-                engine: "Whisper.cpp".to_string(),
-                size: "tiny.en".to_string(),
-                label: "Tiny (English)".to_string(),
-                file_size: 77_600_000,
-                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin".to_string(),
-                sha256: "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776".to_string(),
-                description: "Lightning fast, best for simple commands.".to_string(),
-                recommended: false,
-            },
-            ModelInfo {
-                engine: "Whisper.cpp".to_string(),
-                size: "distil-small.en".to_string(),
-                label: "Distil-Small (English)".to_string(),
-                file_size: 175_000_000,
-                download_url: "https://huggingface.co/distil-whisper/distil-small.en/resolve/main/ggml-distil-small.en.bin".to_string(),
-                sha256: "e8a676964fd3f78b021a385f078a18863712ca10fdc907a685eee9c0e71d7a62".to_string(),
-                description: "Perfect balance of speed and high accuracy.".to_string(),
-                recommended: true,
-            },
-            ModelInfo {
-                engine: "Whisper.cpp".to_string(),
-                size: "base.en".to_string(),
-                label: "Base (English)".to_string(),
-                file_size: 147_000_000,
-                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin".to_string(),
-                sha256: "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d".to_string(),
-                description: "Standard choice for general dictation.".to_string(),
-                recommended: false,
-            },
-            ModelInfo {
-                engine: "Whisper.cpp".to_string(),
-                size: "small.en".to_string(),
-                label: "Small (English)".to_string(),
-                file_size: 483_000_000,
-                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin".to_string(),
-                sha256: "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1".to_string(),
-                description: "Great accuracy for complex vocabulary.".to_string(),
-                recommended: false,
-            },
-            ModelInfo {
-                engine: "Whisper.cpp".to_string(),
-                size: "medium.en".to_string(),
-                label: "Medium (English)".to_string(),
-                file_size: 1_500_000_000,
-                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin".to_string(),
-                sha256: "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1".to_string(),
-                description: "Highest accuracy. Needs a powerful computer or GPU.".to_string(),
-                recommended: false,
-            },
+            Self::model_info("Whisper.cpp", "tiny.en", "Tiny (English)", 77_600_000,
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin",
+                "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776",
+                "Lightning fast, best for simple commands.", false),
+            Self::model_info("Whisper.cpp", "distil-small.en", "Distil-Small (English)", 175_000_000,
+                "https://huggingface.co/distil-whisper/distil-small.en/resolve/main/ggml-distil-small.en.bin",
+                "e8a676964fd3f78b021a385f078a18863712ca10fdc907a685eee9c0e71d7a62",
+                "Perfect balance of speed and high accuracy.", true),
+            Self::model_info("Whisper.cpp", "base.en", "Base (English)", 147_000_000,
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+                "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d",
+                "Standard choice for general dictation.", false),
+            Self::model_info("Whisper.cpp", "small.en", "Small (English)", 483_000_000,
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
+                "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
+                "Great accuracy for complex vocabulary.", false),
+            Self::model_info("Whisper.cpp", "medium.en", "Medium (English)", 1_500_000_000,
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin",
+                "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
+                "Highest accuracy. Needs a powerful computer or GPU.", false),
         ]
+    }
+
+    fn gpu_models() -> Vec<ModelInfo> {
+        vec![
+            Self::model_info("Whisper.cpp (GPU)", "tiny.en", "Tiny (English)", 77_600_000,
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin",
+                "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776",
+                "Lightning fast with GPU acceleration. Requires a compatible GPU.", false),
+            Self::model_info("Whisper.cpp (GPU)", "distil-small.en", "Distil-Small (English)", 175_000_000,
+                "https://huggingface.co/distil-whisper/distil-small.en/resolve/main/ggml-distil-small.en.bin",
+                "e8a676964fd3f78b021a385f078a18863712ca10fdc907a685eee9c0e71d7a62",
+                "Fast and accurate with GPU acceleration. Requires a compatible GPU.", true),
+            Self::model_info("Whisper.cpp (GPU)", "base.en", "Base (English)", 147_000_000,
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+                "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d",
+                "Standard choice with GPU acceleration. Requires a compatible GPU.", false),
+            Self::model_info("Whisper.cpp (GPU)", "small.en", "Small (English)", 483_000_000,
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
+                "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
+                "Great accuracy with GPU acceleration. Requires a compatible GPU.", false),
+            Self::model_info("Whisper.cpp (GPU)", "medium.en", "Medium (English)", 1_500_000_000,
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin",
+                "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
+                "Highest accuracy with GPU acceleration. Requires a compatible GPU.", false),
+        ]
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn model_info(
+        engine: &str,
+        size: &str,
+        label: &str,
+        file_size: u64,
+        download_url: &str,
+        sha256: &str,
+        description: &str,
+        recommended: bool,
+    ) -> ModelInfo {
+        ModelInfo {
+            engine: engine.to_string(),
+            size: size.to_string(),
+            label: label.to_string(),
+            file_size,
+            download_url: download_url.to_string(),
+            sha256: sha256.to_string(),
+            description: description.to_string(),
+            recommended,
+        }
     }
 
     pub fn get_available_engines() -> Vec<String> {

@@ -39,7 +39,6 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     output_method: 'Typewriter',
     copy_on_typewriter: false,
     language: 'auto',
-    enable_gpu: false,
     post_roll_ms: 400,
     hotkey_mode: 'HoldToTalk',
     max_recording_duration_minutes: 10,

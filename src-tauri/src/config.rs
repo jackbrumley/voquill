@@ -66,8 +66,6 @@ pub struct Config {
     pub shortcuts_token: Option<String>,
     #[serde(default)]
     pub input_token: Option<String>,
-    #[serde(default = "default_enable_gpu")]
-    pub enable_gpu: bool,
     #[serde(default = "default_post_roll_ms")]
     pub post_roll_ms: u64,
     #[serde(default = "default_hotkey_mode")]
@@ -143,9 +141,6 @@ fn default_copy_on_typewriter() -> bool {
 fn default_language() -> String {
     "auto".to_string()
 }
-fn default_enable_gpu() -> bool {
-    false
-}
 fn default_post_roll_ms() -> u64 {
     400
 }
@@ -216,7 +211,6 @@ impl Default for Config {
             language: default_language(),
             shortcuts_token: None,
             input_token: None,
-            enable_gpu: default_enable_gpu(),
             post_roll_ms: default_post_roll_ms(),
             hotkey_mode: default_hotkey_mode(),
             max_recording_duration_minutes: default_max_recording_duration_minutes(),
@@ -296,7 +290,7 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     normalized_config.normalize();
     let config_str = serde_json::to_string_pretty(&normalized_config)?;
     log_info!(
-        "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, gpu={}, input_sensitivity={:.2}",
+        "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, input_sensitivity={:.2}",
         normalized_config.transcription_mode,
         normalized_config.local_engine,
         normalized_config.local_model_size,
@@ -304,7 +298,6 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
         normalized_config.audio_device,
         normalized_config.debug_mode,
         normalized_config.enable_recording_logs,
-        normalized_config.enable_gpu,
         normalized_config.input_sensitivity
     );
 

@@ -1,4 +1,4 @@
-import { IconRefresh, IconRocket } from '@tabler/icons-preact';
+import { IconInfoCircle, IconRefresh } from '@tabler/icons-preact';
 import { ConfigField } from '../components/ConfigField.tsx';
 import { Switch } from '../components/Switch.tsx';
 import { CollapsibleSection } from '../components/CollapsibleSection.tsx';
@@ -8,6 +8,7 @@ import { NumberField } from '../components/NumberField.tsx';
 import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
 import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
 import { SelectField } from '../components/SelectField.tsx';
+import type { GpuStatus } from '../types.ts';
 import { helperTextStyle, inputBaseStyle, selectWrapperStyle, tabPanelContentStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 
@@ -45,7 +46,6 @@ interface ConfigPageProps {
     key_press_duration_ms: number;
     pixels_from_bottom: number;
     debug_mode: boolean;
-    enable_gpu: boolean;
     enable_recording_logs: boolean;
     post_roll_ms: number;
     hotkey_mode: 'HoldToTalk' | 'Toggle';
@@ -85,6 +85,7 @@ interface ConfigPageProps {
   onOpenUiLab: () => void;
   autostartEnabled: boolean;
   onToggleAutostart: (enabled: boolean) => void;
+  gpuStatus: GpuStatus | null;
 }
 
 const languageOptions = [
@@ -139,6 +140,7 @@ export function ConfigPage(props: ConfigPageProps) {
     onOpenUiLab,
     autostartEnabled,
     onToggleAutostart,
+    gpuStatus,
   } = props;
 
   const configGhostPillStyle = {
@@ -309,6 +311,25 @@ export function ConfigPage(props: ConfigPageProps) {
                 </div>
               </ConfigField>
 
+              {config.local_engine.includes('(GPU)') && gpuStatus?.tested && !gpuStatus.available && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '11px',
+                  color: '#f1c40f',
+                  margin: '-8px 0 8px',
+                  padding: '6px 8px',
+                  background: 'rgba(241, 196, 15, 0.08)',
+                  borderRadius: '6px',
+                }}>
+                  <IconInfoCircle size={14} />
+                  <span>
+                    GPU unavailable: {gpuStatus.detail || 'No compatible GPU detected. Select Whisper.cpp (CPU) or check your GPU drivers.'}
+                  </span>
+                </div>
+              )}
+
               <ConfigField label="Local Model" description="Choose the Whisper model size. Distil-Small is recommended for most users.">
                 <ModelSelectionPanel
                   availableModels={availableModels}
@@ -322,17 +343,6 @@ export function ConfigPage(props: ConfigPageProps) {
                   onDownloadModel={downloadModel}
                   onRetryModels={loadModels}
                 />
-              </ConfigField>
-
-              <ConfigField
-                label="Turbo Mode (GPU)"
-                labelBadge="Experimental"
-                description="GPU acceleration can be faster on some systems, but performance varies by hardware and model."
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: tokens.spacing.sm, width: '100%' }}>
-                  <IconRocket size={20} color={config.enable_gpu ? '#f1c40f' : tokens.colors.textMuted} />
-                  <Switch checked={config.enable_gpu} onChange={(checked) => updateConfig('enable_gpu', checked)} />
-                </div>
               </ConfigField>
 
             </>
