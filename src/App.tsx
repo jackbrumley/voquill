@@ -50,7 +50,6 @@ function App() {
   const showModelGuide = useSignal(false);
   const activeConfigSection = useSignal<string | null>(null);
   const appVersion = useSignal<string>('');
-  const hoveredTopTab = useSignal<AppRoute | null>(null);
   const tabContentRef = useRef<HTMLDivElement | null>(null);
 
   const routeFromHash = (hash: string): AppRoute => {
@@ -245,7 +244,6 @@ function App() {
           overlayPositioningCapabilities={hotkeySetup.overlayPositioningCapabilities}
           checkingUpdates={updatesHook.checkingUpdates}
           autostartEnabled={autostartHook.autostartEnabled}
-          hoveredTopTab={hoveredTopTab.value}
           history={historyHook.history}
           updateResult={updatesHook.updateResult}
           gpuStatus={gpuStatus.value}
@@ -253,7 +251,6 @@ function App() {
           tabContentRef={tabContentRef}
           onNavigate={navigate}
           onLogUI={logUI}
-          onSetHoveredTab={(route) => { hoveredTopTab.value = route; }}
           onSetActiveConfigSection={handleSetActiveConfigSection}
           onUpdateConfig={configHook.updateConfig}
           onTestApiKey={() => void testApiKey(configHook.config.openai_api_key, configHook.config.api_url)}

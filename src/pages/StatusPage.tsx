@@ -80,6 +80,11 @@ export function StatusPage({
                 ? 'Types directly into your active cursor.'
                 : 'Copies results to your clipboard.'}
             </div>
+            <div style={{ textAlign: 'center', fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7 }}>
+              {isToggleMode
+                ? 'Tip: press the hotkey while transcribing to cancel.'
+                : 'Tip: try Toggle Mode in Settings for tap-to-start/stop.'}
+            </div>
           </div>
         </div>
 
@@ -100,12 +105,6 @@ export function StatusPage({
             </ol>
           </div>
         </Card>
-
-        <div style={{ textAlign: 'center', fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, marginTop: tokens.spacing.xs }}>
-          {isToggleMode
-            ? 'Tip: press the hotkey while transcribing to cancel.'
-            : 'Tip: prefer tap-to-toggle? Change Recording Mode in Settings.'}
-        </div>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.xs, padding: `${tokens.spacing.xs} 0`, opacity: 0.6, transition: tokens.transitions.fast }}>
           <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center' }}>

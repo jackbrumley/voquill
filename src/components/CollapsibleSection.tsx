@@ -1,6 +1,5 @@
 
 import { ComponentChildren } from 'preact';
-import { useSignal } from '@preact/signals';
 import { IconChevronDown } from '@tabler/icons-preact';
 import { tokens } from '../design-tokens.ts';
 
@@ -12,26 +11,18 @@ interface CollapsibleSectionProps {
 }
 
 export const CollapsibleSection = ({ title, children, isOpen, onToggle }: CollapsibleSectionProps) => {
-  const hovered = useSignal(false);
-
-  const getHeaderBackground = () => {
-    if (isOpen) return tokens.colors.bgTertiary;
-    if (hovered.value) return 'rgba(32, 34, 37, 0.3)';
-    return 'transparent';
-  };
-
   return (
     <div
       style={{
         display: 'flex',
         flexDirection: 'column',
         overflow: 'visible',
+        flex: isOpen ? 1 : '0 0 auto',
+        minHeight: 0,
       }}
     >
       <div
         onClick={onToggle}
-        onMouseEnter={() => { hovered.value = true; }}
-        onMouseLeave={() => { hovered.value = false; }}
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -39,11 +30,11 @@ export const CollapsibleSection = ({ title, children, isOpen, onToggle }: Collap
           padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
           cursor: 'pointer',
           userSelect: 'none',
-          background: getHeaderBackground(),
-          transition: tokens.transitions.fast,
+          background: 'transparent',
           position: 'sticky',
           top: 0,
           zIndex: 1,
+          borderBottom: isOpen ? `1px solid rgba(88, 101, 242, 0.25)` : '1px solid transparent',
         }}
       >
         <div
@@ -53,7 +44,7 @@ export const CollapsibleSection = ({ title, children, isOpen, onToggle }: Collap
             gap: tokens.spacing.sm,
             fontWeight: 700,
             fontSize: tokens.typography.sizeSm,
-            color: isOpen ? tokens.colors.textPrimary : tokens.colors.textSecondary,
+            color: isOpen ? tokens.colors.accentPrimary : tokens.colors.textSecondary,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
             transition: tokens.transitions.fast,
@@ -63,12 +54,12 @@ export const CollapsibleSection = ({ title, children, isOpen, onToggle }: Collap
         </div>
         <div
           style={{
-            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+            transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
             transition: tokens.transitions.normal,
-            color: isOpen ? tokens.colors.textPrimary : tokens.colors.textMuted,
+            color: isOpen ? tokens.colors.accentPrimary : tokens.colors.textMuted,
           }}
         >
-          <IconChevronDown size={16} />
+          <IconChevronDown size={20} />
         </div>
       </div>
       {isOpen && (
@@ -77,11 +68,9 @@ export const CollapsibleSection = ({ title, children, isOpen, onToggle }: Collap
           display: 'flex',
           flexDirection: 'column',
           gap: tokens.spacing.md,
-          background: 'rgba(35, 37, 42, 0.5)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
-          borderTop: 'none',
+          overflowY: 'auto',
+          minHeight: 0,
+          borderBottom: `1px solid rgba(88, 101, 242, 0.25)`,
         }}>
           {children}
         </div>

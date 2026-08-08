@@ -154,8 +154,8 @@ export function ConfigPage(props: ConfigPageProps) {
   } as const;
 
   return (
-    <div style={{ ...tabPanelStyle, padding: 0 }} key="settings">
-      <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0 }}>
+    <div style={{ ...tabPanelStyle, padding: 0, height: '100%', overflow: 'hidden' }} key="settings">
+      <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0, flex: 1, overflow: 'hidden' }}>
         <CollapsibleSection title="General" isOpen={activeConfigSection === 'general'} onToggle={() => setActiveConfigSection(activeConfigSection === 'general' ? null : 'general')}>
           <ConfigField label="Output Method" description="Choose how transcriptions are inserted when dictation finishes.">
             <ModeSwitcher

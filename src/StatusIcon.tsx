@@ -116,7 +116,7 @@ function StatusIcon({ status, className = '', large = false, size }: StatusIconP
                 backgroundColor: '#fff',
                 borderRadius: '50%',
                 animation: 'voquill-ready-dot-jump 3s infinite ease-in-out',
-                '--jump-height': `${jumpHeight}px`,
+                '--jump-height': jumpHeight,
               } as Record<string, string | number>}
             ></span>
           </div>

@@ -4,8 +4,8 @@ import { StatusPage } from '../pages/StatusPage.tsx';
 import { ConfigPage } from '../pages/ConfigPage.tsx';
 import { HistoryPage } from '../pages/HistoryPage.tsx';
 import { UiLabPage } from '../pages/UiLabPage.tsx';
-import { appContentStyle, tabNavStyle } from '../theme/ui-primitives.ts';
-import { tokens } from '../design-tokens.ts';
+import { TabBar } from './TabBar.tsx';
+import { appContentStyle } from '../theme/ui-primitives.ts';
 import type { Config, HistoryItem, AudioDevice, EngineCapabilities, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, UpdateCheckResult, AppRoute } from '../types.ts';
 
 interface MainLayoutProps {
@@ -30,14 +30,12 @@ interface MainLayoutProps {
   overlayPositioningCapabilities: OverlayPositioningCapabilities;
   checkingUpdates: boolean;
   autostartEnabled: boolean;
-  hoveredTopTab: AppRoute | null;
   history: HistoryItem[];
   updateResult: UpdateCheckResult | null;
   gpuStatus: GpuStatus | null;
   engineCapabilities: EngineCapabilities | null;
   onNavigate: (route: AppRoute) => void;
   onLogUI: (msg: string) => void;
-  onSetHoveredTab: (route: AppRoute | null) => void;
   onSetActiveConfigSection: (value: string | null) => void;
   onUpdateConfig: (key: string, value: string | number | boolean | null | Record<string, unknown>) => void;
   onTestApiKey: () => void;
@@ -63,73 +61,18 @@ interface MainLayoutProps {
 }
 
 export function MainLayout(props: MainLayoutProps) {
-  const topTabBaseStyle = {
-    flex: 1,
-    padding: '12px 8px',
-    textAlign: 'center' as const,
-    cursor: 'pointer',
-    border: 'none',
-    background: 'transparent',
-    fontSize: tokens.typography.sizeSm,
-    fontWeight: 500 as const,
-    transition: 'color 0.15s, background 0.15s',
-    position: 'relative' as const,
-    zIndex: 1,
-    marginBottom: 0,
-    borderRadius: '8px 8px 0 0',
-  } as const;
-
-  const getTopTabStyle = (route: AppRoute) => {
-    const isActive = props.activeRoute === route;
-    const isHovered = props.hoveredTopTab === route;
-    return {
-      ...topTabBaseStyle,
-      background: isActive
-        ? tokens.colors.bgTertiary
-        : isHovered
-          ? 'rgba(255, 255, 255, 0.05)'
-          : 'transparent',
-      color: isActive ? tokens.colors.textPrimary : tokens.colors.textSecondary,
-      backdropFilter: isActive ? 'blur(5px)' : undefined,
-      WebkitBackdropFilter: isActive ? 'blur(5px)' : undefined,
-      boxShadow: isActive ? `inset 0 -1px 0 ${tokens.colors.bgPrimary}` : 'none',
-    } as const;
-  };
-
   return (
     <>
-      <div style={tabNavStyle}>
-        <button
-          type="button"
-          style={getTopTabStyle('status')}
-          onClick={() => { props.onLogUI('Tab: Status'); props.onNavigate('status'); }}
-          onMouseEnter={() => props.onSetHoveredTab('status')}
-          onMouseLeave={() => props.onSetHoveredTab(null)}
-          aria-current={props.activeRoute === 'status' ? 'page' : undefined}
-        >
-          Status
-        </button>
-        <button
-          type="button"
-          style={getTopTabStyle('history')}
-          onClick={() => { props.onLogUI('Tab: History'); props.onNavigate('history'); }}
-          onMouseEnter={() => props.onSetHoveredTab('history')}
-          onMouseLeave={() => props.onSetHoveredTab(null)}
-          aria-current={props.activeRoute === 'history' ? 'page' : undefined}
-        >
-          History
-        </button>
-        <button
-          type="button"
-          style={getTopTabStyle('settings')}
-          onClick={() => { props.onLogUI('Tab: Settings'); props.onNavigate('settings'); }}
-          onMouseEnter={() => props.onSetHoveredTab('settings')}
-          onMouseLeave={() => props.onSetHoveredTab(null)}
-          aria-current={props.activeRoute === 'settings' ? 'page' : undefined}
-        >
-          Settings
-        </button>
-      </div>
+      <TabBar
+        active={props.activeRoute}
+        tabs={[
+          { value: 'status', label: 'Status' },
+          { value: 'history', label: 'History' },
+          { value: 'settings', label: 'Settings' },
+        ]}
+        onNavigate={props.onNavigate}
+        onLogUI={props.onLogUI}
+      />
 
       <div style={appContentStyle} ref={props.tabContentRef}>
         {props.activeRoute === 'status' && (
