@@ -577,7 +577,7 @@ function App() {
       await invoke('clear_history');
       setHistory([]);
       showToast('History cleared', 'success');
-    } catch (error) {
+    } catch (_error) {
       showToast('Failed to clear history', 'error');
     }
   };
@@ -586,7 +586,7 @@ function App() {
     try {
       await invoke('plugin:clipboard-manager|write_text', { text });
       showToast('Copied to clipboard', 'success');
-    } catch (error) {
+    } catch (_error) {
       showToast('Failed to copy', 'error');
     }
   };
@@ -702,7 +702,7 @@ function App() {
   const openDebugFolder = async () => {
     try {
       await invoke('open_debug_folder');
-    } catch (error) {
+    } catch (_error) {
       showToast('Failed to open debug folder', 'error');
     }
   };

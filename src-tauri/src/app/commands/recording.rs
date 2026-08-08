@@ -128,6 +128,8 @@ pub async fn start_recording(
     let config = state.config.clone();
     let app_handle_clone = app_handle.clone();
     let audio_engine = state.audio_engine.clone();
+    let whisper_engine = state.whisper_engine.clone();
+    let whisper_last_gpu_error = state.whisper_last_gpu_error.clone();
 
     tokio::spawn(async move {
         crate::log_info!("Recording task started");
@@ -137,6 +139,8 @@ pub async fn start_recording(
             session_token,
             app_handle_clone,
             audio_engine,
+            whisper_engine,
+            whisper_last_gpu_error,
         )
         .await;
 

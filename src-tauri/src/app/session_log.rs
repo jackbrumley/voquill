@@ -1,10 +1,20 @@
 use std::fs::{self, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 static SESSION_LOG_FILE: OnceLock<Mutex<Option<std::fs::File>>> = OnceLock::new();
 static SESSION_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
+
+static PERSISTENCE_ENABLED: AtomicBool = AtomicBool::new(true);
+
+pub fn set_persistence_enabled(enabled: bool) {
+    let was_enabled = PERSISTENCE_ENABLED.swap(enabled, Ordering::SeqCst);
+    if enabled && !was_enabled && SESSION_LOG_FILE.get().is_none() {
+        initialize_session_logging_inner();
+    }
+}
 
 pub fn get_session_log_path() -> Result<PathBuf, String> {
     let debug_dir = dirs::config_dir()
@@ -74,6 +84,13 @@ pub fn truncate_session_log_with_header() -> Result<(), String> {
 }
 
 pub fn initialize_session_logging() {
+    if !PERSISTENCE_ENABLED.load(Ordering::SeqCst) {
+        return;
+    }
+    initialize_session_logging_inner();
+}
+
+fn initialize_session_logging_inner() {
     let log_path = match get_session_log_path() {
         Ok(path) => path,
         Err(error) => {
@@ -111,6 +128,9 @@ pub fn initialize_session_logging() {
 }
 
 pub fn append_session_log(level: &str, timestamp: &str, message: &str) {
+    if !PERSISTENCE_ENABLED.load(Ordering::Relaxed) {
+        return;
+    }
     if let Some(lock) = SESSION_LOG_FILE.get() {
         if let Ok(mut maybe_file) = lock.lock() {
             if let Some(file) = maybe_file.as_mut() {

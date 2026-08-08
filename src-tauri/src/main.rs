@@ -84,6 +84,22 @@ fn log_cpu_features() {
 fn log_cpu_features() {}
 
 fn main() {
+    // Third-party Vulkan "implicit layers" (Steam overlay, OBS capture, NVIDIA
+    // Optimus switching) get injected into every Vulkan process and can corrupt
+    // vkEnumeratePhysicalDevices on hybrid-graphics machines, causing whisper.cpp
+    // to hang indefinitely. Since we only use Vulkan for local compute (never
+    // rendering), disabling all layers is safe. Must be set before any
+    // Vulkan-touching code runs.
+    // SAFETY: called as the first statement in main(), before other threads exist.
+    unsafe {
+        std::env::set_var("VK_LOADER_LAYERS_DISABLE", "~all~");
+    }
+
+    let initial_config = config::load_config().unwrap_or_default();
+
+    // Session logging is always enabled. The persistence toggle is available
+    // for future use (e.g. a private mode setting).
+    app::session_log::set_persistence_enabled(true);
     app::session_log::initialize_session_logging();
 
     log_cpu_features();
@@ -96,8 +112,6 @@ fn main() {
     env_logger::init();
 
     let _is_first_launch = config::is_first_launch().unwrap_or(false);
-    let initial_config = config::load_config().unwrap_or_default();
-
     let app_state = app::bootstrap::build_app_state(&initial_config);
 
     tauri::Builder::default()

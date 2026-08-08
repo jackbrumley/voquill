@@ -60,6 +60,8 @@ pub async fn record_and_transcribe(
     session_token: Arc<AtomicBool>,
     app_handle: AppHandle,
     audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
+    whisper_engine: local_whisper::WhisperEngineCache,
+    whisper_last_gpu_error: Arc<Mutex<Option<String>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let result = record_and_transcribe_inner(
         &config,
@@ -67,6 +69,8 @@ pub async fn record_and_transcribe(
         &session_token,
         &app_handle,
         audio_engine,
+        &whisper_engine,
+        &whisper_last_gpu_error,
     )
     .await;
     finish_session(&app_handle, &session_state, &session_token).await;
@@ -103,6 +107,8 @@ async fn record_and_transcribe_inner(
     session_token: &Arc<AtomicBool>,
     app_handle: &AppHandle,
     audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
+    whisper_engine: &local_whisper::WhisperEngineCache,
+    whisper_last_gpu_error: &Arc<Mutex<Option<String>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (post_roll_ms, max_recording_duration) = {
         let config_guard = config.lock().unwrap();
@@ -211,7 +217,12 @@ async fn record_and_transcribe_inner(
                     let config_lock = config.lock().unwrap();
                     (config_lock.local_model_size.clone(), config_lock.enable_gpu)
                 };
-                match local_whisper::LocalWhisperService::new(&model_size, use_gpu) {
+                match local_whisper::LocalWhisperService::new_full(
+                    whisper_engine.clone(),
+                    &model_size,
+                    use_gpu,
+                    Some(whisper_last_gpu_error.clone()),
+                ) {
                     Ok(service) => Box::new(service),
                     Err(error) => {
                         crate::log_info!("Failed to initialize Local Whisper: {}", error);

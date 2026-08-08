@@ -4,7 +4,7 @@ This document serves as a constitution for all agentic coding entities (and huma
 
 ---
 
-## 🏛️ The Voquill Philosophy
+## The Voquill Philosophy
 
 ### 1. Integrity Over Expediency
 We do not value "quick hacks" that work today but create technical debt for tomorrow. If a feature or fix cannot be implemented cleanly, it should not be implemented until a proper architectural solution is found. 
@@ -47,37 +47,21 @@ This pattern keeps the codebase clean as new distros, compositor versions, or po
 
 ---
 
-## 🛠️ Essential Commands
+## Pre-Submit Verification (Mandatory)
 
-### Project-wide (Root)
-Managed via **npm** scripts and the Tauri CLI.
-- **Dependency Check:** `npm run deps:check`
-  - Verifies required system dependencies and prints install commands when missing.
-- **Dev:** `npm run tauri:dev`
-  - Runs dependency checks and starts the Tauri development server.
-- **Build:** `npm run tauri:build`
-  - Runs dependency checks, builds the frontend, and packages the app.
-- **Tauri CLI:** `npm run tauri -- <command>`
-  - Use for tauri-specific tasks like `tauri icon` or `tauri info`.
+Before marking any task as complete, run each check as a separate command (never chained with `&&` -- if one silently fails, the chain hides it):
 
-### Backend (src/)
-- **Lint:** `cargo clippy` (Static analysis) and `cargo fmt` (Formatting).
-- **Check:** `cargo check` (Fast compilation check).
-- **Test:** `cargo test` (Run all tests).
-- **Single Test:** `cargo test -- <name>` (Execute a specific test function).
-- **Doc:** `cargo doc --open` (Generate and view crate documentation).
+1. `cargo fmt` (Formatting)
+2. `cargo check` (Compilation check -- zero warnings required)
+3. `cargo clippy` (Static analysis -- zero warnings required)
+4. `npm run lint` (Frontend lint -- pre-existing warnings are acceptable, new code must not introduce additional warnings)
+5. `npm run typecheck` (TypeScript integrity)
 
-### Frontend (src/)
-- **Type Check:** `npm run typecheck`
-  - Essential for verifying TypeScript integrity.
-- **Dev Server:** `npm run dev`
-  - Starts the Vite dev server for UI-only iteration.
-- **Preview:** `npm run preview`
-  - Previews the production build of the UI.
+All five must pass without warnings. Treat compiler warnings as errors.
 
 ---
 
-## 🏗️ Architecture & Patterns
+## Architecture & Patterns
 
 ### 1. Backend (Rust)
 - **Async Flow:** Use `tokio` or `tauri::async_runtime` for all I/O, network, and audio operations. Never block the main thread.
@@ -97,7 +81,7 @@ Managed via **npm** scripts and the Tauri CLI.
 
 ---
 
-## 📋 Platform Compatibility & Requirements
+## Platform Compatibility & Requirements
 
 | Platform | Display Server | Audio Backend | Hardware Access |
 | :--- | :--- | :--- | :--- |
@@ -109,7 +93,7 @@ On Wayland, Voquill triggers standard XDG Portal prompts for microphone, global 
 
 ---
 
-## 🔄 Development Workflow for New Features
+## Development Workflow for New Features
 
 When adding a new feature, follow this sequence:
 1.  **Analyze Environment:** Check for platform-specific constraints (Wayland and X11 where relevant).
@@ -121,7 +105,39 @@ When adding a new feature, follow this sequence:
 
 ---
 
-## 🚧 High-Priority Architectural Fixes (Current Debt)
+## Compiler-Driven Refactoring & Zero-Shim Mandate
+
+To prevent architectural decay and accumulation of technical debt:
+
+### Compiler-Driven Refactoring
+- When introducing or refactoring a function signature, always make new parameters **mandatory** (not `Option<T>` with a default, and no deprecated wrappers).
+- The compiler surfaces every call site that needs updating. Treat the compiler error list as your complete to-do list.
+- Fix every location in the same pass. Do not leave a deprecated facade for later cleanup.
+
+### Zero-Shim Mandate
+- No re-export files, no backwards-compatibility wrappers, no "legacy" module facades.
+- If you rename a module, function, or type, update every consumer stack-wide in the same commit.
+- Delete the old path entirely. A single import pointing at a renamed file is a shim, not a refactor.
+- This applies across all layers: Rust modules, Tauri commands, TypeScript components, and frontend API calls.
+
+### Fail-Hard Doctrine
+- Prefer explicit errors over silent fallbacks. If a required resource, config value, or capability is missing, fail hard with a clear diagnostic message.
+- Do not add silent fallback logic (e.g., defaulting to CPU when GPU is requested without informing the user). If a fallback is architecturally necessary, it must be explicit, logged, and surfaced to the UI.
+- The `Result<T, String>` pattern in Tauri commands already supports this -- use it rather than swallowing errors.
+
+---
+
+## File Size Budget
+
+To keep files focused and maintainable:
+
+- **Soft Limit (600 lines):** A signal of architectural decay. At 600 lines, stop and plan a structural extraction (sub-modules, helper utilities, or dedicated service layers).
+- **Hard Limit (1000 lines):** A critical build error. Files at or above 1000 lines must be structurally refactored before any further changes are made to them.
+- **Anti-Compression Rule:** Do NOT reduce line counts by compressing style blocks onto single lines, merging multiline statements, deleting blank lines, or collapsing logical blocks. The only acceptable reduction is a proper structural extraction.
+
+---
+
+## High-Priority Architectural Fixes (Current Debt)
 
 Any agent working on this repo should prioritize the following cleanups:
 1.  **Redundant Nesting:** ~~The `src/src` structure is messy and redundant.~~ **Resolved:** the frontend now lives directly in `src/` and the backend in `src-tauri/`. Keep this flat structure clean.
@@ -130,7 +146,8 @@ Any agent working on this repo should prioritize the following cleanups:
 
 ---
 
-## 🤖 Interaction Guidelines for Agents
+## Interaction Guidelines for Agents
+
 - **Look for Improvement:** Don't just implement the request. Analyze the surrounding code for "mess" and offer to tidy it up.
 - **Correct Inaccuracies Proactively:** If a user statement is technically incorrect or based on a false assumption, explicitly correct it and proceed with the correct approach. Do not silently follow an incorrect premise.
 - **Ask, Don't Assume:** If a cleanup involves structural changes (like moving folders or renaming modules), always explain *why* it's cleaner and ask for approval.
@@ -151,7 +168,8 @@ Any agent working on this repo should prioritize the following cleanups:
 
 ---
 
-## ⚠️ Common Pitfalls to Avoid
+## Common Pitfalls to Avoid
+
 - **Blocking the UI:** Never run expensive calculations or blocking I/O on the main thread.
 - **Hardcoding Paths:** Always use the Tauri `PathResolver` or standard `dirs` crate to locate configuration and data directories.
 - **Silent Failures:** Always log errors and, if relevant, notify the user via a Toast or Status update.
@@ -160,4 +178,5 @@ Any agent working on this repo should prioritize the following cleanups:
 - **Ignoring Warnings:** Treat compiler warnings as errors. Clean code means zero warnings.
 
 ---
+
 *Voquill: Clean code is a requirement, not a feature.*
