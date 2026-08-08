@@ -10,13 +10,14 @@
   <a href="https://www.gnu.org/licenses/agpl-3.0.html"><img src="https://img.shields.io/badge/License-AGPLv3-blue.svg" alt="AGPL v3 License" /></a>
   <a href="https://github.com/jackbrumley/voquill"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-4f46e5" alt="Platform" /></a>
   <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Built%20With-Tauri-14b8a6" alt="Built with Tauri" /></a>
+  <a href="https://flatpak.github.io/xdg-desktop-portal/"><img src="https://img.shields.io/badge/Wayland-XDG%20Portals-4f46e5" alt="Wayland via XDG Portals" /></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/jackbrumley/voquill/releases/latest"><img src="https://img.shields.io/badge/Download-Latest%20Release-ef4444?style=for-the-badge" alt="Download Latest Release" /></a>
 </p>
 
-FOSS Voquill is offline dictation that works in any app on your system. Your voice never leaves your device, and there are no accounts, subscriptions, or cloud dependencies.
+FOSS Voquill is offline dictation that works in any app on your system. Your voice never leaves your device, and there are no accounts, subscriptions, or cloud dependencies. On Linux, it uses XDG Portals for native Wayland support.
 
 It exists because dictation should be a basic utility, not a locked service. If you want private, system-wide push-to-talk transcription on Linux or Windows, this is built for that workflow.
 
@@ -59,7 +60,8 @@ Setup EXE installs per-user (no admin). MSI is a system-wide install intended fo
 - **Private by Default** - High-performance offline transcription ensures total data sovereignty.
 - **Global Push-to-Talk** - Hold a customizable shortcut to record and release to transcribe instantly.
 - **Universal Input** - Transcribed text is injected directly into your active window as keystrokes.
-- **Windows and Linux Support** - Native support for Windows and Linux (Wayland + X11).
+- **Windows and Linux Support** - Native support for Windows and Linux desktops.
+- **Full Wayland Support** - Uses XDG Portals for global shortcuts, input simulation, and microphone access. Works on GNOME, KDE, and other Wayland compositors.
 - **Minimalist Design** - An unobtrusive overlay provides status updates without getting in your way.
 - **History Management** - Quickly access, copy, and manage your previous transcriptions.
 
