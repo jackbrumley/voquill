@@ -45,6 +45,9 @@ When implementing platform-sensitive features, follow this structure:
 
 This pattern keeps the codebase clean as new distros, compositor versions, or portal changes appear.
 
+### 7. Architecture-First, No Band-Aids
+If implementing a feature or fix requires an architectural change, the architectural change must be made first. Do not implement features in a way that circumvents the current architecture because it is easier or faster. A correct feature on a correct architecture is the only acceptable outcome. If a full-stack refactor is required, do the full-stack refactor. This is non-negotiable. A feature jammed in with a shim or workaround is not a feature -- it is technical debt that will need to be undone later at greater cost.
+
 ---
 
 ## Pre-Submit Verification (Mandatory)
@@ -74,8 +77,8 @@ All five must pass without warnings. Treat compiler warnings as errors.
 
 ### 2. Frontend (Preact, lives in `src/`)
 - **Strict TypeScript:** No `any`. Explicit interfaces for all data structures (API responses, State slices).
-- **Hooks over Classes:** Use functional components. Shared state currently lives in `App.tsx` and is passed down via props.
 - **Domain Hooks (Required):** State, effects, and handlers for a single domain must be co-located in a dedicated hook file (e.g., `useConfig.ts`, `useAudioSetup.ts`). Do not scatter related state across multiple hooks or leave it in the parent component. A hook should own its state, its effects, and its Tauri `invoke` calls. The parent component only wires hooks together and renders.
+- **Signals-Only State Management (Strict Prohibition on useState):** `useState` is FORBIDDEN. All reactive state MUST use `useSignal` or `signal` from `@preact/signals`. `useCallback` is FORBIDDEN -- signals make it unnecessary. `useMemo` MUST be replaced with `useComputed`. `useEffect` MUST use `useSignalEffect` when reacting to state changes. Mount-only effects (event listeners, one-time probes) may use `useEffect` with an empty dependency array. `useRef` is FORBIDDEN for mutable state values -- use `useSignal` instead. `useRef` is ONLY permitted for DOM element references. Any new code introducing `useState`, `useCallback`, `useMemo`, or `useRef` for state will be rejected.
 - **Styles (Current Convention):** Prefer component-local inline style objects with design tokens for layout, spacing, and color. Use global CSS (`index.css`) for resets, root-level variables, and truly global concerns only.
 - **Style Consistency:** When touching existing UI, follow the style approach already used in that component/file. Do not introduce a separate styling pattern unless there is a clear architectural reason.
 - **Tauri Core:** Use `@tauri-apps/api` for communication with the backend.
@@ -182,6 +185,9 @@ Any agent working on this repo should prioritize the following cleanups:
 - **Keep Files Focused:** A file should answer one question clearly. Split only when readability materially improves.
 - **No Silent Failure Paths:** Always surface actionable errors in logs and, when relevant, to UI status.
 - **Diagnostics Before Guesswork:** Add clear capability/version/runtime diagnostics before introducing conditional behavior.
+
+### Multi-Agent & User Coexistence
+- **No Rollback of Unfamiliar Changes:** Multiple agents and the user may modify files on the same workstation between commits. If you encounter changes in a file that you did not make, you may ask whether the user or another agent made them, but you MUST NOT assume they are a mistake or roll them back. Treat unfamiliar changes as intentional unless explicitly told otherwise by the user. Running `git diff` before making changes is encouraged to understand the full context.
 
 ---
 
