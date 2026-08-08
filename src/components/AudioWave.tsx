@@ -1,3 +1,5 @@
+import { useSignal } from '@preact/signals';
+import { useEffect } from 'preact/hooks';
 
 const bars = [
   { h: 287.9, delay: '0s', color: '#5ab7d6' },
@@ -15,7 +17,26 @@ interface AudioWaveProps {
   gap?: number;
 }
 
+function generateWaveKeyframes(): string {
+  const rand = () => (0.1 + Math.random() * 0.9).toFixed(2);
+  return `
+    @keyframes voquill-wave-bar {
+      0%, 100% { transform: scaleY(0.1); }
+      20% { transform: scaleY(${rand()}); }
+      40% { transform: scaleY(${rand()}); }
+      60% { transform: scaleY(${rand()}); }
+      80% { transform: scaleY(${rand()}); }
+    }
+  `;
+}
+
 export function AudioWave({ barWidth = 8, containerHeight = 120, gap = 4 }: AudioWaveProps) {
+  const keyframes = useSignal('');
+
+  useEffect(() => {
+    keyframes.value = generateWaveKeyframes();
+  }, []);
+
   return (
     <div style={{
       display: 'flex',
@@ -25,6 +46,7 @@ export function AudioWave({ barWidth = 8, containerHeight = 120, gap = 4 }: Audi
       padding: '0',
       gap: `${gap}px`,
     }}>
+      <style>{keyframes.value}</style>
       {bars.map((bar, i) => {
         const pct = (bar.h / 894.2) * 100;
         return (

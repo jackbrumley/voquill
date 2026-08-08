@@ -31,19 +31,6 @@ interface UiLabPageProps {
   onOpenUpdateModal: () => void;
 }
 
-function generateWaveKeyframes(): string {
-  const rand = () => (0.1 + Math.random() * 0.9).toFixed(2);
-  return `
-    @keyframes voquill-wave-bar {
-      0%, 100% { transform: scaleY(0.1); }
-      20% { transform: scaleY(${rand()}); }
-      40% { transform: scaleY(${rand()}); }
-      60% { transform: scaleY(${rand()}); }
-      80% { transform: scaleY(${rand()}); }
-    }
-  `;
-}
-
 export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: UiLabPageProps) {
   const showUpdateBadge = useSignal(true);
   const updateAvailableCopy = useSignal(true);
@@ -59,7 +46,6 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
   const isDownloading = useSignal(false);
   const downloadProgress = useSignal(0);
   const activeStatus = useSignal<'Ready' | 'Recording' | 'Transcribing'>('Ready');
-  const waveKeyframes = useSignal(generateWaveKeyframes());
 
   return (
     <div style={{ ...tabPanelStyle, position: 'relative' }}>
@@ -70,11 +56,10 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
 
       <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0, gap: tokens.spacing.md, padding: tokens.spacing.sm }}>
         <style>{`
-              ${waveKeyframes.value}
               @keyframes voquill-bounce-dot {
-                0% { transform: translateY(-14px); }
-                50% { transform: translateY(14px); }
-                100% { transform: translateY(-14px); }
+                0% { transform: translateY(calc(-1 * var(--jump, 14px))); }
+                50% { transform: translateY(var(--jump, 14px)); }
+                100% { transform: translateY(calc(-1 * var(--jump, 14px))); }
               }
               @keyframes voquill-sweep {
                 0% { width: 12px; left: 0; }
@@ -347,14 +332,14 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
                 }}>
                   <div style={{
                     display: 'flex',
-                    alignItems: 'flex-end',
+                    alignItems: 'center',
                     justifyContent: 'center',
                     gap: '3px',
                     height: '32px',
                     width: '40px',
                   }}>
                     {activeStatus.value === 'Transcribing' ? (
-                      <BouncingDots dotSize={8} gap={3} />
+                      <BouncingDots dotSize={8} gap={3} jumpHeight={8} />
                     ) : activeStatus.value === 'Ready' ? (
                       <ReadySweep />
                     ) : (

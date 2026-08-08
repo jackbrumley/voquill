@@ -2,9 +2,10 @@ interface BouncingDotsProps {
   dotSize?: number;
   gap?: number;
   height?: number | string;
+  jumpHeight?: number;
 }
 
-export function BouncingDots({ dotSize = 10, gap = 4, height = '100%' }: BouncingDotsProps) {
+export function BouncingDots({ dotSize = 12, gap = 4, height = '100%', jumpHeight = 14 }: BouncingDotsProps) {
   return (
     <div style={{
       display: 'flex',
@@ -12,7 +13,15 @@ export function BouncingDots({ dotSize = 10, gap = 4, height = '100%' }: Bouncin
       justifyContent: 'center',
       gap: `${gap}px`,
       height,
-    }}>
+      '--jump': `${jumpHeight}px`,
+    } as Record<string, string | number | undefined>}>
+      <style>{`
+        @keyframes voquill-bounce-dot {
+          0% { transform: translateY(calc(-1 * var(--jump, 14px))); }
+          50% { transform: translateY(var(--jump, 14px)); }
+          100% { transform: translateY(calc(-1 * var(--jump, 14px))); }
+        }
+      `}</style>
       <div style={{
         width: `${dotSize}px`,
         height: `${dotSize}px`,

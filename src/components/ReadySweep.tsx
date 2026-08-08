@@ -11,9 +11,19 @@ export function ReadySweep({ width = '100%', height = '100%' }: ReadySweepProps)
       height,
       overflow: 'hidden',
     }}>
+      <style>{`
+        @keyframes voquill-sweep {
+          0% { width: 12px; left: 0; }
+          25% { width: 100%; left: 0; }
+          50% { width: 12px; left: calc(100% - 12px); }
+          75% { width: 100%; left: 0; }
+          100% { width: 12px; left: 0; }
+        }
+      `}</style>
       <div style={{
         position: 'absolute',
-        top: '45%',
+        top: '50%',
+        transform: 'translateY(-50%)',
         width: '12px',
         height: '12px',
         borderRadius: '6px',

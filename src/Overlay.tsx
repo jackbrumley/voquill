@@ -2,7 +2,7 @@ import { useEffect } from 'preact/hooks';
 import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import StatusIcon from './StatusIcon.tsx';
+import { StatusIndicator } from './components/StatusIndicator.tsx';
 import { tokens } from './design-tokens.ts';
 
 interface StatusUpdatePayload {
@@ -131,7 +131,7 @@ function Overlay() {
               minWidth: '194px',
             }}
           >
-            <StatusIcon status={status.value} size={40} />
+            <StatusIndicator status={status.value} size={40} />
             <span style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '18px', fontWeight: 500, textAlign: 'center', lineHeight: 1.2, whiteSpace: 'nowrap', textShadow: 'none', flex: 1 }}>
               {statusLabel(status.value)}
             </span>
@@ -159,7 +159,7 @@ function Overlay() {
           minWidth: '194px',
         }}
       >
-        <StatusIcon status={status.value} size={40} />
+        <StatusIndicator status={status.value} size={40} />
         <span key={`overlay-status-${status.value}`} style={{ color: '#fff', fontFamily: tokens.typography.fontMain, fontSize: '18px', fontWeight: 500, textAlign: 'center', lineHeight: 1.2, whiteSpace: 'nowrap', textShadow: 'none', flex: 1 }}>
           {statusLabel(status.value)}
           {status.value === 'Recording' && hotkeyMode.value === 'Toggle' && (

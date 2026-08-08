@@ -1,7 +1,7 @@
 import { IconAlertCircle, IconBrandGithub, IconHeart } from '@tabler/icons-preact';
 import { open } from '@tauri-apps/plugin-shell';
 import { useState } from 'preact/hooks';
-import StatusIcon from '../StatusIcon.tsx';
+import { StatusIndicator } from '../components/StatusIndicator.tsx';
 import { Card } from '../components/Card.tsx';
 import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
 import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
@@ -60,7 +60,7 @@ export function StatusPage({
     <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="status">
       <div style={{ ...tabPanelPaddedStyle, flex: 1 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <StatusIcon status={currentStatus} large />
+          <StatusIndicator status={currentStatus} size={108} />
           <div style={{ fontSize: '20px', fontWeight: 700 }} key={`text-${currentStatus}`}>
             {currentStatus === 'Transcribing' ? `Transcribing (${config.transcription_mode})` : currentStatus}
           </div>
