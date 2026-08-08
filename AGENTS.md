@@ -75,6 +75,7 @@ All five must pass without warnings. Treat compiler warnings as errors.
 ### 2. Frontend (Preact, lives in `src/`)
 - **Strict TypeScript:** No `any`. Explicit interfaces for all data structures (API responses, State slices).
 - **Hooks over Classes:** Use functional components. Shared state currently lives in `App.tsx` and is passed down via props.
+- **Domain Hooks (Required):** State, effects, and handlers for a single domain must be co-located in a dedicated hook file (e.g., `useConfig.ts`, `useAudioSetup.ts`). Do not scatter related state across multiple hooks or leave it in the parent component. A hook should own its state, its effects, and its Tauri `invoke` calls. The parent component only wires hooks together and renders.
 - **Styles (Current Convention):** Prefer component-local inline style objects with design tokens for layout, spacing, and color. Use global CSS (`index.css`) for resets, root-level variables, and truly global concerns only.
 - **Style Consistency:** When touching existing UI, follow the style approach already used in that component/file. Do not introduce a separate styling pattern unless there is a clear architectural reason.
 - **Tauri Core:** Use `@tauri-apps/api` for communication with the backend.
@@ -134,6 +135,22 @@ To keep files focused and maintainable:
 - **Soft Limit (600 lines):** A signal of architectural decay. At 600 lines, stop and plan a structural extraction (sub-modules, helper utilities, or dedicated service layers).
 - **Hard Limit (1000 lines):** A critical build error. Files at or above 1000 lines must be structurally refactored before any further changes are made to them.
 - **Anti-Compression Rule:** Do NOT reduce line counts by compressing style blocks onto single lines, merging multiline statements, deleting blank lines, or collapsing logical blocks. The only acceptable reduction is a proper structural extraction.
+
+### Domain-Driven Extraction (Mandatory)
+
+When a file exceeds the size budget, the extraction strategy must follow these rules, in order of priority:
+
+1. **Extract by Domain, Not by Convenience.** Identify the cohesive, self-contained concerns within the file. A domain is a group of state, effects, and handlers that change together and can be tested independently. Extract entire domains, not the easiest functions to move. Do not cherry-pick small utility functions to hit a line count while leaving the real architectural problem intact.
+
+2. **One Concern Per File.** Each file must own exactly one domain. Do not create catch-all files like `utils/helpers.ts`, `hooks/useMisc.ts`, or `lib/utils.ts`. If a group of functions does not form a coherent domain, it is not ready to be extracted.
+
+3. **Cohesion Over Convenience.** Group by what changes together. Handlers that read and write the same state belong in the same hook even if extracting them is harder than moving a pure function to a utils file. The hard extraction is the correct one.
+
+4. **No "Easy Win" Shortcuts.** Extracting a pure function to a `utils/` file because it's easy, while leaving the tangled state and effects in place, is not a refactor -- it is cosmetic rearrangement. The hard part is unpacking the state from the component. That is the part that must be done.
+
+5. **Verify by Locality.** After extraction, verify that the extracted domain is self-contained: it should own its own state, its own effects, and its own handlers. If the extracted module still depends on being called from within a specific parent component lifecycle, the extraction was not deep enough.
+
+6. **Preserve the Public API.** The parent component's interface (props, exports, render) should remain unchanged after extraction. The refactoring is internal; consumers of the component should not need to know that the extraction happened.
 
 ---
 
