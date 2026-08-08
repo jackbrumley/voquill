@@ -1,17 +1,16 @@
 import { useSignal, useSignalEffect } from '@preact/signals';
-import { tokens } from '../design-tokens.ts';
+import { inputBaseStyle } from '../theme/ui-primitives.ts';
 
 interface NumberFieldProps {
   value: number;
-  min: number;
+  onChange: (value: number) => void;
+  min?: number;
   max?: number;
   step?: number;
-  onChange: (value: number) => void;
-  label?: string;
   disabled?: boolean;
 }
 
-export function NumberField({ value, min, max = 100, step = 1, onChange, label, disabled }: NumberFieldProps) {
+export function NumberField({ value, onChange, min, max, step = 1, disabled = false }: NumberFieldProps) {
   const draftValue = useSignal(String(value));
   const isFocused = useSignal(false);
 
@@ -21,45 +20,69 @@ export function NumberField({ value, min, max = 100, step = 1, onChange, label, 
     }
   });
 
-  const handleChange = (e: Event) => {
-    const target = e.currentTarget as HTMLInputElement;
-    draftValue.value = target.value;
-    const parsed = parseFloat(target.value);
-    if (!isNaN(parsed)) {
-      onChange(Math.min(max, Math.max(min, parsed)));
+  const commitIfValid = (rawValue: string) => {
+    if (rawValue.trim() === '') {
+      return;
     }
+    const nextValue = Number(rawValue);
+    if (Number.isNaN(nextValue)) {
+      return;
+    }
+    onChange(nextValue);
+  };
+
+  const handleInput = (event: Event) => {
+    if (disabled) {
+      return;
+    }
+    const rawValue = (event.target as HTMLInputElement).value;
+    draftValue.value = rawValue;
+    commitIfValid(rawValue);
   };
 
   const handleBlur = () => {
+    if (disabled) {
+      return;
+    }
     isFocused.value = false;
-    draftValue.value = String(value);
+    if (draftValue.value.trim() === '' || Number.isNaN(Number(draftValue.value))) {
+      draftValue.value = String(value);
+      return;
+    }
+    commitIfValid(draftValue.value);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      {label && <label style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textSecondary }}>{label}</label>}
+    <>
+      <style>{`
+        .voquill-number-field {
+          -moz-appearance: textfield;
+          appearance: textfield;
+        }
+        .voquill-number-field::-webkit-outer-spin-button,
+        .voquill-number-field::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+      `}</style>
       <input
+        className="voquill-number-field"
         type="number"
         value={draftValue.value}
+        onInput={handleInput}
+        onFocus={() => { isFocused.value = true; }}
+        onBlur={handleBlur}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            (event.target as HTMLInputElement).blur();
+          }
+        }}
         min={min}
         max={max}
         step={step}
         disabled={disabled}
-        onInput={handleChange}
-        onFocus={() => { isFocused.value = true; }}
-        onBlur={handleBlur}
-        style={{
-          background: tokens.colors.bgTertiary,
-          border: `1px solid rgba(255, 255, 255, 0.1)`,
-          borderRadius: tokens.radii.input,
-          color: tokens.colors.textPrimary,
-          fontSize: tokens.typography.sizeSm,
-          padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-          outline: 'none',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
+        style={inputBaseStyle}
       />
-    </div>
+    </>
   );
 }

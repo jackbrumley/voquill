@@ -173,7 +173,6 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
               max={100}
               step={1}
               onChange={(v) => { numberValue.value = v; }}
-              label="Quantity"
             />
           </div>
         </ConfigField>
@@ -185,8 +184,6 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
             max={5}
             step={0.1}
             onChange={(v) => { sliderValue.value = v; }}
-            label="Sensitivity"
-            displayValue={sliderValue.value.toFixed(1)}
           />
         </ConfigField>
 

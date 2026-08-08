@@ -15,17 +15,19 @@ export function useToast() {
     }, duration);
   };
 
+  const handleToastClick = (toast: Toast) => {
+    if (toast.type === 'saved') {
+      toasts.value = toasts.value.filter((t) => t.id !== toast.id);
+    }
+  };
+
   const ToastContainer = () => (
     <div style={toastContainerStyle}>
       {toasts.value.map((toast) => (
         <div
           key={toast.id}
           style={getToastStyle(toast.type)}
-          onClick={() => {
-            if (toast.type === 'saved') {
-              toasts.value = toasts.value.filter((t) => t.id !== toast.id);
-            }
-          }}
+          onClick={() => handleToastClick(toast)}
         >
           <span style={getToastMessageStyle(toast.type)}>{toast.message}</span>
         </div>

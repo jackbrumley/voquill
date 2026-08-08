@@ -1,52 +1,69 @@
+import type { JSX } from 'preact';
 import { useSignal, useSignalEffect } from '@preact/signals';
-import { tokens } from '../design-tokens.ts';
+import { inputBaseStyle } from '../theme/ui-primitives.ts';
 
 interface SliderFieldProps {
   value: number;
-  min: number;
-  max: number;
-  step: number;
   onChange: (value: number) => void;
-  label?: string;
-  displayValue?: string;
+  min?: number;
+  max?: number;
+  step?: number;
   ariaLabel?: string;
-  style?: Record<string, string | number>;
+  style?: JSX.CSSProperties;
 }
 
-export function SliderField({ value, min, max, step, onChange, label, displayValue, ariaLabel, style }: SliderFieldProps) {
-  const draftPercent = useSignal(String(((value - min) / (max - min)) * 100));
+export function SliderField({
+  value,
+  min = 0,
+  max = 1,
+  onChange,
+  ariaLabel,
+  style,
+}: SliderFieldProps) {
+  const minPercent = Math.round(min * 100);
+  const maxPercent = Math.round(max * 100);
+  const currentPercent = Math.round(value * 100);
+  const draftPercent = useSignal(String(currentPercent));
 
   useSignalEffect(() => {
-    draftPercent.value = String(((value - min) / (max - min)) * 100);
+    draftPercent.value = String(currentPercent);
   });
 
-  const handleChange = (e: Event) => {
-    const target = e.currentTarget as HTMLInputElement;
-    const percent = parseFloat(target.value);
-    draftPercent.value = String(percent);
-    const actualValue = min + (percent / 100) * (max - min);
-    const stepped = Math.round(actualValue / step) * step;
-    onChange(Math.min(max, Math.max(min, stepped)));
+  const clampPercent = (nextPercent: number) => Math.min(maxPercent, Math.max(minPercent, nextPercent));
+
+  const commitPercentValue = (rawValue: string) => {
+    if (rawValue.trim() === '') {
+      draftPercent.value = String(currentPercent);
+      return;
+    }
+
+    const parsedPercent = Number(rawValue);
+    if (Number.isNaN(parsedPercent)) {
+      draftPercent.value = String(currentPercent);
+      return;
+    }
+
+    const clampedPercent = clampPercent(Math.round(parsedPercent));
+    draftPercent.value = String(clampedPercent);
+    onChange(clampedPercent / 100);
+  };
+
+  const handleInput = (event: Event) => {
+    const rawValue = (event.target as HTMLInputElement).value;
+    draftPercent.value = rawValue;
+    commitPercentValue(rawValue);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', ...style }}>
-      {label && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <label style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textSecondary }}>{label}</label>
-          <span style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted }}>{displayValue ?? value}</span>
-        </div>
-      )}
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={0.1}
-        value={draftPercent.value}
-        aria-label={ariaLabel}
-        onInput={handleChange}
-        style={{ width: '100%', accentColor: tokens.colors.accentPrimary }}
-      />
-    </div>
+    <input
+      type="range"
+      value={draftPercent.value}
+      onInput={handleInput}
+      aria-label={ariaLabel}
+      step={1}
+      min={minPercent}
+      max={maxPercent}
+      style={{ ...inputBaseStyle, ...style } as Record<string, string | number>}
+    />
   );
 }
