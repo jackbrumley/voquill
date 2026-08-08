@@ -16,7 +16,7 @@ export const Switch = ({ checked, onChange, label, className = '' }: SwitchProps
       style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: label ? 'space-between' : 'flex-end',
+        justifyContent: label ? 'space-between' : 'flex-start',
         gap: tokens.spacing.md,
         width: '100%',
         cursor: 'pointer',

@@ -12,15 +12,11 @@ export const surfaceCardStyle: Style = {
 };
 
 export const settingRowBaseStyle: Style = {
-  marginBottom: tokens.spacing.md,
   display: 'flex',
   flexDirection: 'column',
   gap: '6px',
   alignItems: 'flex-start',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
-  borderRadius: '10px',
-  background: 'rgba(255, 255, 255, 0.02)',
-  padding: '12px 14px',
+  padding: '0',
   transition: 'border-color 0.2s ease, background 0.2s ease',
 };
 
@@ -32,8 +28,8 @@ export const getSettingRowStyle = ({
   if (ready) {
     return {
       ...settingRowBaseStyle,
-      background: 'rgba(16, 185, 129, 0.05)',
-      borderColor: 'rgba(16, 185, 129, 0.2)',
+      borderLeft: '3px solid rgba(16, 185, 129, 0.5)',
+      paddingLeft: '11px',
     };
   }
 
@@ -97,5 +93,5 @@ export const settingRowContentStyle: Style = {
   flexDirection: 'column',
   gap: tokens.spacing.xs,
   width: '100%',
-  alignItems: 'center',
+  alignItems: 'flex-start',
 };

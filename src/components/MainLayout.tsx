@@ -76,6 +76,7 @@ export function MainLayout(props: MainLayoutProps) {
     position: 'relative' as const,
     zIndex: 1,
     marginBottom: 0,
+    borderRadius: '8px 8px 0 0',
   } as const;
 
   const getTopTabStyle = (route: AppRoute) => {
@@ -84,7 +85,7 @@ export function MainLayout(props: MainLayoutProps) {
     return {
       ...topTabBaseStyle,
       background: isActive
-        ? 'rgba(54, 57, 63, 0.5)'
+        ? tokens.colors.bgTertiary
         : isHovered
           ? 'rgba(255, 255, 255, 0.05)'
           : 'transparent',

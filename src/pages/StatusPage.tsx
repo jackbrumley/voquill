@@ -65,14 +65,16 @@ export function StatusPage({
             {currentStatus === 'Transcribing' ? `Transcribing (${config.transcription_mode})` : currentStatus}
           </div>
           <div style={{ width: '100%', maxWidth: '520px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <ModeSwitcher
-              value={config.output_method}
-              onToggle={onToggleOutputMethod}
-              options={[
-                { value: 'Typewriter', label: 'Typewriter', title: 'Typewriter Mode: Simulates key presses' },
-                { value: 'Clipboard', label: 'Clipboard', title: 'Clipboard Mode: Fast copy-paste' },
-              ]}
-            />
+            <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+              <ModeSwitcher
+                value={config.output_method}
+                onToggle={onToggleOutputMethod}
+                options={[
+                  { value: 'Typewriter', label: 'Typewriter', title: 'Typewriter Mode: Simulates key presses' },
+                  { value: 'Clipboard', label: 'Clipboard', title: 'Clipboard Mode: Fast copy-paste' },
+                ]}
+              />
+            </div>
             <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, textAlign: 'center' }} key={`desc-${config.output_method}`}>
               {config.output_method === 'Typewriter'
                 ? 'Types directly into your active cursor.'

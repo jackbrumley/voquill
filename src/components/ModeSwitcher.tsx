@@ -20,7 +20,7 @@ export function ModeSwitcher<T extends string>({ value, options, onToggle, class
   const sliderTransform = activeIndex === 0 ? 'translateX(0)' : 'translateX(100%)';
 
   return (
-    <div className={className} style={{ marginTop: tokens.spacing.md, display: 'flex', justifyContent: 'center', width: '100%' }}>
+    <div className={className} style={{ display: 'flex' }}>
       <div
         style={{
           position: 'relative',

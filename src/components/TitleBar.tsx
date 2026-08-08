@@ -20,14 +20,14 @@ export function TitleBar({ onMinimize, onMaximize, onClose, onMouseDown, onDoubl
     >
       <div style={titleBarTitleStyle}>Voquill</div>
       <div style={titleBarControlsStyle}>
-        <Button variant="icon" onClick={onMinimize}>
-          <IconMinus size={16} />
+        <Button variant="titlebarIcon" onClick={onMinimize}>
+          <IconMinus size={14} />
         </Button>
-        <Button variant="icon" onClick={onMaximize}>
-          <IconSquare size={14} />
+        <Button variant="titlebarIcon" onClick={onMaximize}>
+          <IconSquare size={12} />
         </Button>
-        <Button variant="icon" onClick={onClose}>
-          <IconX size={16} />
+        <Button variant="titlebarClose" onClick={onClose}>
+          <IconX size={14} />
         </Button>
       </div>
     </div>

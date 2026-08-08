@@ -44,7 +44,7 @@ export function ModelSelectionPanel({
 }: ModelSelectionPanelProps) {
   const actionButtonRowStyle = {
     display: 'flex',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     width: '100%',
   } as const;
 

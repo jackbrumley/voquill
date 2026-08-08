@@ -1,7 +1,7 @@
 
 import { ComponentChildren } from 'preact';
+import { useSignal } from '@preact/signals';
 import { IconChevronDown } from '@tabler/icons-preact';
-import { SurfaceCard } from './SurfaceCard.tsx';
 import { tokens } from '../design-tokens.ts';
 
 interface CollapsibleSectionProps {
@@ -12,22 +12,26 @@ interface CollapsibleSectionProps {
 }
 
 export const CollapsibleSection = ({ title, children, isOpen, onToggle }: CollapsibleSectionProps) => {
+  const hovered = useSignal(false);
+
+  const getHeaderBackground = () => {
+    if (isOpen) return tokens.colors.bgTertiary;
+    if (hovered.value) return 'rgba(32, 34, 37, 0.3)';
+    return 'transparent';
+  };
+
   return (
-    <SurfaceCard
+    <div
       style={{
         display: 'flex',
         flexDirection: 'column',
-        background: 'transparent',
-        backdropFilter: 'none',
-        WebkitBackdropFilter: 'none',
-        borderRadius: 0,
-        border: 'none',
-        boxShadow: 'none',
         overflow: 'visible',
       }}
     >
       <div
         onClick={onToggle}
+        onMouseEnter={() => { hovered.value = true; }}
+        onMouseLeave={() => { hovered.value = false; }}
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -35,10 +39,11 @@ export const CollapsibleSection = ({ title, children, isOpen, onToggle }: Collap
           padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
           cursor: 'pointer',
           userSelect: 'none',
-          background: 'rgba(32, 34, 37, 0.3)',
+          background: getHeaderBackground(),
           transition: tokens.transitions.fast,
-          borderRadius: 0,
-          position: 'relative',
+          position: 'sticky',
+          top: 0,
+          zIndex: 1,
         }}
       >
         <div
@@ -67,10 +72,20 @@ export const CollapsibleSection = ({ title, children, isOpen, onToggle }: Collap
         </div>
       </div>
       {isOpen && (
-        <div style={{ padding: tokens.spacing.md, display: 'flex', flexDirection: 'column', gap: tokens.spacing.sm, background: 'transparent' }}>
+        <div style={{
+          padding: tokens.spacing.md,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: tokens.spacing.md,
+          background: 'rgba(35, 37, 42, 0.5)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 255, 255, 0.06)',
+          borderTop: 'none',
+        }}>
           {children}
         </div>
       )}
-    </SurfaceCard>
+    </div>
   );
 };

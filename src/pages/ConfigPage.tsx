@@ -154,7 +154,7 @@ export function ConfigPage(props: ConfigPageProps) {
   } as const;
 
   return (
-    <div style={{ ...tabPanelStyle, overflow: 'auto', padding: 0 }} key="settings">
+    <div style={{ ...tabPanelStyle, padding: 0 }} key="settings">
       <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0 }}>
         <CollapsibleSection title="General" isOpen={activeConfigSection === 'general'} onToggle={() => setActiveConfigSection(activeConfigSection === 'general' ? null : 'general')}>
           <ConfigField label="Output Method" description="Choose how transcriptions are inserted when dictation finishes.">
@@ -173,7 +173,7 @@ export function ConfigPage(props: ConfigPageProps) {
           </ConfigField>
 
           <ConfigField label="Updates" description="Check for newer Voquill releases.">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
               <Button variant="ghost" pill style={configGhostPillStyle} onClick={onCheckForUpdates} disabled={checkingUpdates}>
                 {checkingUpdates ? 'Checking...' : 'Check for Updates'}
               </Button>
@@ -221,7 +221,7 @@ export function ConfigPage(props: ConfigPageProps) {
                 : (isSystemManagedShortcut ? 'Use your system shortcut to record and release to transcribe.' : 'Hold these keys to record, release to transcribe.')
             }
           >
-            <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+            <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center', justifyContent: 'flex-start', width: '100%' }}>
               {!isSystemManagedShortcut && (
                 <input
                   type="text"
@@ -229,7 +229,7 @@ export function ConfigPage(props: ConfigPageProps) {
                   readOnly
                   onClick={() => {}}
                   placeholder="Configure using button"
-                  style={{ ...inputBaseStyle, opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default' }}
+                  style={{ ...inputBaseStyle, opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default', maxWidth: '200px' }}
                   title={portalVersion >= 1 ? 'Use Configure Hotkey to request binding through the system portal.' : ''}
                 />
               )}
@@ -419,7 +419,7 @@ export function ConfigPage(props: ConfigPageProps) {
 
         <CollapsibleSection title="Debug" isOpen={activeConfigSection === 'debug'} onToggle={() => setActiveConfigSection(activeConfigSection === 'debug' ? null : 'debug')}>
           <ConfigField label="Logs" description="Open logs for troubleshooting and support.">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
               <Button variant="configAction" onClick={openDebugFolder}>Open Logs</Button>
             </div>
           </ConfigField>
@@ -427,7 +427,7 @@ export function ConfigPage(props: ConfigPageProps) {
           <ConfigField label="Recording Logs" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: tokens.spacing.sm, width: '100%' }}>
               <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} />
-              <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
                 <Button variant="ghost" pill style={configGhostPillStyle} onClick={openDebugFolder}>Open Folder</Button>
               </div>
             </div>
