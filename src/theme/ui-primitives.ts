@@ -44,12 +44,9 @@ export const titleBarControlsStyle: Style = {
 
 export const tabNavStyle: Style = {
   display: 'flex',
-  gap: '4px',
-  padding: '8px 8px 0 8px',
-  background: 'rgba(47, 49, 54, 0.8)',
-  backdropFilter: 'blur(10px)',
-  WebkitBackdropFilter: 'blur(10px)',
-  border: 'none',
+  padding: '0 8px',
+  background: 'transparent',
+  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
   alignItems: 'stretch',
 };
 
@@ -164,6 +161,55 @@ export const getToastMessageStyle = (type: 'success' | 'error' | 'info' | 'saved
   fontWeight: type === 'saved' ? 700 : 500,
   letterSpacing: type === 'saved' ? '0.01em' : 'normal',
 });
+
+export const resizeCornerOverlayStyle: Style = {
+  position: 'absolute',
+  inset: 0,
+  zIndex: 70,
+  pointerEvents: 'none',
+};
+
+const cornerSize = 40;
+
+function cornerStyle(top: number | string, right: number | string, bottom: number | string, left: number | string): Style {
+  return {
+    position: 'absolute',
+    top,
+    right,
+    bottom,
+    left,
+    width: `${cornerSize}px`,
+    height: `${cornerSize}px`,
+    zIndex: 1,
+    userSelect: 'none',
+    pointerEvents: 'auto',
+    touchAction: 'none',
+    background: 'transparent',
+  };
+}
+
+export const resizeCornerStyles: Record<string, Style> = {
+  nw: {
+    ...cornerStyle(0, 'auto', 'auto', 0),
+    cursor: 'nwse-resize',
+    clipPath: 'polygon(0 0, 100% 0, 0 100%)',
+  },
+  ne: {
+    ...cornerStyle(0, 0, 'auto', 'auto'),
+    cursor: 'nesw-resize',
+    clipPath: 'polygon(0 0, 100% 0, 100% 100%)',
+  },
+  sw: {
+    ...cornerStyle('auto', 'auto', 0, 0),
+    cursor: 'nesw-resize',
+    clipPath: 'polygon(0 0, 0 100%, 100% 100%)',
+  },
+  se: {
+    ...cornerStyle('auto', 0, 0, 'auto'),
+    cursor: 'nwse-resize',
+    clipPath: 'polygon(100% 0, 0 100%, 100% 100%)',
+  },
+};
 
 export const modalTextIntroStyle: Style = {
   ...helperTextStyle,

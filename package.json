@@ -23,12 +23,13 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-autostart": "^2",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
+    "@tauri-apps/plugin-dialog": "^2.7.2",
     "@tauri-apps/plugin-shell": "^2",
     "preact": "^10.28.2"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.2",
-    "@tauri-apps/cli": "^2.9.6",
+    "@tauri-apps/cli": "^2",
     "@types/node": "^22.15.3",
     "eslint": "^10.8.1",
     "typescript": "~5.9.3",

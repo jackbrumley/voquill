@@ -27,10 +27,13 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
 
   const routeFromHash = (hash: string): AppRoute => {
     const normalized = hash.replace(/^#\/?/, '').split('/')[0].trim().toLowerCase();
-    if (normalized === 'setup' || normalized === 'status' || normalized === 'history' || normalized === 'settings' || normalized === 'ui-lab') {
+    if (normalized === 'setup' || normalized === 'home' || normalized === 'history' || normalized === 'settings' || normalized === 'ui-lab') {
       return normalized;
     }
-    return 'status';
+    if (normalized === 'status') {
+      return 'home';
+    }
+    return 'home';
   };
 
   const hashHasExplicitRoute = (hash: string): boolean => {
@@ -69,7 +72,7 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
 
     if (isAllReady) {
       if (!hasExplicitRoute || currentHashRoute === 'setup') {
-        navigate('status', true);
+        navigate('home', true);
       }
     } else if (!hasExplicitRoute || currentHashRoute !== 'setup') {
       navigate('setup', true);

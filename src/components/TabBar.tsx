@@ -1,6 +1,5 @@
 import type { AppRoute } from '../types.ts';
 
-const BG_SLIDER = '#3A3D47';
 const ACCENT = '#5865f2';
 const TEXT_INACTIVE = '#A9ACB5';
 
@@ -17,38 +16,14 @@ interface TabBarProps {
 }
 
 export function TabBar({ active, tabs, onNavigate, onLogUI }: TabBarProps) {
-  const activeIndex = tabs.findIndex((t) => t.value === active);
-  const n = tabs.length;
-  const sliderWidth = `calc(${100 / n}% - 4px)`;
-  const sliderTransform = `translateX(${activeIndex * 100}%)`;
-
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 8px 4px 8px', width: '100%' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
       <div
         style={{
-          position: 'relative',
           display: 'flex',
-          background: 'transparent',
-          borderRadius: '30px',
-          padding: '4px',
           width: '100%',
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            top: '4px',
-            left: '4px',
-            width: sliderWidth,
-            height: 'calc(100% - 8px)',
-            background: BG_SLIDER,
-            borderRadius: '26px',
-            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            borderBottom: `2px solid ${ACCENT}`,
-            zIndex: 1,
-            transform: sliderTransform,
-          }}
-        ></div>
         {tabs.map((tab) => {
           const isActive = tab.value === active;
           return (
@@ -56,21 +31,18 @@ export function TabBar({ active, tabs, onNavigate, onLogUI }: TabBarProps) {
               key={tab.value}
               type="button"
               style={{
-                position: 'relative',
-                zIndex: 2,
                 flex: 1,
                 border: 'none',
                 background: 'transparent',
                 color: isActive ? '#ffffff' : TEXT_INACTIVE,
-                fontSize: '13px',
-                fontWeight: isActive ? 600 : 400,
-                padding: '7px 16px',
+                fontSize: '16px',
+                fontWeight: 400,
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                padding: '10px 16px',
                 cursor: 'pointer',
-                borderRadius: '26px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transition: 'color 0.15s ease',
               }}
               onClick={() => {
                 onLogUI(`Tab: ${tab.label}`);
@@ -78,7 +50,27 @@ export function TabBar({ active, tabs, onNavigate, onLogUI }: TabBarProps) {
               }}
               aria-current={isActive ? 'page' : undefined}
             >
-              {tab.label}
+              <span style={{
+                display: 'inline-block',
+                position: 'relative',
+                paddingBottom: '8px',
+                color: isActive ? '#ffffff' : TEXT_INACTIVE,
+                fontSize: '16px',
+                fontWeight: 400,
+                lineHeight: 1,
+                transition: 'color 0.15s ease',
+              }}>
+                {tab.label}
+                <span style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: '2px',
+                  background: isActive ? ACCENT : 'transparent',
+                  transition: 'background 0.15s ease',
+                }} />
+              </span>
             </button>
           );
         })}

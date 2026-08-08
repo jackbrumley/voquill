@@ -53,10 +53,13 @@ function App() {
 
   const routeFromHash = (hash: string): AppRoute => {
     const normalized = hash.replace(/^#\/?/, '').split('/')[0].trim().toLowerCase();
-    if (normalized === 'setup' || normalized === 'status' || normalized === 'history' || normalized === 'settings' || normalized === 'ui-lab') {
+    if (normalized === 'setup' || normalized === 'home' || normalized === 'history' || normalized === 'settings' || normalized === 'ui-lab') {
       return normalized;
     }
-    return 'status';
+    if (normalized === 'status') {
+      return 'home';
+    }
+    return 'home';
   };
 
   const activeRoute = useSignal<AppRoute>(routeFromHash(window.location.hash));
@@ -217,7 +220,7 @@ function App() {
             onStopMicTest={() => void audioSetup.stopMicTest()}
             onStopMicPlayback={() => void audioSetup.stopMicPlayback()}
             onRefreshStatus={() => void audioSetup.checkSetupStatus()}
-            onFinishSetup={() => navigate('status')}
+            onFinishSetup={() => navigate('home')}
           />
         </div>
       ) : (

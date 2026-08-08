@@ -68,54 +68,55 @@ export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipb
   };
 
   return (
-    <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="history">
-      <div style={tabPanelPaddedStyle}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.sm }}>
-
-          <div style={{ position: 'relative' }}>
-            <IconSearch
-              size={16}
+    <div style={{ ...tabPanelStyle, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} key="history">
+      <div style={{ padding: tabPanelPaddedStyle.padding, paddingBottom: 0, background: tokens.colors.bgPrimary }}>
+        <div style={{ position: 'relative' }}>
+          <IconSearch
+            size={16}
+            style={{
+              position: 'absolute',
+              left: '10px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: tokens.colors.textMuted,
+              pointerEvents: 'none',
+            }}
+          />
+          <input
+            type="text"
+            placeholder="Search transcriptions..."
+            value={searchQuery}
+            onInput={(e) => onSearch((e.target as HTMLInputElement).value)}
+            style={{ ...inputBaseStyle, paddingLeft: '32px', paddingRight: searchQuery ? '32px' : '12px' }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => onSearch('')}
               style={{
                 position: 'absolute',
-                left: '10px',
+                right: '6px',
                 top: '50%',
                 transform: 'translateY(-50%)',
+                background: 'transparent',
+                border: 'none',
                 color: tokens.colors.textMuted,
-                pointerEvents: 'none',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '4px',
               }}
-            />
-            <input
-              type="text"
-              placeholder="Search transcriptions..."
-              value={searchQuery}
-              onInput={(e) => onSearch((e.target as HTMLInputElement).value)}
-              style={{ ...inputBaseStyle, paddingLeft: '32px', paddingRight: searchQuery ? '32px' : '12px' }}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => onSearch('')}
-                style={{
-                  position: 'absolute',
-                  right: '6px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'transparent',
-                  border: 'none',
-                  color: tokens.colors.textMuted,
-                  cursor: 'pointer',
-                  padding: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: '4px',
-                }}
-                title="Clear search"
-              >
-                <IconX size={16} />
-              </button>
-            )}
-          </div>
+              title="Clear search"
+            >
+              <IconX size={16} />
+            </button>
+          )}
+        </div>
+      </div>
 
+      <div style={{ ...tabPanelPaddedStyle, overflowY: 'auto', flex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.sm }}>
           {displayItems.length === 0 ? (
             <p style={{ color: tokens.colors.textSecondary, fontSize: tokens.typography.sizeSm, marginTop: tokens.spacing.sm }}>
               {searchQuery.trim() ? 'No transcriptions match your search.' : 'No transcriptions yet.'}

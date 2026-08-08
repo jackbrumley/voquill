@@ -1,14 +1,12 @@
 import { IconAlertCircle, IconBrandGithub, IconHeart } from '@tabler/icons-preact';
 import { open } from '@tauri-apps/plugin-shell';
 import { useState } from 'preact/hooks';
-import { StatusIndicator } from '../components/StatusIndicator.tsx';
 import { Card } from '../components/Card.tsx';
 import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
 import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 
 interface StatusPageProps {
-  currentStatus: string;
   appVersion: string;
   modelStatus: Record<string, boolean>;
   isSystemManagedShortcut: boolean;
@@ -25,7 +23,6 @@ interface StatusPageProps {
 }
 
 export function StatusPage({
-  currentStatus,
   appVersion,
   modelStatus,
   isSystemManagedShortcut,
@@ -60,7 +57,6 @@ export function StatusPage({
     <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="status">
       <div style={{ ...tabPanelPaddedStyle, flex: 1 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <StatusIndicator status={currentStatus} size={44} fixedWidth={270} label={currentStatus === 'Transcribing' ? `Transcribing (${config.transcription_mode})` : currentStatus} />
           <div style={{ width: '100%', maxWidth: '520px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
               <ModeSwitcher

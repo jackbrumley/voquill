@@ -3,10 +3,16 @@ use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+use tokio::sync::Mutex as AsyncMutex;
 
 static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
 static CURRENT_STATUS: OnceLock<Mutex<String>> = OnceLock::new();
 static STATUS_UPDATE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+static OVERLAY_LOCK: OnceLock<AsyncMutex<()>> = OnceLock::new();
+
+fn overlay_lock() -> &'static AsyncMutex<()> {
+    OVERLAY_LOCK.get_or_init(|| AsyncMutex::new(()))
+}
 
 #[derive(Clone, Debug, Serialize)]
 struct StatusUpdatePayload {
@@ -29,6 +35,7 @@ pub fn get_current_status() -> String {
 }
 
 async fn hide_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
+    let _lock = overlay_lock().lock().await;
     if let Some(overlay_window) = app_handle.get_webview_window("overlay") {
         overlay_window.hide().map_err(|error| error.to_string())?;
     } else {
@@ -54,6 +61,7 @@ async fn position_overlay_window(
 }
 
 async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
+    let _lock = overlay_lock().lock().await;
     let overlay_window = app_handle
         .get_webview_window("overlay")
         .ok_or("Overlay window not found")?;
@@ -98,16 +106,9 @@ pub async fn emit_status_update(status: &str) {
         return;
     };
 
-    // Window event delivery and overlay show/hide can block on desktop-specific
-    // main-loop behavior (observed on KDE Wayland, where it froze the hotkey
-    // event loop). Never let that stall the caller — delivery runs in its own
-    // task. The sequence number is assigned above, before spawning, so event
-    // ordering is preserved even if delivery tasks race.
     let status_owned = status.to_string();
     let app_handle = app_handle.clone();
     tauri::async_runtime::spawn(async move {
-        // A newer status may have superseded this one before delivery ran;
-        // skip stale deliveries so the final visible state is always correct.
         if get_current_status() != status_owned {
             return;
         }

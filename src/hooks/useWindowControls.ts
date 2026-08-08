@@ -8,7 +8,10 @@ interface UseWindowControlsReturn {
   toggleWindowMaximize: () => Promise<void>;
   handleTitleBarMouseDown: (event: MouseEvent) => Promise<void>;
   handleTitleBarDoubleClick: (event: MouseEvent) => Promise<void>;
+  handleResizeCornerMouseDown: (direction: ResizeDirection) => (event: MouseEvent) => Promise<void>;
 }
+
+type ResizeDirection = 'East' | 'North' | 'NorthEast' | 'NorthWest' | 'South' | 'SouthEast' | 'SouthWest' | 'West';
 
 export function useWindowControls(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseWindowControlsReturn {
   const trayFallbackNotified = useSignal(false);
@@ -69,5 +72,19 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
     await toggleWindowMaximize();
   };
 
-  return { handleClose, handleMinimize, toggleWindowMaximize, handleTitleBarMouseDown, handleTitleBarDoubleClick };
+  const handleResizeCornerMouseDown = (direction: ResizeDirection) => async (event: MouseEvent) => {
+    if (event.buttons !== 1) {
+      return;
+    }
+
+    event.preventDefault();
+
+    try {
+      await getCurrentWindow().startResizeDragging(direction);
+    } catch (err) {
+      console.error('Failed to start resize dragging:', err);
+    }
+  };
+
+  return { handleClose, handleMinimize, toggleWindowMaximize, handleTitleBarMouseDown, handleTitleBarDoubleClick, handleResizeCornerMouseDown };
 }

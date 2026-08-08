@@ -158,6 +158,20 @@ export function ConfigPage(props: ConfigPageProps) {
       <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0, flex: 1, overflow: 'hidden' }}>
         {!activeConfigSection || activeConfigSection === 'general' ? (
         <CollapsibleSection title="General" isOpen={activeConfigSection === 'general'} onToggle={() => setActiveConfigSection(activeConfigSection === 'general' ? null : 'general')}>
+          <ConfigField
+            label="Recording Mode"
+            description="Hold the hotkey while speaking, or press it to start and again to stop. Pressing the hotkey while transcribing cancels."
+          >
+            <ModeSwitcher
+              value={config.hotkey_mode}
+              onToggle={(value) => updateConfig('hotkey_mode', value)}
+              options={[
+                { value: 'HoldToTalk', label: 'Hold to Talk', title: 'Record while the hotkey is held down' },
+                { value: 'Toggle', label: 'Press to Toggle', title: 'Press once to start recording, press again to stop' },
+              ]}
+            />
+          </ConfigField>
+
           <ConfigField label="Output Method" description="Choose how transcriptions are inserted when dictation finishes.">
             <ModeSwitcher
               value={config.output_method}
@@ -252,20 +266,6 @@ export function ConfigPage(props: ConfigPageProps) {
                 {hotkeyBindingState?.bound ? ' Listener is active.' : ''}
               </div>
             )}
-          </ConfigField>
-
-          <ConfigField
-            label="Recording Mode"
-            description="Hold the hotkey while speaking, or press it to start and again to stop. Pressing the hotkey while transcribing cancels."
-          >
-            <ModeSwitcher
-              value={config.hotkey_mode}
-              onToggle={(value) => updateConfig('hotkey_mode', value)}
-              options={[
-                { value: 'HoldToTalk', label: 'Hold to Talk', title: 'Record while the hotkey is held down' },
-                { value: 'Toggle', label: 'Press to Toggle', title: 'Press once to start recording, press again to stop' },
-              ]}
-            />
           </ConfigField>
 
           <ConfigField label="Max Recording Length (minutes)" description="Recording automatically stops and transcribes after this many minutes (1-60).">

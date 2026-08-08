@@ -1,5 +1,14 @@
 use hound::{WavSpec, WavWriter};
 
+pub fn convert_audio_file_for_whisper(
+    data: &[u8],
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let reader = hound::WavReader::new(std::io::Cursor::new(data))?;
+    let sample_rate = reader.spec().sample_rate;
+    let channels = reader.spec().channels;
+    convert_audio_for_whisper(data, sample_rate, channels)
+}
+
 pub fn convert_audio_for_whisper(
     data: &[u8],
     rate: u32,

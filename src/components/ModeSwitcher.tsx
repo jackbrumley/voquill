@@ -21,12 +21,12 @@ export function ModeSwitcher<T extends string>({ value, options, onToggle, class
 
   return (
     <div className={className} style={{ display: 'flex' }}>
-      <div
+<div
         style={{
           position: 'relative',
           display: 'flex',
           background: tokens.colors.bgSecondary,
-          borderRadius: '30px',
+          borderRadius: '24px',
           padding: '4px',
           boxShadow: tokens.shadows.sm,
           width: 'auto',
@@ -40,7 +40,7 @@ export function ModeSwitcher<T extends string>({ value, options, onToggle, class
             width: 'calc(50% - 4px)',
             height: 'calc(100% - 8px)',
             background: tokens.colors.accentPrimary,
-            borderRadius: '26px',
+            borderRadius: '22px',
             transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             boxShadow: tokens.shadows.md,
             zIndex: 1,
@@ -57,18 +57,18 @@ export function ModeSwitcher<T extends string>({ value, options, onToggle, class
               border: 'none',
               background: 'transparent',
               color: value === option.value ? tokens.colors.textPrimary : tokens.colors.textSecondary,
-              fontSize: tokens.typography.sizeXs,
-              fontWeight: 700,
-padding: '4px 12px',
-               cursor: 'pointer',
-               borderRadius: '26px',
-               textTransform: 'uppercase',
-               letterSpacing: '0.5px',
-               minWidth: '100px',
+              fontSize: tokens.typography.sizeSm,
+              fontWeight: 600,
+              padding: '5px 12px',
+              cursor: 'pointer',
+              borderRadius: '22px',
+              letterSpacing: '0.3px',
+              minWidth: '120px',
+              whiteSpace: 'nowrap',
               justifyContent: 'center',
               display: 'flex',
               alignItems: 'center',
-              gap: tokens.spacing.sm,
+              gap: '6px',
               transition: tokens.transitions.normal,
             }}
             onClick={() => {

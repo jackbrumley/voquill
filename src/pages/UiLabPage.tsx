@@ -104,7 +104,6 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
         <ConfigField label="Status Page" description="Live preview of the Status page inside a SurfaceCard.">
           <SurfaceCard>
             <StatusPage
-              currentStatus={activeStatus.value}
               appVersion={appVersion}
               modelStatus={modelStatus.value}
               config={{

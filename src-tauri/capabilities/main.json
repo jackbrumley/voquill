@@ -24,6 +24,7 @@
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
     "clipboard-manager:allow-write-text",
+    "dialog:default",
     "allow-app-commands"
   ]
 }

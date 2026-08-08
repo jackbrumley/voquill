@@ -1,6 +1,6 @@
 import { Button } from './Button.tsx';
 import { ActionFooter } from './ActionFooter.tsx';
-import { StatusPage } from '../pages/StatusPage.tsx';
+import { HomePage } from '../pages/HomePage.tsx';
 import { ConfigPage } from '../pages/ConfigPage.tsx';
 import { HistoryPage } from '../pages/HistoryPage.tsx';
 import { UiLabPage } from '../pages/UiLabPage.tsx';
@@ -68,7 +68,7 @@ export function MainLayout(props: MainLayoutProps) {
       <TabBar
         active={props.activeRoute}
         tabs={[
-          { value: 'status', label: 'Status' },
+          { value: 'home', label: 'Home' },
           { value: 'history', label: 'History' },
           { value: 'settings', label: 'Settings' },
         ]}
@@ -77,8 +77,8 @@ export function MainLayout(props: MainLayoutProps) {
       />
 
       <div style={appContentStyle} ref={props.tabContentRef}>
-        {props.activeRoute === 'status' && (
-          <StatusPage
+        {props.activeRoute === 'home' && (
+          <HomePage
             appVersion={props.appVersion}
             modelStatus={props.modelStatus}
             config={props.config}

@@ -15,8 +15,8 @@
       {
         "label": "main",
         "title": "Voquill",
-        "width": 430,
-        "height": 740,
+        "width": 400,
+        "height": 600,
         "resizable": true,
         "minWidth": 400,
         "minHeight": 400,
@@ -28,8 +28,6 @@
       {
         "label": "overlay",
         "title": "Voquill Status",
-        "width": 260,
-        "height": 140,
         "resizable": false,
         "center": false,
         "visible": false,

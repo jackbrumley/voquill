@@ -32,6 +32,7 @@ commands.allow = [
     "get_available_models",
     "check_model_status",
     "download_model",
+    "transcribe_audio_file",
     "get_linux_setup_status",
     "request_audio_permission",
     "request_input_permission",
