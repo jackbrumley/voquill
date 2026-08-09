@@ -94,6 +94,8 @@ pub struct Config {
     pub post_process_api_key: String,
     #[serde(default = "default_post_process_api_model")]
     pub post_process_api_model: String,
+    #[serde(default = "default_post_process_prompt")]
+    pub post_process_prompt: String,
 }
 
 impl Config {
@@ -178,6 +180,9 @@ fn default_post_process_api_model() -> String {
 fn default_post_process_api_url() -> String {
     "https://openrouter.ai/api/v1/chat/completions".to_string()
 }
+fn default_post_process_prompt() -> String {
+    "You are a text cleaner. Fix punctuation and capitalization. Remove filler words (um, uh, like, you know, sort of, kind of). Preserve all meaning. Output only the cleaned text, no explanation.".to_string()
+}
 fn default_max_recording_duration_minutes() -> u64 {
     10
 }
@@ -252,6 +257,7 @@ impl Default for Config {
             post_process_api_url: default_post_process_api_url(),
             post_process_api_key: String::new(),
             post_process_api_model: default_post_process_api_model(),
+            post_process_prompt: default_post_process_prompt(),
         }
     }
 }

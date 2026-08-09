@@ -20,10 +20,11 @@ pub struct SidecarPostProcess {
     port: u16,
     _process: Arc<Mutex<Option<Child>>>,
     model_size: String,
+    system_prompt: String,
 }
 
 impl SidecarPostProcess {
-    pub async fn new(model_size: &str) -> Result<Self, PostProcessError> {
+    pub async fn new(model_size: &str, system_prompt: &str) -> Result<Self, PostProcessError> {
         let binary_path = resolve_or_download_binary().await?;
         let port = find_free_port(PORT_START, PORT_END).await?;
 
@@ -71,6 +72,7 @@ impl SidecarPostProcess {
                     port,
                     _process: Arc::new(Mutex::new(Some(child))),
                     model_size: model_size.to_string(),
+                    system_prompt: system_prompt.to_string(),
                 })
             }
             Err(e) => {
@@ -87,7 +89,7 @@ impl SidecarPostProcess {
 #[async_trait]
 impl PostProcessService for SidecarPostProcess {
     async fn post_process(&self, text: &str) -> Result<String, PostProcessError> {
-        let messages = super::prompt::build_post_process_messages(text);
+        let messages = super::prompt::build_post_process_messages(text, &self.system_prompt);
 
         let body = serde_json::json!({
             "model": self.model_size,
@@ -128,6 +130,8 @@ impl PostProcessService for SidecarPostProcess {
             .ok_or_else(|| PostProcessError::Api("No content in response".to_string()))?
             .trim()
             .to_string();
+        let cleaned = cleaned.replace('\n', " ");
+        let cleaned = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
 
         Ok(cleaned)
     }

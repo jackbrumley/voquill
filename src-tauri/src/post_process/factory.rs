@@ -14,11 +14,15 @@ impl PostProcessFactory {
                 api_key: config.post_process_api_key.clone(),
                 api_url: config.post_process_api_url.clone(),
                 model: config.post_process_api_model.clone(),
+                system_prompt: config.post_process_prompt.clone(),
             })),
             crate::config::PostProcessProvider::Local => {
-                let service = SidecarPostProcess::new(&config.post_process_model)
-                    .await
-                    .map_err(|e| format!("Failed to start local post-process: {}", e))?;
+                let service = SidecarPostProcess::new(
+                    &config.post_process_model,
+                    &config.post_process_prompt,
+                )
+                .await
+                .map_err(|e| format!("Failed to start local post-process: {}", e))?;
                 Ok(Box::new(service))
             }
         }

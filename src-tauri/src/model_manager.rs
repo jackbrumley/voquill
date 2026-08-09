@@ -11,6 +11,7 @@ pub struct ModelInfo {
     pub label: String,
     pub description: String,
     pub recommended: bool,
+    pub category: String,
 }
 
 /// The required model files for a Parakeet / sherpa-onnx model directory.
@@ -137,9 +138,47 @@ impl ModelManager {
                     .map_err(|e| format!("Failed to open archive: {}", e))?;
                 let decoder = bzip2::read::BzDecoder::new(archive_file);
                 let mut archive = tar::Archive::new(decoder);
-                archive
-                    .unpack(&target_dir)
-                    .map_err(|e| format!("Failed to extract model archive: {}", e))?;
+
+                for entry in archive
+                    .entries()
+                    .map_err(|e| format!("Failed to read tar entries: {}", e))?
+                {
+                    let mut entry =
+                        entry.map_err(|e| format!("Failed to read tar entry: {}", e))?;
+                    let path = entry
+                        .path()
+                        .map_err(|_| "Invalid path in tar".to_string())?;
+
+                    let components: Vec<_> = path.components().collect();
+                    if components.len() < 2 {
+                        continue;
+                    }
+                    let relative: PathBuf = components[1..].iter().collect();
+                    let out_path = target_dir.join(&relative);
+
+                    if entry.header().entry_type().is_symlink() {
+                        if let Some(parent) = out_path.parent() {
+                            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                        }
+                        let target = entry
+                            .link_name()
+                            .map_err(|_| "Invalid symlink target".to_string())?
+                            .ok_or_else(|| "Symlink with no target".to_string())?;
+                        #[cfg(unix)]
+                        std::os::unix::fs::symlink(&target, &out_path)
+                            .map_err(|e| format!("Failed to create symlink: {}", e))?;
+                    } else if entry.header().entry_type().is_dir() {
+                        let _ = std::fs::create_dir_all(&out_path);
+                    } else {
+                        if let Some(parent) = out_path.parent() {
+                            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                        }
+                        let mut out_file = std::fs::File::create(&out_path)
+                            .map_err(|e| format!("Failed to create file: {}", e))?;
+                        std::io::copy(&mut entry, &mut out_file)
+                            .map_err(|e| format!("Failed to extract file: {}", e))?;
+                    }
+                }
 
                 // Remove the archive after extraction
                 let _ = std::fs::remove_file(&archive_path);
@@ -179,23 +218,23 @@ impl ModelManager {
             Self::model_info("Whisper.cpp", "tiny.en", "Tiny (English)", 77_600_000,
                 "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin",
                 "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776",
-                "Lightning fast, best for simple commands.", false),
+                "Lightning fast, best for simple commands.", false, "transcription"),
             Self::model_info("Whisper.cpp", "distil-small.en", "Distil-Small (English)", 175_000_000,
                 "https://huggingface.co/distil-whisper/distil-small.en/resolve/main/ggml-distil-small.en.bin",
                 "e8a676964fd3f78b021a385f078a18863712ca10fdc907a685eee9c0e71d7a62",
-                "Perfect balance of speed and high accuracy.", true),
+                "Perfect balance of speed and high accuracy.", true, "transcription"),
             Self::model_info("Whisper.cpp", "base.en", "Base (English)", 147_000_000,
                 "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
                 "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d",
-                "Standard choice for general dictation.", false),
+                "Standard choice for general dictation.", false, "transcription"),
             Self::model_info("Whisper.cpp", "small.en", "Small (English)", 483_000_000,
                 "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
                 "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
-                "Great accuracy for complex vocabulary.", false),
+                "Great accuracy for complex vocabulary.", false, "transcription"),
             Self::model_info("Whisper.cpp", "medium.en", "Medium (English)", 1_500_000_000,
                 "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin",
                 "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
-                "Highest accuracy. Needs a powerful computer or GPU.", false),
+                "Highest accuracy. Needs a powerful computer or GPU.", false, "transcription"),
         ]
     }
 
@@ -204,23 +243,23 @@ impl ModelManager {
             Self::model_info("Whisper.cpp (GPU)", "tiny.en", "Tiny (English)", 77_600_000,
                 "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin",
                 "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776",
-                "Lightning fast with GPU acceleration. Requires a compatible GPU.", false),
+                "Lightning fast with GPU acceleration. Requires a compatible GPU.", false, "transcription"),
             Self::model_info("Whisper.cpp (GPU)", "distil-small.en", "Distil-Small (English)", 175_000_000,
                 "https://huggingface.co/distil-whisper/distil-small.en/resolve/main/ggml-distil-small.en.bin",
                 "e8a676964fd3f78b021a385f078a18863712ca10fdc907a685eee9c0e71d7a62",
-                "Fast and accurate with GPU acceleration. Requires a compatible GPU.", true),
+                "Fast and accurate with GPU acceleration. Requires a compatible GPU.", true, "transcription"),
             Self::model_info("Whisper.cpp (GPU)", "base.en", "Base (English)", 147_000_000,
                 "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
                 "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d",
-                "Standard choice with GPU acceleration. Requires a compatible GPU.", false),
+                "Standard choice with GPU acceleration. Requires a compatible GPU.", false, "transcription"),
             Self::model_info("Whisper.cpp (GPU)", "small.en", "Small (English)", 483_000_000,
                 "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
                 "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
-                "Great accuracy with GPU acceleration. Requires a compatible GPU.", false),
+                "Great accuracy with GPU acceleration. Requires a compatible GPU.", false, "transcription"),
             Self::model_info("Whisper.cpp (GPU)", "medium.en", "Medium (English)", 1_500_000_000,
                 "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin",
                 "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
-                "Highest accuracy with GPU acceleration. Requires a compatible GPU.", false),
+                "Highest accuracy with GPU acceleration. Requires a compatible GPU.", false, "transcription"),
         ]
     }
 
@@ -229,11 +268,11 @@ impl ModelManager {
             Self::model_info("Parakeet", "parakeet-tdt-0.6b-v3", "Parakeet TDT 0.6B (Multilingual)", 680_000_000,
                 "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
                 "",
-                "NVIDIA Parakeet model, 25 languages. Requires sherpa-onnx sidecar. Fast on CPU.", true),
+                "NVIDIA Parakeet model, 25 languages. Requires sherpa-onnx sidecar. Fast on CPU.", true, "transcription"),
             Self::model_info("Parakeet", "parakeet-unified-en-0.6b", "Parakeet Unified EN 0.6B (English)", 631_000_000,
                 "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming.tar.bz2",
                 "",
-                "NVIDIA Parakeet English-only model. Requires sherpa-onnx sidecar. Fast on CPU.", false),
+                "NVIDIA Parakeet English-only model. Requires sherpa-onnx sidecar. Fast on CPU.", false, "transcription"),
         ]
     }
 
@@ -243,11 +282,11 @@ impl ModelManager {
                 "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
                 "",
                 "Small local model for post-processing. Fixes punctuation, capitalization, and removes filler words. ~3-5s on CPU.",
-                true),
+                true, "post_process"),
             Self::model_info("Post-Process (Local)", "llama-3.2-1b-instruct", "Llama 3.2 1B", 650_000_000,
                 "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
                 "",
-                "Meta's lightweight instruct model. Good for post-processing on modest hardware.", false),
+                "Meta's lightweight instruct model. Good for post-processing on modest hardware.", false, "post_process"),
         ]
     }
 
@@ -261,6 +300,7 @@ impl ModelManager {
         sha256: &str,
         description: &str,
         recommended: bool,
+        category: &str,
     ) -> ModelInfo {
         ModelInfo {
             engine: engine.to_string(),
@@ -271,12 +311,14 @@ impl ModelManager {
             sha256: sha256.to_string(),
             description: description.to_string(),
             recommended,
+            category: category.to_string(),
         }
     }
 
     pub fn get_available_engines() -> Vec<String> {
         let mut engines: Vec<String> = Self::get_available_models()
             .iter()
+            .filter(|m| m.category == "transcription")
             .map(|m| m.engine.clone())
             .collect();
         engines.sort();
@@ -328,6 +370,7 @@ mod tests {
         assert!(engines.contains(&"Whisper.cpp".to_string()));
         assert!(engines.contains(&"Whisper.cpp (GPU)".to_string()));
         assert!(engines.contains(&"Parakeet".to_string()));
+        assert!(!engines.contains(&"Post-Process (Local)".to_string()));
     }
 
     #[test]
@@ -368,6 +411,7 @@ mod tests {
             label: String::new(),
             description: String::new(),
             recommended: false,
+            category: "transcription".to_string(),
         });
         assert!(!manager.is_model_downloaded(&model));
     }

@@ -281,6 +281,7 @@ function App() {
               apiKey: cfg.post_process_api_key,
               apiUrl: cfg.post_process_api_url,
               model: cfg.post_process_api_model,
+              systemPrompt: cfg.post_process_prompt,
             })
               .then((result) => showToast(`Post-processing test: ${result}`, 'success'))
               .catch((err) => showToast(`Post-processing test failed: ${err}`, 'error'));

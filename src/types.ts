@@ -26,6 +26,7 @@ export interface Config {
   post_process_api_url: string;
   post_process_api_key: string;
   post_process_api_model: string;
+  post_process_prompt: string;
   shortcuts_token?: string;
   input_token?: string;
 }
@@ -89,6 +90,7 @@ export interface ModelInfo {
   label: string;
   description: string;
   recommended: boolean;
+  category: string;
 }
 
 export interface UpdateCheckResult {

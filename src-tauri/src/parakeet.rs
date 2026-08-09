@@ -64,10 +64,19 @@ impl ParakeetService {
             })?;
 
         let stderr = child.stderr.take().unwrap();
-        let ready = wait_for_ready(stderr, STARTUP_TIMEOUT).await;
+        let mut stderr_reader = tokio::io::BufReader::new(stderr);
+        let ready = wait_for_ready(&mut stderr_reader, STARTUP_TIMEOUT).await;
 
         match ready {
             Ok(()) => {
+                // Drain stderr in background so the server doesn't get SIGPIPE
+                tokio::spawn(async move {
+                    use tokio::io::AsyncBufReadExt;
+                    let mut lines = stderr_reader.lines();
+                    while let Ok(Some(line)) = lines.next_line().await {
+                        crate::log_info!("sherpa-onnx: {}", line);
+                    }
+                });
                 crate::log_info!("Parakeet sidecar started on port {}", port);
                 Ok(Self {
                     port,
@@ -217,15 +226,55 @@ async fn download_binary(target_dir: &std::path::Path) -> Result<(), Transcripti
         .map_err(|e| TranscriptionError::Model(format!("Failed to open archive: {}", e)))?;
     let decoder = bzip2::read::BzDecoder::new(archive_file);
     let mut archive = tar::Archive::new(decoder);
-    archive
-        .unpack(target_dir)
-        .map_err(|e| TranscriptionError::Model(format!("Failed to extract binary: {}", e)))?;
+
+    for entry in archive
+        .entries()
+        .map_err(|e| TranscriptionError::Model(format!("Failed to read tar entries: {}", e)))?
+    {
+        let mut entry = entry
+            .map_err(|e| TranscriptionError::Model(format!("Failed to read tar entry: {}", e)))?;
+        let path = entry
+            .path()
+            .map_err(|_| TranscriptionError::Model("Invalid path in tar".to_string()))?;
+
+        let components: Vec<_> = path.components().collect();
+        if components.len() < 2 {
+            continue;
+        }
+        let filename = components[components.len() - 1];
+        let out_path = target_dir.join(filename);
+
+        if entry.header().entry_type().is_symlink() {
+            let target = entry
+                .link_name()
+                .map_err(|_| TranscriptionError::Model("Invalid symlink target".to_string()))?
+                .ok_or_else(|| TranscriptionError::Model("Symlink with no target".to_string()))?;
+            #[cfg(unix)]
+            std::os::unix::fs::symlink(&target, &out_path).map_err(|e| {
+                TranscriptionError::Model(format!("Failed to create symlink: {}", e))
+            })?;
+        } else if entry.header().entry_type().is_dir() {
+            continue;
+        } else {
+            let mut out_file = std::fs::File::create(&out_path)
+                .map_err(|e| TranscriptionError::Model(format!("Failed to create file: {}", e)))?;
+            std::io::copy(&mut entry, &mut out_file)
+                .map_err(|e| TranscriptionError::Model(format!("Failed to extract file: {}", e)))?;
+        }
+    }
+
+    let bin_name = binary_name();
+    let bin_path = target_dir.join(&bin_name);
+    if !bin_path.exists() {
+        return Err(TranscriptionError::Model(format!(
+            "{} not found in archive",
+            bin_name
+        )));
+    }
 
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let bin_name = binary_name();
-        let bin_path = target_dir.join(&bin_name);
         if let Ok(meta) = std::fs::metadata(&bin_path) {
             let mut perms = meta.permissions();
             perms.set_mode(perms.mode() | 0o111);
@@ -251,12 +300,10 @@ fn binary_dir() -> Result<PathBuf, TranscriptionError> {
 }
 
 fn binary_name() -> String {
-    let platform = platform_string();
-    let name = format!("sherpa-onnx-ws-{}", platform);
     if cfg!(target_os = "windows") {
-        format!("{}.exe", name)
+        "sherpa-onnx-offline-websocket-server.exe".to_string()
     } else {
-        name
+        "sherpa-onnx-offline-websocket-server".to_string()
     }
 }
 
@@ -269,22 +316,11 @@ fn archive_name() -> &'static str {
     }
 }
 
-fn platform_string() -> &'static str {
-    match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("linux", "x86_64") => "linux-x64",
-        ("windows", "x86_64") => "win32-x64",
-        ("macos", "aarch64") => "darwin-arm64",
-        ("macos", "x86_64") => "darwin-x64",
-        (os, arch) => panic!("Unsupported platform: {}-{}", os, arch),
-    }
-}
-
 async fn wait_for_ready(
-    stderr: tokio::process::ChildStderr,
+    reader: &mut tokio::io::BufReader<tokio::process::ChildStderr>,
     timeout: Duration,
 ) -> Result<(), String> {
     use tokio::io::AsyncBufReadExt;
-    let reader = tokio::io::BufReader::new(stderr);
     let mut lines = reader.lines();
 
     let start = std::time::Instant::now();

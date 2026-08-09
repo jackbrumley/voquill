@@ -15,6 +15,8 @@ import { EngineSettingsPanel } from '../components/EngineSettingsPanel.tsx';
 import { helperTextStyle, inputBaseStyle, selectWrapperStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 
+const DEFAULT_POST_PROCESS_PROMPT = 'You are a text cleaner. Fix punctuation and capitalization. Remove filler words (um, uh, like, you know, sort of, kind of). Preserve all meaning. Output only the cleaned text, no explanation.';
+
 interface AudioDevice {
   id: string;
   label: string;
@@ -60,6 +62,7 @@ interface ConfigPageProps {
     post_process_api_url: string;
     post_process_api_key: string;
     post_process_api_model: string;
+    post_process_prompt: string;
   };
   activeConfigSection: string | null;
   setActiveConfigSection: (value: string | null) => void;
@@ -643,6 +646,24 @@ export function ConfigPage(props: ConfigPageProps) {
                       />
                     </ConfigField>
                   )}
+
+                  <ConfigField label="System Prompt" description="The system prompt sent to the post-processing model. Customize how your text is cleaned.">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+                      <textarea
+                        style={{ ...inputBaseStyle, resize: 'vertical', minHeight: '60px', fontFamily: tokens.typography.fontMono, fontSize: tokens.typography.sizeXs, lineHeight: 1.5 }}
+                        value={config.post_process_prompt}
+                        onChange={(e: Event) => updateConfig('post_process_prompt', (e.target as HTMLTextAreaElement).value)}
+                      />
+                      <Button
+                        variant="ghost"
+                        pill
+                        style={{ alignSelf: 'flex-start' }}
+                        onClick={() => updateConfig('post_process_prompt', DEFAULT_POST_PROCESS_PROMPT)}
+                      >
+                        Reset to Default
+                      </Button>
+                    </div>
+                  </ConfigField>
                 </>
               )}
               </>

@@ -51,6 +51,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     post_process_api_url: 'https://openrouter.ai/api/v1/chat/completions',
     post_process_api_key: '',
     post_process_api_model: '',
+    post_process_prompt: 'You are a text cleaner. Fix punctuation and capitalization. Remove filler words (um, uh, like, you know, sort of, kind of). Preserve all meaning. Output only the cleaned text, no explanation.',
   });
   const availableEngines = useSignal<string[]>([]);
   const availableModels = useSignal<ModelInfo[]>([]);

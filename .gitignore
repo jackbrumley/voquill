@@ -41,3 +41,5 @@ temp/
 reference-systems/
 src-tauri/tauri.*-dev.json
 session-ses_*.md
+log.txt
+src-tauri/log.txt

@@ -83,14 +83,7 @@ impl EngineFactory {
             },
             "Whisper.cpp (GPU)" => EngineCapabilities {
                 gpu_supported: true,
-                settings: vec![EngineSetting {
-                    key: "whisper.num_threads".to_string(),
-                    label: "Thread Count".to_string(),
-                    description: "CPU threads for whisper.cpp inference. More threads = faster, but uses more CPU.".to_string(),
-                    setting_type: "number".to_string(),
-                    default: serde_json::json!(4),
-                    options: None,
-                }],
+                settings: vec![],
             },
             "Parakeet" => EngineCapabilities {
                 gpu_supported: false,
@@ -286,7 +279,7 @@ mod tests {
     fn engine_capabilities_whisper_cpp_gpu() {
         let caps = EngineFactory::engine_capabilities("Whisper.cpp (GPU)");
         assert!(caps.gpu_supported);
-        assert!(!caps.settings.is_empty());
+        assert!(caps.settings.is_empty());
     }
 
     #[test]

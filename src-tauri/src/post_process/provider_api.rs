@@ -7,12 +7,13 @@ pub struct APIPostProcessService {
     pub api_key: String,
     pub api_url: String,
     pub model: String,
+    pub system_prompt: String,
 }
 
 #[async_trait]
 impl PostProcessService for APIPostProcessService {
     async fn post_process(&self, text: &str) -> Result<String, PostProcessError> {
-        let messages = super::prompt::build_post_process_messages(text);
+        let messages = super::prompt::build_post_process_messages(text, &self.system_prompt);
 
         let body = serde_json::json!({
             "model": self.model,
@@ -53,6 +54,8 @@ impl PostProcessService for APIPostProcessService {
             .ok_or_else(|| PostProcessError::Api("No content in response".to_string()))?
             .trim()
             .to_string();
+        let cleaned = cleaned.replace('\n', " ");
+        let cleaned = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
 
         Ok(cleaned)
     }
@@ -62,8 +65,14 @@ impl PostProcessService for APIPostProcessService {
     }
 }
 
-pub async fn test_connection(api_key: &str, api_url: &str, model: &str) -> Result<String, String> {
-    let messages = super::prompt::build_post_process_messages("This is a test um sentence");
+pub async fn test_connection(
+    api_key: &str,
+    api_url: &str,
+    model: &str,
+    system_prompt: &str,
+) -> Result<String, String> {
+    let messages =
+        super::prompt::build_post_process_messages("This is a test um sentence", system_prompt);
 
     let body = serde_json::json!({
         "model": model,
@@ -101,6 +110,8 @@ pub async fn test_connection(api_key: &str, api_url: &str, model: &str) -> Resul
         .ok_or_else(|| "No content in response".to_string())?
         .trim()
         .to_string();
+    let cleaned = cleaned.replace('\n', " ");
+    let cleaned = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
 
     Ok(cleaned)
 }
