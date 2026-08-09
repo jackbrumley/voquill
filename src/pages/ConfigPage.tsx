@@ -1,5 +1,7 @@
 import { IconInfoCircle, IconRefresh, IconX } from '@tabler/icons-preact';
 import { useSignal } from '@preact/signals';
+import { invoke } from '@tauri-apps/api/core';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { ConfigField } from '../components/ConfigField.tsx';
 import { Switch } from '../components/Switch.tsx';
 import { CollapsibleSection } from '../components/CollapsibleSection.tsx';
@@ -47,7 +49,6 @@ interface ConfigPageProps {
     typing_speed_interval: number;
     key_press_duration_ms: number;
     pixels_from_bottom: number;
-    debug_mode: boolean;
     enable_recording_logs: boolean;
     post_roll_ms: number;
     hotkey_mode: 'HoldToTalk' | 'Toggle';
@@ -59,6 +60,7 @@ interface ConfigPageProps {
     post_process_model: string;
     post_process_api_url: string;
     post_process_api_key: string;
+    post_process_api_model: string;
   };
   activeConfigSection: string | null;
   setActiveConfigSection: (value: string | null) => void;
@@ -537,7 +539,7 @@ export function ConfigPage(props: ConfigPageProps) {
                   </ConfigField>
 
                   <ConfigField label="Model" description="The model name to use with your post-processing API provider.">
-                    <input style={inputBaseStyle} type="text" value={config.post_process_model} onChange={(e: Event) => updateConfig('post_process_model', (e.target as HTMLInputElement).value)} placeholder="openai/gpt-4o-mini" />
+                    <input style={inputBaseStyle} type="text" value={config.post_process_api_model} onChange={(e: Event) => updateConfig('post_process_api_model', (e.target as HTMLInputElement).value)} placeholder="openai/gpt-4o-mini" />
                   </ConfigField>
                 </>
 ) : (
@@ -582,11 +584,12 @@ onDownloadModel={(size) => downloadModel(size, 'Post-Process (Local)')}
             </div>
           </ConfigField>
 
-          <ConfigField label="Recording Logs" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
+          <ConfigField label="Recordings" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: tokens.spacing.sm, width: '100%' }}>
               <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} />
-              <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-start', gap: tokens.spacing.sm, width: '100%' }}>
                 <Button variant="ghost" pill style={configGhostPillStyle} onClick={openDebugFolder}>Open Folder</Button>
+                <Button variant="danger" pill style={configGhostPillStyle} onClick={async () => { if (await confirm('Delete all recorded WAV files?')) { try { await invoke('clear_recording_logs'); } catch (e) { console.error('Failed to delete recordings:', e); } } }}>Delete</Button>
               </div>
             </div>
           </ConfigField>

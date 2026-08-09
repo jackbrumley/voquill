@@ -10,7 +10,6 @@ export interface Config {
   key_press_duration_ms: number;
   pixels_from_bottom: number;
   audio_device: string | null;
-  debug_mode: boolean;
   enable_recording_logs: boolean;
   input_sensitivity: number;
   output_method: 'Typewriter' | 'Clipboard';
@@ -26,6 +25,7 @@ export interface Config {
   post_process_model: string;
   post_process_api_url: string;
   post_process_api_key: string;
+  post_process_api_model: string;
   shortcuts_token?: string;
   input_token?: string;
 }

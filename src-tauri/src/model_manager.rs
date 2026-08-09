@@ -62,9 +62,10 @@ impl ModelManager {
     /// Parakeet models are directories:    models/parakeet/{size}/
     pub fn get_model_path(&self, model: &ModelInfo) -> PathBuf {
         match model.engine.as_str() {
-            e if e.contains("Whisper.cpp") => {
-                self.models_dir.join(format!("ggml-{}.bin", model.size))
-            }
+            e if e.contains("Whisper.cpp") => self
+                .models_dir
+                .join("transcription")
+                .join(format!("ggml-{}.bin", model.size)),
             e if e.starts_with("Post-Process") => self
                 .models_dir
                 .join("post-process")
@@ -81,10 +82,7 @@ impl ModelManager {
                 let dir = self.models_dir.join("parakeet").join(&model.size);
                 PARAKEET_REQUIRED_FILES.iter().all(|f| dir.join(f).exists())
             }
-            _ => {
-                let path = self.models_dir.join(format!("ggml-{}.bin", model.size));
-                path.exists()
-            }
+            _ => self.get_model_path(model).exists(),
         }
     }
 
@@ -151,6 +149,9 @@ impl ModelManager {
             }
             _ => {
                 let path = self.get_model_path(model);
+                if let Some(parent) = path.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                }
                 let mut file = tokio::fs::File::create(&path)
                     .await
                     .map_err(|e| format!("Failed to create model file: {}", e))?;

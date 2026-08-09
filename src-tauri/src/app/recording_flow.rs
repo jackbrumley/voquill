@@ -151,10 +151,9 @@ async fn record_and_transcribe_inner(
         return Ok(());
     }
 
-    let (debug_mode, enable_recording_logs, language_choice) = {
+    let (enable_recording_logs, language_choice) = {
         let config_guard = config.lock().unwrap();
         (
-            config_guard.debug_mode,
             config_guard.enable_recording_logs,
             config_guard.language.clone(),
         )
@@ -188,11 +187,12 @@ async fn record_and_transcribe_inner(
         };
     }
 
-    if debug_mode && enable_recording_logs {
+    if enable_recording_logs {
         let debug_path = dirs::config_dir()
             .unwrap_or_default()
             .join("foss-voquill")
             .join("debug")
+            .join("recordings")
             .join(format!(
                 "recording_{}.wav",
                 ::chrono::Local::now().format("%Y%m%d_%H%M%S")

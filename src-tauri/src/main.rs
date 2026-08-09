@@ -169,6 +169,7 @@ fn main() {
             stop_mic_test,
             stop_mic_playback,
             open_debug_folder,
+            clear_recording_logs,
             get_session_log_text,
             copy_session_log_to_clipboard,
             open_session_log,

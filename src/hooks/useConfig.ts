@@ -13,6 +13,7 @@ interface UseConfigReturn {
   loadConfig: () => Promise<void>;
   loadModels: () => Promise<void>;
   downloadModel: (size: string, engine?: string) => Promise<void>;
+  setDownloadProgress: (val: number) => void;
   persistConfig: (configToPersist: Config, showSavedConfirmation?: boolean) => Promise<void>;
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown>) => void;
   toggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
@@ -34,13 +35,12 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     key_press_duration_ms: 2,
     pixels_from_bottom: 100,
     audio_device: 'default',
-    debug_mode: false,
     enable_recording_logs: false,
     input_sensitivity: 1.0,
     output_method: 'Typewriter',
     copy_on_typewriter: false,
     language: 'auto',
-    post_roll_ms: 400,
+    post_roll_ms: 0,
     hotkey_mode: 'HoldToTalk',
     max_recording_duration_minutes: 10,
     engine_config: null,
@@ -48,8 +48,9 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     post_process_enabled: false,
     post_process_provider: 'Local',
     post_process_model: 'qwen2.5-1.5b-instruct',
-    post_process_api_url: '',
+    post_process_api_url: 'https://openrouter.ai/api/v1/chat/completions',
     post_process_api_key: '',
+    post_process_api_model: '',
   });
   const availableEngines = useSignal<string[]>([]);
   const availableModels = useSignal<ModelInfo[]>([]);
@@ -127,6 +128,8 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
       downloadProgress.value = 0;
     }
   };
+
+  const setDownloadProgress = (val: number) => { downloadProgress.value = val; };
 
   const persistConfig = async (configToPersist: Config, showSavedConfirmation = false) => {
     try {
@@ -231,6 +234,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     loadConfig,
     loadModels,
     downloadModel,
+    setDownloadProgress,
     persistConfig,
     updateConfig,
     toggleOutputMethod,

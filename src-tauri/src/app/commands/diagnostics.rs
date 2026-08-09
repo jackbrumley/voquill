@@ -101,6 +101,52 @@ pub async fn copy_session_log_to_clipboard() -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn clear_recording_logs() -> Result<u32, String> {
+    crate::log_info!("Tauri Command: clear_recording_logs invoked");
+    let debug_dir = dirs::config_dir()
+        .ok_or("Could not find config directory")?
+        .join("foss-voquill")
+        .join("debug");
+    let recordings_dir = debug_dir.join("recordings");
+
+    let mut total = 0u32;
+
+    if debug_dir.exists() {
+        for entry in std::fs::read_dir(&debug_dir).map_err(|e| e.to_string())? {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.extension().map(|ext| ext == "wav").unwrap_or(false)
+                    && path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .map_or(false, |s| s.starts_with("recording_"))
+                {
+                    if std::fs::remove_file(&path).is_ok() {
+                        total += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    if recordings_dir.exists() {
+        for entry in std::fs::read_dir(&recordings_dir).map_err(|e| e.to_string())? {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.extension().map(|ext| ext == "wav").unwrap_or(false) {
+                    if std::fs::remove_file(&path).is_ok() {
+                        total += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    crate::log_info!("Deleted {} recording file(s)", total);
+    Ok(total)
+}
+
+#[tauri::command]
 pub async fn open_session_log() -> Result<(), String> {
     let log_path = crate::resolve_session_log_path()?;
 

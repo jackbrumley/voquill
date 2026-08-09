@@ -207,6 +207,7 @@ pub(crate) async fn ensure_model_loaded_with_fallback(
 pub struct LocalWhisperService {
     cache: WhisperEngineCache,
     model_size: String,
+    model_path: PathBuf,
     use_gpu: bool,
     last_gpu_error: Option<Arc<Mutex<Option<String>>>>,
 }
@@ -219,9 +220,18 @@ impl LocalWhisperService {
         last_gpu_error: Option<Arc<Mutex<Option<String>>>>,
     ) -> Result<Self, TranscriptionError> {
         let model_manager = ModelManager::new().map_err(TranscriptionError::Model)?;
-        let model_path = model_manager
-            .models_dir
-            .join(format!("ggml-{}.bin", model_size));
+        let engine = if use_gpu {
+            "Whisper.cpp (GPU)"
+        } else {
+            "Whisper.cpp"
+        };
+        let model = ModelManager::find_model(engine, model_size).ok_or_else(|| {
+            TranscriptionError::Model(format!(
+                "Model {} not found for engine {}",
+                model_size, engine
+            ))
+        })?;
+        let model_path = model_manager.get_model_path(&model);
         if !model_path.exists() {
             return Err(TranscriptionError::Model(format!(
                 "Model {} not found. Please download it in settings.",
@@ -231,6 +241,7 @@ impl LocalWhisperService {
         Ok(Self {
             cache,
             model_size: model_size.to_string(),
+            model_path,
             use_gpu,
             last_gpu_error,
         })
@@ -264,12 +275,7 @@ impl TranscriptionService for LocalWhisperService {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| TranscriptionError::Audio(e.to_string()))?;
 
-        let model_path = {
-            let model_manager = ModelManager::new().map_err(TranscriptionError::Model)?;
-            model_manager
-                .models_dir
-                .join(format!("ggml-{}.bin", self.model_size))
-        };
+        let model_path = self.model_path.clone();
 
         let outcome = ensure_model_loaded_with_fallback(
             &self.cache,

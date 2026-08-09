@@ -122,7 +122,7 @@ pub async fn test_api_key(
                 .file_name("test.wav")
                 .mime_str("audio/wav")?,
         )
-        .text("model", "gpt-4o-transcribe");
+        .text("model", "gpt-transcribe");
 
     let response = client
         .post(api_url)

@@ -13,7 +13,7 @@ impl PostProcessFactory {
             crate::config::PostProcessProvider::Api => Ok(Box::new(APIPostProcessService {
                 api_key: config.post_process_api_key.clone(),
                 api_url: config.post_process_api_url.clone(),
-                model: config.post_process_model.clone(),
+                model: config.post_process_api_model.clone(),
             })),
             crate::config::PostProcessProvider::Local => {
                 let service = SidecarPostProcess::new(&config.post_process_model)

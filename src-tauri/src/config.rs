@@ -58,8 +58,6 @@ pub struct Config {
     pub pixels_from_bottom: i32,
     #[serde(default = "default_audio_device")]
     pub audio_device: Option<String>,
-    #[serde(default = "default_debug_mode")]
-    pub debug_mode: bool,
     #[serde(default = "default_enable_recording_logs")]
     pub enable_recording_logs: bool,
     #[serde(default = "default_input_sensitivity")]
@@ -90,10 +88,12 @@ pub struct Config {
     pub post_process_provider: PostProcessProvider,
     #[serde(default = "default_post_process_model")]
     pub post_process_model: String,
-    #[serde(default)]
+    #[serde(default = "default_post_process_api_url")]
     pub post_process_api_url: String,
     #[serde(default)]
     pub post_process_api_key: String,
+    #[serde(default = "default_post_process_api_model")]
+    pub post_process_api_model: String,
 }
 
 impl Config {
@@ -119,7 +119,7 @@ fn default_api_url() -> String {
     "https://api.openai.com/v1/audio/transcriptions".to_string()
 }
 fn default_api_model() -> String {
-    "gpt-4o-transcribe".to_string()
+    "gpt-transcribe".to_string()
 }
 fn default_transcription_mode() -> TranscriptionMode {
     TranscriptionMode::Local
@@ -145,9 +145,6 @@ fn default_pixels_from_bottom() -> i32 {
 fn default_audio_device() -> Option<String> {
     Some("default".to_string())
 }
-fn default_debug_mode() -> bool {
-    false
-}
 fn default_enable_recording_logs() -> bool {
     false
 }
@@ -164,7 +161,7 @@ fn default_language() -> String {
     "auto".to_string()
 }
 fn default_post_roll_ms() -> u64 {
-    400
+    0
 }
 fn default_hotkey_mode() -> HotkeyMode {
     HotkeyMode::HoldToTalk
@@ -174,6 +171,12 @@ fn default_post_process_provider() -> PostProcessProvider {
 }
 fn default_post_process_model() -> String {
     "qwen2.5-1.5b-instruct".to_string()
+}
+fn default_post_process_api_model() -> String {
+    String::new()
+}
+fn default_post_process_api_url() -> String {
+    "https://openrouter.ai/api/v1/chat/completions".to_string()
 }
 fn default_max_recording_duration_minutes() -> u64 {
     10
@@ -231,7 +234,6 @@ impl Default for Config {
             key_press_duration_ms: default_key_press_duration(),
             pixels_from_bottom: default_pixels_from_bottom(),
             audio_device: default_audio_device(),
-            debug_mode: default_debug_mode(),
             enable_recording_logs: default_enable_recording_logs(),
             input_sensitivity: default_input_sensitivity(),
             output_method: default_output_method(),
@@ -247,8 +249,9 @@ impl Default for Config {
             post_process_enabled: false,
             post_process_provider: default_post_process_provider(),
             post_process_model: default_post_process_model(),
-            post_process_api_url: String::new(),
+            post_process_api_url: default_post_process_api_url(),
             post_process_api_key: String::new(),
+            post_process_api_model: default_post_process_api_model(),
         }
     }
 }
@@ -325,13 +328,12 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     normalized_config.normalize();
     let config_str = serde_json::to_string_pretty(&normalized_config)?;
     log_info!(
-        "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, debug_mode={}, recording_logs={}, input_sensitivity={:.2}",
+        "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, recording_logs={}, input_sensitivity={:.2}",
         normalized_config.transcription_mode,
         normalized_config.local_engine,
         normalized_config.local_model_size,
         normalized_config.hotkey,
         normalized_config.audio_device,
-        normalized_config.debug_mode,
         normalized_config.enable_recording_logs,
         normalized_config.input_sensitivity
     );

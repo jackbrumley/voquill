@@ -24,7 +24,6 @@ function App() {
 
   const logUI = (msg: string) => {
     if (
-      !configHook.config.debug_mode &&
       !msg.includes('Button clicked') &&
       !msg.includes('Toast') &&
       !msg.includes('Setting changed') &&
@@ -159,7 +158,7 @@ function App() {
       audioSetup.setMicTestPassed(true);
     },
     onMicVolume: audioSetup.setMicVolume,
-    onDownloadProgress: (_progress) => {},
+    onDownloadProgress: (progress) => { configHook.setDownloadProgress(progress); },
     onFocus: () => { audioSetup.checkSetupStatus(); },
     onHashChange: () => {
       activeRoute.value = routeFromHash(window.location.hash);
@@ -281,7 +280,7 @@ function App() {
             invoke('test_cleanup_api', {
               apiKey: cfg.post_process_api_key,
               apiUrl: cfg.post_process_api_url,
-              model: cfg.post_process_model,
+              model: cfg.post_process_api_model,
             })
               .then((result) => showToast(`Post-processing test: ${result}`, 'success'))
               .catch((err) => showToast(`Post-processing test failed: ${err}`, 'error'));
