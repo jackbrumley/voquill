@@ -239,7 +239,7 @@ impl ModelManager {
 
     fn post_process_models() -> Vec<ModelInfo> {
         vec![
-            Self::model_info("Post-Process (Local)", "qwen2.5-1.5b-instruct", "Qwen 2.5 1.5B (Recommended)", 700_000_000,
+            Self::model_info("Post-Process (Local)", "qwen2.5-1.5b-instruct", "Qwen 2.5 1.5B", 700_000_000,
                 "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
                 "",
                 "Small local model for post-processing. Fixes punctuation, capitalization, and removes filler words. ~3-5s on CPU.",

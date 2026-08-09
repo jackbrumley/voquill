@@ -1,10 +1,9 @@
-import { IconInfoCircle, IconRefresh, IconX } from '@tabler/icons-preact';
+import { IconChevronLeft, IconInfoCircle, IconRefresh, IconX } from '@tabler/icons-preact';
 import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { ConfigField } from '../components/ConfigField.tsx';
 import { Switch } from '../components/Switch.tsx';
-import { CollapsibleSection } from '../components/CollapsibleSection.tsx';
 import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
 import { Button } from '../components/Button.tsx';
 import { NumberField } from '../components/NumberField.tsx';
@@ -13,7 +12,7 @@ import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
 import { SelectField } from '../components/SelectField.tsx';
 import type { GpuStatus, EngineCapabilities } from '../types.ts';
 import { EngineSettingsPanel } from '../components/EngineSettingsPanel.tsx';
-import { helperTextStyle, inputBaseStyle, selectWrapperStyle, tabPanelContentStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
+import { helperTextStyle, inputBaseStyle, selectWrapperStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 
 interface AudioDevice {
@@ -168,12 +167,99 @@ export function ConfigPage(props: ConfigPageProps) {
     fontWeight: 700,
   } as const;
 
+  const sectionTitleMap: Record<string, string> = {
+    'general': 'General',
+    'audio': 'Audio',
+    'dictionary': 'Dictionary',
+    'transcription': 'Transcription',
+    'post-process': 'Post-Processing',
+    'typing': 'Typing',
+    'debug': 'Debug',
+  };
+
+  function SectionNavItem({ title, section }: { title: string; section: string }) {
+    const isHovered = useSignal(false);
+
+    return (
+      <div
+        onClick={() => setActiveConfigSection(section)}
+        onMouseEnter={() => { isHovered.value = true; }}
+        onMouseLeave={() => { isHovered.value = false; }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: tokens.spacing.sm,
+          padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+          cursor: 'pointer',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          MozUserSelect: 'none',
+          background: isHovered.value ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+          transition: 'background 0.15s ease',
+        }}
+      >
+        <span style={{
+          color: isHovered.value ? tokens.colors.textPrimary : tokens.colors.textMuted,
+          fontSize: '18px',
+          lineHeight: 1,
+          flexShrink: 0,
+          transition: tokens.transitions.fast,
+        }}>•</span>
+        <span style={{
+          fontWeight: 700,
+          fontSize: tokens.typography.sizeSm,
+          color: isHovered.value ? tokens.colors.textPrimary : tokens.colors.textSecondary,
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          transition: tokens.transitions.fast,
+        }}>
+          {title}
+        </span>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ ...tabPanelStyle, padding: 0, height: '100%' }} key="settings">
-      <div style={{ ...tabPanelContentStyle, maxWidth: '100%', margin: 0, flex: 1, overflow: 'visible' }}>
-        {!activeConfigSection || activeConfigSection === 'general' ? (
-        <CollapsibleSection title="General" isOpen={activeConfigSection === 'general'} onToggle={() => setActiveConfigSection(activeConfigSection === 'general' ? null : 'general')}>
-          <ConfigField
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} key="settings">
+      {activeConfigSection === null ? (
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <SectionNavItem title="General" section="general" />
+          <SectionNavItem title="Audio" section="audio" />
+          <SectionNavItem title="Dictionary" section="dictionary" />
+          <SectionNavItem title="Transcription" section="transcription" />
+          <SectionNavItem title="Post-Processing" section="post-process" />
+          <SectionNavItem title="Typing" section="typing" />
+          <SectionNavItem title="Debug" section="debug" />
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <div
+            onClick={() => setActiveConfigSection(null)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: tokens.spacing.sm,
+              padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+              cursor: 'pointer',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              MozUserSelect: 'none',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              flex: '0 0 auto',
+              transition: 'background 0.15s ease',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255, 255, 255, 0.08)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+          >
+            <IconChevronLeft size={20} style={{ flexShrink: 0, color: tokens.colors.textMuted }} />
+            <span style={{ fontWeight: 700, fontSize: tokens.typography.sizeSm, color: tokens.colors.textPrimary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {sectionTitleMap[activeConfigSection]}
+            </span>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: tokens.spacing.md, display: 'flex', flexDirection: 'column', gap: tokens.spacing.md }}>
+            {activeConfigSection === 'general' && (
+              <>
+              <ConfigField
             label="Recording Mode"
             description="Hold the hotkey while speaking, or press it to start and again to stop. Pressing the hotkey while transcribing cancels."
           >
@@ -240,12 +326,12 @@ export function ConfigPage(props: ConfigPageProps) {
               />
             </div>
           </ConfigField>
-        </CollapsibleSection>
-      ) : null}
+              </>
+            )}
 
-      {!activeConfigSection || activeConfigSection === 'audio' ? (
-        <CollapsibleSection title="Audio" isOpen={activeConfigSection === 'audio'} onToggle={() => setActiveConfigSection(activeConfigSection === 'audio' ? null : 'audio')}>
-          <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
+            {activeConfigSection === 'audio' && (
+              <>
+              <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
             <div style={selectWrapperStyle}>
               <SelectField
                 value={config.audio_device || 'default'}
@@ -270,12 +356,12 @@ export function ConfigPage(props: ConfigPageProps) {
               onStopMicPlayback={stopMicPlayback}
             />
           </ConfigField>
-        </CollapsibleSection>
-      ) : null}
+              </>
+            )}
 
-      {!activeConfigSection || activeConfigSection === 'dictionary' ? (
-        <CollapsibleSection title="Dictionary" isOpen={activeConfigSection === 'dictionary'} onToggle={() => setActiveConfigSection(activeConfigSection === 'dictionary' ? null : 'dictionary')}>
-          <ConfigField label="Custom Words" description="Add names, jargon, or terms Whisper often gets wrong. Helps improve accuracy.">
+            {activeConfigSection === 'dictionary' && (
+              <>
+              <ConfigField label="Custom Words" description="Add names, jargon, or terms Whisper often gets wrong. Helps improve accuracy.">
             <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
               <div style={{ display: 'flex', gap: tokens.spacing.xs, width: '100%' }}>
                 <input
@@ -349,12 +435,12 @@ export function ConfigPage(props: ConfigPageProps) {
               )}
             </div>
           </ConfigField>
-        </CollapsibleSection>
-      ) : null}
+              </>
+            )}
 
-      {!activeConfigSection || activeConfigSection === 'transcription' ? (
-        <CollapsibleSection title="Transcription" isOpen={activeConfigSection === 'transcription'} onToggle={() => setActiveConfigSection(activeConfigSection === 'transcription' ? null : 'transcription')}>
-          <ConfigField
+            {activeConfigSection === 'transcription' && (
+              <>
+              <ConfigField
             label="Global Hotkey"
             description={
               config.hotkey_mode === 'Toggle'
@@ -502,113 +588,112 @@ export function ConfigPage(props: ConfigPageProps) {
               step={50}
             />
           </ConfigField>
+              </>
+            )}
 
-        </CollapsibleSection>
-      ) : null}
-
-      {!activeConfigSection || activeConfigSection === 'post-process' ? (
-        <CollapsibleSection title="Post-Processing" isOpen={activeConfigSection === 'post-process'} onToggle={() => setActiveConfigSection(activeConfigSection === 'post-process' ? null : 'post-process')}>
-          <ConfigField label="Post-Processing" description="Run transcribed text through a language model to fix punctuation, capitalization, and remove filler words.">
-            <Switch checked={config.post_process_enabled} onChange={(checked) => updateConfig('post_process_enabled', checked)} />
-          </ConfigField>
-
-          {config.post_process_enabled && (
-            <>
-              <ConfigField label="Method" description="Choose between a local model or a cloud API for post-processing.">
-                <ModeSwitcher
-                  value={config.post_process_provider}
-                  onToggle={(val) => updateConfig('post_process_provider', val)}
-                  options={[
-                    { value: 'Local', label: 'Local', title: 'Use a local GGUF model (coming soon)' },
-                    { value: 'API', label: 'Cloud API', title: 'Use an OpenAI-compatible API' },
-                  ]}
-                />
+{activeConfigSection === 'post-process' && (
+              <>
+              <ConfigField label="Post-Processing" description="Run transcribed text through a language model to fix punctuation, capitalization, and remove filler words.">
+                <Switch checked={config.post_process_enabled} onChange={(checked) => updateConfig('post_process_enabled', checked)} />
               </ConfigField>
 
-              {config.post_process_provider === 'API' ? (
+              {config.post_process_enabled && (
                 <>
-                  <ConfigField label="API Key" description="Used to authenticate with the post-processing service (OpenAI, OpenRouter, etc.).">
-                    <div style={{ ...selectWrapperStyle }}>
-                      <input style={inputBaseStyle} type="text" value={config.post_process_api_key} onChange={(e: Event) => updateConfig('post_process_api_key', (e.target as HTMLInputElement).value)} placeholder="sk-..." />
-                      <Button variant="configAction" onClick={testCleanupApi}>Test</Button>
-                    </div>
+                  <ConfigField label="Method" description="Choose between a local model or a cloud API for post-processing.">
+                    <ModeSwitcher
+                      value={config.post_process_provider}
+                      onToggle={(val) => updateConfig('post_process_provider', val)}
+                      options={[
+                        { value: 'Local', label: 'Local', title: 'Use a local GGUF model (coming soon)' },
+                        { value: 'API', label: 'Cloud API', title: 'Use an OpenAI-compatible API' },
+                      ]}
+                    />
                   </ConfigField>
 
-                  <ConfigField label="API URL" description="The OpenAI-compatible endpoint for post-processing (e.g. OpenRouter, local llama-server).">
-                    <input style={inputBaseStyle} type="url" value={config.post_process_api_url} onChange={(e: Event) => updateConfig('post_process_api_url', (e.target as HTMLInputElement).value)} placeholder="https://openrouter.ai/api/v1/chat/completions" />
-                  </ConfigField>
+                  {config.post_process_provider === 'API' ? (
+                    <>
+                      <ConfigField label="API Key" description="Used to authenticate with the post-processing service (OpenAI, OpenRouter, etc.).">
+                        <div style={{ ...selectWrapperStyle }}>
+                          <input style={inputBaseStyle} type="text" value={config.post_process_api_key} onChange={(e: Event) => updateConfig('post_process_api_key', (e.target as HTMLInputElement).value)} placeholder="sk-..." />
+                          <Button variant="configAction" onClick={testCleanupApi}>Test</Button>
+                        </div>
+                      </ConfigField>
 
-                  <ConfigField label="Model" description="The model name to use with your post-processing API provider.">
-                    <input style={inputBaseStyle} type="text" value={config.post_process_api_model} onChange={(e: Event) => updateConfig('post_process_api_model', (e.target as HTMLInputElement).value)} placeholder="openai/gpt-4o-mini" />
-                  </ConfigField>
+                      <ConfigField label="API URL" description="The OpenAI-compatible endpoint for post-processing (e.g. OpenRouter, local llama-server).">
+                        <input style={inputBaseStyle} type="url" value={config.post_process_api_url} onChange={(e: Event) => updateConfig('post_process_api_url', (e.target as HTMLInputElement).value)} placeholder="https://openrouter.ai/api/v1/chat/completions" />
+                      </ConfigField>
+
+                      <ConfigField label="Model" description="The model name to use with your post-processing API provider.">
+                        <input style={inputBaseStyle} type="text" value={config.post_process_api_model} onChange={(e: Event) => updateConfig('post_process_api_model', (e.target as HTMLInputElement).value)} placeholder="openai/gpt-4o-mini" />
+                      </ConfigField>
+                    </>
+                  ) : (
+                    <ConfigField label="Local Model" description="Download a GGUF model for on-device post-processing. No internet connection needed after download.">
+                      <ModelSelectionPanel
+                        availableModels={(availableModels || []).filter((m) => m.engine === 'Post-Process (Local)')}
+                        localEngine="Post-Process (Local)"
+                        localModelSize={config.post_process_model}
+                        modelStatus={modelStatus}
+                        isDownloading={isDownloading}
+                        downloadProgress={downloadProgress}
+                        onChangeModel={(size) => updateConfig('post_process_model', size)}
+                        onDownloadModel={(size) => downloadModel(size, 'Post-Process (Local)')}
+                        onRetryModels={loadModels}
+                        onShowModelGuide={() => setShowPostProcessGuide(true)}
+                      />
+                    </ConfigField>
+                  )}
                 </>
-) : (
-                <ConfigField label="Local Model" description="Download a GGUF model for on-device post-processing. No internet connection needed after download.">
-                  <ModelSelectionPanel
-                    availableModels={(availableModels || []).filter((m) => m.engine === 'Post-Process (Local)')}
-                    localEngine="Post-Process (Local)"
-                    localModelSize={config.post_process_model}
-                    modelStatus={modelStatus}
-                    isDownloading={isDownloading}
-                    downloadProgress={downloadProgress}
-                    onChangeModel={(size) => updateConfig('post_process_model', size)}
-onDownloadModel={(size) => downloadModel(size, 'Post-Process (Local)')}
-                    onRetryModels={loadModels}
-                    onShowModelGuide={() => setShowPostProcessGuide(true)}
-                  />
-                </ConfigField>
               )}
-            </>
-          )}
-        </CollapsibleSection>
-      ) : null}
+              </>
+            )}
 
-      {!activeConfigSection || activeConfigSection === 'typing' ? (
-        <CollapsibleSection title="Typing" isOpen={activeConfigSection === 'typing'} onToggle={() => setActiveConfigSection(activeConfigSection === 'typing' ? null : 'typing')}>
-          <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
-            <NumberField value={config.typing_speed_interval} onChange={(value) => updateConfig('typing_speed_interval', value)} min={1} />
-          </ConfigField>
+            {activeConfigSection === 'typing' && (
+              <>
+              <ConfigField label="Typing Speed (ms)" description="Delay between characters. Lower values are faster (1ms recommended).">
+                <NumberField value={config.typing_speed_interval} onChange={(value) => updateConfig('typing_speed_interval', value)} min={1} />
+              </ConfigField>
 
-          <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
-            <NumberField value={config.key_press_duration_ms} onChange={(value) => updateConfig('key_press_duration_ms', value)} min={1} />
-          </ConfigField>
+              <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
+                <NumberField value={config.key_press_duration_ms} onChange={(value) => updateConfig('key_press_duration_ms', value)} min={1} />
+              </ConfigField>
+              </>
+            )}
 
-        </CollapsibleSection>
-      ) : null}
+            {activeConfigSection === 'debug' && (
+              <>
+              <ConfigField label="Logs" description="Open logs for troubleshooting and support.">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
+                  <Button variant="configAction" onClick={openDebugFolder}>Open Logs</Button>
+                </div>
+              </ConfigField>
 
-      {!activeConfigSection || activeConfigSection === 'debug' ? (
-        <CollapsibleSection title="Debug" isOpen={activeConfigSection === 'debug'} onToggle={() => setActiveConfigSection(activeConfigSection === 'debug' ? null : 'debug')}>
-          <ConfigField label="Logs" description="Open logs for troubleshooting and support.">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
-              <Button variant="configAction" onClick={openDebugFolder}>Open Logs</Button>
-            </div>
-          </ConfigField>
+              <ConfigField label="Recordings" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: tokens.spacing.sm, width: '100%' }}>
+                  <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} />
+                  <div style={{ display: 'flex', justifyContent: 'flex-start', gap: tokens.spacing.sm, width: '100%' }}>
+                    <Button variant="ghost" pill style={configGhostPillStyle} onClick={openDebugFolder}>Open Folder</Button>
+                    <Button variant="danger" pill style={configGhostPillStyle} onClick={async () => { if (await confirm('Delete all recorded WAV files?')) { try { await invoke('clear_recording_logs'); } catch (e) { console.error('Failed to delete recordings:', e); } } }}>Delete</Button>
+                  </div>
+                </div>
+              </ConfigField>
 
-          <ConfigField label="Recordings" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: tokens.spacing.sm, width: '100%' }}>
-              <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} />
-              <div style={{ display: 'flex', justifyContent: 'flex-start', gap: tokens.spacing.sm, width: '100%' }}>
-                <Button variant="ghost" pill style={configGhostPillStyle} onClick={openDebugFolder}>Open Folder</Button>
-                <Button variant="danger" pill style={configGhostPillStyle} onClick={async () => { if (await confirm('Delete all recorded WAV files?')) { try { await invoke('clear_recording_logs'); } catch (e) { console.error('Failed to delete recordings:', e); } } }}>Delete</Button>
-              </div>
-            </div>
-          </ConfigField>
+              <ConfigField label="Initial Setup" description="Re-open onboarding checks for permissions, model, and hotkey setup.">
+                <Button variant="configAction" onClick={onReopenInitialSetup}>Re-run Initial Setup</Button>
+              </ConfigField>
 
-          <ConfigField label="Initial Setup" description="Re-open onboarding checks for permissions, model, and hotkey setup.">
-            <Button variant="configAction" onClick={onReopenInitialSetup}>Re-run Initial Setup</Button>
-          </ConfigField>
+              <ConfigField label="Factory Reset" description="Reset Voquill to defaults and clear models, logs, and history.">
+                <Button variant="danger" pill onClick={onFactoryReset}>Reset App to Defaults</Button>
+              </ConfigField>
 
-          <ConfigField label="Factory Reset" description="Reset Voquill to defaults and clear models, logs, and history.">
-            <Button variant="danger" pill onClick={onFactoryReset}>Reset App to Defaults</Button>
-          </ConfigField>
-
-          <ConfigField label="UI Lab" labelBadge="Experimental" description="Open the internal visual QA page for component and state previews.">
-            <Button variant="ghost" pill style={configGhostPillStyle} onClick={onOpenUiLab}>Open UI Lab</Button>
-          </ConfigField>
-
-        </CollapsibleSection>
-      ) : null}
-      </div>
+              <ConfigField label="UI Lab" labelBadge="Experimental" description="Open the internal visual QA page for component and state previews.">
+                <Button variant="ghost" pill style={configGhostPillStyle} onClick={onOpenUiLab}>Open UI Lab</Button>
+              </ConfigField>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

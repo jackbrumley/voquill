@@ -10,7 +10,7 @@ use tokio::net::TcpStream;
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
-const BINARY_VERSION: &str = "b4779";
+const BINARY_VERSION: &str = "b10331";
 const PORT_START: u16 = 6030;
 const PORT_END: u16 = 6050;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
@@ -207,17 +207,23 @@ async fn download_binary(target_dir: &std::path::Path) -> Result<(), PostProcess
 
     let archive_file = std::fs::File::open(&archive_path)
         .map_err(|e| PostProcessError::Api(format!("Failed to open archive: {}", e)))?;
-
-    let mut archive = zip::ZipArchive::new(archive_file)
-        .map_err(|e| PostProcessError::Api(format!("Failed to read zip: {}", e)))?;
+    let decoder = flate2::read::GzDecoder::new(archive_file);
+    let mut archive = tar::Archive::new(decoder);
 
     let bin_name = binary_name();
     let mut found = false;
-    for i in 0..archive.len() {
-        let mut entry = archive
-            .by_index(i)
-            .map_err(|e| PostProcessError::Api(format!("Failed to read zip entry: {}", e)))?;
-        let entry_name = entry.name().to_string();
+
+    for entry in archive
+        .entries()
+        .map_err(|e| PostProcessError::Api(format!("Failed to read tar entries: {}", e)))?
+    {
+        let mut entry =
+            entry.map_err(|e| PostProcessError::Api(format!("Failed to read tar entry: {}", e)))?;
+        let entry_name = entry
+            .path()
+            .map_err(|_| PostProcessError::Api("Invalid path in tar".to_string()))?
+            .to_string_lossy()
+            .to_string();
         if entry_name.ends_with(&bin_name) || entry_name.ends_with(&format!("/{}", bin_name)) {
             let out_path = target_dir.join(&bin_name);
             let mut out_file = std::fs::File::create(&out_path)
@@ -274,7 +280,7 @@ fn binary_name() -> String {
 
 fn archive_name() -> &'static str {
     match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("linux", "x86_64") => "llama-b4779-bin-ubuntu-x64.zip",
+        ("linux", "x86_64") => "llama-b10331-bin-ubuntu-x64.tar.gz",
         _ => panic!(
             "Unsupported platform: {}-{}",
             std::env::consts::OS,

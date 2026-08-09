@@ -5741,6 +5741,7 @@ dependencies = [
  "cpal",
  "dirs 6.0.0",
  "env_logger",
+ "flate2",
  "futures-util",
  "gdk",
  "gtk",

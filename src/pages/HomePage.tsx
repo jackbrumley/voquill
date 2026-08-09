@@ -1,4 +1,4 @@
-import { IconAlertCircle, IconBrandGithub, IconHeart, IconUpload, IconClipboard } from '@tabler/icons-preact';
+import { IconAlertCircle, IconBrandGithub, IconHeart, IconUpload, IconCopy } from '@tabler/icons-preact';
 import { open } from '@tauri-apps/plugin-shell';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { useSignal } from '@preact/signals';
@@ -24,6 +24,7 @@ interface HomePageProps {
   onToggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
   hasUpdateAvailable: boolean;
   onOpenUpdateModal: () => void;
+  onCopyToClipboard: (text: string) => void;
 }
 
 type ImportStatus = 'idle' | 'transcribing' | 'done' | 'error';
@@ -36,6 +37,7 @@ export function HomePage({
   onToggleOutputMethod,
   hasUpdateAvailable,
   onOpenUpdateModal,
+  onCopyToClipboard,
 }: HomePageProps) {
   const [hoveredFooterIcon, setHoveredFooterIcon] = useState<'github' | 'heart' | null>(null);
   const isToggleMode = config.hotkey_mode === 'Toggle';
@@ -115,14 +117,6 @@ export function HomePage({
     }
   };
 
-  const copyResult = async () => {
-    try {
-      await invoke('plugin:clipboard-manager|write_text', { text: importResult.value });
-    } catch {
-      // silently ignore
-    }
-  };
-
   const dropZoneBorderColor = isDragOver.value
     ? tokens.colors.accentPrimary
     : 'rgba(255, 255, 255, 0.15)';
@@ -174,6 +168,7 @@ export function HomePage({
         <Card
           onClick={handleFilePick}
           style={{
+            padding: '12px',
             border: `2px dashed ${dropZoneBorderColor}`,
             cursor: 'pointer',
             boxShadow: isDragOver.value ? tokens.shadows.accent : tokens.shadows.md,
@@ -208,22 +203,31 @@ export function HomePage({
               </div>
               <div style={{ display: 'flex', gap: tokens.spacing.sm, marginTop: tokens.spacing.xs }}>
                 <button
-                  onClick={(e) => { e.stopPropagation(); copyResult(); }}
+                  onClick={(e) => { e.stopPropagation(); onCopyToClipboard(importResult.value); }}
                   title="Copy to clipboard"
                   style={{
-                    background: 'rgba(255,255,255,0.08)',
+                    background: 'transparent',
                     border: 'none',
-                    padding: '4px 10px',
+                    padding: '6px 10px',
                     borderRadius: '6px',
-                    color: tokens.colors.textSecondary,
+                    color: '#a9acb5',
                     cursor: 'pointer',
                     fontSize: tokens.typography.sizeXs,
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.1)';
+                    (e.currentTarget as HTMLElement).style.color = '#ffffff';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                    (e.currentTarget as HTMLElement).style.color = '#a9acb5';
                   }}
                 >
-                  <IconClipboard size={14} />
+                  <IconCopy size={16} />
                   Copy
                 </button>
                 <button
@@ -231,12 +235,21 @@ export function HomePage({
                   title="Transcribe another file"
                   style={{
                     background: 'transparent',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    padding: '4px 10px',
+                    border: 'none',
+                    padding: '6px 10px',
                     borderRadius: '6px',
-                    color: tokens.colors.textSecondary,
+                    color: '#a9acb5',
                     cursor: 'pointer',
                     fontSize: tokens.typography.sizeXs,
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.1)';
+                    (e.currentTarget as HTMLElement).style.color = '#ffffff';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                    (e.currentTarget as HTMLElement).style.color = '#a9acb5';
                   }}
                 >
                   New Import

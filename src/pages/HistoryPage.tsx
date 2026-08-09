@@ -1,5 +1,4 @@
 import { IconCopy, IconSearch, IconX } from '@tabler/icons-preact';
-import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 
 interface HistoryItem {
@@ -68,8 +67,8 @@ export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipb
   };
 
   return (
-    <div style={{ ...tabPanelStyle, paddingTop: '6px', height: '100%', minHeight: 0 }} key="history">
-      <div style={{ paddingBottom: '8px' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }} key="history">
+      <div style={{ padding: '6px 12px 8px' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <div style={{ position: 'relative' }}>
             <IconSearch
@@ -117,8 +116,8 @@ export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipb
         </div>
       </div>
 
-      <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, ...tabPanelPaddedStyle }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.sm }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: tokens.spacing.sm, padding: '0 12px 48px' }}>
           {displayItems.length === 0 ? (
             <p style={{ color: tokens.colors.textSecondary, fontSize: tokens.typography.sizeSm, marginTop: tokens.spacing.sm }}>
               {searchQuery.trim() ? 'No transcriptions match your search.' : 'No transcriptions yet.'}

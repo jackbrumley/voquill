@@ -88,6 +88,7 @@ export function MainLayout(props: MainLayoutProps) {
             onToggleOutputMethod={props.onToggleOutputMethod}
             hasUpdateAvailable={props.updateResult?.updateAvailable === true}
             onOpenUpdateModal={props.onOpenUpdateModal}
+            onCopyToClipboard={props.onCopyToClipboard}
           />
         )}
 
