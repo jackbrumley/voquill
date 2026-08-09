@@ -54,8 +54,6 @@ impl SidecarPostProcess {
             .arg(port.to_string())
             .arg("-ngl")
             .arg("0")
-            .arg("--slot-save-file")
-            .arg("0")
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .stdin(Stdio::null())
@@ -210,32 +208,53 @@ async fn download_binary(target_dir: &std::path::Path) -> Result<(), PostProcess
     let decoder = flate2::read::GzDecoder::new(archive_file);
     let mut archive = tar::Archive::new(decoder);
 
-    let bin_name = binary_name();
-    let mut found = false;
-
     for entry in archive
         .entries()
         .map_err(|e| PostProcessError::Api(format!("Failed to read tar entries: {}", e)))?
     {
         let mut entry =
             entry.map_err(|e| PostProcessError::Api(format!("Failed to read tar entry: {}", e)))?;
-        let entry_name = entry
+        let path = entry
             .path()
-            .map_err(|_| PostProcessError::Api("Invalid path in tar".to_string()))?
-            .to_string_lossy()
-            .to_string();
-        if entry_name.ends_with(&bin_name) || entry_name.ends_with(&format!("/{}", bin_name)) {
-            let out_path = target_dir.join(&bin_name);
+            .map_err(|_| PostProcessError::Api("Invalid path in tar".to_string()))?;
+
+        // Strip the top-level directory (e.g. "llama-b10331/") so files go flat into target_dir
+        let components: Vec<_> = path.components().collect();
+        if components.len() < 2 {
+            continue;
+        }
+        let relative: PathBuf = components[1..].iter().collect();
+        let out_path = target_dir.join(&relative);
+
+        if entry.header().entry_type().is_symlink() {
+            if let Some(parent) = out_path.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| PostProcessError::Api(format!("Failed to create dir: {}", e)))?;
+            }
+            let target = entry
+                .link_name()
+                .map_err(|_| PostProcessError::Api("Invalid symlink target".to_string()))?
+                .ok_or_else(|| PostProcessError::Api("Symlink with no target".to_string()))?;
+            #[cfg(unix)]
+            std::os::unix::fs::symlink(&target, &out_path)
+                .map_err(|e| PostProcessError::Api(format!("Failed to create symlink: {}", e)))?;
+        } else if entry.header().entry_type().is_dir() {
+            let _ = std::fs::create_dir_all(&out_path);
+        } else {
+            if let Some(parent) = out_path.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| PostProcessError::Api(format!("Failed to create dir: {}", e)))?;
+            }
             let mut out_file = std::fs::File::create(&out_path)
-                .map_err(|e| PostProcessError::Api(format!("Failed to create binary: {}", e)))?;
+                .map_err(|e| PostProcessError::Api(format!("Failed to create file: {}", e)))?;
             std::io::copy(&mut entry, &mut out_file)
-                .map_err(|e| PostProcessError::Api(format!("Failed to extract binary: {}", e)))?;
-            found = true;
-            break;
+                .map_err(|e| PostProcessError::Api(format!("Failed to extract file: {}", e)))?;
         }
     }
 
-    if !found {
+    let bin_name = binary_name();
+    let bin_path = target_dir.join(&bin_name);
+    if !bin_path.exists() {
         return Err(PostProcessError::Api(format!(
             "{} not found in archive",
             bin_name
@@ -245,7 +264,6 @@ async fn download_binary(target_dir: &std::path::Path) -> Result<(), PostProcess
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let bin_path = target_dir.join(&bin_name);
         if let Ok(meta) = std::fs::metadata(&bin_path) {
             let mut perms = meta.permissions();
             perms.set_mode(perms.mode() | 0o111);
