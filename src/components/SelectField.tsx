@@ -1,6 +1,6 @@
 import type { JSX } from 'preact';
 import { useRef } from 'preact/hooks';
-import { useSignal, useSignalEffect, useComputed } from '@preact/signals';
+import { useSignal, useSignalEffect } from '@preact/signals';
 import { IconCheck, IconChevronDown } from '@tabler/icons-preact';
 import { tokens } from '../design-tokens.ts';
 
@@ -52,24 +52,16 @@ export function SelectField({
 
   const selectedOption = options.find((option) => option.value === value) || null;
 
-  const filteredOptions = useComputed(() => {
-    if (!searchable) {
-      return options;
-    }
-
-    const query = searchQuery.value.trim().toLowerCase();
-    if (!query) {
-      return options;
-    }
-
-    return options.filter((option) => {
-      const searchPool = `${option.label} ${option.value} ${option.searchText || ''}`.toLowerCase();
-      return searchPool.includes(query);
-    });
-  });
+  const query = searchable ? searchQuery.value.trim().toLowerCase() : '';
+  const filteredOptions = query
+    ? options.filter((option) => {
+        const searchPool = `${option.label} ${option.value} ${option.searchText || ''}`.toLowerCase();
+        return searchPool.includes(query);
+      })
+    : options;
 
   const findNextEnabledIndex = (startIndex: number, direction: 1 | -1) => {
-    const filtered = filteredOptions.value;
+    const filtered = filteredOptions;
     if (filtered.length === 0 || filtered.every((option) => option.disabled)) {
       return -1;
     }
@@ -143,7 +135,7 @@ export function SelectField({
       return;
     }
 
-    const selectedIndex = filteredOptions.value.findIndex((o) => o.value === value && !o.disabled);
+    const selectedIndex = filteredOptions.findIndex((o) => o.value === value && !o.disabled);
     if (selectedIndex >= 0) {
       highlightedIndex.value = selectedIndex;
       return;
@@ -155,8 +147,9 @@ export function SelectField({
   // Re-highlight on search query change
   useSignalEffect(() => {
     if (!isOpen.value || !searchable) return;
+    void searchQuery.value;
 
-    const selectedIndex = filteredOptions.value.findIndex((o) => o.value === value && !o.disabled);
+    const selectedIndex = filteredOptions.findIndex((o) => o.value === value && !o.disabled);
     if (selectedIndex >= 0) {
       highlightedIndex.value = selectedIndex;
       return;
@@ -226,7 +219,7 @@ export function SelectField({
       if (highlightedIndex.value < 0) {
         return;
       }
-      const option = filteredOptions.value[highlightedIndex.value];
+      const option = filteredOptions[highlightedIndex.value];
       if (!option?.disabled) {
         selectOption(option.value);
       }
@@ -363,7 +356,7 @@ export function SelectField({
           )}
 
           <div style={{ maxHeight: '260px', overflow: 'auto', padding: '6px' }}>
-            {filteredOptions.value.length === 0 ? (
+            {filteredOptions.length === 0 ? (
               <div
                 style={{
                   color: tokens.colors.textSecondary,
@@ -375,7 +368,7 @@ export function SelectField({
                 {emptyMessage}
               </div>
             ) : (
-              filteredOptions.value.map((option, index) => {
+              filteredOptions.map((option, index) => {
                 const isSelected = option.value === value;
                 const isHighlighted = index === highlightedIndex.value;
                 const isInteractive = !option.disabled;

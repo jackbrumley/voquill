@@ -101,8 +101,10 @@ pub fn type_text_hardware(
 }
 
 unsafe fn emit_vk(vk: VIRTUAL_KEY, is_down: bool) {
-    let mut input = INPUT::default();
-    input.r#type = INPUT_KEYBOARD;
+    let mut input = INPUT {
+        r#type: INPUT_KEYBOARD,
+        ..Default::default()
+    };
     input.Anonymous.ki = KEYBDINPUT {
         wVk: vk,
         wScan: 0,

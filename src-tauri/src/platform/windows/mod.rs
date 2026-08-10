@@ -11,6 +11,7 @@ use crate::platform::traits::{
     DisplayBackend, GlobalShortcutEngine, InputSimulation, PermissionManager, WindowManagement,
 };
 
+#[derive(Default)]
 pub struct WindowsBackend;
 
 impl WindowsBackend {
