@@ -1,12 +1,63 @@
 use hound::{WavSpec, WavWriter};
 
+use super::decode::decode_compressed_audio;
+
 pub fn convert_audio_file_for_whisper(
     data: &[u8],
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-    let reader = hound::WavReader::new(std::io::Cursor::new(data))?;
-    let sample_rate = reader.spec().sample_rate;
-    let channels = reader.spec().channels;
-    convert_audio_for_whisper(data, sample_rate, channels)
+    if is_wav_file(data) {
+        let reader = hound::WavReader::new(std::io::Cursor::new(data))?;
+        let sample_rate = reader.spec().sample_rate;
+        let channels = reader.spec().channels;
+        return convert_audio_for_whisper(data, sample_rate, channels);
+    }
+
+    let decoded = decode_compressed_audio(data)?;
+    let mono = downmix_to_mono(&decoded.samples, decoded.channels);
+    let resampled = resample_audio_f32(&mono, decoded.sample_rate, 16000);
+    let samples: Vec<i16> = resampled
+        .iter()
+        .map(|&sample| float_to_i16(sample))
+        .collect();
+    write_whisper_wav(&samples)
+}
+
+fn is_wav_file(data: &[u8]) -> bool {
+    data.len() >= 12 && &data[0..4] == b"RIFF" && &data[8..12] == b"WAVE"
+}
+
+fn downmix_to_mono(samples: &[f32], channels: usize) -> Vec<f32> {
+    if channels <= 1 {
+        return samples.to_vec();
+    }
+    samples
+        .chunks_exact(channels)
+        .map(|frame| frame.iter().sum::<f32>() / channels as f32)
+        .collect()
+}
+
+fn float_to_i16(sample: f32) -> i16 {
+    (sample.clamp(-1.0, 1.0) * i16::MAX as f32) as i16
+}
+
+fn write_whisper_wav(samples: &[i16]) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let mut out = Vec::new();
+    {
+        let mut writer = WavWriter::new(
+            std::io::Cursor::new(&mut out),
+            WavSpec {
+                channels: 1,
+                sample_rate: 16000,
+                bits_per_sample: 16,
+                sample_format: hound::SampleFormat::Int,
+            },
+        )?;
+        for &sample in samples {
+            writer.write_sample(sample)?;
+        }
+        writer.finalize()?;
+    }
+    Ok(out)
 }
 
 pub fn convert_audio_for_whisper(
@@ -36,23 +87,7 @@ pub fn convert_audio_for_whisper(
     if reader.spec().sample_rate != 16000 {
         mono = resample_audio(&mono, reader.spec().sample_rate, 16000);
     }
-    let mut out = Vec::new();
-    {
-        let mut w = WavWriter::new(
-            std::io::Cursor::new(&mut out),
-            WavSpec {
-                channels: 1,
-                sample_rate: 16000,
-                bits_per_sample: 16,
-                sample_format: hound::SampleFormat::Int,
-            },
-        )?;
-        for s in mono {
-            w.write_sample(s)?;
-        }
-        w.finalize()?;
-    }
-    Ok(out)
+    write_whisper_wav(&mono)
 }
 
 pub fn resample_audio(samples: &[i16], from: u32, to: u32) -> Vec<i16> {

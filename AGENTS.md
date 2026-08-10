@@ -74,6 +74,7 @@ All five must pass without warnings. Treat compiler warnings as errors.
 - **Dictation Session Lifecycle:** `SessionState` (`Idle` / `Recording` / `Transcribing` / `Typing`) in `AppState` is the authoritative session guard; a new session may only start from `Idle`. Each session carries a cancel token in `AppState.active_session` so a cancelled pipeline can never clobber a newer session's state or status.
 - **Hotkey Gestures:** All press/release semantics (hold-to-talk, toggle mode, press-to-cancel) live in `app/hotkey_handler.rs`. Platform backends (the Wayland portal loop, the X11/Windows plugin handler in `main.rs`) only feed it events; never implement gesture logic inside a backend.
 - **Modularity:** Keep hardware-specific logic isolated in modules (e.g., `audio.rs`, `typing.rs`, `hotkey.rs`).
+- **Audio File Decoding:** Imported audio files (m4a/mp3/flac/ogg/wav) are decoded with `symphonia` (pure Rust, no external binaries) in `audio/decode.rs`; `audio/conversion.rs` owns normalization to 16kHz mono WAV for whisper. WAV inputs keep the original hound fast path.
 
 ### 2. Frontend (Preact, lives in `src/`)
 - **Strict TypeScript:** No `any`. Explicit interfaces for all data structures (API responses, State slices).

@@ -44,6 +44,18 @@ tar = "0.4.46"
 tokio-tungstenite = "0.30.0"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
+symphonia = { version = "0.5", default-features = false, features = [
+    "aac",
+    "alac",
+    "isomp4",
+    "mp3",
+    "flac",
+    "ogg",
+    "vorbis",
+    "wav",
+    "pcm",
+    "opt-simd",
+] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "2"
