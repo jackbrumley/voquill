@@ -319,19 +319,6 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
     }
 }
 
-pub fn is_first_launch() -> Result<bool, Box<dyn std::error::Error>> {
-    let config_path = get_config_path()?;
-
-    // If config file doesn't exist, it's definitely first launch
-    if !config_path.exists() {
-        return Ok(true);
-    }
-
-    // If config exists but API key is still default, treat as first launch
-    let config = load_config()?;
-    Ok(config.openai_api_key == "your_api_key_here" || config.openai_api_key.is_empty())
-}
-
 pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let config_path = get_config_path()?;
     log_info!("Attempting to save config to: {:?}", config_path);

@@ -10,14 +10,10 @@ import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
 import { SelectField } from '../components/SelectField.tsx';
 import { SurfaceCard } from '../components/SurfaceCard.tsx';
 import { SettingRow } from '../components/SettingRow.tsx';
-import { helperTextStyle, inputBaseStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
+import { helperTextStyle, inputBaseStyle, selectWrapperStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
-import type { DownloadPhase } from '../types.ts';
-
-interface AudioDevice {
-  id: string;
-  label: string;
-}
+import { API_KEY_PLACEHOLDER, type ReadinessStatus } from '../readiness.ts';
+import type { AudioDevice, DownloadPhase, GpuStatus } from '../types.ts';
 
 interface ModelInfo {
   engine: string;
@@ -51,11 +47,17 @@ interface SetupConfig {
   hotkey: string;
   audio_device: string | null;
   input_sensitivity: number;
+  openai_api_key: string;
+  post_process_enabled: boolean;
+  post_process_provider: 'Local' | 'API';
+  post_process_model: string;
 }
 
 interface InitialSetupPageProps {
   permissions: LinuxPermissions | null;
   config: SetupConfig;
+  readiness: ReadinessStatus;
+  availableEngines: string[];
   availableModels: ModelInfo[];
   modelStatus: Record<string, boolean>;
   downloadProgress: number;
@@ -65,13 +67,14 @@ interface InitialSetupPageProps {
   isSystemManagedShortcut: boolean;
   systemShortcutContext: SystemShortcutContext | null;
   isApplyingHotkey: boolean;
+  hotkeyError: string | null;
   availableMics: AudioDevice[];
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   micTestPassed: boolean;
-  isLocalModelReady: boolean;
-  isAudioDeviceReady: boolean;
-  isAllReady: boolean;
+  gpuStatus: GpuStatus | null;
+  isTestingEngine: boolean;
+  isTestingApi: boolean;
   isRecordingHotkey: boolean;
   setupTouched: boolean;
   onTouchSetup: () => void;
@@ -82,14 +85,17 @@ interface InitialSetupPageProps {
   onHotkeyKeyUp: (event: KeyboardEvent) => void;
   onHotkeyBlur: () => void;
   onChangeConfig: (key: string, value: string | number | boolean | null) => void;
+  onSelectEngine: (engine: string) => void;
   onShowModelGuide: () => void;
   onDownloadModel: (size: string) => void;
+  onDownloadPostProcessModel: (size: string) => void;
   onRetryModels: () => void;
   onLoadMics: () => void;
   onStartMicTest: () => void;
   onStopMicTest: () => void;
   onStopMicPlayback: () => void;
   onRefreshStatus: () => void;
+  onTestApiKey: () => void;
   onFinishSetup: () => void;
 }
 
@@ -97,6 +103,8 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
   const {
     permissions,
     config,
+    readiness,
+    availableEngines,
     availableModels,
     modelStatus,
     downloadProgress,
@@ -105,13 +113,14 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
     portalVersion,
     isSystemManagedShortcut,
     isApplyingHotkey,
+    hotkeyError,
     availableMics,
     micTestStatus,
     micVolume,
     micTestPassed,
-    isLocalModelReady,
-    isAudioDeviceReady,
-    isAllReady,
+    gpuStatus,
+    isTestingEngine,
+    isTestingApi,
     isRecordingHotkey,
     setupTouched,
     onTouchSetup,
@@ -122,14 +131,17 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
     onHotkeyKeyUp,
     onHotkeyBlur,
     onChangeConfig,
+    onSelectEngine,
     onShowModelGuide,
     onDownloadModel,
+    onDownloadPostProcessModel,
     onRetryModels,
     onLoadMics,
     onStartMicTest,
     onStopMicTest,
     onStopMicPlayback,
     onRefreshStatus,
+    onTestApiKey,
     onFinishSetup,
   } = props;
 
@@ -138,6 +150,9 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
     padding: '10px 24px',
     fontWeight: 700,
   } as const;
+
+  const warningTextStyle = { ...helperTextStyle, color: '#f1c40f' } as const;
+  const isGpuEngineSelected = config.local_engine.includes('(GPU)');
 
   return (
     <div style={{ ...tabPanelStyle, overflow: 'auto', padding: 0 }} key="initial-setup">
@@ -178,10 +193,10 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
             />
 
             <SettingRow
-              className={`permission-item ${permissions?.shortcuts ? 'ready' : ''}`}
+              className={`permission-item ${permissions?.shortcuts && !hotkeyError ? 'ready' : ''}`}
               title="Global Shortcuts"
               description="Required for the hotkey"
-              status={permissions?.shortcuts ? (
+              status={permissions?.shortcuts && !hotkeyError ? (
                 <IconCheck color="var(--colors-success)" size={20} />
               ) : (
                 <Button variant="ghost" size="sm" pill style={setupGhostPillStyle} onClick={onConfigureHotkey} disabled={isApplyingHotkey}>
@@ -213,8 +228,13 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                 />
               )}
               {!permissions?.shortcuts && permissions?.shortcuts_detail && (
-                <div style={{ ...helperTextStyle, color: '#f1c40f' }}>
+                <div style={warningTextStyle}>
                   {permissions.shortcuts_detail}
+                </div>
+              )}
+              {hotkeyError && (
+                <div style={warningTextStyle}>
+                  {hotkeyError}
                 </div>
               )}
             </SettingRow>
@@ -231,47 +251,105 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
             />
 
             <SettingRow
-              className={`permission-item ${isLocalModelReady ? 'ready' : ''}`}
+              className={`permission-item ${readiness.isTranscriptionReady ? 'ready' : ''}`}
               title="Transcription Backend"
               description={
                 config.transcription_mode === 'Local'
                   ? `Model ${config.local_model_size} is required for local transcription.`
-                  : 'API mode selected.'
+                  : 'A valid API key is required for cloud transcription.'
               }
-              status={isLocalModelReady ? <IconCheck color="var(--colors-success)" size={20} /> : null}
+              status={readiness.isTranscriptionReady ? <IconCheck color="var(--colors-success)" size={20} /> : null}
             >
-              {config.transcription_mode === 'Local' && (
-                <ModelSelectionPanel
-                  availableModels={availableModels}
-                  localEngine={config.local_engine}
-                  localModelSize={config.local_model_size}
-                  modelStatus={modelStatus}
-                  isDownloading={isDownloading}
-                  downloadProgress={downloadProgress}
-                  downloadPhase={downloadPhase}
-                  actionButtonSize="sm"
-                  onChangeModel={(size) => {
-                    onTouchSetup();
-                    onChangeConfig('local_model_size', size);
-                  }}
-                  onShowModelGuide={onShowModelGuide}
-                  onDownloadModel={(size) => {
-                    onTouchSetup();
-                    onDownloadModel(size);
-                  }}
-                  onRetryModels={() => {
-                    onTouchSetup();
-                    onRetryModels();
-                  }}
-                />
+              {config.transcription_mode === 'Local' ? (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+                    <SelectField
+                      value={config.local_engine}
+                      onChange={(engine) => {
+                        onTouchSetup();
+                        onSelectEngine(engine);
+                      }}
+                      searchable={false}
+                      ariaLabel="Transcription engine"
+                      options={availableEngines.map((engine) => ({
+                        value: engine,
+                        label: engine.includes('(GPU)') ? `${engine} — Recommended for dedicated GPUs` : engine,
+                      }))}
+                      style={{ minWidth: 0 }}
+                    />
+                    <div style={helperTextStyle}>
+                      GPU engines transcribe on your graphics card — dramatically faster than CPU when one is available.
+                    </div>
+                  </div>
+
+                  {isGpuEngineSelected && isTestingEngine && (
+                    <div style={helperTextStyle}>Testing GPU acceleration...</div>
+                  )}
+                  {isGpuEngineSelected && !isTestingEngine && gpuStatus?.tested && gpuStatus.available && (
+                    <div style={{ ...helperTextStyle, color: tokens.colors.success }}>
+                      GPU acceleration active — transcription will run on your graphics card.
+                    </div>
+                  )}
+                  {isGpuEngineSelected && !isTestingEngine && gpuStatus?.tested && !gpuStatus.available && (
+                    <div style={warningTextStyle}>
+                      GPU unavailable: {gpuStatus.detail || 'No compatible GPU detected.'} Voquill will fall back to the CPU engine automatically.
+                    </div>
+                  )}
+                  {isGpuEngineSelected && !isTestingEngine && !gpuStatus?.tested && (
+                    <div style={helperTextStyle}>
+                      GPU acceleration is verified automatically once a model is downloaded.
+                    </div>
+                  )}
+
+                  <ModelSelectionPanel
+                    availableModels={availableModels}
+                    localEngine={config.local_engine}
+                    localModelSize={config.local_model_size}
+                    modelStatus={modelStatus}
+                    isDownloading={isDownloading}
+                    downloadProgress={downloadProgress}
+                    downloadPhase={downloadPhase}
+                    actionButtonSize="sm"
+                    onChangeModel={(size) => {
+                      onTouchSetup();
+                      onChangeConfig('local_model_size', size);
+                    }}
+                    onShowModelGuide={onShowModelGuide}
+                    onDownloadModel={(size) => {
+                      onTouchSetup();
+                      onDownloadModel(size);
+                    }}
+                    onRetryModels={() => {
+                      onTouchSetup();
+                      onRetryModels();
+                    }}
+                  />
+                </>
+              ) : (
+                <div style={selectWrapperStyle}>
+                  <input
+                    style={inputBaseStyle}
+                    type="text"
+                    value={config.openai_api_key === API_KEY_PLACEHOLDER ? '' : config.openai_api_key}
+                    onChange={(event: Event) => {
+                      onTouchSetup();
+                      onChangeConfig('openai_api_key', (event.target as HTMLInputElement).value);
+                    }}
+                    placeholder="sk-..."
+                    aria-label="API key"
+                  />
+                  <Button variant="configAction" size="sm" onClick={onTestApiKey} disabled={isTestingApi}>
+                    {isTestingApi ? '...' : 'Test'}
+                  </Button>
+                </div>
               )}
             </SettingRow>
 
             <SettingRow
-              className={`permission-item ${isAudioDeviceReady ? 'ready' : ''}`}
+              className={`permission-item ${readiness.isAudioDeviceReady ? 'ready' : ''}`}
               title="Audio Device"
               description="Select the microphone Voquill should use."
-              status={isAudioDeviceReady ? (
+              status={readiness.isAudioDeviceReady ? (
                 <IconCheck color="var(--colors-success)" size={20} />
               ) : (
                 <Button variant="ghost" size="sm" pill style={setupGhostPillStyle} onClick={() => {
@@ -283,18 +361,27 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                 </Button>
               )}
             >
-              <SelectField
-                value={config.audio_device || 'default'}
-                onChange={(nextMicId) => {
-                  onTouchSetup();
-                  onChangeConfig('audio_device', nextMicId);
-                }}
-                options={[
-                  { value: 'default', label: 'Default microphone' },
-                  ...availableMics.map((mic) => ({ value: mic.id, label: mic.label || mic.id })),
-                ]}
-                ariaLabel="Setup microphone"
-              />
+              {readiness.audioDeviceIssue === 'no-devices' && (
+                <div style={warningTextStyle}>
+                  No microphones detected. Connect a microphone, then press Refresh.
+                </div>
+              )}
+              {readiness.audioDeviceIssue === 'device-missing' && (
+                <div style={warningTextStyle}>
+                  The previously selected microphone is not connected. Choose another device below.
+                </div>
+              )}
+              {readiness.audioDeviceIssue !== 'no-devices' && (
+                <SelectField
+                  value={config.audio_device || 'default'}
+                  onChange={(nextMicId) => {
+                    onTouchSetup();
+                    onChangeConfig('audio_device', nextMicId);
+                  }}
+                  options={availableMics.map((mic) => ({ value: mic.id, label: mic.label || mic.id }))}
+                  ariaLabel="Setup microphone"
+                />
+              )}
             </SettingRow>
 
             <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#d9dfe7', margin: '8px 0 6px' }}>Recommended</div>
@@ -318,6 +405,29 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               />
             </SettingRow>
 
+            {readiness.postProcessModelMissing && (
+              <SettingRow
+                className="permission-item"
+                title="Post-Processing Model"
+                description={`Post-processing is enabled but the ${config.post_process_model} model is not downloaded — transcript cleanup will fail until it is.`}
+                status={<IconInfoCircle size={20} color="#f1c40f" />}
+              >
+                <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+                  <Button
+                    variant="configAction"
+                    size="sm"
+                    disabled={isDownloading}
+                    onClick={() => {
+                      onTouchSetup();
+                      onDownloadPostProcessModel(config.post_process_model);
+                    }}
+                  >
+                    {isDownloading ? '...' : 'Download'}
+                  </Button>
+                </div>
+              </SettingRow>
+            )}
+
           </div>
 
         </div>
@@ -329,7 +439,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
             </Button>
             <Button
               variant="configAction"
-              disabled={!isAllReady}
+              disabled={!readiness.isAllReady}
               onClick={onFinishSetup}
               style={{ minWidth: '180px' }}
             >
@@ -337,7 +447,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
             </Button>
           </div>
 
-          {!isAllReady && setupTouched && (
+          {!readiness.isAllReady && setupTouched && (
             <div style={{ marginTop: '8px', fontSize: '11px', color: '#d9dfe7', textAlign: 'center' }}>
               Complete all required items to finish setup.
             </div>

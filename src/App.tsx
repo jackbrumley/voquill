@@ -17,7 +17,9 @@ import { useUpdates } from './hooks/useUpdates.ts';
 import { useAutostart } from './hooks/useAutostart.ts';
 import { useWindowControls } from './hooks/useWindowControls.ts';
 import { useInitialRoute } from './hooks/useInitialRoute.ts';
-import type { AppRoute, GpuStatus } from './types.ts';
+import { useGpuStatus } from './hooks/useGpuStatus.ts';
+import { computeReadiness } from './readiness.ts';
+import type { AppRoute } from './types.ts';
 
 function App() {
   const { showToast, ToastContainer } = useToast();
@@ -64,8 +66,8 @@ function App() {
 
   const activeRoute = useSignal<AppRoute>(routeFromHash(window.location.hash));
 
-  const gpuStatus = useSignal<GpuStatus | null>(null);
-  const postProcessGpuStatus = useSignal<GpuStatus | null>(null);
+  const gpuHook = useGpuStatus();
+  const startupChecksLoaded = useSignal(false);
 
   const hotkeySetup = useHotkeySetup({
     showToast,
@@ -75,6 +77,9 @@ function App() {
       try {
         await invoke('apply_captured_hotkey', { newHotkey: normalized });
         showToast('Shortcut configured successfully!', 'success');
+        // Registration clears the backend hotkey error; refresh so the
+        // readiness gate (and setup row) reflects it immediately.
+        void audioSetup.checkSetupStatus();
       } catch (error) {
         showToast(`Failed to apply captured shortcut: ${error}`, 'error');
       } finally {
@@ -85,6 +90,15 @@ function App() {
     },
   });
 
+  const readiness = computeReadiness({
+    permissions: audioSetup.permissions,
+    hotkeyError: audioSetup.hotkeyError,
+    availableMics: audioSetup.availableMics,
+    config: configHook.config,
+    availableModels: configHook.availableModels,
+    modelStatus: configHook.modelStatus,
+  });
+
   const {
     setupTouched,
     setSetupTouched,
@@ -93,25 +107,24 @@ function App() {
     testApiKey,
     isTestingApi,
   } = useInitialRoute({
-    isPortalSetupReady: audioSetup.permissions
-      ? audioSetup.permissions.audio && audioSetup.permissions.shortcuts && audioSetup.permissions.input_emulation
-      : false,
-    isAudioDeviceReady: audioSetup.availableMics.length > 0 && !!configHook.config.audio_device,
-    isLocalModelReady: configHook.config.transcription_mode !== 'Local' || !!configHook.modelStatus[configHook.config.local_model_size],
-    startupChecksLoaded: configHook.hasLoadedConfig && audioSetup.hasLoadedSetupStatus && audioSetup.hasLoadedMics && configHook.hasLoadedModels,
+    startupChecksLoaded,
+    activeRoute,
+    readiness,
     showToast,
   });
 
   useEffect(() => {
-    configHook.loadConfig();
-    audioSetup.loadMics();
-    historyHook.loadHistory();
-    configHook.loadModels();
-    audioSetup.checkSetupStatus();
+    void Promise.allSettled([
+      configHook.loadConfig(),
+      audioSetup.loadMics(),
+      historyHook.loadHistory(),
+      configHook.loadModels(),
+      audioSetup.checkSetupStatus(),
+    ]).then(() => { startupChecksLoaded.value = true; });
     getVersion().then((v) => { appVersion.value = v; }).catch(err => console.error("Failed to get version:", err));
     updatesHook.checkForUpdates(false);
     autostartHook.loadAutostart();
-    invoke<GpuStatus>('get_gpu_status').then((s) => { gpuStatus.value = s; }).catch(() => {});
+    void gpuHook.refreshGpuStatus();
   }, []);
 
   // Post-process GPU availability is refetched when a warm-up attempt
@@ -165,12 +178,19 @@ function App() {
     },
     onMicVolume: audioSetup.setMicVolume,
     onDownloadProgress: (progress) => { configHook.setDownloadProgress(progress); },
-    onPostProcessGpuStatusChanged: () => {
-      invoke<GpuStatus>('get_post_process_gpu_status').then((s) => { postProcessGpuStatus.value = s; }).catch(() => {});
+    onPostProcessGpuStatusChanged: () => { void gpuHook.refreshPostProcessGpuStatus(); },
+    // Focus is the natural re-probe boundary: external changes that affect
+    // readiness (models deleted, mic unplugged, permissions revoked) happen
+    // while the app is unfocused.
+    onFocus: () => {
+      void audioSetup.checkSetupStatus();
+      void audioSetup.loadMics();
+      void configHook.loadModels();
     },
-    onFocus: () => { audioSetup.checkSetupStatus(); },
     onHashChange: () => {
-      activeRoute.value = routeFromHash(window.location.hash);
+      // Funnel hash edits/back-forward through the same guard as in-app
+      // navigation; replace keeps the guarded URL out of history.
+      navigate(routeFromHash(window.location.hash), true);
     },
   });
 
@@ -196,6 +216,8 @@ function App() {
           <InitialSetupPage
             permissions={audioSetup.permissions}
             config={configHook.config}
+            readiness={readiness}
+            availableEngines={configHook.availableEngines}
             availableModels={configHook.availableModels}
             modelStatus={configHook.modelStatus}
             downloadProgress={configHook.downloadProgress}
@@ -205,13 +227,14 @@ function App() {
             isSystemManagedShortcut={hotkeySetup.isSystemManagedShortcut}
             systemShortcutContext={hotkeySetup.systemShortcutContext}
             isApplyingHotkey={hotkeySetup.isApplyingHotkey}
+            hotkeyError={audioSetup.hotkeyError}
             availableMics={audioSetup.availableMics}
             micTestStatus={audioSetup.micTestStatus}
             micVolume={audioSetup.micVolume}
             micTestPassed={audioSetup.micTestPassed}
-            isLocalModelReady={configHook.config.transcription_mode !== 'Local' || !!configHook.modelStatus[configHook.config.local_model_size]}
-            isAudioDeviceReady={audioSetup.availableMics.length > 0 && !!configHook.config.audio_device}
-            isAllReady={!!(audioSetup.permissions?.audio && audioSetup.permissions?.shortcuts && audioSetup.permissions?.input_emulation) && audioSetup.availableMics.length > 0 && !!configHook.config.audio_device && (configHook.config.transcription_mode !== 'Local' || !!configHook.modelStatus[configHook.config.local_model_size])}
+            gpuStatus={gpuHook.gpuStatus}
+            isTestingEngine={gpuHook.isTestingEngine}
+            isTestingApi={isTestingApi}
             isRecordingHotkey={hotkeySetup.isRecordingHotkey}
             setupTouched={setupTouched}
             onTouchSetup={() => setSetupTouched(true)}
@@ -222,14 +245,29 @@ function App() {
             onHotkeyKeyUp={hotkeySetup.handleHotkeyKeyUp}
             onHotkeyBlur={() => void hotkeySetup.setRecordingState(false)}
             onChangeConfig={configHook.updateConfig}
+            onSelectEngine={(engine) => {
+              setSetupTouched(true);
+              configHook.updateConfig('local_engine', engine);
+              if (engine.includes('(GPU)')) {
+                void gpuHook.testTranscriptionEngine();
+              }
+            }}
             onShowModelGuide={() => { showModelGuide.value = true; }}
-            onDownloadModel={(size) => void configHook.downloadModel(size)}
+            onDownloadModel={(size) => {
+              void configHook.downloadModel(size).then(() => {
+                if (configHook.config.local_engine.includes('(GPU)')) {
+                  void gpuHook.testTranscriptionEngine();
+                }
+              });
+            }}
+            onDownloadPostProcessModel={(size) => void configHook.downloadModel(size, configHook.config.post_process_engine)}
             onRetryModels={() => void configHook.loadModels()}
             onLoadMics={() => void audioSetup.loadMics()}
             onStartMicTest={() => void audioSetup.startMicTest()}
             onStopMicTest={() => void audioSetup.stopMicTest()}
             onStopMicPlayback={() => void audioSetup.stopMicPlayback()}
             onRefreshStatus={() => void audioSetup.checkSetupStatus()}
+            onTestApiKey={() => void testApiKey(configHook.config.openai_api_key, configHook.config.api_url)}
             onFinishSetup={() => navigate('home')}
           />
         </div>
@@ -260,8 +298,8 @@ function App() {
           searchQuery={historyHook.searchQuery}
           searchResults={historyHook.searchResults}
           updateResult={updatesHook.updateResult}
-          gpuStatus={gpuStatus.value}
-          postProcessGpuStatus={postProcessGpuStatus.value}
+          gpuStatus={gpuHook.gpuStatus}
+          postProcessGpuStatus={gpuHook.postProcessGpuStatus}
           engineCapabilities={configHook.engineCapabilities}
           tabContentRef={tabContentRef}
           onNavigate={navigate}

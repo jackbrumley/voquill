@@ -14,6 +14,10 @@ pub struct EngineFactory {
     whisper_cache: WhisperEngineCache,
     whisper_last_gpu_error: Arc<Mutex<Option<String>>>,
     gpu_tested: AtomicBool,
+    /// Serializes preload attempts so fire-and-forget warm-ups (startup,
+    /// config save, download completion) never double-load a model alongside
+    /// an awaited preload requested by the frontend.
+    preload_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
 /// Returns true if the engine name indicates GPU acceleration should be used.
@@ -54,6 +58,7 @@ impl EngineFactory {
             whisper_cache: Arc::new(Mutex::new(None)),
             whisper_last_gpu_error: Arc::new(Mutex::new(None)),
             gpu_tested: AtomicBool::new(false),
+            preload_lock: Arc::new(tokio::sync::Mutex::new(())),
         }
     }
 
@@ -168,6 +173,8 @@ impl EngineFactory {
     }
 
     pub async fn preload(&self, config: &Config) {
+        let _preload_guard = self.preload_lock.lock().await;
+
         if config.transcription_mode != crate::config::TranscriptionMode::Local {
             return;
         }

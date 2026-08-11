@@ -116,7 +116,6 @@ fn main() {
 
     env_logger::init();
 
-    let _is_first_launch = config::is_first_launch().unwrap_or(false);
     let app_state = app::bootstrap::build_app_state(&initial_config);
 
     tauri::Builder::default()
@@ -180,6 +179,7 @@ fn main() {
             get_available_models,
             check_model_status,
             download_model,
+            preload_transcription_engine,
             transcribe_audio_file,
             test_cleanup_api,
             get_linux_setup_status,

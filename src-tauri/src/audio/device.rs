@@ -29,6 +29,9 @@ use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
 pub struct AudioDevice {
     pub id: String,
     pub label: String,
+    /// True only for the synthetic "System Default" entry injected by
+    /// `get_input_devices`; real enumerated hardware always reports false.
+    pub is_system_default: bool,
 }
 
 #[cfg(target_os = "windows")]
@@ -128,7 +131,11 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
                     };
 
                     crate::log_info!("Windows Audio: Enumerated '{}'", label);
-                    devices.push(AudioDevice { id, label });
+                    devices.push(AudioDevice {
+                        id,
+                        label,
+                        is_system_default: false,
+                    });
                 }
             }
         }
@@ -156,6 +163,7 @@ fn get_linux_pulse_devices() -> Result<Vec<AudioDevice>, String> {
         devices.push(AudioDevice {
             id: format!("pulse:{}", name),
             label: description,
+            is_system_default: false,
         });
     }
     Ok(devices)
@@ -202,7 +210,11 @@ pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
                         if *count > 1 {
                             label = format!("{} ({})", label, *count);
                         }
-                        final_devices.push(AudioDevice { id, label });
+                        final_devices.push(AudioDevice {
+                            id,
+                            label,
+                            is_system_default: false,
+                        });
                     }
                 }
             }
@@ -215,6 +227,7 @@ pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
         AudioDevice {
             id: "default".to_string(),
             label: "System Default".to_string(),
+            is_system_default: true,
         },
     );
     Ok(final_devices)

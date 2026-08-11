@@ -1,12 +1,18 @@
 import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import type { AppRoute } from '../types.ts';
+import type { ReadinessStatus } from '../readiness.ts';
 
 interface UseInitialRouteOptions {
-  isPortalSetupReady: boolean;
-  isAudioDeviceReady: boolean;
-  isLocalModelReady: boolean;
-  startupChecksLoaded: boolean;
+  /// Signal (not a plain value) so the routing effect is retriggered when
+  /// startup probes finish. The readiness snapshot stays a plain value:
+  /// useSignalEffect always invokes the latest render's closure, so the
+  /// decision reads fresh data once the signal flips.
+  startupChecksLoaded: { readonly value: boolean };
+  /// The app's active-route signal. navigate() writes it directly because
+  /// replaceState (used for redirects) fires no hashchange event.
+  activeRoute: { value: AppRoute };
+  readiness: ReadinessStatus;
   showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void;
 }
 
@@ -41,8 +47,21 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
     return normalized.length > 0;
   };
 
+  /// Mid-session readiness gate: navigating to Home while the app cannot
+  /// transcribe (permissions, mic, model/key, hotkey) lands on setup instead.
+  /// Runs in event-handler context, so signal/plain reads are always fresh.
+  /// Only rewrites 'home' -> 'setup', so it can never redirect-loop.
+  const guardHomeNavigation = (route: AppRoute): AppRoute =>
+    route === 'home' && options.startupChecksLoaded.value && !options.readiness.isAllReady
+      ? 'setup'
+      : route;
+
   const navigate = (route: AppRoute, replace = false) => {
-    const nextHash = `#/${route}`;
+    const guardedRoute = guardHomeNavigation(route);
+    const nextHash = `#/${guardedRoute}`;
+    // Update the route signal directly: replaceState fires no hashchange
+    // event, so redirects would otherwise never reach the view.
+    options.activeRoute.value = guardedRoute;
     if (window.location.hash === nextHash) {
       return;
     }
@@ -56,7 +75,7 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
   };
 
   useSignalEffect(() => {
-    if (initialRouteChecked.value || !options.startupChecksLoaded) {
+    if (initialRouteChecked.value || !options.startupChecksLoaded.value) {
       return;
     }
 
@@ -68,9 +87,7 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
       return;
     }
 
-    const isAllReady = options.isPortalSetupReady && options.isAudioDeviceReady && options.isLocalModelReady;
-
-    if (isAllReady) {
+    if (options.readiness.isAllReady) {
       if (!hasExplicitRoute || currentHashRoute === 'setup') {
         navigate('home', true);
       }

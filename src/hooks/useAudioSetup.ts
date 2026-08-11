@@ -5,6 +5,7 @@ import type { AudioDevice, LinuxPermissions, HotkeyBindingState } from '../types
 interface UseAudioSetupReturn {
   permissions: LinuxPermissions | null;
   availableMics: AudioDevice[];
+  hotkeyError: string | null;
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   micTestPassed: boolean;
@@ -25,6 +26,7 @@ interface UseAudioSetupReturn {
 export function useAudioSetup(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseAudioSetupReturn {
   const permissions = useSignal<LinuxPermissions | null>(null);
   const availableMics = useSignal<AudioDevice[]>([]);
+  const hotkeyError = useSignal<string | null>(null);
   const micTestStatus = useSignal<'idle' | 'recording' | 'playing' | 'processing'>('idle');
   const micVolume = useSignal<number>(0);
   const micTestPassed = useSignal(false);
@@ -36,6 +38,7 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
       const perms = await invoke<LinuxPermissions>('get_linux_setup_status');
       permissions.value = perms;
       const bindingState = await invoke<HotkeyBindingState>('get_hotkey_binding_state');
+      hotkeyError.value = await invoke<string | null>('check_hotkey_status');
       return { perms, bindingState };
     } catch (error) {
       console.error('Failed to check setup status:', error);
@@ -107,6 +110,7 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
   return {
     permissions: permissions.value,
     availableMics: availableMics.value,
+    hotkeyError: hotkeyError.value,
     micTestStatus: micTestStatus.value,
     micVolume: micVolume.value,
     micTestPassed: micTestPassed.value,

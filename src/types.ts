@@ -47,6 +47,7 @@ export interface HistoryItem {
 export interface AudioDevice {
   id: string;
   label: string;
+  is_system_default: boolean;
 }
 
 export interface LinuxPermissions {
