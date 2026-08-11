@@ -44,7 +44,7 @@ unsafe fn get_string_property(props: &IPropertyStore, key: *const PROPERTYKEY) -
                 None
             } else {
                 let s = pwstr.to_string().ok();
-                let _ = CoTaskMemFree(Some(pwstr.0 as *const _));
+                CoTaskMemFree(Some(pwstr.0 as *const _));
                 s
             }
         }
@@ -268,42 +268,30 @@ pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> 
     let available_inputs = summarize_input_devices(&host);
 
     if let Some(name) = target {
+        #[cfg(target_os = "linux")]
         if let Some(stripped) = name.strip_prefix("pulse:") {
-            #[cfg(target_os = "linux")]
-            {
-                std::env::set_var("PULSE_SOURCE", stripped);
-            }
-
-            host.default_input_device().ok_or_else(|| {
-                #[cfg(target_os = "linux")]
-                {
-                    let pulse_sources = summarize_pulse_sources();
-                    format!(
-                        "Failed to resolve Pulse source '{}': no default input device available after setting PULSE_SOURCE. pulse_sources=[{}], input_devices=[{}]",
-                        stripped, pulse_sources, available_inputs
-                    )
-                }
-
-                #[cfg(not(target_os = "linux"))]
-                {
-                    format!(
-                        "Failed to resolve device '{}': no default input device available. input_devices=[{}]",
-                        name, available_inputs
-                    )
-                }
-            })
-        } else {
-            host.input_devices()
-                .map_err(|e| e.to_string())?
-                .into_iter()
-                .find(|d| d.id().map(|id| id.1 == name).unwrap_or(false))
-                .ok_or_else(|| {
-                    format!(
-                        "Device '{}' not found. input_devices=[{}]",
-                        name, available_inputs
-                    )
-                })
+            std::env::set_var("PULSE_SOURCE", stripped);
+            return host.default_input_device().ok_or_else(|| {
+                let pulse_sources = summarize_pulse_sources();
+                format!(
+                    "Failed to resolve Pulse source '{stripped}': no default input device available after setting PULSE_SOURCE. pulse_sources=[{pulse_sources}], input_devices=[{available_inputs}]"
+                )
+            });
         }
+
+        if name.starts_with("pulse:") {
+            return host.default_input_device().ok_or_else(|| {
+                format!(
+                    "Failed to resolve device '{name}': no default input device available. input_devices=[{available_inputs}]"
+                )
+            });
+        }
+
+        host.input_devices()
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .find(|d| d.id().map(|id| id.1 == name).unwrap_or(false))
+            .ok_or_else(|| format!("Device '{name}' not found. input_devices=[{available_inputs}]"))
     } else {
         #[cfg(target_os = "linux")]
         {

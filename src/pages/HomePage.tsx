@@ -91,7 +91,7 @@ export function HomePage({
         multiple: false,
         filters: [{
           name: 'Audio',
-          extensions: ['wav', 'mp3', 'm4a', 'ogg', 'flac', 'opus'],
+          extensions: ['wav', 'mp3', 'm4a', 'ogg', 'flac'],
         }],
       });
       if (selected) {

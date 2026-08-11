@@ -46,7 +46,8 @@ impl SidecarPostProcess {
 
         crate::log_info!("Starting llama-server with model: {}", model_path.display());
 
-        let mut child = Command::new(&binary_path)
+        let mut command = Command::new(&binary_path);
+        command
             .arg("-m")
             .arg(&model_path)
             .arg("--host")
@@ -58,7 +59,16 @@ impl SidecarPostProcess {
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .stdin(Stdio::null())
-            .kill_on_drop(true)
+            .kill_on_drop(true);
+
+        #[cfg(target_os = "windows")]
+        {
+            // CREATE_NO_WINDOW: prevent the console-subsystem sidecar from
+            // popping up (and stealing keyboard focus on) Windows.
+            command.creation_flags(0x08000000);
+        }
+
+        let mut child = command
             .spawn()
             .map_err(|e| PostProcessError::Api(format!("Failed to spawn llama-server: {}", e)))?;
 
@@ -164,7 +174,7 @@ async fn resolve_or_download_binary() -> Result<PathBuf, PostProcessError> {
 }
 
 async fn download_binary(target_dir: &std::path::Path) -> Result<(), PostProcessError> {
-    let archive_name = archive_name();
+    let archive_name = archive_name()?;
     let url = format!(
         "https://github.com/ggml-org/llama.cpp/releases/download/{}/{}",
         BINARY_VERSION, archive_name
@@ -207,53 +217,10 @@ async fn download_binary(target_dir: &std::path::Path) -> Result<(), PostProcess
 
     crate::log_info!("Extracting {}...", archive_name);
 
-    let archive_file = std::fs::File::open(&archive_path)
-        .map_err(|e| PostProcessError::Api(format!("Failed to open archive: {}", e)))?;
-    let decoder = flate2::read::GzDecoder::new(archive_file);
-    let mut archive = tar::Archive::new(decoder);
-
-    for entry in archive
-        .entries()
-        .map_err(|e| PostProcessError::Api(format!("Failed to read tar entries: {}", e)))?
-    {
-        let mut entry =
-            entry.map_err(|e| PostProcessError::Api(format!("Failed to read tar entry: {}", e)))?;
-        let path = entry
-            .path()
-            .map_err(|_| PostProcessError::Api("Invalid path in tar".to_string()))?;
-
-        // Strip the top-level directory (e.g. "llama-b10331/") so files go flat into target_dir
-        let components: Vec<_> = path.components().collect();
-        if components.len() < 2 {
-            continue;
-        }
-        let relative: PathBuf = components[1..].iter().collect();
-        let out_path = target_dir.join(&relative);
-
-        if entry.header().entry_type().is_symlink() {
-            if let Some(parent) = out_path.parent() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| PostProcessError::Api(format!("Failed to create dir: {}", e)))?;
-            }
-            let target = entry
-                .link_name()
-                .map_err(|_| PostProcessError::Api("Invalid symlink target".to_string()))?
-                .ok_or_else(|| PostProcessError::Api("Symlink with no target".to_string()))?;
-            #[cfg(unix)]
-            std::os::unix::fs::symlink(&target, &out_path)
-                .map_err(|e| PostProcessError::Api(format!("Failed to create symlink: {}", e)))?;
-        } else if entry.header().entry_type().is_dir() {
-            let _ = std::fs::create_dir_all(&out_path);
-        } else {
-            if let Some(parent) = out_path.parent() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| PostProcessError::Api(format!("Failed to create dir: {}", e)))?;
-            }
-            let mut out_file = std::fs::File::create(&out_path)
-                .map_err(|e| PostProcessError::Api(format!("Failed to create file: {}", e)))?;
-            std::io::copy(&mut entry, &mut out_file)
-                .map_err(|e| PostProcessError::Api(format!("Failed to extract file: {}", e)))?;
-        }
+    if archive_name.ends_with(".zip") {
+        extract_zip(&archive_path, target_dir).await?;
+    } else {
+        extract_tar_gz(&archive_path, target_dir).await?;
     }
 
     let bin_name = binary_name();
@@ -280,6 +247,117 @@ async fn download_binary(target_dir: &std::path::Path) -> Result<(), PostProcess
     Ok(())
 }
 
+async fn extract_tar_gz(
+    archive_path: &std::path::Path,
+    target_dir: &std::path::Path,
+) -> Result<(), PostProcessError> {
+    let mut archive = {
+        let archive_file = std::fs::File::open(archive_path)
+            .map_err(|e| PostProcessError::Api(format!("Failed to open archive: {}", e)))?;
+        let decoder = flate2::read::GzDecoder::new(archive_file);
+        tar::Archive::new(decoder)
+    };
+
+    for entry in archive
+        .entries()
+        .map_err(|e| PostProcessError::Api(format!("Failed to read tar entries: {}", e)))?
+    {
+        let mut entry =
+            entry.map_err(|e| PostProcessError::Api(format!("Failed to read tar entry: {}", e)))?;
+        let path = entry
+            .path()
+            .map_err(|_| PostProcessError::Api("Invalid path in tar".to_string()))?;
+
+        // Strip the top-level directory (e.g. "llama-b10331/") so files go flat into target_dir
+        let components: Vec<_> = path.components().collect();
+        if components.len() < 2 {
+            continue;
+        }
+        let relative: PathBuf = components[1..].iter().collect();
+        let out_path = target_dir.join(&relative);
+
+        if entry.header().entry_type().is_symlink() {
+            if let Some(parent) = out_path.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| PostProcessError::Api(format!("Failed to create dir: {}", e)))?;
+            }
+            #[cfg(unix)]
+            {
+                let target = entry
+                    .link_name()
+                    .map_err(|_| PostProcessError::Api("Invalid symlink target".to_string()))?
+                    .ok_or_else(|| PostProcessError::Api("Symlink with no target".to_string()))?;
+                std::os::unix::fs::symlink(&target, &out_path).map_err(|e| {
+                    PostProcessError::Api(format!("Failed to create symlink: {}", e))
+                })?;
+            }
+        } else if entry.header().entry_type().is_dir() {
+            let _ = std::fs::create_dir_all(&out_path);
+        } else {
+            if let Some(parent) = out_path.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| PostProcessError::Api(format!("Failed to create dir: {}", e)))?;
+            }
+            let mut out_file = std::fs::File::create(&out_path)
+                .map_err(|e| PostProcessError::Api(format!("Failed to create file: {}", e)))?;
+            std::io::copy(&mut entry, &mut out_file)
+                .map_err(|e| PostProcessError::Api(format!("Failed to extract file: {}", e)))?;
+        }
+    }
+
+    Ok(())
+}
+
+async fn extract_zip(
+    archive_path: &std::path::Path,
+    target_dir: &std::path::Path,
+) -> Result<(), PostProcessError> {
+    let file = std::fs::File::open(archive_path)
+        .map_err(|e| PostProcessError::Api(format!("Failed to open archive: {}", e)))?;
+    let mut archive = zip::ZipArchive::new(file)
+        .map_err(|e| PostProcessError::Api(format!("Failed to open zip archive: {}", e)))?;
+
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|e| PostProcessError::Api(format!("Failed to read zip entry: {}", e)))?;
+
+        let Some(enclosed) = entry.enclosed_name() else {
+            continue;
+        };
+        // Skip the root directory component (e.g. "repo/") so files go flat into target_dir
+        let relative: PathBuf =
+            enclosed
+                .components()
+                .skip(1)
+                .fold(PathBuf::new(), |mut acc, component| {
+                    acc.push(component.as_os_str());
+                    acc
+                });
+        if relative.as_os_str().is_empty() {
+            continue;
+        }
+        let out_path = target_dir.join(&relative);
+
+        if entry.is_dir() {
+            let _ = std::fs::create_dir_all(&out_path);
+            continue;
+        }
+
+        if let Some(parent) = out_path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| PostProcessError::Api(format!("Failed to create dir: {}", e)))?;
+        }
+
+        let mut out_file = std::fs::File::create(&out_path)
+            .map_err(|e| PostProcessError::Api(format!("Failed to create file: {}", e)))?;
+        std::io::copy(&mut entry, &mut out_file)
+            .map_err(|e| PostProcessError::Api(format!("Failed to extract file: {}", e)))?;
+    }
+
+    Ok(())
+}
+
 fn binary_dir() -> Result<PathBuf, PostProcessError> {
     let config_dir = dirs::config_dir()
         .ok_or_else(|| PostProcessError::Api("Could not find config directory".into()))?
@@ -300,14 +378,15 @@ fn binary_name() -> String {
     }
 }
 
-fn archive_name() -> &'static str {
+fn archive_name() -> Result<&'static str, PostProcessError> {
     match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("linux", "x86_64") => "llama-b10331-bin-ubuntu-x64.tar.gz",
-        _ => panic!(
-            "Unsupported platform: {}-{}",
+        ("linux", "x86_64") => Ok("llama-b10331-bin-ubuntu-x64.tar.gz"),
+        ("windows", "x86_64") => Ok("llama-b10331-bin-win-cpu-x64.zip"),
+        _ => Err(PostProcessError::Api(format!(
+            "Unsupported platform for local post-processing: {}-{}",
             std::env::consts::OS,
             std::env::consts::ARCH
-        ),
+        ))),
     }
 }
 

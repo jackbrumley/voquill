@@ -122,7 +122,7 @@ function Overlay() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: 'fit-content', height: 'fit-content', backgroundColor: 'transparent', padding: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', width: '100%', height: '100%', backgroundColor: 'transparent', padding: '20px 20px 0' }}>
       <StatusIndicator status={status.value} size={44} fixedWidth={180} label={statusLabel(status.value)} subtitle={status.value === 'Recording' && hotkeyMode.value === 'Toggle' ? 'press again to stop' : undefined} />
     </div>
   );

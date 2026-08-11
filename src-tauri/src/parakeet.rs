@@ -35,7 +35,8 @@ impl ParakeetService {
             .map(|n| n.get().saturating_sub(1).clamp(1, 4))
             .unwrap_or(2);
 
-        let mut child = Command::new(&binary_path)
+        let mut command = Command::new(&binary_path);
+        command
             .arg(format!(
                 "--tokens={}",
                 model_dir.join("tokens.txt").display()
@@ -57,11 +58,18 @@ impl ParakeetService {
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .stdin(Stdio::null())
-            .kill_on_drop(true)
-            .spawn()
-            .map_err(|e| {
-                TranscriptionError::Model(format!("Failed to spawn sherpa-onnx: {}", e))
-            })?;
+            .kill_on_drop(true);
+
+        #[cfg(target_os = "windows")]
+        {
+            // CREATE_NO_WINDOW: prevent the console-subsystem sidecar from
+            // popping up (and stealing keyboard focus on) Windows.
+            command.creation_flags(0x08000000);
+        }
+
+        let mut child = command.spawn().map_err(|e| {
+            TranscriptionError::Model(format!("Failed to spawn sherpa-onnx: {}", e))
+        })?;
 
         let stderr = child.stderr.take().unwrap();
         let mut stderr_reader = tokio::io::BufReader::new(stderr);
@@ -245,14 +253,18 @@ async fn download_binary(target_dir: &std::path::Path) -> Result<(), Transcripti
         let out_path = target_dir.join(filename);
 
         if entry.header().entry_type().is_symlink() {
-            let target = entry
-                .link_name()
-                .map_err(|_| TranscriptionError::Model("Invalid symlink target".to_string()))?
-                .ok_or_else(|| TranscriptionError::Model("Symlink with no target".to_string()))?;
             #[cfg(unix)]
-            std::os::unix::fs::symlink(&target, &out_path).map_err(|e| {
-                TranscriptionError::Model(format!("Failed to create symlink: {}", e))
-            })?;
+            {
+                let target = entry
+                    .link_name()
+                    .map_err(|_| TranscriptionError::Model("Invalid symlink target".to_string()))?
+                    .ok_or_else(|| {
+                        TranscriptionError::Model("Symlink with no target".to_string())
+                    })?;
+                std::os::unix::fs::symlink(&target, &out_path).map_err(|e| {
+                    TranscriptionError::Model(format!("Failed to create symlink: {}", e))
+                })?;
+            }
         } else if entry.header().entry_type().is_dir() {
             continue;
         } else {

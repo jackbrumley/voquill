@@ -148,6 +148,18 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     }
   };
 
+  const validModelSizeForEngine = (engine: string, fallback: string): string => {
+    const modelsForEngine = availableModels.value.filter((model) => model.engine === engine);
+    if (modelsForEngine.length === 0) {
+      return fallback;
+    }
+    const valid = modelsForEngine.find((model) => model.size === fallback);
+    if (valid) {
+      return fallback;
+    }
+    return (modelsForEngine.find((model) => model.recommended) || modelsForEngine[0]).size;
+  };
+
   const updateConfig = (key: string, value: string | number | boolean | null | string[] | Record<string, unknown>) => {
     const normalizedValue = key === 'input_sensitivity'
       ? (() => {
@@ -158,7 +170,14 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
           return Math.min(2.0, Math.max(0.1, parsedValue));
         })()
       : value;
-    config.value = { ...config.value, [key]: normalizedValue } as Config;
+    const nextConfig = { ...config.value, [key]: normalizedValue } as Config;
+    if (key === 'local_engine') {
+      nextConfig.local_model_size = validModelSizeForEngine(
+        nextConfig.local_engine,
+        nextConfig.local_model_size,
+      );
+    }
+    config.value = nextConfig;
   };
 
   const toggleOutputMethod = (method: 'Typewriter' | 'Clipboard') => {
@@ -190,17 +209,19 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     return () => clearTimeout(timer);
   });
 
-  // Validate model selection when engine changes
+  // Validate model selection when engine changes or models load. The
+  // synchronous path in updateConfig already keeps engine+model consistent on
+  // user edits; this effect is a safety net for pairings loaded from disk.
   useSignalEffect(() => {
     const models = availableModels.value;
     const localEngine = config.value.local_engine;
     if (models.length > 0) {
-      const modelsForEngine = models.filter(m => m.engine === localEngine);
-      const isCurrentModelValid = modelsForEngine.some(m => m.size === config.value.local_model_size);
-
-      if (!isCurrentModelValid && modelsForEngine.length > 0) {
-        const recommended = modelsForEngine.find(m => m.recommended) || modelsForEngine[0];
-        updateConfig('local_model_size', recommended.size);
+      const modelsForEngine = models.filter((model) => model.engine === localEngine);
+      if (modelsForEngine.length > 0) {
+        const corrected = validModelSizeForEngine(localEngine, config.value.local_model_size);
+        if (corrected !== config.value.local_model_size) {
+          updateConfig('local_model_size', corrected);
+        }
       }
     }
   });

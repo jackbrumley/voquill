@@ -525,7 +525,14 @@ export function ConfigPage(props: ConfigPageProps) {
                   <SelectField
                     value={config.local_engine}
                     options={availableEngines.map((engine) => ({ value: engine, label: engine }))}
-                    onChange={(nextEngine) => updateConfig('local_engine', nextEngine)}
+                    onChange={(nextEngine) => {
+                      updateConfig('local_engine', nextEngine);
+                      const modelsForEngine = availableModels.filter((m) => m.engine === nextEngine);
+                      if (modelsForEngine.length > 0) {
+                        const recommended = modelsForEngine.find((m) => m.recommended) || modelsForEngine[0];
+                        updateConfig('local_model_size', recommended.size);
+                      }
+                    }}
                     ariaLabel="Local engine"
                   />
                 </div>

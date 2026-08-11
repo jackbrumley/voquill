@@ -160,13 +160,15 @@ impl ModelManager {
                         if let Some(parent) = out_path.parent() {
                             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
                         }
-                        let target = entry
-                            .link_name()
-                            .map_err(|_| "Invalid symlink target".to_string())?
-                            .ok_or_else(|| "Symlink with no target".to_string())?;
                         #[cfg(unix)]
-                        std::os::unix::fs::symlink(&target, &out_path)
-                            .map_err(|e| format!("Failed to create symlink: {}", e))?;
+                        {
+                            let target = entry
+                                .link_name()
+                                .map_err(|_| "Invalid symlink target".to_string())?
+                                .ok_or_else(|| "Symlink with no target".to_string())?;
+                            std::os::unix::fs::symlink(&target, &out_path)
+                                .map_err(|e| format!("Failed to create symlink: {}", e))?;
+                        }
                     } else if entry.header().entry_type().is_dir() {
                         let _ = std::fs::create_dir_all(&out_path);
                     } else {
