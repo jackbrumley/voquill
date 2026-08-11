@@ -76,6 +76,18 @@ function getWindowsDependencies() {
       install: "winget install -e --id Kitware.CMake",
     },
     {
+      name: "vulkan-sdk",
+      desc: "Vulkan SDK (required for Turbo Mode GPU transcription; restart your terminal after install)",
+      check: () => !!process.env.VULKAN_SDK && fs.existsSync(process.env.VULKAN_SDK),
+      install: "winget install -e --id KhronosGroup.VulkanSDK",
+    },
+    {
+      name: "ninja",
+      desc: "Ninja build system (used for the whisper.cpp native build)",
+      check: () => commandExists("ninja"),
+      install: "winget install -e --id Ninja-build.Ninja",
+    },
+    {
       name: "rust",
       desc: "Rust toolchain (cargo, rustc)",
       check: () => commandExists("cargo") || (userProfile ? fs.existsSync(path.join(userProfile, ".cargo", "bin", "cargo.exe")) : false),

@@ -4,7 +4,12 @@ import { execFileSync } from "node:child_process";
 import { logError, run } from "@tauri-apps/cli/main.js";
 
 if (process.platform === "win32") {
-  process.env.CARGO_TARGET_DIR = "C:\\voquill-build";
+  process.env.CARGO_TARGET_DIR = "C:\\vb";
+  // Build whisper.cpp with Ninja instead of the default MSBuild generator.
+  // MSBuild's tracked CustomBuild steps can break nested CMake try_compile
+  // checks (ggml-vulkan builds vulkan-shaders-gen via ExternalProject), and
+  // Ninja builds faster.
+  process.env.CMAKE_GENERATOR = "Ninja";
 }
 
 process.env.GGML_NATIVE = "OFF";
