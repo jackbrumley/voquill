@@ -75,3 +75,46 @@ export function computeReadiness(inputs: ReadinessInputs): ReadinessStatus {
     postProcessModelMissing,
   };
 }
+
+/// Returns a human-readable diagnostic string explaining why the app is or isn't ready.
+export function explainReadiness(inputs: ReadinessInputs, status?: ReadinessStatus): string {
+  const r = status || computeReadiness(inputs);
+  const reasons: string[] = [];
+
+  if (!r.isPermissionsReady) {
+    const p = inputs.permissions;
+    if (!p) {
+      reasons.push('permissions probe missing');
+    } else {
+      if (!p.audio) reasons.push('audio access denied');
+      if (!p.shortcuts) reasons.push('shortcuts permission denied');
+      if (!p.input_emulation) reasons.push('input emulation permission denied');
+    }
+  }
+
+  if (!r.isAudioDeviceReady) {
+    if (r.audioDeviceIssue === 'no-devices') {
+      reasons.push('no audio input devices detected');
+    } else if (r.audioDeviceIssue === 'device-missing') {
+      reasons.push(`configured audio device '${inputs.config.audio_device}' not found in active microphones`);
+    }
+  }
+
+  if (!r.isTranscriptionReady) {
+    if (inputs.config.transcription_mode === 'Local') {
+      reasons.push(`local model '${inputs.config.local_model_size}' for engine '${inputs.config.local_engine}' is not downloaded`);
+    } else {
+      reasons.push('API mode selected but API key is empty or placeholder');
+    }
+  }
+
+  if (!r.isHotkeyReady) {
+    reasons.push(`hotkey registration error: ${inputs.hotkeyError}`);
+  }
+
+  if (reasons.length === 0) {
+    return 'All checks ready (permissions, audio device, transcription model/key, hotkey)';
+  }
+
+  return `Not ready: [${reasons.join('; ')}]`;
+}

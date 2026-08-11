@@ -1,7 +1,7 @@
 import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import type { AppRoute } from '../types.ts';
-import type { ReadinessStatus } from '../readiness.ts';
+import { explainReadiness, type ReadinessInputs, type ReadinessStatus } from '../readiness.ts';
 
 interface UseInitialRouteOptions {
   /// Signal (not a plain value) so the routing effect is retriggered when
@@ -13,6 +13,7 @@ interface UseInitialRouteOptions {
   /// replaceState (used for redirects) fires no hashchange event.
   activeRoute: { value: AppRoute };
   readiness: ReadinessStatus;
+  readinessInputs: ReadinessInputs;
   showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void;
 }
 
@@ -51,13 +52,24 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
   /// transcribe (permissions, mic, model/key, hotkey) lands on setup instead.
   /// Runs in event-handler context, so signal/plain reads are always fresh.
   /// Only rewrites 'home' -> 'setup', so it can never redirect-loop.
-  const guardHomeNavigation = (route: AppRoute): AppRoute =>
-    route === 'home' && options.startupChecksLoaded.value && !options.readiness.isAllReady
-      ? 'setup'
-      : route;
+  const guardHomeNavigation = (route: AppRoute): AppRoute => {
+    if (route === 'home' && options.startupChecksLoaded.value && !options.readiness.isAllReady) {
+      const explanation = explainReadiness(options.readinessInputs, options.readiness);
+      const msg = `[Navigation Guard] Blocked navigation to 'home' -> redirected to 'setup'. ${explanation}`;
+      console.log(msg);
+      invoke('log_ui_event', { message: msg }).catch(() => {});
+      return 'setup';
+    }
+    return route;
+  };
 
   const navigate = (route: AppRoute, replace = false) => {
     const guardedRoute = guardHomeNavigation(route);
+    const explanation = explainReadiness(options.readinessInputs, options.readiness);
+    const logMsg = `[Navigation] Requested route '${route}' -> target '${guardedRoute}' (replace=${replace}). ${explanation}`;
+    console.log(logMsg);
+    invoke('log_ui_event', { message: logMsg }).catch(() => {});
+
     const nextHash = `#/${guardedRoute}`;
     // Update the route signal directly: replaceState fires no hashchange
     // event, so redirects would otherwise never reach the view.
@@ -81,18 +93,36 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
 
     const hasExplicitRoute = hashHasExplicitRoute(window.location.hash);
     const currentHashRoute = routeFromHash(window.location.hash);
+    const explanation = explainReadiness(options.readinessInputs, options.readiness);
 
     if (currentHashRoute === 'ui-lab') {
+      const msg = `[Initial Route] Startup checks loaded. Route is 'ui-lab'; bypassing setup check. ${explanation}`;
+      console.log(msg);
+      invoke('log_ui_event', { message: msg }).catch(() => {});
       initialRouteChecked.value = true;
       return;
     }
 
     if (options.readiness.isAllReady) {
       if (!hasExplicitRoute || currentHashRoute === 'setup') {
+        const msg = `[Initial Route] Startup checks loaded. All checks ready -> routing to 'home'. ${explanation}`;
+        console.log(msg);
+        invoke('log_ui_event', { message: msg }).catch(() => {});
         navigate('home', true);
+      } else {
+        const msg = `[Initial Route] Startup checks loaded. All checks ready; preserving explicit route '${currentHashRoute}'. ${explanation}`;
+        console.log(msg);
+        invoke('log_ui_event', { message: msg }).catch(() => {});
       }
     } else if (!hasExplicitRoute || currentHashRoute !== 'setup') {
+      const msg = `[Initial Route] Startup checks loaded. Not ready -> routing to 'setup'. ${explanation}`;
+      console.log(msg);
+      invoke('log_ui_event', { message: msg }).catch(() => {});
       navigate('setup', true);
+    } else {
+      const msg = `[Initial Route] Startup checks loaded. Not ready; already on 'setup'. ${explanation}`;
+      console.log(msg);
+      invoke('log_ui_event', { message: msg }).catch(() => {});
     }
 
     initialRouteChecked.value = true;

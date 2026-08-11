@@ -18,21 +18,13 @@ import { useAutostart } from './hooks/useAutostart.ts';
 import { useWindowControls } from './hooks/useWindowControls.ts';
 import { useInitialRoute } from './hooks/useInitialRoute.ts';
 import { useGpuStatus } from './hooks/useGpuStatus.ts';
-import { computeReadiness } from './readiness.ts';
+import { computeReadiness, explainReadiness, type ReadinessInputs } from './readiness.ts';
 import type { AppRoute } from './types.ts';
 
 function App() {
   const { showToast, ToastContainer } = useToast();
 
   const logUI = (msg: string) => {
-    if (
-      !msg.includes('Button clicked') &&
-      !msg.includes('Toast') &&
-      !msg.includes('Setting changed') &&
-      !msg.includes('Switch toggled')
-    ) {
-      return;
-    }
     const timestamp = new Date().toLocaleTimeString();
     console.log(`[${timestamp}] ${msg}`);
     invoke('log_ui_event', { message: msg }).catch((err) => {
@@ -90,14 +82,16 @@ function App() {
     },
   });
 
-  const readiness = computeReadiness({
+  const readinessInputs: ReadinessInputs = {
     permissions: audioSetup.permissions,
     hotkeyError: audioSetup.hotkeyError,
     availableMics: audioSetup.availableMics,
     config: configHook.config,
     availableModels: configHook.availableModels,
     modelStatus: configHook.modelStatus,
-  });
+  };
+
+  const readiness = computeReadiness(readinessInputs);
 
   const {
     setupTouched,
@@ -110,6 +104,7 @@ function App() {
     startupChecksLoaded,
     activeRoute,
     readiness,
+    readinessInputs,
     showToast,
   });
 
@@ -183,6 +178,7 @@ function App() {
     // readiness (models deleted, mic unplugged, permissions revoked) happen
     // while the app is unfocused.
     onFocus: () => {
+      logUI(`[Focus] Window focused — re-probing permissions, hotkey status, audio devices, and model statuses. ${explainReadiness(readinessInputs, readiness)}`);
       void audioSetup.checkSetupStatus();
       void audioSetup.loadMics();
       void configHook.loadModels();
@@ -268,7 +264,10 @@ function App() {
             onStopMicPlayback={() => void audioSetup.stopMicPlayback()}
             onRefreshStatus={() => void audioSetup.checkSetupStatus()}
             onTestApiKey={() => void testApiKey(configHook.config.openai_api_key, configHook.config.api_url)}
-            onFinishSetup={() => navigate('home')}
+            onFinishSetup={() => {
+              logUI(`[Finish Setup] Finish Setup clicked. ${explainReadiness(readinessInputs, readiness)}`);
+              navigate('home');
+            }}
           />
         </div>
       ) : (

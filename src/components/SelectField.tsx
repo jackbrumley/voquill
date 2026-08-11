@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core';
 import type { JSX } from 'preact';
 import { useRef } from 'preact/hooks';
 import { useSignal, useSignalEffect } from '@preact/signals';
@@ -103,6 +104,8 @@ export function SelectField({
     if (!option || option.disabled) {
       return;
     }
+    const label = option.label || option.value;
+    invoke('log_ui_event', { message: `Setting changed: ${ariaLabel || 'SelectField'} -> ${label}` }).catch(() => {});
     onChange(optionValue);
     closeDropdown(true);
   };
