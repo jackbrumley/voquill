@@ -5,11 +5,13 @@ import { tokens } from '../design-tokens.ts';
 interface SwitchProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
+  /** Human-readable setting name, used for UI event logging and accessibility. */
+  name: string;
   label?: string;
   className?: string;
 }
 
-export const Switch = ({ checked, onChange, label, className = '' }: SwitchProps) => {
+export const Switch = ({ checked, onChange, name, label, className = '' }: SwitchProps) => {
   return (
     <label
       className={className}
@@ -27,11 +29,11 @@ export const Switch = ({ checked, onChange, label, className = '' }: SwitchProps
         <input
           type="checkbox"
           checked={checked}
+          aria-label={name}
           onChange={(e) => {
             const nextValue = (e.target as HTMLInputElement).checked;
-            const switchLabel = label || 'Unnamed switch';
             invoke('log_ui_event', {
-              message: `🖱️ Switch toggled: ${switchLabel} -> ${nextValue ? 'On' : 'Off'}`,
+              message: `🖱️ Switch toggled: ${name} -> ${nextValue ? 'On' : 'Off'}`,
             }).catch(() => {});
             onChange(nextValue);
           }}

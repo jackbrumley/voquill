@@ -31,6 +31,7 @@ use serde::Serialize;
 use tauri::Manager;
 
 mod app;
+mod archive;
 mod audio;
 mod config;
 mod engine_factory;
@@ -41,6 +42,7 @@ mod model_manager;
 mod parakeet;
 pub mod platform;
 mod post_process;
+mod sidecar;
 mod transcription;
 mod typing;
 
@@ -190,6 +192,7 @@ fn main() {
             get_overlay_positioning_capabilities,
             check_for_updates,
             get_gpu_status,
+            get_post_process_gpu_status,
             get_engine_capabilities
         ])
         .run(tauri::generate_context!())

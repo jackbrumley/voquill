@@ -1,6 +1,6 @@
 import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
-import type { Config, EngineCapabilities, ModelInfo } from '../types.ts';
+import type { Config, DownloadPhase, EngineCapabilities, ModelDownloadProgress, ModelInfo } from '../types.ts';
 
 interface UseConfigReturn {
   config: Config;
@@ -9,11 +9,12 @@ interface UseConfigReturn {
   modelStatus: Record<string, boolean>;
   engineCapabilities: EngineCapabilities | null;
   downloadProgress: number;
+  downloadPhase: DownloadPhase;
   isDownloading: boolean;
   loadConfig: () => Promise<void>;
   loadModels: () => Promise<void>;
   downloadModel: (size: string, engine?: string) => Promise<void>;
-  setDownloadProgress: (val: number) => void;
+  setDownloadProgress: (val: ModelDownloadProgress) => void;
   persistConfig: (configToPersist: Config, showSavedConfirmation?: boolean) => Promise<void>;
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown>) => void;
   toggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
@@ -47,6 +48,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     dictionary: [],
     post_process_enabled: false,
     post_process_provider: 'Local',
+    post_process_engine: 'Post-Process (Local)',
     post_process_model: 'qwen2.5-1.5b-instruct',
     post_process_api_url: 'https://openrouter.ai/api/v1/chat/completions',
     post_process_api_key: '',
@@ -58,6 +60,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
   const modelStatus = useSignal<Record<string, boolean>>({});
   const engineCapabilities = useSignal<EngineCapabilities | null>(null);
   const downloadProgress = useSignal<number>(0);
+  const downloadPhase = useSignal<DownloadPhase>('downloading');
   const isDownloading = useSignal(false);
   const hasLoadedConfig = useSignal(false);
   const hasLoadedModels = useSignal(false);
@@ -117,6 +120,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
   const downloadModel = async (size: string, engine?: string) => {
     isDownloading.value = true;
     downloadProgress.value = 0;
+    downloadPhase.value = 'downloading';
     try {
       const engineName = engine || config.value.local_engine;
       await invoke('download_model', { modelSize: size, engineName });
@@ -127,10 +131,14 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     } finally {
       isDownloading.value = false;
       downloadProgress.value = 0;
+      downloadPhase.value = 'downloading';
     }
   };
 
-  const setDownloadProgress = (val: number) => { downloadProgress.value = val; };
+  const setDownloadProgress = (val: ModelDownloadProgress) => {
+    downloadPhase.value = val.phase;
+    downloadProgress.value = val.progress;
+  };
 
   const persistConfig = async (configToPersist: Config, showSavedConfirmation = false) => {
     try {
@@ -252,6 +260,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     modelStatus: modelStatus.value,
     engineCapabilities: engineCapabilities.value,
     downloadProgress: downloadProgress.value,
+    downloadPhase: downloadPhase.value,
     isDownloading: isDownloading.value,
     loadConfig,
     loadModels,

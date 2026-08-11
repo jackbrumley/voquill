@@ -3,11 +3,9 @@ use crate::post_process::{PostProcessError, PostProcessService};
 use async_trait::async_trait;
 use serde_json::Value;
 use std::path::PathBuf;
-use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::net::TcpStream;
-use tokio::process::{Child, Command};
+use tokio::process::Child;
 use tokio::sync::Mutex;
 
 const BINARY_VERSION: &str = "b10331";
@@ -21,20 +19,64 @@ pub struct SidecarPostProcess {
     _process: Arc<Mutex<Option<Child>>>,
     model_size: String,
     system_prompt: String,
+    use_gpu: bool,
 }
 
 impl SidecarPostProcess {
-    pub async fn new(model_size: &str, system_prompt: &str) -> Result<Self, PostProcessError> {
-        let binary_path = resolve_or_download_binary().await?;
-        let port = find_free_port(PORT_START, PORT_END).await?;
+    /// Starts the llama-server sidecar for the given post-process engine. GPU
+    /// engines try the Vulkan build first and fall back to the CPU build,
+    /// recording the reason in `last_gpu_error` (the same fallback contract
+    /// as whisper GPU transcription).
+    pub async fn new(
+        engine_name: &str,
+        model_size: &str,
+        system_prompt: &str,
+        last_gpu_error: Arc<std::sync::Mutex<Option<String>>>,
+    ) -> Result<Self, PostProcessError> {
+        if crate::engine_factory::engine_uses_gpu(engine_name) {
+            match Self::start(engine_name, model_size, system_prompt, true).await {
+                Ok(service) => {
+                    *last_gpu_error.lock().unwrap() = None;
+                    return Ok(service);
+                }
+                Err(error) => {
+                    crate::log_warn!(
+                        "llama-server GPU start failed ({}); falling back to CPU",
+                        error
+                    );
+                    *last_gpu_error.lock().unwrap() = Some(error.to_string());
+                }
+            }
+        }
+        Self::start(engine_name, model_size, system_prompt, false).await
+    }
+
+    async fn start(
+        engine_name: &str,
+        model_size: &str,
+        system_prompt: &str,
+        use_gpu: bool,
+    ) -> Result<Self, PostProcessError> {
+        let binary_path = crate::sidecar::ensure_binary(
+            binary_dir(use_gpu)?,
+            &binary_name(),
+            download_spec(use_gpu)?,
+        )
+        .await
+        .map_err(|e| PostProcessError::Api(e.to_string()))?;
+        let port = crate::sidecar::find_free_port(PORT_START, PORT_END)
+            .await
+            .map_err(|e| PostProcessError::Api(e.to_string()))?;
 
         let mgr = ModelManager::new()
             .map_err(|e| PostProcessError::Api(format!("Failed to init model manager: {}", e)))?;
 
-        let model =
-            ModelManager::find_model("Post-Process (Local)", model_size).ok_or_else(|| {
-                PostProcessError::Api(format!("Model '{}' not found in catalog", model_size))
-            })?;
+        let model = ModelManager::find_model(engine_name, model_size).ok_or_else(|| {
+            PostProcessError::Api(format!(
+                "Model '{}' not found in catalog for engine '{}'",
+                model_size, engine_name
+            ))
+        })?;
 
         let model_path = mgr.get_model_path(&model);
         if !model_path.exists() {
@@ -44,32 +86,23 @@ impl SidecarPostProcess {
             )));
         }
 
-        crate::log_info!("Starting llama-server with model: {}", model_path.display());
+        crate::log_info!(
+            "Starting llama-server with model: {} (gpu={})",
+            model_path.display(),
+            use_gpu
+        );
 
-        let mut command = Command::new(&binary_path);
-        command
-            .arg("-m")
-            .arg(&model_path)
-            .arg("--host")
-            .arg("127.0.0.1")
-            .arg("--port")
-            .arg(port.to_string())
-            .arg("-ngl")
-            .arg("0")
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .stdin(Stdio::null())
-            .kill_on_drop(true);
-
-        #[cfg(target_os = "windows")]
-        {
-            // CREATE_NO_WINDOW: prevent the console-subsystem sidecar from
-            // popping up (and stealing keyboard focus on) Windows.
-            command.creation_flags(0x08000000);
-        }
-
-        let mut child = command
-            .spawn()
+        let args = vec![
+            "-m".to_string(),
+            model_path.to_string_lossy().to_string(),
+            "--host".to_string(),
+            "127.0.0.1".to_string(),
+            "--port".to_string(),
+            port.to_string(),
+            "-ngl".to_string(),
+            if use_gpu { "99" } else { "0" }.to_string(),
+        ];
+        let mut child = crate::sidecar::spawn_sidecar(&binary_path, &args)
             .map_err(|e| PostProcessError::Api(format!("Failed to spawn llama-server: {}", e)))?;
 
         let stderr = child.stderr.take().unwrap();
@@ -77,12 +110,13 @@ impl SidecarPostProcess {
 
         match ready {
             Ok(()) => {
-                crate::log_info!("llama-server started on port {}", port);
+                crate::log_info!("llama-server started on port {} (gpu={})", port, use_gpu);
                 Ok(Self {
                     port,
                     _process: Arc::new(Mutex::new(Some(child))),
                     model_size: model_size.to_string(),
                     system_prompt: system_prompt.to_string(),
+                    use_gpu,
                 })
             }
             Err(e) => {
@@ -147,224 +181,42 @@ impl PostProcessService for SidecarPostProcess {
     }
 
     fn service_name(&self) -> &'static str {
-        "Post-Process (Local)"
-    }
-}
-
-async fn resolve_or_download_binary() -> Result<PathBuf, PostProcessError> {
-    let bin_dir = binary_dir()?;
-    let binary_name = binary_name();
-    let binary_path = bin_dir.join(&binary_name);
-
-    if binary_path.exists() {
-        return Ok(binary_path);
-    }
-
-    crate::log_info!("llama-server binary not found, downloading...");
-    download_binary(&bin_dir).await?;
-
-    if !binary_path.exists() {
-        return Err(PostProcessError::Api(format!(
-            "Binary downloaded but {} not found",
-            binary_name
-        )));
-    }
-
-    Ok(binary_path)
-}
-
-async fn download_binary(target_dir: &std::path::Path) -> Result<(), PostProcessError> {
-    let archive_name = archive_name()?;
-    let url = format!(
-        "https://github.com/ggml-org/llama.cpp/releases/download/{}/{}",
-        BINARY_VERSION, archive_name
-    );
-
-    crate::log_info!("Downloading llama-server from {}", url);
-
-    let response = reqwest::get(&url)
-        .await
-        .map_err(|e| PostProcessError::Network(format!("Binary download failed: {}", e)))?;
-
-    let total = response.content_length().unwrap_or(0);
-    let mut downloaded: u64 = 0;
-
-    let archive_path = target_dir.join(archive_name);
-    {
-        use futures_util::StreamExt;
-        use tokio::io::AsyncWriteExt;
-
-        let mut file = tokio::fs::File::create(&archive_path)
-            .await
-            .map_err(|e| PostProcessError::Api(format!("Failed to create archive: {}", e)))?;
-
-        let mut stream = response.bytes_stream();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|e| PostProcessError::Network(e.to_string()))?;
-            file.write_all(&chunk)
-                .await
-                .map_err(|e| PostProcessError::Api(e.to_string()))?;
-            downloaded += chunk.len() as u64;
-            if total > 0 {
-                let pct = (downloaded as f64 / total as f64) * 100.0;
-                crate::log_info!("llama-server download: {:.0}%", pct);
-            }
-        }
-        file.flush()
-            .await
-            .map_err(|e| PostProcessError::Api(e.to_string()))?;
-    }
-
-    crate::log_info!("Extracting {}...", archive_name);
-
-    if archive_name.ends_with(".zip") {
-        extract_zip(&archive_path, target_dir).await?;
-    } else {
-        extract_tar_gz(&archive_path, target_dir).await?;
-    }
-
-    let bin_name = binary_name();
-    let bin_path = target_dir.join(&bin_name);
-    if !bin_path.exists() {
-        return Err(PostProcessError::Api(format!(
-            "{} not found in archive",
-            bin_name
-        )));
-    }
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Ok(meta) = std::fs::metadata(&bin_path) {
-            let mut perms = meta.permissions();
-            perms.set_mode(perms.mode() | 0o111);
-            let _ = std::fs::set_permissions(&bin_path, perms);
-        }
-    }
-
-    let _ = std::fs::remove_file(&archive_path);
-    crate::log_info!("llama-server binary downloaded and extracted");
-    Ok(())
-}
-
-async fn extract_tar_gz(
-    archive_path: &std::path::Path,
-    target_dir: &std::path::Path,
-) -> Result<(), PostProcessError> {
-    let mut archive = {
-        let archive_file = std::fs::File::open(archive_path)
-            .map_err(|e| PostProcessError::Api(format!("Failed to open archive: {}", e)))?;
-        let decoder = flate2::read::GzDecoder::new(archive_file);
-        tar::Archive::new(decoder)
-    };
-
-    for entry in archive
-        .entries()
-        .map_err(|e| PostProcessError::Api(format!("Failed to read tar entries: {}", e)))?
-    {
-        let mut entry =
-            entry.map_err(|e| PostProcessError::Api(format!("Failed to read tar entry: {}", e)))?;
-        let path = entry
-            .path()
-            .map_err(|_| PostProcessError::Api("Invalid path in tar".to_string()))?;
-
-        // Strip the top-level directory (e.g. "llama-b10331/") so files go flat into target_dir
-        let components: Vec<_> = path.components().collect();
-        if components.len() < 2 {
-            continue;
-        }
-        let relative: PathBuf = components[1..].iter().collect();
-        let out_path = target_dir.join(&relative);
-
-        if entry.header().entry_type().is_symlink() {
-            if let Some(parent) = out_path.parent() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| PostProcessError::Api(format!("Failed to create dir: {}", e)))?;
-            }
-            #[cfg(unix)]
-            {
-                let target = entry
-                    .link_name()
-                    .map_err(|_| PostProcessError::Api("Invalid symlink target".to_string()))?
-                    .ok_or_else(|| PostProcessError::Api("Symlink with no target".to_string()))?;
-                std::os::unix::fs::symlink(&target, &out_path).map_err(|e| {
-                    PostProcessError::Api(format!("Failed to create symlink: {}", e))
-                })?;
-            }
-        } else if entry.header().entry_type().is_dir() {
-            let _ = std::fs::create_dir_all(&out_path);
+        if self.use_gpu {
+            "Post-Process (GPU)"
         } else {
-            if let Some(parent) = out_path.parent() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| PostProcessError::Api(format!("Failed to create dir: {}", e)))?;
-            }
-            let mut out_file = std::fs::File::create(&out_path)
-                .map_err(|e| PostProcessError::Api(format!("Failed to create file: {}", e)))?;
-            std::io::copy(&mut entry, &mut out_file)
-                .map_err(|e| PostProcessError::Api(format!("Failed to extract file: {}", e)))?;
+            "Post-Process (Local)"
         }
     }
-
-    Ok(())
 }
 
-async fn extract_zip(
-    archive_path: &std::path::Path,
-    target_dir: &std::path::Path,
-) -> Result<(), PostProcessError> {
-    let file = std::fs::File::open(archive_path)
-        .map_err(|e| PostProcessError::Api(format!("Failed to open archive: {}", e)))?;
-    let mut archive = zip::ZipArchive::new(file)
-        .map_err(|e| PostProcessError::Api(format!("Failed to open zip archive: {}", e)))?;
-
-    for index in 0..archive.len() {
-        let mut entry = archive
-            .by_index(index)
-            .map_err(|e| PostProcessError::Api(format!("Failed to read zip entry: {}", e)))?;
-
-        let Some(enclosed) = entry.enclosed_name() else {
-            continue;
-        };
-        // Skip the root directory component (e.g. "repo/") so files go flat into target_dir
-        let relative: PathBuf =
-            enclosed
-                .components()
-                .skip(1)
-                .fold(PathBuf::new(), |mut acc, component| {
-                    acc.push(component.as_os_str());
-                    acc
-                });
-        if relative.as_os_str().is_empty() {
-            continue;
-        }
-        let out_path = target_dir.join(&relative);
-
-        if entry.is_dir() {
-            let _ = std::fs::create_dir_all(&out_path);
-            continue;
-        }
-
-        if let Some(parent) = out_path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| PostProcessError::Api(format!("Failed to create dir: {}", e)))?;
-        }
-
-        let mut out_file = std::fs::File::create(&out_path)
-            .map_err(|e| PostProcessError::Api(format!("Failed to create file: {}", e)))?;
-        std::io::copy(&mut entry, &mut out_file)
-            .map_err(|e| PostProcessError::Api(format!("Failed to extract file: {}", e)))?;
-    }
-
-    Ok(())
+/// The llama.cpp release archive for this platform and backend. GPU engines
+/// use the Vulkan builds (single archive, no CUDA runtime companion needed).
+/// Provider-specific release knowledge; download/extract mechanics live in
+/// `crate::sidecar`.
+fn download_spec(use_gpu: bool) -> Result<crate::sidecar::SidecarDownload, PostProcessError> {
+    let archive_name = archive_name(use_gpu)?;
+    Ok(crate::sidecar::SidecarDownload {
+        log_label: "llama-server",
+        archive_url: format!(
+            "https://github.com/ggml-org/llama.cpp/releases/download/{}/{}",
+            BINARY_VERSION, archive_name
+        ),
+        archive_name: archive_name.to_string(),
+        layout: crate::archive::ExtractLayout::PreservePaths,
+    })
 }
 
-fn binary_dir() -> Result<PathBuf, PostProcessError> {
+fn binary_dir(use_gpu: bool) -> Result<PathBuf, PostProcessError> {
+    // CPU and Vulkan builds extract into separate variant directories so they
+    // never overwrite each other.
+    let variant = if use_gpu { "vulkan" } else { "cpu" };
     let config_dir = dirs::config_dir()
         .ok_or_else(|| PostProcessError::Api("Could not find config directory".into()))?
         .join("foss-voquill")
         .join("models")
         .join("post-process")
-        .join("bin");
+        .join("bin")
+        .join(variant);
     std::fs::create_dir_all(&config_dir)
         .map_err(|e| PostProcessError::Api(format!("Failed to create bin dir: {}", e)))?;
     Ok(config_dir)
@@ -378,10 +230,12 @@ fn binary_name() -> String {
     }
 }
 
-fn archive_name() -> Result<&'static str, PostProcessError> {
-    match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("linux", "x86_64") => Ok("llama-b10331-bin-ubuntu-x64.tar.gz"),
-        ("windows", "x86_64") => Ok("llama-b10331-bin-win-cpu-x64.zip"),
+fn archive_name(use_gpu: bool) -> Result<&'static str, PostProcessError> {
+    match (std::env::consts::OS, std::env::consts::ARCH, use_gpu) {
+        ("linux", "x86_64", false) => Ok("llama-b10331-bin-ubuntu-x64.tar.gz"),
+        ("linux", "x86_64", true) => Ok("llama-b10331-bin-ubuntu-vulkan-x64.tar.gz"),
+        ("windows", "x86_64", false) => Ok("llama-b10331-bin-win-cpu-x64.zip"),
+        ("windows", "x86_64", true) => Ok("llama-b10331-bin-win-vulkan-x64.zip"),
         _ => Err(PostProcessError::Api(format!(
             "Unsupported platform for local post-processing: {}-{}",
             std::env::consts::OS,
@@ -447,18 +301,4 @@ async fn check_health(port: u16) -> bool {
         Ok(r) => r.status().is_success(),
         Err(_) => false,
     }
-}
-
-async fn find_free_port(start: u16, end: u16) -> Result<u16, PostProcessError> {
-    for port in start..=end {
-        if TcpStream::connect(format!("127.0.0.1:{}", port))
-            .await
-            .is_err()
-        {
-            return Ok(port);
-        }
-    }
-    Err(PostProcessError::Api(
-        "No free ports available (6030-6050)".into(),
-    ))
 }

@@ -34,6 +34,34 @@ pub async fn get_gpu_status(state: tauri::State<'_, AppState>) -> Result<GpuStat
     }
 }
 
+#[tauri::command]
+pub async fn get_post_process_gpu_status(
+    state: tauri::State<'_, AppState>,
+) -> Result<GpuStatus, String> {
+    let factory = &state.post_process_factory;
+    let tested = factory.gpu_has_been_tested();
+    if tested {
+        match factory.last_gpu_error() {
+            None => Ok(GpuStatus {
+                tested: true,
+                available: true,
+                detail: None,
+            }),
+            Some(error) => Ok(GpuStatus {
+                tested: true,
+                available: false,
+                detail: Some(error),
+            }),
+        }
+    } else {
+        Ok(GpuStatus {
+            tested: false,
+            available: false,
+            detail: None,
+        })
+    }
+}
+
 use crate::typing;
 
 #[tauri::command]

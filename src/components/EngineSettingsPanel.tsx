@@ -71,6 +71,7 @@ function renderSettingControl(
     case 'bool':
       return (
         <Switch
+          name={setting.label}
           checked={Boolean(currentValue)}
           onChange={(checked) => onChange(setting.key, checked)}
         />

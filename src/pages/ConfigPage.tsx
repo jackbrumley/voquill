@@ -10,7 +10,7 @@ import { NumberField } from '../components/NumberField.tsx';
 import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
 import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
 import { SelectField } from '../components/SelectField.tsx';
-import type { GpuStatus, EngineCapabilities } from '../types.ts';
+import type { DownloadPhase, GpuStatus, EngineCapabilities } from '../types.ts';
 import { EngineSettingsPanel } from '../components/EngineSettingsPanel.tsx';
 import { helperTextStyle, inputBaseStyle, selectWrapperStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
@@ -58,6 +58,7 @@ interface ConfigPageProps {
     dictionary: string[];
     post_process_enabled: boolean;
     post_process_provider: 'Local' | 'API';
+    post_process_engine: string;
     post_process_model: string;
     post_process_api_url: string;
     post_process_api_key: string;
@@ -70,6 +71,7 @@ interface ConfigPageProps {
   availableModels: ModelInfo[];
   modelStatus: Record<string, boolean>;
   downloadProgress: number;
+  downloadPhase: DownloadPhase;
   isDownloading: boolean;
   isTestingApi: boolean;
   portalVersion: number;
@@ -101,6 +103,7 @@ interface ConfigPageProps {
   onToggleAutostart: (enabled: boolean) => void;
   testCleanupApi: () => void;
   gpuStatus: GpuStatus | null;
+  postProcessGpuStatus: GpuStatus | null;
   engineCapabilities: EngineCapabilities | null;
 }
 
@@ -128,6 +131,7 @@ export function ConfigPage(props: ConfigPageProps) {
     availableModels,
     modelStatus,
     downloadProgress,
+    downloadPhase,
     isDownloading,
     isTestingApi,
     portalVersion,
@@ -159,6 +163,7 @@ export function ConfigPage(props: ConfigPageProps) {
     onToggleAutostart,
     testCleanupApi,
     gpuStatus,
+    postProcessGpuStatus,
     engineCapabilities,
   } = props;
 
@@ -276,6 +281,44 @@ export function ConfigPage(props: ConfigPageProps) {
             />
           </ConfigField>
 
+          <ConfigField
+            label="Global Hotkey"
+            description={
+              config.hotkey_mode === 'Toggle'
+                ? (isSystemManagedShortcut ? 'Press your system shortcut to start recording, and again to stop.' : 'Press once to start recording, press again to stop and transcribe.')
+                : (isSystemManagedShortcut ? 'Use your system shortcut to record and release to transcribe.' : 'Hold these keys to record, release to transcribe.')
+            }
+          >
+            <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center', justifyContent: 'flex-start', width: '100%' }}>
+              {!isSystemManagedShortcut && (
+                <input
+                  type="text"
+                  value={config.hotkey}
+                  readOnly
+                  onClick={() => {}}
+                  placeholder="Configure using button"
+                  style={{ ...inputBaseStyle, opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default', maxWidth: '200px' }}
+                  title={portalVersion >= 1 ? 'Use Configure Hotkey to request binding through the system portal.' : ''}
+                />
+              )}
+              <Button
+                size="md"
+                variant="configAction"
+                onClick={handleConfigureHotkey}
+                disabled={isApplyingHotkey}
+              >
+                Modify
+              </Button>
+            </div>
+            {!isSystemManagedShortcut && portalVersion >= 1 && (
+              <div style={helperTextStyle}>
+                Shortcut registration uses the Wayland GlobalShortcuts portal.
+                {hotkeyBindingState?.active_trigger ? ` Active shortcut: ${hotkeyBindingState.active_trigger}.` : ''}
+                {hotkeyBindingState?.bound ? ' Listener is active.' : ''}
+              </div>
+            )}
+          </ConfigField>
+
           <ConfigField label="Output Method" description="Choose how transcriptions are inserted when dictation finishes.">
             <ModeSwitcher
               value={config.output_method}
@@ -288,7 +331,7 @@ export function ConfigPage(props: ConfigPageProps) {
           </ConfigField>
 
           <ConfigField label="Always Copy to Clipboard" description="Also copy transcriptions to clipboard even while using Typewriter output.">
-            <Switch checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} />
+            <Switch name="Always Copy to Clipboard" checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} />
           </ConfigField>
 
           <ConfigField label="Updates" description="Check for newer Voquill releases.">
@@ -300,7 +343,7 @@ export function ConfigPage(props: ConfigPageProps) {
           </ConfigField>
 
           <ConfigField label="Launch on System Startup" description="Automatically starts Voquill when you log in.">
-            <Switch checked={autostartEnabled} onChange={onToggleAutostart} />
+            <Switch name="Launch on System Startup" checked={autostartEnabled} onChange={onToggleAutostart} />
           </ConfigField>
 
           <ConfigField label="Status Overlay Position (px)" description="Vertical offset for the status overlay from the bottom of the screen.">
@@ -443,54 +486,7 @@ export function ConfigPage(props: ConfigPageProps) {
 
             {activeConfigSection === 'transcription' && (
               <>
-              <ConfigField
-            label="Global Hotkey"
-            description={
-              config.hotkey_mode === 'Toggle'
-                ? (isSystemManagedShortcut ? 'Press your system shortcut to start recording, and again to stop.' : 'Press once to start recording, press again to stop and transcribe.')
-                : (isSystemManagedShortcut ? 'Use your system shortcut to record and release to transcribe.' : 'Hold these keys to record, release to transcribe.')
-            }
-          >
-            <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center', justifyContent: 'flex-start', width: '100%' }}>
-              {!isSystemManagedShortcut && (
-                <input
-                  type="text"
-                  value={config.hotkey}
-                  readOnly
-                  onClick={() => {}}
-                  placeholder="Configure using button"
-                  style={{ ...inputBaseStyle, opacity: portalVersion >= 1 ? 0.9 : 1, cursor: 'default', maxWidth: '200px' }}
-                  title={portalVersion >= 1 ? 'Use Configure Hotkey to request binding through the system portal.' : ''}
-                />
-              )}
-              <Button
-                size="md"
-                variant="configAction"
-                onClick={handleConfigureHotkey}
-                disabled={isApplyingHotkey}
-              >
-                Modify
-              </Button>
-            </div>
-            {!isSystemManagedShortcut && portalVersion >= 1 && (
-              <div style={helperTextStyle}>
-                Shortcut registration uses the Wayland GlobalShortcuts portal.
-                {hotkeyBindingState?.active_trigger ? ` Active shortcut: ${hotkeyBindingState.active_trigger}.` : ''}
-                {hotkeyBindingState?.bound ? ' Listener is active.' : ''}
-              </div>
-            )}
-          </ConfigField>
-
-          <ConfigField label="Max Recording Length (minutes)" description="Recording automatically stops and transcribes after this many minutes (1-60).">
-            <NumberField
-              value={config.max_recording_duration_minutes}
-              onChange={(value) => updateConfig('max_recording_duration_minutes', value)}
-              min={1}
-              max={60}
-            />
-          </ConfigField>
-
-          <ConfigField label="Transcription Method" description="Choose between cloud-based API or fully local processing.">
+              <ConfigField label="Transcription Method" description="Choose between cloud-based API or fully local processing.">
             <ModeSwitcher
               value={config.transcription_mode}
               onToggle={(val) => updateConfig('transcription_mode', val)}
@@ -565,6 +561,7 @@ export function ConfigPage(props: ConfigPageProps) {
                   modelStatus={modelStatus}
                   isDownloading={isDownloading}
                   downloadProgress={downloadProgress}
+                  downloadPhase={downloadPhase}
                   onChangeModel={(size) => updateConfig('local_model_size', size)}
                   onShowModelGuide={() => setShowModelGuide(true)}
                   onDownloadModel={downloadModel}
@@ -598,13 +595,22 @@ export function ConfigPage(props: ConfigPageProps) {
               step={50}
             />
           </ConfigField>
+
+          <ConfigField label="Max Recording Length (minutes)" description="Recording automatically stops and transcribes after this many minutes (1-60).">
+            <NumberField
+              value={config.max_recording_duration_minutes}
+              onChange={(value) => updateConfig('max_recording_duration_minutes', value)}
+              min={1}
+              max={60}
+            />
+          </ConfigField>
               </>
             )}
 
 {activeConfigSection === 'post-process' && (
               <>
               <ConfigField label="Post-Processing" description="Run transcribed text through a language model to fix punctuation, capitalization, and remove filler words.">
-                <Switch checked={config.post_process_enabled} onChange={(checked) => updateConfig('post_process_enabled', checked)} />
+                <Switch name="Post-Processing" checked={config.post_process_enabled} onChange={(checked) => updateConfig('post_process_enabled', checked)} />
               </ConfigField>
 
               {config.post_process_enabled && (
@@ -614,7 +620,7 @@ export function ConfigPage(props: ConfigPageProps) {
                       value={config.post_process_provider}
                       onToggle={(val) => updateConfig('post_process_provider', val)}
                       options={[
-                        { value: 'Local', label: 'Local', title: 'Use a local GGUF model (coming soon)' },
+                        { value: 'Local', label: 'Local', title: 'Use a local GGUF model' },
                         { value: 'API', label: 'Cloud API', title: 'Use an OpenAI-compatible API' },
                       ]}
                     />
@@ -638,20 +644,56 @@ export function ConfigPage(props: ConfigPageProps) {
                       </ConfigField>
                     </>
                   ) : (
+                    <>
+                    <ConfigField label="Local Engine" description="CPU works everywhere. GPU (Vulkan) accelerates post-processing on compatible hardware.">
+                      <div style={selectWrapperStyle}>
+                        <SelectField
+                          value={config.post_process_engine}
+                          options={[
+                            { value: 'Post-Process (Local)', label: 'CPU' },
+                            { value: 'Post-Process (GPU)', label: 'GPU (Vulkan)' },
+                          ]}
+                          onChange={(nextEngine) => updateConfig('post_process_engine', nextEngine)}
+                          ariaLabel="Post-process engine"
+                        />
+                      </div>
+                    </ConfigField>
+
+                    {config.post_process_engine.includes('(GPU)') && postProcessGpuStatus?.tested && !postProcessGpuStatus.available && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '11px',
+                        color: '#f1c40f',
+                        margin: '-8px 0 8px',
+                        padding: '6px 8px',
+                        background: 'rgba(241, 196, 15, 0.08)',
+                        borderRadius: '6px',
+                      }}>
+                        <IconInfoCircle size={14} />
+                        <span>
+                          GPU unavailable: {postProcessGpuStatus.detail || 'No compatible GPU detected. Using the CPU engine instead.'}
+                        </span>
+                      </div>
+                    )}
+
                     <ConfigField label="Local Model" description="Download a GGUF model for on-device post-processing. No internet connection needed after download.">
                       <ModelSelectionPanel
-                        availableModels={(availableModels || []).filter((m) => m.engine === 'Post-Process (Local)')}
-                        localEngine="Post-Process (Local)"
+                        availableModels={(availableModels || []).filter((m) => m.engine === config.post_process_engine)}
+                        localEngine={config.post_process_engine}
                         localModelSize={config.post_process_model}
                         modelStatus={modelStatus}
                         isDownloading={isDownloading}
                         downloadProgress={downloadProgress}
+                        downloadPhase={downloadPhase}
                         onChangeModel={(size) => updateConfig('post_process_model', size)}
-                        onDownloadModel={(size) => downloadModel(size, 'Post-Process (Local)')}
+                        onDownloadModel={(size) => downloadModel(size, config.post_process_engine)}
                         onRetryModels={loadModels}
                         onShowModelGuide={() => setShowPostProcessGuide(true)}
                       />
                     </ConfigField>
+                    </>
                   )}
 
                   <ConfigField label="System Prompt" description="The system prompt sent to the post-processing model. Customize how your text is cleaned.">
@@ -698,7 +740,7 @@ export function ConfigPage(props: ConfigPageProps) {
 
               <ConfigField label="Recordings" description="Saves dictation recordings as WAV files to your app data folder to help analyze audio issues.">
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: tokens.spacing.sm, width: '100%' }}>
-                  <Switch checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} />
+                  <Switch name="Recordings" checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} />
                   <div style={{ display: 'flex', justifyContent: 'flex-start', gap: tokens.spacing.sm, width: '100%' }}>
                     <Button variant="ghost" pill style={configGhostPillStyle} onClick={openDebugFolder}>Open Folder</Button>
                     <Button variant="danger" pill style={configGhostPillStyle} onClick={async () => { if (await confirm('Delete all recorded WAV files?')) { try { await invoke('clear_recording_logs'); } catch (e) { console.error('Failed to delete recordings:', e); } } }}>Delete</Button>

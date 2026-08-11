@@ -6,7 +6,7 @@ import { HistoryPage } from '../pages/HistoryPage.tsx';
 import { UiLabPage } from '../pages/UiLabPage.tsx';
 import { TabBar } from './TabBar.tsx';
 import { appContentStyle } from '../theme/ui-primitives.ts';
-import type { Config, HistoryItem, AudioDevice, EngineCapabilities, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, UpdateCheckResult, AppRoute } from '../types.ts';
+import type { Config, DownloadPhase, HistoryItem, AudioDevice, EngineCapabilities, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, UpdateCheckResult, AppRoute } from '../types.ts';
 
 interface MainLayoutProps {
   activeRoute: AppRoute;
@@ -16,6 +16,7 @@ interface MainLayoutProps {
   availableModels: ModelInfo[];
   modelStatus: Record<string, boolean>;
   downloadProgress: number;
+  downloadPhase: DownloadPhase;
   isDownloading: boolean;
   isTestingApi: boolean;
   activeConfigSection: string | null;
@@ -34,6 +35,7 @@ interface MainLayoutProps {
   searchResults: HistoryItem[];
   updateResult: UpdateCheckResult | null;
   gpuStatus: GpuStatus | null;
+  postProcessGpuStatus: GpuStatus | null;
   engineCapabilities: EngineCapabilities | null;
   onNavigate: (route: AppRoute) => void;
   onLogUI: (msg: string) => void;
@@ -96,6 +98,7 @@ export function MainLayout(props: MainLayoutProps) {
           <ConfigPage
             config={props.config}
             gpuStatus={props.gpuStatus}
+            postProcessGpuStatus={props.postProcessGpuStatus}
             engineCapabilities={props.engineCapabilities}
             activeConfigSection={props.activeConfigSection}
             setActiveConfigSection={props.onSetActiveConfigSection}
@@ -103,6 +106,7 @@ export function MainLayout(props: MainLayoutProps) {
             availableModels={props.availableModels}
             modelStatus={props.modelStatus}
             downloadProgress={props.downloadProgress}
+            downloadPhase={props.downloadPhase}
             isDownloading={props.isDownloading}
             isTestingApi={props.isTestingApi}
             portalVersion={props.portalVersion}

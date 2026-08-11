@@ -22,6 +22,48 @@ const PARAKEET_REQUIRED_FILES: &[&str] = &[
     "tokens.txt",
 ];
 
+/// Progress of a model download, reported to the frontend through the
+/// `model-download-progress` event.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadProgress {
+    pub phase: DownloadPhase,
+    pub progress: f64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DownloadPhase {
+    Downloading,
+    Extracting,
+}
+
+/// One whisper.cpp model definition. Each spec is expanded into a CPU and a
+/// GPU engine variant so the two catalogs can never drift apart.
+struct WhisperModelSpec {
+    size: &'static str,
+    label: &'static str,
+    file_size: u64,
+    download_url: &'static str,
+    sha256: &'static str,
+    cpu_description: &'static str,
+    gpu_description: &'static str,
+    recommended: bool,
+}
+
+/// One post-process (GGUF) model definition. Same deal: expanded into CPU
+/// ("Post-Process (Local)") and GPU ("Post-Process (GPU)") engine variants
+/// sharing the same model file.
+struct PostProcessModelSpec {
+    size: &'static str,
+    label: &'static str,
+    file_size: u64,
+    download_url: &'static str,
+    cpu_description: &'static str,
+    gpu_description: &'static str,
+    recommended: bool,
+}
+
 pub struct ModelManager {
     pub models_dir: PathBuf,
 }
@@ -96,8 +138,11 @@ impl ModelManager {
         progress_callback: F,
     ) -> Result<PathBuf, String>
     where
-        F: Fn(f64) + Send + 'static,
+        F: Fn(DownloadProgress) + Send + 'static,
     {
+        let report = |phase: DownloadPhase, progress: f64| {
+            progress_callback(DownloadProgress { phase, progress });
+        };
         let client = reqwest::Client::new();
         let mut response = client
             .get(&model.download_url)
@@ -123,69 +168,28 @@ impl ModelManager {
                         downloaded += chunk.len() as u64;
                         let pct = (downloaded as f64 / total_size as f64) * 100.0;
                         if pct - last_progress >= 0.5 || pct >= 100.0 {
-                            progress_callback(pct);
+                            report(DownloadPhase::Downloading, pct);
                             last_progress = pct;
                         }
                     }
                     file.flush().await.map_err(|e| e.to_string())?;
                 }
 
-                // Extract tar.bz2 archive
+                // Extraction can take a while for large archives; switch the
+                // UI to an explicit extracting phase so it doesn't sit at 100%.
+                report(DownloadPhase::Extracting, 100.0);
+
                 let target_dir = self.models_dir.join("parakeet").join(&model.size);
-                std::fs::create_dir_all(&target_dir).map_err(|e| e.to_string())?;
-
-                let archive_file = std::fs::File::open(&archive_path)
-                    .map_err(|e| format!("Failed to open archive: {}", e))?;
-                let decoder = bzip2::read::BzDecoder::new(archive_file);
-                let mut archive = tar::Archive::new(decoder);
-
-                for entry in archive
-                    .entries()
-                    .map_err(|e| format!("Failed to read tar entries: {}", e))?
-                {
-                    let mut entry =
-                        entry.map_err(|e| format!("Failed to read tar entry: {}", e))?;
-                    let path = entry
-                        .path()
-                        .map_err(|_| "Invalid path in tar".to_string())?;
-
-                    let components: Vec<_> = path.components().collect();
-                    if components.len() < 2 {
-                        continue;
-                    }
-                    let relative: PathBuf = components[1..].iter().collect();
-                    let out_path = target_dir.join(&relative);
-
-                    if entry.header().entry_type().is_symlink() {
-                        if let Some(parent) = out_path.parent() {
-                            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-                        }
-                        #[cfg(unix)]
-                        {
-                            let target = entry
-                                .link_name()
-                                .map_err(|_| "Invalid symlink target".to_string())?
-                                .ok_or_else(|| "Symlink with no target".to_string())?;
-                            std::os::unix::fs::symlink(&target, &out_path)
-                                .map_err(|e| format!("Failed to create symlink: {}", e))?;
-                        }
-                    } else if entry.header().entry_type().is_dir() {
-                        let _ = std::fs::create_dir_all(&out_path);
-                    } else {
-                        if let Some(parent) = out_path.parent() {
-                            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-                        }
-                        let mut out_file = std::fs::File::create(&out_path)
-                            .map_err(|e| format!("Failed to create file: {}", e))?;
-                        std::io::copy(&mut entry, &mut out_file)
-                            .map_err(|e| format!("Failed to extract file: {}", e))?;
-                    }
-                }
+                crate::archive::extract_archive(
+                    &archive_path,
+                    &target_dir,
+                    crate::archive::ExtractLayout::PreservePaths,
+                )
+                .map_err(|e| format!("Failed to extract {}: {}", model.size, e))?;
 
                 // Remove the archive after extraction
                 let _ = std::fs::remove_file(&archive_path);
 
-                progress_callback(100.0);
                 Ok(target_dir)
             }
             _ => {
@@ -203,66 +207,92 @@ impl ModelManager {
                     downloaded += chunk.len() as u64;
                     let pct = (downloaded as f64 / total_size as f64) * 100.0;
                     if pct - last_progress >= 0.5 || pct >= 100.0 {
-                        progress_callback(pct);
+                        report(DownloadPhase::Downloading, pct);
                         last_progress = pct;
                     }
                 }
 
                 file.flush().await.map_err(|e| e.to_string())?;
-                progress_callback(100.0);
+                report(DownloadPhase::Downloading, 100.0);
                 Ok(path)
             }
         }
     }
 
-    fn cpu_models() -> Vec<ModelInfo> {
+    fn whisper_model_specs() -> Vec<WhisperModelSpec> {
         vec![
-            Self::model_info("Whisper.cpp", "tiny.en", "Tiny (English)", 77_600_000,
-                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin",
-                "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776",
-                "Lightning fast, best for simple commands.", false, "transcription"),
-            Self::model_info("Whisper.cpp", "distil-small.en", "Distil-Small (English)", 175_000_000,
-                "https://huggingface.co/distil-whisper/distil-small.en/resolve/main/ggml-distil-small.en.bin",
-                "e8a676964fd3f78b021a385f078a18863712ca10fdc907a685eee9c0e71d7a62",
-                "Perfect balance of speed and high accuracy.", true, "transcription"),
-            Self::model_info("Whisper.cpp", "base.en", "Base (English)", 147_000_000,
-                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
-                "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d",
-                "Standard choice for general dictation.", false, "transcription"),
-            Self::model_info("Whisper.cpp", "small.en", "Small (English)", 483_000_000,
-                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
-                "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
-                "Great accuracy for complex vocabulary.", false, "transcription"),
-            Self::model_info("Whisper.cpp", "medium.en", "Medium (English)", 1_500_000_000,
-                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin",
-                "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
-                "Highest accuracy. Needs a powerful computer or GPU.", false, "transcription"),
+            WhisperModelSpec {
+                size: "tiny.en", label: "Tiny (English)", file_size: 77_600_000,
+                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin",
+                sha256: "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776",
+                cpu_description: "Lightning fast, best for simple commands.",
+                gpu_description: "Lightning fast with GPU acceleration. Requires a compatible GPU.",
+                recommended: false,
+            },
+            WhisperModelSpec {
+                size: "distil-small.en", label: "Distil-Small (English)", file_size: 175_000_000,
+                download_url: "https://huggingface.co/distil-whisper/distil-small.en/resolve/main/ggml-distil-small.en.bin",
+                sha256: "e8a676964fd3f78b021a385f078a18863712ca10fdc907a685eee9c0e71d7a62",
+                cpu_description: "Perfect balance of speed and high accuracy.",
+                gpu_description: "Fast and accurate with GPU acceleration. Requires a compatible GPU.",
+                recommended: true,
+            },
+            WhisperModelSpec {
+                size: "base.en", label: "Base (English)", file_size: 147_000_000,
+                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+                sha256: "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d",
+                cpu_description: "Standard choice for general dictation.",
+                gpu_description: "Standard choice with GPU acceleration. Requires a compatible GPU.",
+                recommended: false,
+            },
+            WhisperModelSpec {
+                size: "small.en", label: "Small (English)", file_size: 483_000_000,
+                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
+                sha256: "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
+                cpu_description: "Great accuracy for complex vocabulary.",
+                gpu_description: "Great accuracy with GPU acceleration. Requires a compatible GPU.",
+                recommended: false,
+            },
+            WhisperModelSpec {
+                size: "medium.en", label: "Medium (English)", file_size: 1_500_000_000,
+                download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin",
+                sha256: "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
+                cpu_description: "Highest accuracy. Needs a powerful computer or GPU.",
+                gpu_description: "Highest accuracy with GPU acceleration. Requires a compatible GPU.",
+                recommended: false,
+            },
         ]
     }
 
+    fn whisper_models(engine: &'static str, use_gpu: bool) -> Vec<ModelInfo> {
+        Self::whisper_model_specs()
+            .into_iter()
+            .map(|spec| {
+                Self::model_info(
+                    engine,
+                    spec.size,
+                    spec.label,
+                    spec.file_size,
+                    spec.download_url,
+                    spec.sha256,
+                    if use_gpu {
+                        spec.gpu_description
+                    } else {
+                        spec.cpu_description
+                    },
+                    spec.recommended,
+                    "transcription",
+                )
+            })
+            .collect()
+    }
+
+    fn cpu_models() -> Vec<ModelInfo> {
+        Self::whisper_models("Whisper.cpp", false)
+    }
+
     fn gpu_models() -> Vec<ModelInfo> {
-        vec![
-            Self::model_info("Whisper.cpp (GPU)", "tiny.en", "Tiny (English)", 77_600_000,
-                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin",
-                "be07098a4cc50130a511ca096303ad371c513297a7d4a093047d9ca4378f8776",
-                "Lightning fast with GPU acceleration. Requires a compatible GPU.", false, "transcription"),
-            Self::model_info("Whisper.cpp (GPU)", "distil-small.en", "Distil-Small (English)", 175_000_000,
-                "https://huggingface.co/distil-whisper/distil-small.en/resolve/main/ggml-distil-small.en.bin",
-                "e8a676964fd3f78b021a385f078a18863712ca10fdc907a685eee9c0e71d7a62",
-                "Fast and accurate with GPU acceleration. Requires a compatible GPU.", true, "transcription"),
-            Self::model_info("Whisper.cpp (GPU)", "base.en", "Base (English)", 147_000_000,
-                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
-                "60ed30914c83ad34005b63359d992f802773d57864f7df26e95261895697d74d",
-                "Standard choice with GPU acceleration. Requires a compatible GPU.", false, "transcription"),
-            Self::model_info("Whisper.cpp (GPU)", "small.en", "Small (English)", 483_000_000,
-                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
-                "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
-                "Great accuracy with GPU acceleration. Requires a compatible GPU.", false, "transcription"),
-            Self::model_info("Whisper.cpp (GPU)", "medium.en", "Medium (English)", 1_500_000_000,
-                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin",
-                "1be3a305f560a8cc0937f268b7ca67270b240561570d55e09d949cf94edb54d1",
-                "Highest accuracy with GPU acceleration. Requires a compatible GPU.", false, "transcription"),
-        ]
+        Self::whisper_models("Whisper.cpp (GPU)", true)
     }
 
     fn parakeet_models() -> Vec<ModelInfo> {
@@ -278,18 +308,51 @@ impl ModelManager {
         ]
     }
 
-    fn post_process_models() -> Vec<ModelInfo> {
+    fn post_process_model_specs() -> Vec<PostProcessModelSpec> {
         vec![
-            Self::model_info("Post-Process (Local)", "qwen2.5-1.5b-instruct", "Qwen 2.5 1.5B", 700_000_000,
-                "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
-                "",
-                "Small local model for post-processing. Fixes punctuation, capitalization, and removes filler words. ~3-5s on CPU.",
-                true, "post_process"),
-            Self::model_info("Post-Process (Local)", "llama-3.2-1b-instruct", "Llama 3.2 1B", 650_000_000,
-                "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
-                "",
-                "Meta's lightweight instruct model. Good for post-processing on modest hardware.", false, "post_process"),
+            PostProcessModelSpec {
+                size: "qwen2.5-1.5b-instruct", label: "Qwen 2.5 1.5B", file_size: 700_000_000,
+                download_url: "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+                cpu_description: "Small local model for post-processing. Fixes punctuation, capitalization, and removes filler words. ~3-5s on CPU.",
+                gpu_description: "Small local model for post-processing, GPU-accelerated via Vulkan. Fixes punctuation, capitalization, and removes filler words.",
+                recommended: true,
+            },
+            PostProcessModelSpec {
+                size: "llama-3.2-1b-instruct", label: "Llama 3.2 1B", file_size: 650_000_000,
+                download_url: "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+                cpu_description: "Meta's lightweight instruct model. Good for post-processing on modest hardware.",
+                gpu_description: "Meta's lightweight instruct model with GPU acceleration via Vulkan.",
+                recommended: false,
+            },
         ]
+    }
+
+    fn post_process_models() -> Vec<ModelInfo> {
+        ["Post-Process (Local)", "Post-Process (GPU)"]
+            .into_iter()
+            .flat_map(|engine| {
+                let use_gpu = crate::engine_factory::engine_uses_gpu(engine);
+                Self::post_process_model_specs()
+                    .into_iter()
+                    .map(move |spec| {
+                        Self::model_info(
+                            engine,
+                            spec.size,
+                            spec.label,
+                            spec.file_size,
+                            spec.download_url,
+                            "",
+                            if use_gpu {
+                                spec.gpu_description
+                            } else {
+                                spec.cpu_description
+                            },
+                            spec.recommended,
+                            "post_process",
+                        )
+                    })
+            })
+            .collect()
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -396,9 +459,7 @@ mod tests {
         let manager = ModelManager::new().unwrap();
         let model = ModelManager::find_model("Parakeet", "parakeet-tdt-0.6b-v3").unwrap();
         let path = manager.get_model_path(&model);
-        assert!(path
-            .to_string_lossy()
-            .ends_with("parakeet/parakeet-tdt-0.6b-v3"));
+        assert!(path.ends_with(std::path::Path::new("parakeet").join("parakeet-tdt-0.6b-v3")));
     }
 
     #[test]

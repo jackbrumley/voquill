@@ -2,11 +2,9 @@ use crate::transcription::{TranscriptionError, TranscriptionService};
 use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
 use std::path::PathBuf;
-use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::net::TcpStream;
-use tokio::process::{Child, Command};
+use tokio::process::Child;
 use tokio::sync::Mutex;
 use tokio_tungstenite::connect_async;
 
@@ -29,45 +27,29 @@ pub struct ParakeetService {
 impl ParakeetService {
     pub async fn new(model_dir: PathBuf, model_size: &str) -> Result<Self, TranscriptionError> {
         let binary_path = resolve_or_download_binary().await?;
-        let port = find_free_port(PORT_START, PORT_END).await?;
+        let port = crate::sidecar::find_free_port(PORT_START, PORT_END)
+            .await
+            .map_err(|e| TranscriptionError::Model(e.to_string()))?;
 
         let num_threads = std::thread::available_parallelism()
             .map(|n| n.get().saturating_sub(1).clamp(1, 4))
             .unwrap_or(2);
 
-        let mut command = Command::new(&binary_path);
-        command
-            .arg(format!(
-                "--tokens={}",
-                model_dir.join("tokens.txt").display()
-            ))
-            .arg(format!(
+        let args = vec![
+            format!("--tokens={}", model_dir.join("tokens.txt").display()),
+            format!(
                 "--encoder={}",
                 model_dir.join("encoder.int8.onnx").display()
-            ))
-            .arg(format!(
+            ),
+            format!(
                 "--decoder={}",
                 model_dir.join("decoder.int8.onnx").display()
-            ))
-            .arg(format!(
-                "--joiner={}",
-                model_dir.join("joiner.int8.onnx").display()
-            ))
-            .arg(format!("--port={}", port))
-            .arg(format!("--num-threads={}", num_threads))
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .stdin(Stdio::null())
-            .kill_on_drop(true);
-
-        #[cfg(target_os = "windows")]
-        {
-            // CREATE_NO_WINDOW: prevent the console-subsystem sidecar from
-            // popping up (and stealing keyboard focus on) Windows.
-            command.creation_flags(0x08000000);
-        }
-
-        let mut child = command.spawn().map_err(|e| {
+            ),
+            format!("--joiner={}", model_dir.join("joiner.int8.onnx").display()),
+            format!("--port={}", port),
+            format!("--num-threads={}", num_threads),
+        ];
+        let mut child = crate::sidecar::spawn_sidecar(&binary_path, &args).map_err(|e| {
             TranscriptionError::Model(format!("Failed to spawn sherpa-onnx: {}", e))
         })?;
 
@@ -168,135 +150,24 @@ impl TranscriptionService for ParakeetService {
 
 /// Resolves the path to the sherpa-onnx binary, downloading it if necessary.
 async fn resolve_or_download_binary() -> Result<PathBuf, TranscriptionError> {
-    let bin_dir = binary_dir()?;
-    let binary_name = binary_name();
-    let binary_path = bin_dir.join(&binary_name);
-
-    if binary_path.exists() {
-        return Ok(binary_path);
-    }
-
-    crate::log_info!("Parakeet binary not found, downloading...");
-    download_binary(&bin_dir).await?;
-
-    if !binary_path.exists() {
-        return Err(TranscriptionError::Model(format!(
-            "Binary downloaded but {} not found at expected path",
-            binary_name
-        )));
-    }
-
-    Ok(binary_path)
+    crate::sidecar::ensure_binary(binary_dir()?, &binary_name(), download_spec())
+        .await
+        .map_err(|e| TranscriptionError::Model(e.to_string()))
 }
 
-async fn download_binary(target_dir: &std::path::Path) -> Result<(), TranscriptionError> {
+/// The sherpa-onnx release archive for this platform. Provider-specific
+/// release knowledge; download/extract mechanics live in `crate::sidecar`.
+fn download_spec() -> crate::sidecar::SidecarDownload {
     let archive_name = archive_name();
-    let url = format!(
-        "https://github.com/k2-fsa/sherpa-onnx/releases/download/v{}/{}",
-        BINARY_VERSION, archive_name
-    );
-
-    let response = reqwest::get(&url)
-        .await
-        .map_err(|e| TranscriptionError::Network(format!("Binary download failed: {}", e)))?;
-
-    let total = response.content_length().unwrap_or(0);
-    let mut downloaded: u64 = 0;
-    let mut last_pct: f64 = -1.0;
-
-    let archive_path = target_dir.join(archive_name);
-    {
-        let mut file = tokio::fs::File::create(&archive_path)
-            .await
-            .map_err(|e| TranscriptionError::Model(format!("Failed to create archive: {}", e)))?;
-        use tokio::io::AsyncWriteExt;
-        let mut stream = response.bytes_stream();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|e| TranscriptionError::Network(e.to_string()))?;
-            file.write_all(&chunk)
-                .await
-                .map_err(|e| TranscriptionError::Model(e.to_string()))?;
-            downloaded += chunk.len() as u64;
-            if total > 0 {
-                let pct = (downloaded as f64 / total as f64) * 100.0;
-                if pct - last_pct >= 1.0 {
-                    crate::log_info!("Parakeet binary download: {:.0}%", pct);
-                    last_pct = pct;
-                }
-            }
-        }
-        file.flush()
-            .await
-            .map_err(|e| TranscriptionError::Model(e.to_string()))?;
+    crate::sidecar::SidecarDownload {
+        log_label: "sherpa-onnx",
+        archive_url: format!(
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/v{}/{}",
+            BINARY_VERSION, archive_name
+        ),
+        archive_name: archive_name.to_string(),
+        layout: crate::archive::ExtractLayout::Flat,
     }
-
-    let archive_file = std::fs::File::open(&archive_path)
-        .map_err(|e| TranscriptionError::Model(format!("Failed to open archive: {}", e)))?;
-    let decoder = bzip2::read::BzDecoder::new(archive_file);
-    let mut archive = tar::Archive::new(decoder);
-
-    for entry in archive
-        .entries()
-        .map_err(|e| TranscriptionError::Model(format!("Failed to read tar entries: {}", e)))?
-    {
-        let mut entry = entry
-            .map_err(|e| TranscriptionError::Model(format!("Failed to read tar entry: {}", e)))?;
-        let path = entry
-            .path()
-            .map_err(|_| TranscriptionError::Model("Invalid path in tar".to_string()))?;
-
-        let components: Vec<_> = path.components().collect();
-        if components.len() < 2 {
-            continue;
-        }
-        let filename = components[components.len() - 1];
-        let out_path = target_dir.join(filename);
-
-        if entry.header().entry_type().is_symlink() {
-            #[cfg(unix)]
-            {
-                let target = entry
-                    .link_name()
-                    .map_err(|_| TranscriptionError::Model("Invalid symlink target".to_string()))?
-                    .ok_or_else(|| {
-                        TranscriptionError::Model("Symlink with no target".to_string())
-                    })?;
-                std::os::unix::fs::symlink(&target, &out_path).map_err(|e| {
-                    TranscriptionError::Model(format!("Failed to create symlink: {}", e))
-                })?;
-            }
-        } else if entry.header().entry_type().is_dir() {
-            continue;
-        } else {
-            let mut out_file = std::fs::File::create(&out_path)
-                .map_err(|e| TranscriptionError::Model(format!("Failed to create file: {}", e)))?;
-            std::io::copy(&mut entry, &mut out_file)
-                .map_err(|e| TranscriptionError::Model(format!("Failed to extract file: {}", e)))?;
-        }
-    }
-
-    let bin_name = binary_name();
-    let bin_path = target_dir.join(&bin_name);
-    if !bin_path.exists() {
-        return Err(TranscriptionError::Model(format!(
-            "{} not found in archive",
-            bin_name
-        )));
-    }
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Ok(meta) = std::fs::metadata(&bin_path) {
-            let mut perms = meta.permissions();
-            perms.set_mode(perms.mode() | 0o111);
-            let _ = std::fs::set_permissions(&bin_path, perms);
-        }
-    }
-
-    let _ = std::fs::remove_file(&archive_path);
-    crate::log_info!("Parakeet binary downloaded and extracted");
-    Ok(())
 }
 
 fn binary_dir() -> Result<PathBuf, TranscriptionError> {
@@ -350,20 +221,6 @@ async fn wait_for_ready(
         }
     }
     Err("Startup timeout: sidecar did not become ready within 60s".into())
-}
-
-async fn find_free_port(start: u16, end: u16) -> Result<u16, TranscriptionError> {
-    for port in start..=end {
-        if TcpStream::connect(format!("127.0.0.1:{}", port))
-            .await
-            .is_err()
-        {
-            return Ok(port);
-        }
-    }
-    Err(TranscriptionError::Model(
-        "No free ports available (6006-6029)".into(),
-    ))
 }
 
 fn wav_to_float32(wav_bytes: &[u8]) -> Result<Vec<f32>, TranscriptionError> {

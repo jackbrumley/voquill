@@ -59,9 +59,8 @@ pub async fn transcribe_audio_file(
 
     let text = if !text.trim().is_empty() && current_config.post_process_enabled {
         crate::log_info!("Post-processing file transcription...");
-        match crate::post_process::factory::PostProcessFactory::create_service(&current_config)
-            .await
-        {
+        let post_process_factory = app_state.post_process_factory.clone();
+        match post_process_factory.get_service(&current_config).await {
             Ok(processor) => match processor.post_process(&text).await {
                 Ok(cleaned) => {
                     crate::log_info!(
@@ -73,6 +72,9 @@ pub async fn transcribe_audio_file(
                 }
                 Err(e) => {
                     crate::log_warn!("Post-processing failed, using raw text: {}", e);
+                    if matches!(e, crate::post_process::PostProcessError::Network(_)) {
+                        post_process_factory.invalidate_local();
+                    }
                     text
                 }
             },

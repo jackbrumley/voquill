@@ -247,9 +247,11 @@ async fn record_and_transcribe_inner(
 
     let text = if !text.trim().is_empty() && current_config.post_process_enabled {
         crate::log_info!("Post-processing transcription...");
-        match crate::post_process::factory::PostProcessFactory::create_service(&current_config)
-            .await
-        {
+        let post_process_factory = app_handle
+            .state::<crate::AppState>()
+            .post_process_factory
+            .clone();
+        match post_process_factory.get_service(&current_config).await {
             Ok(processor) => {
                 crate::app::status::emit_status_to_frontend("Processing").await;
                 match processor.post_process(&text).await {
@@ -263,6 +265,12 @@ async fn record_and_transcribe_inner(
                     }
                     Err(e) => {
                         crate::log_warn!("Post-processing failed, using raw text: {}", e);
+                        // A network error from the local sidecar means the
+                        // process is gone or unreachable; drop it so the next
+                        // dictation respawns a fresh one.
+                        if matches!(e, crate::post_process::PostProcessError::Network(_)) {
+                            post_process_factory.invalidate_local();
+                        }
                         text
                     }
                 }

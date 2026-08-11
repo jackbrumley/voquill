@@ -98,7 +98,7 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
         </ConfigField>
 
         <ConfigField label="Update Badge" description="Show update-available indicator on Status tab.">
-          <Switch checked={showUpdateBadge.value} onChange={(v) => { showUpdateBadge.value = v; }} />
+          <Switch name="Update Badge" checked={showUpdateBadge.value} onChange={(v) => { showUpdateBadge.value = v; }} />
         </ConfigField>
 
         <ConfigField label="Status Page" description="Live preview of the Status page inside a SurfaceCard.">
@@ -129,6 +129,7 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
             modelStatus={modelStatus.value}
             isDownloading={isDownloading.value}
             downloadProgress={downloadProgress.value}
+            downloadPhase="downloading"
             onChangeModel={(size) => { modelSize.value = size; }}
             onShowModelGuide={() => {}}
             onDownloadModel={(size) => {
@@ -233,7 +234,7 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
         </ConfigField>
 
         <ConfigField label="Switch" description="Toggle switch.">
-          <Switch checked={isDemoSwitchOn.value} onChange={(v) => { isDemoSwitchOn.value = v; }} />
+          <Switch name="Demo Switch" checked={isDemoSwitchOn.value} onChange={(v) => { isDemoSwitchOn.value = v; }} />
         </ConfigField>
 
         <ConfigField label="CollapsibleSection" description="Expandable/collapsible panel.">

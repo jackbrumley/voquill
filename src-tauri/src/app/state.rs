@@ -2,6 +2,7 @@ use crate::audio;
 use crate::config::Config;
 use crate::engine_factory;
 use crate::platform;
+use crate::post_process::factory::PostProcessFactory;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
@@ -44,6 +45,7 @@ pub struct AppState {
     pub wayland_host_app_registration_error: Arc<Mutex<Option<String>>>,
     pub display_backend: Arc<dyn platform::traits::DisplayBackend>,
     pub engine_factory: Arc<engine_factory::EngineFactory>,
+    pub post_process_factory: Arc<PostProcessFactory>,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize)]
@@ -81,6 +83,7 @@ impl Default for AppState {
             wayland_host_app_registration_error: Arc::new(Mutex::new(None)),
             display_backend: platform::initialize(),
             engine_factory: Arc::new(engine_factory::EngineFactory::new()),
+            post_process_factory: Arc::new(PostProcessFactory::new()),
         }
     }
 }

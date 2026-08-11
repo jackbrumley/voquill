@@ -43,7 +43,7 @@ pub async fn download_model(
     let manager = model_manager::ModelManager::new().map_err(|error| error.to_string())?;
 
     manager
-        .download_model(&model, move |progress| {
+        .download_model(&model, move |progress: model_manager::DownloadProgress| {
             let _ = app_handle.emit("model-download-progress", progress);
         })
         .await?;

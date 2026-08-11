@@ -22,6 +22,7 @@ export interface Config {
   dictionary: string[];
   post_process_enabled: boolean;
   post_process_provider: 'Local' | 'API';
+  post_process_engine: string;
   post_process_model: string;
   post_process_api_url: string;
   post_process_api_key: string;
@@ -91,6 +92,13 @@ export interface ModelInfo {
   description: string;
   recommended: boolean;
   category: string;
+}
+
+export type DownloadPhase = 'downloading' | 'extracting';
+
+export interface ModelDownloadProgress {
+  phase: DownloadPhase;
+  progress: number;
 }
 
 export interface UpdateCheckResult {

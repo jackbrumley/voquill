@@ -86,6 +86,8 @@ pub struct Config {
     pub post_process_enabled: bool,
     #[serde(default = "default_post_process_provider")]
     pub post_process_provider: PostProcessProvider,
+    #[serde(default = "default_post_process_engine")]
+    pub post_process_engine: String,
     #[serde(default = "default_post_process_model")]
     pub post_process_model: String,
     #[serde(default = "default_post_process_api_url")]
@@ -171,6 +173,9 @@ fn default_hotkey_mode() -> HotkeyMode {
 fn default_post_process_provider() -> PostProcessProvider {
     PostProcessProvider::Local
 }
+fn default_post_process_engine() -> String {
+    "Post-Process (Local)".to_string()
+}
 fn default_post_process_model() -> String {
     "qwen2.5-1.5b-instruct".to_string()
 }
@@ -253,6 +258,7 @@ impl Default for Config {
             dictionary: Vec::new(),
             post_process_enabled: false,
             post_process_provider: default_post_process_provider(),
+            post_process_engine: default_post_process_engine(),
             post_process_model: default_post_process_model(),
             post_process_api_url: default_post_process_api_url(),
             post_process_api_key: String::new(),

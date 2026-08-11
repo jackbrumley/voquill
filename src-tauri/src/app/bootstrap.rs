@@ -235,6 +235,10 @@ pub fn run_setup(
         app.state::<AppState>().engine_factory.clone(),
         initial_config,
     );
+    spawn_post_process_preload(
+        app.state::<AppState>().post_process_factory.clone(),
+        initial_config,
+    );
 
     Ok(())
 }
@@ -242,6 +246,19 @@ pub fn run_setup(
 /// Pre-loads the transcription engine model into its cache at startup so the
 /// first recording reuses a warm model instead of paying the full load cost.
 fn spawn_engine_preload(factory: Arc<engine_factory::EngineFactory>, config: &Config) {
+    let config = config.clone();
+    tauri::async_runtime::spawn(async move {
+        factory.preload(&config).await;
+    });
+}
+
+/// Warms the local post-process sidecar at startup when post-processing is
+/// enabled, so the first dictation reuses a warm llama-server instead of
+/// paying the process spawn + GGUF load cost mid-session.
+fn spawn_post_process_preload(
+    factory: Arc<crate::post_process::factory::PostProcessFactory>,
+    config: &Config,
+) {
     let config = config.clone();
     tauri::async_runtime::spawn(async move {
         factory.preload(&config).await;

@@ -3,6 +3,7 @@ import { Button } from './Button.tsx';
 import { SelectField } from './SelectField.tsx';
 import { selectWrapperStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
+import type { DownloadPhase } from '../types.ts';
 
 interface ModelInfo {
   engine: string;
@@ -22,6 +23,7 @@ interface ModelSelectionPanelProps {
   modelStatus: Record<string, boolean>;
   isDownloading: boolean;
   downloadProgress: number;
+  downloadPhase: DownloadPhase;
   onChangeModel: (size: string) => void;
   onShowModelGuide: () => void;
   onDownloadModel: (size: string) => void;
@@ -36,6 +38,7 @@ export function ModelSelectionPanel({
   modelStatus,
   isDownloading,
   downloadProgress,
+  downloadPhase,
   onChangeModel,
   onShowModelGuide,
   onDownloadModel,
@@ -103,7 +106,9 @@ export function ModelSelectionPanel({
             <div style={{ width: `${Math.min(downloadProgress, 100)}%`, height: '100%', background: tokens.colors.success }}></div>
           </div>
           <div style={{ fontSize: '10px', color: '#d9dfe7', textAlign: 'right' }}>
-            Downloading model... {Math.round(downloadProgress)}%
+            {downloadPhase === 'extracting'
+              ? 'Extracting model... this can take a minute'
+              : `Downloading model... ${Math.round(downloadProgress)}%`}
           </div>
         </div>
       )}

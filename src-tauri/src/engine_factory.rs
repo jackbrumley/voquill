@@ -17,7 +17,9 @@ pub struct EngineFactory {
 }
 
 /// Returns true if the engine name indicates GPU acceleration should be used.
-fn engine_uses_gpu(engine_name: &str) -> bool {
+/// Single owner of the "(GPU)" naming convention across all engines
+/// (transcription and post-processing).
+pub(crate) fn engine_uses_gpu(engine_name: &str) -> bool {
     engine_name.contains("(GPU)")
 }
 

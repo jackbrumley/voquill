@@ -12,6 +12,7 @@ import { SurfaceCard } from '../components/SurfaceCard.tsx';
 import { SettingRow } from '../components/SettingRow.tsx';
 import { helperTextStyle, inputBaseStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
+import type { DownloadPhase } from '../types.ts';
 
 interface AudioDevice {
   id: string;
@@ -58,6 +59,7 @@ interface InitialSetupPageProps {
   availableModels: ModelInfo[];
   modelStatus: Record<string, boolean>;
   downloadProgress: number;
+  downloadPhase: DownloadPhase;
   isDownloading: boolean;
   portalVersion: number;
   isSystemManagedShortcut: boolean;
@@ -98,6 +100,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
     availableModels,
     modelStatus,
     downloadProgress,
+    downloadPhase,
     isDownloading,
     portalVersion,
     isSystemManagedShortcut,
@@ -245,6 +248,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                   modelStatus={modelStatus}
                   isDownloading={isDownloading}
                   downloadProgress={downloadProgress}
+                  downloadPhase={downloadPhase}
                   actionButtonSize="sm"
                   onChangeModel={(size) => {
                     onTouchSetup();

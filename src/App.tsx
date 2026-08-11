@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { useSignal } from '@preact/signals';
+import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { TitleBar } from './components/TitleBar.tsx';
@@ -65,6 +65,7 @@ function App() {
   const activeRoute = useSignal<AppRoute>(routeFromHash(window.location.hash));
 
   const gpuStatus = useSignal<GpuStatus | null>(null);
+  const postProcessGpuStatus = useSignal<GpuStatus | null>(null);
 
   const hotkeySetup = useHotkeySetup({
     showToast,
@@ -112,6 +113,16 @@ function App() {
     autostartHook.loadAutostart();
     invoke<GpuStatus>('get_gpu_status').then((s) => { gpuStatus.value = s; }).catch(() => {});
   }, []);
+
+  // Track post-process GPU availability: refetch whenever the GPU engine is
+  // selected so the settings banner reflects the latest start attempt.
+  useSignalEffect(() => {
+    if (configHook.config.post_process_engine.includes('(GPU)')) {
+      invoke<GpuStatus>('get_post_process_gpu_status').then((s) => { postProcessGpuStatus.value = s; }).catch(() => {});
+    } else {
+      postProcessGpuStatus.value = null;
+    }
+  });
 
   useEffect(() => {
     if (!hotkeySetup.isRecordingHotkey) return;
@@ -190,6 +201,7 @@ function App() {
             availableModels={configHook.availableModels}
             modelStatus={configHook.modelStatus}
             downloadProgress={configHook.downloadProgress}
+            downloadPhase={configHook.downloadPhase}
             isDownloading={configHook.isDownloading}
             portalVersion={hotkeySetup.portalVersion}
             isSystemManagedShortcut={hotkeySetup.isSystemManagedShortcut}
@@ -232,6 +244,7 @@ function App() {
           availableModels={configHook.availableModels}
           modelStatus={configHook.modelStatus}
           downloadProgress={configHook.downloadProgress}
+          downloadPhase={configHook.downloadPhase}
           isDownloading={configHook.isDownloading}
           isTestingApi={isTestingApi}
           activeConfigSection={activeConfigSection.value}
@@ -250,6 +263,7 @@ function App() {
           searchResults={historyHook.searchResults}
           updateResult={updatesHook.updateResult}
           gpuStatus={gpuStatus.value}
+          postProcessGpuStatus={postProcessGpuStatus.value}
           engineCapabilities={configHook.engineCapabilities}
           tabContentRef={tabContentRef}
           onNavigate={navigate}

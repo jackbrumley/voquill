@@ -161,6 +161,10 @@ pub async fn reset_application_to_defaults(
 ) -> Result<(), String> {
     crate::log_info!("Factory reset requested");
 
+    // Stop the cached post-process sidecar first so its process releases the
+    // model/binary file locks before the models directory is deleted.
+    state.post_process_factory.invalidate_local();
+
     let root_dir = crate::get_app_config_root_dir()?;
 
     let models_dir = root_dir.join("models");
