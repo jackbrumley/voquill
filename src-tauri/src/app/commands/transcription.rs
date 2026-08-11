@@ -1,5 +1,5 @@
 use crate::engine_factory;
-use crate::{history, model_manager, transcription};
+use crate::{history, model_manager, transcription, AppState};
 use tauri::Emitter;
 
 #[tauri::command]
@@ -37,17 +37,56 @@ pub async fn download_model(
     model_size: String,
     engine_name: String,
     app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let model = model_manager::ModelManager::find_model(&engine_name, &model_size)
         .ok_or_else(|| format!("Model {} not found for engine {}", model_size, engine_name))?;
     let manager = model_manager::ModelManager::new().map_err(|error| error.to_string())?;
 
+    let progress_handle = app_handle.clone();
     manager
         .download_model(&model, move |progress: model_manager::DownloadProgress| {
-            let _ = app_handle.emit("model-download-progress", progress);
+            let _ = progress_handle.emit("model-download-progress", progress);
         })
         .await?;
 
+    // A completed download may satisfy a warm-up that startup skipped
+    // because the model was missing. Re-arm whichever engine this model
+    // belongs to so the first dictation reuses a warm service.
+    let config = state.config.lock().unwrap().clone();
+
+    if config.post_process_enabled
+        && config.post_process_provider == crate::config::PostProcessProvider::Local
+        && config.post_process_engine == engine_name
+        && config.post_process_model == model_size
+    {
+        crate::app::bootstrap::spawn_post_process_warmup(
+            state.post_process_factory.clone(),
+            &config,
+            &app_handle,
+        );
+    }
+
+    if config.transcription_mode == crate::config::TranscriptionMode::Local
+        && config.local_engine == engine_name
+        && config.local_model_size == model_size
+    {
+        crate::app::bootstrap::spawn_engine_preload(state.engine_factory.clone(), &config);
+    }
+
+    Ok(())
+}
+
+/// Loads the configured transcription model into the engine cache and awaits
+/// completion. Unlike the fire-and-forget startup/download preloads, this lets
+/// the frontend deterministically verify engine loading (e.g. during initial
+/// setup): a GPU engine either loads on GPU or records the fallback reason,
+/// which `get_gpu_status` then reports.
+#[tauri::command]
+pub async fn preload_transcription_engine(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    crate::log_info!("Tauri Command: preload_transcription_engine invoked");
+    let config = { state.config.lock().unwrap().clone() };
+    state.engine_factory.preload(&config).await;
     Ok(())
 }
 

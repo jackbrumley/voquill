@@ -18,7 +18,6 @@ pub struct SidecarPostProcess {
     port: u16,
     _process: Arc<Mutex<Option<Child>>>,
     model_size: String,
-    system_prompt: String,
     use_gpu: bool,
 }
 
@@ -30,11 +29,10 @@ impl SidecarPostProcess {
     pub async fn new(
         engine_name: &str,
         model_size: &str,
-        system_prompt: &str,
         last_gpu_error: Arc<std::sync::Mutex<Option<String>>>,
     ) -> Result<Self, PostProcessError> {
         if crate::engine_factory::engine_uses_gpu(engine_name) {
-            match Self::start(engine_name, model_size, system_prompt, true).await {
+            match Self::start(engine_name, model_size, true).await {
                 Ok(service) => {
                     *last_gpu_error.lock().unwrap() = None;
                     return Ok(service);
@@ -48,13 +46,12 @@ impl SidecarPostProcess {
                 }
             }
         }
-        Self::start(engine_name, model_size, system_prompt, false).await
+        Self::start(engine_name, model_size, false).await
     }
 
     async fn start(
         engine_name: &str,
         model_size: &str,
-        system_prompt: &str,
         use_gpu: bool,
     ) -> Result<Self, PostProcessError> {
         let binary_path = crate::sidecar::ensure_binary(
@@ -120,7 +117,6 @@ impl SidecarPostProcess {
                     port,
                     _process: Arc::new(Mutex::new(Some(child))),
                     model_size: model_size.to_string(),
-                    system_prompt: system_prompt.to_string(),
                     use_gpu,
                 })
             }
@@ -137,8 +133,12 @@ impl SidecarPostProcess {
 
 #[async_trait]
 impl PostProcessService for SidecarPostProcess {
-    async fn post_process(&self, text: &str) -> Result<String, PostProcessError> {
-        let messages = super::prompt::build_post_process_messages(text, &self.system_prompt);
+    async fn post_process(
+        &self,
+        text: &str,
+        system_prompt: &str,
+    ) -> Result<String, PostProcessError> {
+        let messages = super::prompt::build_post_process_messages(text, system_prompt);
 
         let body = serde_json::json!({
             "model": self.model_size,

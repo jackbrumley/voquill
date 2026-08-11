@@ -20,11 +20,12 @@ pub async fn save_config(
 
     let is_mic_test_active = *state.is_mic_test_active.lock().unwrap();
 
-    let (restart_engine, hotkey_changed, merged_config) = {
+    let (restart_engine, hotkey_changed, previous_config, merged_config) = {
         let config_guard = state.config.lock().unwrap();
         let audio_changed = config_guard.audio_device != normalized_config.audio_device
             || config_guard.input_sensitivity != normalized_config.input_sensitivity;
         let hotkey_changed = config_guard.hotkey != normalized_config.hotkey;
+        let previous_config = config_guard.clone();
 
         let mut merged_config = normalized_config.clone();
         if merged_config.shortcuts_token.is_none() {
@@ -34,7 +35,12 @@ pub async fn save_config(
             merged_config.input_token = config_guard.input_token.clone();
         }
 
-        (audio_changed, hotkey_changed, merged_config)
+        (
+            audio_changed,
+            hotkey_changed,
+            previous_config,
+            merged_config,
+        )
     };
 
     let mut prepared_device: Option<cpal::Device> = None;
@@ -134,6 +140,8 @@ pub async fn save_config(
         return Err(format!("Failed to save config: {}", error));
     }
 
+    reconcile_engine_warmup(&state, &previous_config, &merged_config, &app_handle);
+
     if hotkey_changed {
         if let Err(error) = re_register_hotkey(&app_handle, &merged_config.hotkey).await {
             let mut error_lock = state.hotkey_error.lock().unwrap();
@@ -152,6 +160,52 @@ pub async fn save_config(
     let _ = app_handle.emit("config-updated", ());
 
     Ok(())
+}
+
+/// Reconciles engine warm-up state with a freshly saved config. The local
+/// post-process sidecar is unloaded the moment local post-processing is
+/// turned off, and both engines are pre-warmed when their settings change,
+/// so the next dictation never pays the startup cost mid-session.
+fn reconcile_engine_warmup(
+    state: &AppState,
+    previous_config: &Config,
+    merged_config: &Config,
+    app_handle: &tauri::AppHandle,
+) {
+    use crate::config::{PostProcessProvider, TranscriptionMode};
+
+    let was_local_post_process = previous_config.post_process_enabled
+        && previous_config.post_process_provider == PostProcessProvider::Local;
+    let is_local_post_process = merged_config.post_process_enabled
+        && merged_config.post_process_provider == PostProcessProvider::Local;
+
+    if was_local_post_process && !is_local_post_process {
+        crate::log_info!("Local post-processing disabled; unloading llama-server sidecar");
+        state.post_process_factory.invalidate_local();
+    }
+
+    let post_process_changed = previous_config.post_process_enabled
+        != merged_config.post_process_enabled
+        || previous_config.post_process_provider != merged_config.post_process_provider
+        || previous_config.post_process_engine != merged_config.post_process_engine
+        || previous_config.post_process_model != merged_config.post_process_model;
+
+    if post_process_changed && is_local_post_process {
+        crate::app::bootstrap::spawn_post_process_warmup(
+            state.post_process_factory.clone(),
+            merged_config,
+            app_handle,
+        );
+    }
+
+    let transcription_changed = previous_config.transcription_mode
+        != merged_config.transcription_mode
+        || previous_config.local_engine != merged_config.local_engine
+        || previous_config.local_model_size != merged_config.local_model_size;
+
+    if transcription_changed && merged_config.transcription_mode == TranscriptionMode::Local {
+        crate::app::bootstrap::spawn_engine_preload(state.engine_factory.clone(), merged_config);
+    }
 }
 
 #[tauri::command]

@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Emitter, Manager,
 };
 
 #[cfg(target_os = "linux")]
@@ -235,32 +235,41 @@ pub fn run_setup(
         app.state::<AppState>().engine_factory.clone(),
         initial_config,
     );
-    spawn_post_process_preload(
+    spawn_post_process_warmup(
         app.state::<AppState>().post_process_factory.clone(),
         initial_config,
+        app.handle(),
     );
 
     Ok(())
 }
 
-/// Pre-loads the transcription engine model into its cache at startup so the
-/// first recording reuses a warm model instead of paying the full load cost.
-fn spawn_engine_preload(factory: Arc<engine_factory::EngineFactory>, config: &Config) {
+/// Pre-loads the transcription engine model into its cache so the first
+/// recording reuses a warm model instead of paying the full load cost.
+/// Fired at startup and re-armed whenever the engine/model changes or a
+/// matching model download completes.
+pub fn spawn_engine_preload(factory: Arc<engine_factory::EngineFactory>, config: &Config) {
     let config = config.clone();
     tauri::async_runtime::spawn(async move {
         factory.preload(&config).await;
     });
 }
 
-/// Warms the local post-process sidecar at startup when post-processing is
-/// enabled, so the first dictation reuses a warm llama-server instead of
-/// paying the process spawn + GGUF load cost mid-session.
-fn spawn_post_process_preload(
+/// Warms the local post-process sidecar when post-processing is enabled, so
+/// the first dictation reuses a warm llama-server instead of paying the
+/// process spawn + GGUF load cost mid-session. Fired at startup and re-armed
+/// whenever post-process settings change or a matching model download
+/// completes. Emits `post-process-gpu-status-changed` when finished so the
+/// settings UI reflects the fresh GPU start attempt.
+pub fn spawn_post_process_warmup(
     factory: Arc<crate::post_process::factory::PostProcessFactory>,
     config: &Config,
+    app_handle: &tauri::AppHandle,
 ) {
     let config = config.clone();
+    let app_handle = app_handle.clone();
     tauri::async_runtime::spawn(async move {
         factory.preload(&config).await;
+        let _ = app_handle.emit("post-process-gpu-status-changed", ());
     });
 }

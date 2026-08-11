@@ -12,6 +12,7 @@ interface UseTauriEventsOptions {
   onMicTestFinished: () => void;
   onMicVolume: (volume: number) => void;
   onDownloadProgress: (progress: ModelDownloadProgress) => void;
+  onPostProcessGpuStatusChanged: () => void;
   onFocus: () => void;
   onHashChange: () => void;
 }
@@ -45,6 +46,9 @@ export function useTauriEvents(options: UseTauriEventsOptions) {
     const unlistenDownloadProgress = listen<ModelDownloadProgress>('model-download-progress', (event) => {
       options.onDownloadProgress(event.payload);
     });
+    const unlistenPostProcessGpuStatus = listen('post-process-gpu-status-changed', () => {
+      options.onPostProcessGpuStatusChanged();
+    });
 
     window.addEventListener('focus', options.onFocus);
     window.addEventListener('hashchange', options.onHashChange);
@@ -61,6 +65,7 @@ export function useTauriEvents(options: UseTauriEventsOptions) {
       unlistenMicTestFinished.then((fn) => fn());
       unlistenMicVolume.then((fn) => fn());
       unlistenDownloadProgress.then((fn) => fn());
+      unlistenPostProcessGpuStatus.then((fn) => fn());
     };
   }, []);
 }

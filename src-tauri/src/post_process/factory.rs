@@ -2,16 +2,17 @@ use crate::config::Config;
 use crate::post_process::provider_api::APIPostProcessService;
 use crate::post_process::provider_local::SidecarPostProcess;
 use crate::post_process::PostProcessService;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 /// Fingerprint of the configuration a cached local sidecar was started with.
-/// Any change tears the sidecar down and starts a fresh one.
+/// Any change tears the sidecar down and starts a fresh one. The system
+/// prompt is deliberately excluded: it is request-scoped, so editing it must
+/// not restart the server.
 #[derive(PartialEq)]
 struct LocalFingerprint {
     engine: String,
     model: String,
-    system_prompt: String,
 }
 
 /// The cached local sidecar service paired with its configuration fingerprint.
@@ -23,6 +24,12 @@ type CachedLocalService = Arc<Mutex<Option<(LocalFingerprint, Arc<SidecarPostPro
 /// model cache for transcription.
 pub struct PostProcessFactory {
     cached_local: CachedLocalService,
+    /// Serializes sidecar builds so a warm-up racing a dictation (or a second
+    /// warm-up) cannot spawn duplicate llama-server processes.
+    build_lock: tokio::sync::Mutex<()>,
+    /// Bumped by `invalidate_local`; a build that started before an
+    /// invalidation must not populate the cache when it finishes.
+    generation: AtomicU64,
     gpu_tested: AtomicBool,
     last_gpu_error: Arc<Mutex<Option<String>>>,
 }
@@ -31,6 +38,8 @@ impl PostProcessFactory {
     pub fn new() -> Self {
         Self {
             cached_local: Arc::new(Mutex::new(None)),
+            build_lock: tokio::sync::Mutex::new(()),
+            generation: AtomicU64::new(0),
             gpu_tested: AtomicBool::new(false),
             last_gpu_error: Arc::new(Mutex::new(None)),
         }
@@ -59,13 +68,11 @@ impl PostProcessFactory {
                 api_key: config.post_process_api_key.clone(),
                 api_url: config.post_process_api_url.clone(),
                 model: config.post_process_api_model.clone(),
-                system_prompt: config.post_process_prompt.clone(),
             })),
             crate::config::PostProcessProvider::Local => {
                 let fingerprint = LocalFingerprint {
                     engine: config.post_process_engine.clone(),
                     model: config.post_process_model.clone(),
-                    system_prompt: config.post_process_prompt.clone(),
                 };
 
                 {
@@ -82,19 +89,43 @@ impl PostProcessFactory {
                     self.gpu_tested.store(true, Ordering::SeqCst);
                 }
 
-                // Build outside the lock: spawning the sidecar takes seconds.
-                // Dictation sessions are serialized by SessionState, so a
-                // duplicate concurrent build is not a practical concern.
+                // Serialize builds: a warm-up racing a dictation (or a second
+                // warm-up) must not spawn a duplicate llama-server.
+                let _build_guard = self.build_lock.lock().await;
+
+                // Double-checked: a racing caller may have populated the
+                // cache while we waited for the build lock.
+                {
+                    let guard = self.cached_local.lock().unwrap();
+                    if let Some((cached_fingerprint, service)) = guard.as_ref() {
+                        if *cached_fingerprint == fingerprint {
+                            crate::log_info!("Reusing warm llama-server post-process service");
+                            return Ok(service.clone());
+                        }
+                    }
+                }
+
+                // Spawning the sidecar takes seconds. Capture the generation
+                // so an invalidation (disable, provider switch) landing
+                // mid-build keeps the freshly built process out of the cache.
+                let generation = self.generation.load(Ordering::SeqCst);
                 let service = Arc::new(
                     SidecarPostProcess::new(
                         &config.post_process_engine,
                         &config.post_process_model,
-                        &config.post_process_prompt,
                         self.last_gpu_error.clone(),
                     )
                     .await
                     .map_err(|e| format!("Failed to start local post-process: {}", e))?,
                 );
+
+                if self.generation.load(Ordering::SeqCst) != generation {
+                    // Dropped without caching: kill_on_drop terminates the
+                    // process the caller was told not to want anymore.
+                    return Err(
+                        "Post-process configuration changed during sidecar startup".to_string()
+                    );
+                }
 
                 let mut guard = self.cached_local.lock().unwrap();
                 *guard = Some((fingerprint, service.clone()));
@@ -104,9 +135,11 @@ impl PostProcessFactory {
     }
 
     /// Drops the cached local sidecar, killing the llama-server process, so
-    /// the next request starts a fresh one. Used after failures and on
-    /// factory reset.
+    /// the next request starts a fresh one. Also invalidates any in-flight
+    /// build via the generation counter. Used after failures, when local
+    /// post-processing is disabled, and on factory reset.
     pub fn invalidate_local(&self) {
+        self.generation.fetch_add(1, Ordering::SeqCst);
         let mut guard = self.cached_local.lock().unwrap();
         if guard.take().is_some() {
             crate::log_info!("Post-process sidecar cache invalidated");

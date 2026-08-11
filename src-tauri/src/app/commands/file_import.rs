@@ -68,7 +68,10 @@ pub async fn transcribe_audio_file(
         crate::log_info!("Post-processing file transcription...");
         let post_process_factory = app_state.post_process_factory.clone();
         match post_process_factory.get_service(&current_config).await {
-            Ok(processor) => match processor.post_process(&text).await {
+            Ok(processor) => match processor
+                .post_process(&text, &current_config.post_process_prompt)
+                .await
+            {
                 Ok(cleaned) => {
                     crate::log_info!(
                         "Post-processed ({}): \"{}\"",

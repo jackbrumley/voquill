@@ -7,13 +7,16 @@ pub struct APIPostProcessService {
     pub api_key: String,
     pub api_url: String,
     pub model: String,
-    pub system_prompt: String,
 }
 
 #[async_trait]
 impl PostProcessService for APIPostProcessService {
-    async fn post_process(&self, text: &str) -> Result<String, PostProcessError> {
-        let messages = super::prompt::build_post_process_messages(text, &self.system_prompt);
+    async fn post_process(
+        &self,
+        text: &str,
+        system_prompt: &str,
+    ) -> Result<String, PostProcessError> {
+        let messages = super::prompt::build_post_process_messages(text, system_prompt);
 
         let body = serde_json::json!({
             "model": self.model,

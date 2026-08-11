@@ -254,7 +254,10 @@ async fn record_and_transcribe_inner(
         match post_process_factory.get_service(&current_config).await {
             Ok(processor) => {
                 crate::app::status::emit_status_to_frontend("Processing").await;
-                match processor.post_process(&text).await {
+                match processor
+                    .post_process(&text, &current_config.post_process_prompt)
+                    .await
+                {
                     Ok(cleaned) => {
                         crate::log_info!(
                             "Post-processed ({}): \"{}\"",

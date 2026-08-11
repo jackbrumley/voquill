@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { useSignal, useSignalEffect } from '@preact/signals';
+import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { TitleBar } from './components/TitleBar.tsx';
@@ -114,15 +114,10 @@ function App() {
     invoke<GpuStatus>('get_gpu_status').then((s) => { gpuStatus.value = s; }).catch(() => {});
   }, []);
 
-  // Track post-process GPU availability: refetch whenever the GPU engine is
-  // selected so the settings banner reflects the latest start attempt.
-  useSignalEffect(() => {
-    if (configHook.config.post_process_engine.includes('(GPU)')) {
-      invoke<GpuStatus>('get_post_process_gpu_status').then((s) => { postProcessGpuStatus.value = s; }).catch(() => {});
-    } else {
-      postProcessGpuStatus.value = null;
-    }
-  });
+  // Post-process GPU availability is refetched when a warm-up attempt
+  // finishes (see onPostProcessGpuStatusChanged below): warm-ups fire on
+  // startup, on engine selection, and on model download completion, which
+  // covers every path that can change the result.
 
   useEffect(() => {
     if (!hotkeySetup.isRecordingHotkey) return;
@@ -170,6 +165,9 @@ function App() {
     },
     onMicVolume: audioSetup.setMicVolume,
     onDownloadProgress: (progress) => { configHook.setDownloadProgress(progress); },
+    onPostProcessGpuStatusChanged: () => {
+      invoke<GpuStatus>('get_post_process_gpu_status').then((s) => { postProcessGpuStatus.value = s; }).catch(() => {});
+    },
     onFocus: () => { audioSetup.checkSetupStatus(); },
     onHashChange: () => {
       activeRoute.value = routeFromHash(window.location.hash);
