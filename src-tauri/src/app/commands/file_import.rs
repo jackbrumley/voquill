@@ -53,7 +53,14 @@ pub async fn transcribe_audio_file(
         .transcribe(&wav_data, lang_code, prompt_hint.as_deref())
         .await
     {
-        Ok(t) => t,
+        Ok(text) => {
+            crate::log_info!(
+                "Transcription received ({}): \"{}\"",
+                service.service_name(),
+                text
+            );
+            text
+        }
         Err(e) => return Err(format!("Transcription failed: {}", e)),
     };
 

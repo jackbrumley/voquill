@@ -101,6 +101,11 @@ impl SidecarPostProcess {
             port.to_string(),
             "-ngl".to_string(),
             if use_gpu { "99" } else { "0" }.to_string(),
+            // Cleanup must reproduce the full transcript, so the context has
+            // to hold input + output for a max-length dictation (see
+            // prompt::max_output_tokens).
+            "-c".to_string(),
+            "8192".to_string(),
         ];
         let mut child = crate::sidecar::spawn_sidecar(&binary_path, &args)
             .map_err(|e| PostProcessError::Api(format!("Failed to spawn llama-server: {}", e)))?;
@@ -138,7 +143,7 @@ impl PostProcessService for SidecarPostProcess {
         let body = serde_json::json!({
             "model": self.model_size,
             "messages": messages,
-            "max_tokens": 256,
+            "max_tokens": super::prompt::max_output_tokens(text),
             "temperature": 0.0,
         });
 

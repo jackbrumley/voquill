@@ -18,7 +18,7 @@ impl PostProcessService for APIPostProcessService {
         let body = serde_json::json!({
             "model": self.model,
             "messages": messages,
-            "max_tokens": 256,
+            "max_tokens": super::prompt::max_output_tokens(text),
             "temperature": 0.0,
         });
 
