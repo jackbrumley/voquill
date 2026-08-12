@@ -1,4 +1,5 @@
 import { useEffect } from 'preact/hooks';
+import { useSignal } from '@preact/signals';
 import { listen } from '@tauri-apps/api/event';
 import { HotkeyBindingState, ModelDownloadProgress, StatusUpdatePayload } from '../types.ts';
 
@@ -18,44 +19,49 @@ interface UseTauriEventsOptions {
 }
 
 export function useTauriEvents(options: UseTauriEventsOptions) {
+  const latest = useSignal(options);
+  latest.value = options;
+
   useEffect(() => {
     const unlistenSetup = listen<string>('setup-status', (event) => {
-      options.onSetupStatus(event.payload);
+      latest.value.onSetupStatus(event.payload);
     });
     const unlistenStatus = listen<StatusUpdatePayload>('status-update', (event) => {
-      options.onStatusUpdate(event.payload);
+      latest.value.onStatusUpdate(event.payload);
     });
     const unlistenHistory = listen('history-updated', () => {
-      options.onHistoryUpdated();
+      latest.value.onHistoryUpdated();
     });
     const unlistenConfigUpdated = listen('config-updated', () => {
-      options.onConfigUpdated();
+      latest.value.onConfigUpdated();
     });
     const unlistenHotkeyBindingState = listen<HotkeyBindingState>('hotkey-binding-state', (event) => {
-      options.onHotkeyBindingState(event.payload);
+      latest.value.onHotkeyBindingState(event.payload);
     });
     const unlistenMicTestStarted = listen('mic-test-playback-started', () => {
-      options.onMicTestStarted();
+      latest.value.onMicTestStarted();
     });
     const unlistenMicTestFinished = listen('mic-test-playback-finished', () => {
-      options.onMicTestFinished();
+      latest.value.onMicTestFinished();
     });
     const unlistenMicVolume = listen<number>('mic-test-volume', (event) => {
-      options.onMicVolume(event.payload);
+      latest.value.onMicVolume(event.payload);
     });
     const unlistenDownloadProgress = listen<ModelDownloadProgress>('model-download-progress', (event) => {
-      options.onDownloadProgress(event.payload);
+      latest.value.onDownloadProgress(event.payload);
     });
     const unlistenPostProcessGpuStatus = listen('post-process-gpu-status-changed', () => {
-      options.onPostProcessGpuStatusChanged();
+      latest.value.onPostProcessGpuStatusChanged();
     });
 
-    window.addEventListener('focus', options.onFocus);
-    window.addEventListener('hashchange', options.onHashChange);
+    const onFocus = () => latest.value.onFocus();
+    const onHashChange = () => latest.value.onHashChange();
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('hashchange', onHashChange);
 
     return () => {
-      window.removeEventListener('focus', options.onFocus);
-      window.removeEventListener('hashchange', options.onHashChange);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('hashchange', onHashChange);
       unlistenSetup.then((fn) => fn());
       unlistenStatus.then((fn) => fn());
       unlistenHistory.then((fn) => fn());
