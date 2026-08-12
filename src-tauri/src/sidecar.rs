@@ -72,7 +72,9 @@ async fn download_and_extract(
 
     let response = reqwest::get(&download.archive_url)
         .await
-        .with_context(|| format!("{} download failed", download.log_label))?;
+        .with_context(|| format!("{} download failed", download.log_label))?
+        .error_for_status()
+        .with_context(|| format!("{} download returned HTTP error", download.log_label))?;
 
     let total = response.content_length().unwrap_or(0);
     let mut downloaded: u64 = 0;
