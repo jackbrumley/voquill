@@ -64,7 +64,7 @@
       "icons/icon.ico"
     ],
     "targets": "all",
-    "resources": [],
+    "resources": ["../python-runner/**/*"],
     "externalBin": [],
     "windows": {
       "certificateThumbprint": null,

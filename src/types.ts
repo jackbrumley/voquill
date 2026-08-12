@@ -28,6 +28,7 @@ export interface Config {
   post_process_api_key: string;
   post_process_api_model: string;
   post_process_prompt: string;
+  diarization_enabled: boolean;
   shortcuts_token?: string;
   input_token?: string;
 }
@@ -42,6 +43,14 @@ export interface HistoryItem {
   id: number;
   text: string;
   timestamp: string;
+  segments?: Segment[] | null;
+}
+
+export interface Segment {
+  speaker: string | null;
+  text: string;
+  start_sec: number | null;
+  end_sec: number | null;
 }
 
 export interface AudioDevice {

@@ -1,4 +1,4 @@
-import { IconAlertCircle, IconBrandGithub, IconHeart, IconUpload, IconCopy } from '@tabler/icons-preact';
+import { IconAlertCircle, IconBrandGithub, IconHeart, IconUpload, IconCopy, IconUser } from '@tabler/icons-preact';
 import { open } from '@tauri-apps/plugin-shell';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { useSignal } from '@preact/signals';
@@ -9,6 +9,7 @@ import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
 import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 import { useEffect, useState } from 'preact/hooks';
+import type { Segment } from '../types.ts';
 
 interface HomePageProps {
   appVersion: string;
@@ -20,8 +21,10 @@ interface HomePageProps {
     local_model_size: string;
     hotkey: string;
     hotkey_mode: 'HoldToTalk' | 'Toggle';
+    diarization_enabled: boolean;
   };
   onToggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
+  onToggleDiarization: (enabled: boolean) => void;
   hasUpdateAvailable: boolean;
   onOpenUpdateModal: () => void;
   onCopyToClipboard: (text: string) => void;
@@ -29,12 +32,19 @@ interface HomePageProps {
 
 type ImportStatus = 'idle' | 'transcribing' | 'done' | 'error';
 
+interface TranscribeResult {
+  text: string;
+  segments: Segment[];
+  provider: string;
+}
+
 export function HomePage({
   appVersion,
   modelStatus,
   isSystemManagedShortcut,
   config,
   onToggleOutputMethod,
+  onToggleDiarization,
   hasUpdateAvailable,
   onOpenUpdateModal,
   onCopyToClipboard,
@@ -42,7 +52,7 @@ export function HomePage({
   const [hoveredFooterIcon, setHoveredFooterIcon] = useState<'github' | 'heart' | null>(null);
   const isToggleMode = config.hotkey_mode === 'Toggle';
   const importStatus = useSignal<ImportStatus>('idle');
-  const importResult = useSignal<string>('');
+  const importResult = useSignal<TranscribeResult | null>(null);
   const importError = useSignal<string>('');
   const isDragOver = useSignal(false);
 
@@ -105,16 +115,39 @@ export function HomePage({
 
   const transcribeFile = async (filePath: string) => {
     importStatus.value = 'transcribing';
-    importResult.value = '';
+    importResult.value = null;
     importError.value = '';
     try {
-      const text = await invoke<string>('transcribe_audio_file', { path: filePath });
-      importResult.value = text;
+      const result = await invoke<TranscribeResult>('transcribe_audio_file', { path: filePath });
+      importResult.value = result;
       importStatus.value = 'done';
     } catch (e) {
       importError.value = `Transcription failed: ${e}`;
       importStatus.value = 'error';
     }
+  };
+
+  const speakerColors = ['#43b581', '#faa61a', '#7289da', '#f04747', '#b9bbbe'];
+
+  const getSpeakerColor = (speaker: string | null): string => {
+    if (!speaker) return tokens.colors.textPrimary;
+    const num = speaker === 'Person 1' ? 0 : speaker === 'Person 2' ? 1 : speaker === 'Person 3' ? 2 : speaker === 'Person 4' ? 3 : 4;
+    return speakerColors[num % speakerColors.length];
+  };
+
+  const copyLabeledText = () => {
+    const result = importResult.value;
+    if (!result) return;
+    onCopyToClipboard(result.text);
+  };
+
+  const copyPlainText = () => {
+    const result = importResult.value;
+    if (!result) return;
+    const plain = result.segments && result.segments.length > 0
+      ? result.segments.map(s => s.text).join(' ')
+      : result.text;
+    onCopyToClipboard(plain);
   };
 
   const dropZoneBorderColor = isDragOver.value
@@ -142,6 +175,27 @@ export function HomePage({
                 : 'Copies results to your clipboard.'}
             </div>
             </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '4px', marginBottom: '-6px' }}>
+          <label style={{
+            fontSize: tokens.typography.sizeXs,
+            color: tokens.colors.textSecondary,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            userSelect: 'none',
+          }}>
+            <input
+              type="checkbox"
+              checked={config.diarization_enabled}
+              onChange={(e) => onToggleDiarization((e.target as HTMLInputElement).checked)}
+              style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
+            />
+            <IconUser size={12} />
+            Speaker diarization
+          </label>
         </div>
 
         <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, marginBottom: '-10px' }}>
@@ -193,18 +247,30 @@ export function HomePage({
               Transcribing...
             </div>
           )}
-          {importStatus.value === 'done' && (
+          {importStatus.value === 'done' && importResult.value && (
             <>
               <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.success || '#43b581', marginBottom: '4px' }}>
-                Transcription complete
+                Transcription complete {importResult.value.provider !== 'none' && `(${importResult.value.provider})`}
               </div>
-              <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textPrimary, lineHeight: 1.45, maxHeight: '80px', overflow: 'auto', width: '100%', textAlign: 'left' }}>
-                {importResult.value}
+              <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textPrimary, lineHeight: 1.45, maxHeight: '100px', overflow: 'auto', width: '100%', textAlign: 'left' }}>
+                {importResult.value.segments && importResult.value.segments.length > 0
+                  ? importResult.value.segments.map((seg, i) => (
+                    <div key={i} style={{ marginBottom: '2px' }}>
+                      {seg.speaker && (
+                        <span style={{ color: getSpeakerColor(seg.speaker), fontWeight: 800, fontSize: tokens.typography.sizeXs }}>
+                          [{seg.speaker}]
+                        </span>
+                      )}
+                      {' '}{seg.text}
+                    </div>
+                  ))
+                  : importResult.value.text
+                }
               </div>
               <div style={{ display: 'flex', gap: tokens.spacing.sm, marginTop: tokens.spacing.xs }}>
                 <button
-                  onClick={(e) => { e.stopPropagation(); onCopyToClipboard(importResult.value); }}
-                  title="Copy to clipboard"
+                  onClick={(e) => { e.stopPropagation(); copyLabeledText(); }}
+                  title="Copy with speaker labels"
                   style={{
                     background: 'transparent',
                     border: 'none',
@@ -228,7 +294,35 @@ export function HomePage({
                   }}
                 >
                   <IconCopy size={16} />
-                  Copy
+                  Copy labeled
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); copyPlainText(); }}
+                  title="Copy without labels"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    color: '#a9acb5',
+                    cursor: 'pointer',
+                    fontSize: tokens.typography.sizeXs,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.1)';
+                    (e.currentTarget as HTMLElement).style.color = '#ffffff';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                    (e.currentTarget as HTMLElement).style.color = '#a9acb5';
+                  }}
+                >
+                  <IconCopy size={16} />
+                  Copy plain
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); importStatus.value = 'idle'; }}

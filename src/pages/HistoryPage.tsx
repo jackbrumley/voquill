@@ -1,11 +1,6 @@
 import { IconCopy, IconSearch, IconX } from '@tabler/icons-preact';
 import { tokens } from '../design-tokens.ts';
-
-interface HistoryItem {
-  id: number;
-  text: string;
-  timestamp: string;
-}
+import type { HistoryItem } from '../types.ts';
 
 interface HistoryPageProps {
   history: HistoryItem[];
@@ -48,6 +43,50 @@ function highlightText(text: string, query: string): HighlightSegment[] {
   }
 
   return segments.length > 0 ? segments : [{ text, highlighted: false }];
+}
+
+const speakerColors = ['#43b581', '#faa61a', '#7289da', '#f04747', '#b9bbbe'];
+
+function getSpeakerColor(speaker: string | null): string {
+  if (!speaker) return tokens.colors.textPrimary;
+  const num = speaker === 'Person 1' ? 0 : speaker === 'Person 2' ? 1 : speaker === 'Person 3' ? 2 : speaker === 'Person 4' ? 3 : 4;
+  return speakerColors[num % speakerColors.length];
+}
+
+function renderItemText(item: HistoryItem, searchQuery: string) {
+  const segments = item.segments;
+
+  if (segments && segments.length > 0) {
+    // Render with speaker labels
+    return segments.map((seg, i) => (
+      <div key={i} style={{ marginBottom: '2px' }}>
+        {seg.speaker && (
+          <span style={{ color: getSpeakerColor(seg.speaker), fontWeight: 800, fontSize: tokens.typography.sizeXs }}>
+            [{seg.speaker}]
+          </span>
+        )}
+        {' '}
+        {searchQuery
+          ? highlightText(seg.text, searchQuery).map((hs, j) =>
+              hs.highlighted
+                ? <span key={j} style={{ background: 'rgba(255, 213, 0, 0.2)', color: '#ffd700', borderRadius: '3px', padding: '0 2px' }}>{hs.text}</span>
+                : <span key={j}>{hs.text}</span>
+            )
+          : seg.text
+        }
+      </div>
+    ));
+  }
+
+  // Fall back to plain text
+  if (searchQuery) {
+    return highlightText(item.text, searchQuery).map((seg, i) =>
+      seg.highlighted
+        ? <span key={i} style={{ background: 'rgba(255, 213, 0, 0.2)', color: '#ffd700', borderRadius: '3px', padding: '0 2px' }}>{seg.text}</span>
+        : <span key={i}>{seg.text}</span>
+    );
+  }
+  return item.text;
 }
 
 export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipboard, onSearch }: HistoryPageProps) {
@@ -126,14 +165,7 @@ export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipb
             displayItems.map((item) => (
               <div key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
                 <div style={{ color: '#f1f4f8', fontSize: tokens.typography.sizeSm, lineHeight: 1.45 }}>
-                  {searchQuery.trim()
-                    ? highlightText(item.text, searchQuery).map((seg, i) =>
-                        seg.highlighted
-                          ? <span key={i} style={{ background: 'rgba(255, 213, 0, 0.2)', color: '#ffd700', borderRadius: '3px', padding: '0 2px' }}>{seg.text}</span>
-                          : <span key={i}>{seg.text}</span>
-                      )
-                    : item.text
-                  }
+                  {renderItemText(item, searchQuery.trim())}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', marginTop: '4px', gap: tokens.spacing.sm }}>
                   <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted }}>{new Date(item.timestamp).toLocaleString()}</div>

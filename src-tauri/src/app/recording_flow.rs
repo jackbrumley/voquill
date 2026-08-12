@@ -296,7 +296,7 @@ async fn record_and_transcribe_inner(
     }
 
     if !text.trim().is_empty() {
-        let _ = history::add_history_item(&text);
+        let _ = history::add_history_item(&text, None);
         if let Some(window) = app_handle.get_webview_window("main") {
             let _ = window.emit("history-updated", ());
         }

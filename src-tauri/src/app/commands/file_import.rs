@@ -1,11 +1,11 @@
-use crate::{audio, history};
+use crate::{audio, diarization::DiarizationResult, history};
 use tauri::{Emitter, Manager};
 
 #[tauri::command]
 pub async fn transcribe_audio_file(
     path: String,
     app_handle: tauri::AppHandle,
-) -> Result<String, String> {
+) -> Result<DiarizationResult, String> {
     crate::log_info!("transcribe_audio_file: {}", path);
 
     let audio_data = std::fs::read(&path).map_err(|e| format!("Failed to read file: {}", e))?;
@@ -100,14 +100,93 @@ pub async fn transcribe_audio_file(
         text
     };
 
-    if !text.trim().is_empty() {
-        if let Err(e) = history::add_history_item(&text) {
-            crate::log_warn!("Failed to save history: {}", e);
+    if text.trim().is_empty() {
+        return Ok(DiarizationResult {
+            text: String::new(),
+            segments: vec![],
+            provider: "none".to_string(),
+        });
+    }
+
+    // ── Optional: Speaker diarization ──
+    let result = if current_config.diarization_enabled {
+        match run_diarization(&app_handle, &path).await {
+            Ok(mut r) => {
+                // Only use diarization text if we got segments back
+                if r.segments.is_empty() {
+                    r.text = text.clone();
+                }
+                r
+            }
+            Err(e) => {
+                crate::log_warn!("Diarization failed, using plain transcript: {}", e);
+                DiarizationResult {
+                    text: text.clone(),
+                    segments: vec![],
+                    provider: "none".to_string(),
+                }
+            }
         }
-        if let Some(window) = app_handle.get_webview_window("main") {
-            let _ = window.emit("history-updated", ());
+    } else {
+        DiarizationResult {
+            text: text.clone(),
+            segments: vec![],
+            provider: "none".to_string(),
+        }
+    };
+
+    // ── Save to history ──
+    let segments_json = if result.segments.is_empty() {
+        None
+    } else {
+        serde_json::to_string(&result.segments).ok()
+    };
+    if let Err(e) = history::add_history_item(&result.text, segments_json.as_deref()) {
+        crate::log_warn!("Failed to save history: {}", e);
+    }
+    if let Some(window) = app_handle.get_webview_window("main") {
+        let _ = window.emit("history-updated", ());
+    }
+
+    Ok(result)
+}
+
+/// Run diarization on the original audio file via the Python runner.
+async fn run_diarization(
+    app_handle: &tauri::AppHandle,
+    audio_path: &str,
+) -> Result<DiarizationResult, String> {
+    let app_state = app_handle.state::<crate::AppState>();
+
+    // Check if runner is already running (brief lock, no await)
+    let needs_start = {
+        let guard = app_state.python_runner.lock().unwrap();
+        guard.is_none()
+    };
+
+    if needs_start {
+        crate::log_info!("Lazily starting Python runner for diarization...");
+        match crate::python_runner::PythonRunner::start(app_handle).await {
+            Ok(runner) => {
+                let mut guard = app_state.python_runner.lock().unwrap();
+                // Only set if still None (another thread may have started it)
+                if guard.is_none() {
+                    *guard = Some(runner);
+                }
+            }
+            Err(e) => {
+                crate::log_warn!("Failed to start Python runner: {}", e);
+                return Err(e);
+            }
         }
     }
 
-    Ok(text)
+    // Clone the runner out of the state (brief lock)
+    let runner = {
+        let guard = app_state.python_runner.lock().unwrap();
+        guard.clone()
+    }
+    .ok_or("Python runner not available after start attempt")?;
+
+    runner.diarize(audio_path).await
 }

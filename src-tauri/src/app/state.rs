@@ -46,6 +46,7 @@ pub struct AppState {
     pub display_backend: Arc<dyn platform::traits::DisplayBackend>,
     pub engine_factory: Arc<engine_factory::EngineFactory>,
     pub post_process_factory: Arc<PostProcessFactory>,
+    pub python_runner: Arc<Mutex<Option<crate::python_runner::PythonRunner>>>,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize)]
@@ -84,6 +85,7 @@ impl Default for AppState {
             display_backend: platform::initialize(),
             engine_factory: Arc::new(engine_factory::EngineFactory::new()),
             post_process_factory: Arc::new(PostProcessFactory::new()),
+            python_runner: Arc::new(Mutex::new(None)),
         }
     }
 }

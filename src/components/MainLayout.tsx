@@ -88,6 +88,7 @@ export function MainLayout(props: MainLayoutProps) {
             config={props.config}
             isSystemManagedShortcut={props.isSystemManagedShortcut}
             onToggleOutputMethod={props.onToggleOutputMethod}
+            onToggleDiarization={(enabled) => props.onUpdateConfig('diarization_enabled', enabled)}
             hasUpdateAvailable={props.updateResult?.updateAvailable === true}
             onOpenUpdateModal={props.onOpenUpdateModal}
             onCopyToClipboard={props.onCopyToClipboard}

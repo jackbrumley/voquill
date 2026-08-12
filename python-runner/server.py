@@ -1,0 +1,168 @@
+"""
+Voquill Python Sidecar — capability-based audio processing server.
+
+Architecture:
+- Single FastAPI server, started and managed by the Rust app
+- Each capability (diarization, VAD, etc.) is a separate module
+- Modules register endpoints via a standard pattern
+- GET /capabilities returns what's available
+- GET /health for lifecycle checks
+
+Adding a new capability:
+1. Create a new module directory (e.g., enhancement/)
+2. Create a provider file with a run() function
+3. Register it in the CAPABILITIES dict in _discover_capabilities()
+4. Add dependencies to requirements/<capability>.txt
+5. No Rust changes needed — Rust queries /capabilities at startup
+"""
+
+from __future__ import annotations
+
+import importlib
+import logging
+import os
+import sys
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any
+
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+# ── Logging ────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S%.3f",
+)
+logger = logging.getLogger("voquill.server")
+
+# ── Startup state ──────────────────────────────────────────────────────────
+# Set by the Rust launcher as an env var so the server knows its home.
+RUNNER_BASE_DIR = os.environ.get(
+    "VOQUILL_PYTHON_RUNNER_DIR",
+    os.path.dirname(os.path.abspath(__file__)),
+)
+
+
+class CapabilityInfo(BaseModel):
+    name: str
+    provider: str
+    description: str
+
+
+# ── Capability discovery ───────────────────────────────────────────────────
+def _discover_capabilities() -> dict[str, dict[str, Any]]:
+    """
+    Returns a dict mapping capability names to their module info.
+    Each entry has:
+      - module: the Python module path
+      - provider: friendly name for /capabilities
+      - description: human-readable description
+    """
+    return {
+        "diarize": {
+            "module": "diarization.provider_sherpa",
+            "provider": "sherpa-onnx",
+            "description": "Speaker diarization (who spoke when) using sherpa-onnx",
+        },
+    }
+
+
+def _load_capability_handlers(
+    capabilities: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    handlers: dict[str, Any] = {}
+    for name, info in capabilities.items():
+        try:
+            mod = importlib.import_module(info["module"])
+            if not hasattr(mod, "run"):
+                logger.warning("Capability '%s' has no run() function, skipping", name)
+                continue
+            if hasattr(mod, "is_available") and not mod.is_available():
+                logger.warning(
+                    "Capability '%s' is not available (deps missing?), skipping", name
+                )
+                continue
+            handlers[name] = {"module": mod, "info": info}
+            logger.info("Loaded capability: %s (%s)", name, info["provider"])
+        except ImportError as e:
+            logger.warning(
+                "Capability '%s' failed to load (%s), skipping", name, e
+            )
+        except Exception as e:
+            logger.warning(
+                "Capability '%s' errored during load (%s), skipping", name, e
+            )
+    return handlers
+
+
+# ── App lifecycle ──────────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    capabilities = _discover_capabilities()
+    handlers = _load_capability_handlers(capabilities)
+    app.state.handlers = handlers
+    app.state.capabilities = [
+        CapabilityInfo(
+            name=name,
+            provider=info["info"]["provider"],
+            description=info["info"]["description"],
+        )
+        for name, info in handlers.items()
+    ]
+    logger.info(
+        "Server ready — %d capabilities loaded", len(app.state.capabilities)
+    )
+    yield
+
+
+app = FastAPI(
+    title="Voquill Python Runner",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+
+# ── Endpoints ──────────────────────────────────────────────────────────────
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+@app.get("/capabilities")
+async def capabilities() -> list[CapabilityInfo]:
+    return list(app.state.capabilities)
+
+
+@app.post("/diarize")
+async def diarize(body: dict) -> dict:
+    handlers = app.state.handlers
+    if "diarize" not in handlers:
+        raise HTTPException(
+            status_code=501,
+            detail="Diarization capability not available (sherpa-onnx not installed?)",
+        )
+    audio_path = body.get("audio_path")
+    if not audio_path:
+        raise HTTPException(status_code=400, detail="audio_path is required")
+    if not os.path.isfile(audio_path):
+        raise HTTPException(
+            status_code=400, detail=f"audio_path does not exist: {audio_path}"
+        )
+
+    mod = handlers["diarize"]["module"]
+    result = mod.run(audio_path=audio_path, runner_base_dir=RUNNER_BASE_DIR)
+    return result.model_dump()
+
+
+# ── Entry point (used when Rust spawns the server) ─────────────────────────
+def main():
+    port = int(os.environ.get("VOQUILL_PORT", "9000"))
+    logger.info("Starting on port %d (base_dir=%s)", port, RUNNER_BASE_DIR)
+    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+
+
+if __name__ == "__main__":
+    main()

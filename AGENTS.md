@@ -37,6 +37,49 @@ We design for long-term maintainability as a solo-developed project. Architectur
 - **Small, Localized Change Surface:** Future platform changes (portal updates, new compositor behavior) should require minor edits in capability/adapter modules, not architectural rewrites.
 - **State Machines Over Ad-Hoc Flags:** For non-trivial flows (permissions, hotkeys, portal sessions), prefer explicit state transitions over scattered booleans.
 
+### 8. Python Runner Architecture (Diarization & Audio Processing)
+
+The `python-runner/` directory at the project root is a self-contained Python FastAPI server that handles audio processing tasks requiring Python ML libraries. It is bundled as a Tauri resource and extracted to the config directory at runtime.
+
+**How it works:**
+1. **Bundling:** `python-runner/**/*` is listed in `tauri.conf.json` `resources`. At build time, all Python source files are bundled with the app.
+2. **Extraction:** On first use (or when the version in `python-runner/.version` differs from the expected `RUNNER_VERSION` in `src-tauri/src/python_runner/mod.rs`), Rust copies the bundled files to `<config_dir>/foss-voquill/python-runner/`.
+3. **Portable Python:** Rust downloads `python-build-standalone` (~25MB) — a relocatable Python build — to `python-runner/python/` if not present. No system Python required.
+4. **Venv + Dependencies:** Rust creates a Python venv from the portable Python at `python-runner/venv/` and `pip install`s requirements from `python-runner/requirements/*.txt`.
+5. **Lifecycle:** Rust spawns `uvicorn server:app` as a sidecar process (same pattern as llama-server). The server exposes:
+   - `GET /health` — health check
+   - `GET /capabilities` — discover available endpoints
+   - `POST /diarize` — speaker diarization
+
+**Capability-Based Design:**
+- Each feature (diarization, VAD, enhancement) is a separate module under `python-runner/`
+- Each module has a `run()` function with a standard signature
+- The Rust side discovers endpoints via `GET /capabilities`
+- Adding a new capability requires only a new Python module + requirements file — no Rust changes
+
+**Tier 2 → Tier 3 Diarization Pathway:**
+- **Current (Tier 2):** `diarization/provider_sherpa.py` uses `sherpa-onnx` Python package (no PyTorch, ~50MB)
+- **Future (Tier 3):** Create `diarization/provider_pyannote.py` with the same `run()` signature using `pyannote-audio` + `torch`. The Rust side never changes — same `/diarize` endpoint, same response schema.
+- **Upgrade trigger:** A new config field (`diarization_provider: "sherpa" | "pyannote"`) would select the backend.
+
+**Key files:**
+| File | Role |
+|------|------|
+| `python-runner/server.py` | FastAPI app, capability discovery, routing |
+| `python-runner/diarization/provider_sherpa.py` | Tier 2 diarization (sherpa-onnx) |
+| `python-runner/diarization/schemas.py` | Pydantic models (shared across providers) |
+| `python-runner/requirements/base.txt` | Core deps (fastapi, uvicorn) |
+| `python-runner/requirements/diarization-sherpa.txt` | Tier 2 deps (sherpa-onnx, soundfile) |
+| `src-tauri/src/python_runner/mod.rs` | Rust lifecycle: extract, venv, spawn, health |
+| `src-tauri/src/diarization/mod.rs` | Rust types: Segment, DiarizationResult, DiarizationService trait |
+| `src-tauri/src/diarization/provider_python.rs` | (future) Wraps PythonRunner for DiarizationService trait |
+
+**Version management:**
+- `python-runner/.version` tracks the extracted source version
+- `RUNNER_VERSION` constant in `python_runner/mod.rs` is the expected version
+- On mismatch, Rust re-extracts from the app bundle (handles app updates)
+- This ensures fresh installs AND upgrades always get the latest Python source
+
 ### 6. Platform Adaptation Pattern
 When implementing platform-sensitive features, follow this structure:
 1. **Platform Boundary First:** Keep OS/display boundaries (`linux/wayland`, `linux/x11`, `windows`) as top-level separations.

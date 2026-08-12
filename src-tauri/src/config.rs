@@ -98,6 +98,8 @@ pub struct Config {
     pub post_process_api_model: String,
     #[serde(default = "default_post_process_prompt")]
     pub post_process_prompt: String,
+    #[serde(default)]
+    pub diarization_enabled: bool,
 }
 
 impl Config {
@@ -264,6 +266,7 @@ impl Default for Config {
             post_process_api_key: String::new(),
             post_process_api_model: default_post_process_api_model(),
             post_process_prompt: default_post_process_prompt(),
+            diarization_enabled: false,
         }
     }
 }

@@ -1,0 +1,5 @@
+[project]
+name = "voquill-python-runner"
+version = "1.0.0"
+description = "Voquill Python sidecar for audio processing tasks (diarization, etc.)"
+requires-python = ">=3.10"

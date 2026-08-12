@@ -9,6 +9,8 @@ pub struct HistoryItem {
     pub id: u64,
     pub text: String,
     pub timestamp: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub segments: Option<String>,
 }
 
 fn db_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
@@ -27,11 +29,16 @@ fn open_db() -> Result<Connection, Box<dyn std::error::Error>> {
         "CREATE TABLE IF NOT EXISTS history (
             id    INTEGER PRIMARY KEY AUTOINCREMENT,
             text  TEXT NOT NULL,
-            timestamp TEXT NOT NULL
+            timestamp TEXT NOT NULL,
+            segments TEXT
         );
         CREATE VIRTUAL TABLE IF NOT EXISTS history_fts
             USING fts5(text, content='history', content_rowid='id');",
     )?;
+
+    // Migrate: add segments column if missing (pre-1.4.3 databases)
+    conn.execute_batch("ALTER TABLE history ADD COLUMN segments TEXT")
+        .ok();
 
     conn.execute_batch(
         "CREATE TRIGGER IF NOT EXISTS history_ai AFTER INSERT ON history BEGIN
@@ -91,8 +98,8 @@ fn migrate_from_json(conn: &Connection) -> Result<(), Box<dyn std::error::Error>
             if count == 0 {
                 let id = item.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
                 conn.execute(
-                    "INSERT INTO history (id, text, timestamp) VALUES (?1, ?2, ?3)",
-                    params![id as i64, text, timestamp],
+                    "INSERT INTO history (id, text, timestamp, segments) VALUES (?1, ?2, ?3, ?4)",
+                    params![id as i64, text, timestamp, Option::<&str>::None],
                 )?;
             }
         }
@@ -120,31 +127,36 @@ fn sanitize_fts_query(raw: &str) -> String {
     format!("{}*", trimmed)
 }
 
-pub fn add_history_item(text: &str) -> Result<HistoryItem, Box<dyn std::error::Error>> {
+pub fn add_history_item(
+    text: &str,
+    segments: Option<&str>,
+) -> Result<HistoryItem, Box<dyn std::error::Error>> {
     let conn = global_db().lock().unwrap();
     let timestamp = Utc::now().to_rfc3339();
     conn.execute(
-        "INSERT INTO history (text, timestamp) VALUES (?1, ?2)",
-        params![text, timestamp],
+        "INSERT INTO history (text, timestamp, segments) VALUES (?1, ?2, ?3)",
+        params![text, timestamp, segments],
     )?;
     let id = conn.last_insert_rowid() as u64;
     Ok(HistoryItem {
         id,
         text: text.to_string(),
         timestamp,
+        segments: segments.map(|s| s.to_string()),
     })
 }
 
 pub fn load_history() -> Result<Vec<HistoryItem>, Box<dyn std::error::Error>> {
     let conn = global_db().lock().unwrap();
-    let mut stmt =
-        conn.prepare("SELECT id, text, timestamp FROM history ORDER BY id DESC LIMIT 500")?;
+    let mut stmt = conn
+        .prepare("SELECT id, text, timestamp, segments FROM history ORDER BY id DESC LIMIT 500")?;
     let items = stmt
         .query_map([], |row| {
             Ok(HistoryItem {
                 id: row.get::<_, i64>(0)? as u64,
                 text: row.get(1)?,
                 timestamp: row.get(2)?,
+                segments: row.get(3)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -158,7 +170,7 @@ pub fn search_history(query: &str) -> Result<Vec<HistoryItem>, Box<dyn std::erro
     }
     let conn = global_db().lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT h.id, h.text, h.timestamp
+        "SELECT h.id, h.text, h.timestamp, h.segments
          FROM history_fts f
          JOIN history h ON h.id = f.rowid
          WHERE history_fts MATCH ?1
@@ -171,6 +183,7 @@ pub fn search_history(query: &str) -> Result<Vec<HistoryItem>, Box<dyn std::erro
                 id: row.get::<_, i64>(0)? as u64,
                 text: row.get(1)?,
                 timestamp: row.get(2)?,
+                segments: row.get(3)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
