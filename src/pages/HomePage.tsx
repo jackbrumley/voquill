@@ -198,7 +198,7 @@ export function HomePage({
               style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
             />
             <IconUser size={12} />
-            Identify speakers
+            Differentiate voices
           </label>
           <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7 }}>
             Labels each speaker (Person 1, Person 2, etc.)
