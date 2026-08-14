@@ -31,20 +31,20 @@ export function StatusIndicator({ status, size = 40, label, subtitle, fixedWidth
       height: label ? `${size}px` : `${size}px`,
     }}>
       <div style={{
+        position: 'relative',
         width: `${animSize}px`,
         height: `${animSize}px`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         flexShrink: 0,
       }}>
-        {status === 'Ready' ? (
+        <div style={{ position: 'absolute', inset: 0, opacity: status === 'Ready' ? 1 : 0, transition: 'opacity 0.2s ease' }}>
           <ReadySweep />
-        ) : status === 'Recording' ? (
+        </div>
+        <div style={{ position: 'absolute', inset: 0, opacity: status === 'Recording' ? 1 : 0, transition: 'opacity 0.2s ease' }}>
           <AudioWave barWidth={Math.max(2, Math.round(animSize * 0.08))} containerHeight={animSize} gap={Math.max(1, Math.round(animSize * 0.05))} />
-        ) : status === 'Transcribing' ? (
+        </div>
+        <div style={{ position: 'absolute', inset: 0, opacity: status === 'Transcribing' ? 1 : 0, transition: 'opacity 0.2s ease' }}>
           <BouncingDots dotSize={Math.max(4, Math.round(animSize * 0.25))} gap={Math.max(1, Math.round(animSize * 0.05))} jumpHeight={Math.max(4, Math.round(animSize * 0.15))} />
-        ) : null}
+        </div>
       </div>
       {label && (
         <div style={{

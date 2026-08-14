@@ -149,4 +149,4 @@ export interface StatusUpdatePayload {
   status: string;
 }
 
-export type AppRoute = 'setup' | 'home' | 'status' | 'history' | 'settings' | 'ui-lab';
+export type AppRoute = 'setup' | 'home' | 'status' | 'history' | 'settings' | 'ui-lab' | 'help';

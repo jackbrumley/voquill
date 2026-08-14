@@ -17,15 +17,9 @@ import type { Segment } from '../types.ts';
 
 interface HomePageProps {
   appVersion: string;
-  modelStatus: Record<string, boolean>;
   sessionStatus: string;
-  isSystemManagedShortcut: boolean;
   config: {
-    transcription_mode: 'API' | 'Local';
     output_method: 'Typewriter' | 'Clipboard';
-    local_model_size: string;
-    hotkey: string;
-    hotkey_mode: 'HoldToTalk' | 'Toggle';
     diarization_enabled: boolean;
   };
   onToggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
@@ -45,9 +39,7 @@ interface TranscribeResult {
 
 export function HomePage({
   appVersion,
-  modelStatus,
   sessionStatus,
-  isSystemManagedShortcut,
   config,
   onToggleOutputMethod,
   onToggleDiarization,
@@ -56,7 +48,6 @@ export function HomePage({
   onCopyToClipboard,
 }: HomePageProps) {
   const [hoveredFooterIcon, setHoveredFooterIcon] = useState<'github' | 'heart' | null>(null);
-  const isToggleMode = config.hotkey_mode === 'Toggle';
   const importStatus = useSignal<ImportStatus>('idle');
   const importResult = useSignal<TranscribeResult | null>(null);
   const importError = useSignal<string>('');
@@ -81,25 +72,6 @@ export function HomePage({
     })();
     return () => { unlisten?.(); };
   }, []);
-
-  const howToSteps = [
-    config.transcription_mode === 'Local'
-      ? (modelStatus[config.local_model_size]
-        ? <>Local Whisper model is <strong style={{ color: tokens.colors.textPrimary }}>Ready</strong>.</>
-        : <>Download a <strong style={{ color: tokens.colors.textPrimary }}>Whisper model</strong> in Settings.</>)
-      : <>Enter your <strong style={{ color: tokens.colors.textPrimary }}>OpenAI API key</strong> in Settings.</>,
-    <>Position cursor in any text field.</>,
-    isToggleMode
-      ? (isSystemManagedShortcut
-        ? <>Press your system shortcut to start recording.</>
-        : <><span>Press </span><strong style={{ color: tokens.colors.textPrimary }}>{config.hotkey}</strong><span> to start recording.</span></>)
-      : (isSystemManagedShortcut
-        ? <>Hold your system shortcut and speak.</>
-        : <><span>Hold </span><strong style={{ color: tokens.colors.textPrimary }}>{config.hotkey}</strong><span> and speak.</span></>),
-    isToggleMode
-      ? <>Press it again to stop and transcribe.</>
-      : <>Release keys to transcribe and type.</>,
-  ];
 
   const handleFilePick = async () => {
     try {
@@ -209,7 +181,7 @@ export function HomePage({
             </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '4px', marginBottom: '-6px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', marginTop: '4px', marginBottom: '-6px' }}>
           <label style={{
             fontSize: tokens.typography.sizeXs,
             color: tokens.colors.textSecondary,
@@ -226,26 +198,12 @@ export function HomePage({
               style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
             />
             <IconUser size={12} />
-            Speaker diarization
+            Identify speakers
           </label>
+          <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7 }}>
+            Labels each speaker (Person 1, Person 2, etc.)
+          </div>
         </div>
-
-        <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, marginBottom: '-10px' }}>
-          Transcribe Your Voice
-        </div>
-
-        <Card>
-          <ol style={{ listStyle: 'none', margin: 0, padding: 0, textAlign: 'left', fontSize: tokens.typography.sizeSm }}>
-            {howToSteps.map((step, index) => (
-              <li key={index} style={{ display: 'grid', gridTemplateColumns: '20px 1fr', alignItems: 'start', marginBottom: '2px', color: tokens.colors.textSecondary }}>
-                <span style={{ color: tokens.colors.accentPrimary, fontWeight: 800, fontFamily: tokens.typography.fontMono, fontSize: tokens.typography.sizeSm }}>
-                  {index + 1}.
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-        </Card>
 
         <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, marginBottom: '-10px' }}>
           Transcribe an Audio File

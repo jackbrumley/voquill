@@ -196,8 +196,10 @@ export function ConfigPage(props: ConfigPageProps) {
         style={{
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
           gap: tokens.spacing.sm,
-          padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+          padding: '14px 0',
           cursor: 'pointer',
           userSelect: 'none',
           WebkitUserSelect: 'none',
@@ -207,15 +209,8 @@ export function ConfigPage(props: ConfigPageProps) {
         }}
       >
         <span style={{
-          color: isHovered.value ? tokens.colors.textPrimary : tokens.colors.textMuted,
-          fontSize: '18px',
-          lineHeight: 1,
-          flexShrink: 0,
-          transition: tokens.transitions.fast,
-        }}>•</span>
-        <span style={{
           fontWeight: 700,
-          fontSize: tokens.typography.sizeSm,
+          fontSize: '15px',
           color: isHovered.value ? tokens.colors.textPrimary : tokens.colors.textSecondary,
           textTransform: 'uppercase',
           letterSpacing: '0.5px',
@@ -230,7 +225,7 @@ export function ConfigPage(props: ConfigPageProps) {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} key="settings">
       {activeConfigSection === null ? (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingTop: '12px' }}>
           <SectionNavItem title="General" section="general" />
           <SectionNavItem title="Audio" section="audio" />
           <SectionNavItem title="Dictionary" section="dictionary" />
@@ -247,7 +242,7 @@ export function ConfigPage(props: ConfigPageProps) {
               display: 'flex',
               alignItems: 'center',
               gap: tokens.spacing.sm,
-              padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+padding: '12px 16px',
               cursor: 'pointer',
               userSelect: 'none',
               WebkitUserSelect: 'none',
@@ -260,7 +255,7 @@ export function ConfigPage(props: ConfigPageProps) {
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
           >
             <IconChevronLeft size={20} style={{ flexShrink: 0, color: tokens.colors.textMuted }} />
-            <span style={{ fontWeight: 700, fontSize: tokens.typography.sizeSm, color: tokens.colors.textPrimary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <span style={{ fontWeight: 700, fontSize: '15px', color: tokens.colors.textPrimary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               {sectionTitleMap[activeConfigSection]}
             </span>
           </div>

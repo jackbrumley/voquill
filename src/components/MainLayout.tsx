@@ -1,6 +1,7 @@
 import { Button } from './Button.tsx';
 import { ActionFooter } from './ActionFooter.tsx';
 import { HomePage } from '../pages/HomePage.tsx';
+import { HelpPage } from '../pages/HelpPage.tsx';
 import { ConfigPage } from '../pages/ConfigPage.tsx';
 import { HistoryPage } from '../pages/HistoryPage.tsx';
 import { UiLabPage } from '../pages/UiLabPage.tsx';
@@ -76,6 +77,7 @@ export function MainLayout(props: MainLayoutProps) {
           { value: 'home', label: 'Home' },
           { value: 'history', label: 'History' },
           { value: 'settings', label: 'Settings' },
+          { value: 'help', label: 'Help' },
         ]}
         onNavigate={props.onNavigate}
         onLogUI={props.onLogUI}
@@ -85,15 +87,21 @@ export function MainLayout(props: MainLayoutProps) {
         {props.activeRoute === 'home' && (
           <HomePage
             appVersion={props.appVersion}
-            modelStatus={props.modelStatus}
             config={props.config}
             sessionStatus={props.sessionStatus}
-            isSystemManagedShortcut={props.isSystemManagedShortcut}
             onToggleOutputMethod={props.onToggleOutputMethod}
             onToggleDiarization={(enabled) => props.onUpdateConfig('diarization_enabled', enabled)}
             hasUpdateAvailable={props.updateResult?.updateAvailable === true}
             onOpenUpdateModal={props.onOpenUpdateModal}
             onCopyToClipboard={props.onCopyToClipboard}
+          />
+        )}
+
+        {props.activeRoute === 'help' && (
+          <HelpPage
+            config={props.config}
+            modelStatus={props.modelStatus}
+            isSystemManagedShortcut={props.isSystemManagedShortcut}
           />
         )}
 
