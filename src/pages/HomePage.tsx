@@ -6,6 +6,10 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Card } from '../components/Card.tsx';
 import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
+import { GlassOrb } from '../components/GlassOrb.tsx';
+import { JumpingDot } from '../components/JumpingDot.tsx';
+import { AudioWave } from '../components/AudioWave.tsx';
+import { BouncingDots } from '../components/BouncingDots.tsx';
 import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 import { useEffect, useState } from 'preact/hooks';
@@ -14,6 +18,7 @@ import type { Segment } from '../types.ts';
 interface HomePageProps {
   appVersion: string;
   modelStatus: Record<string, boolean>;
+  sessionStatus: string;
   isSystemManagedShortcut: boolean;
   config: {
     transcription_mode: 'API' | 'Local';
@@ -41,6 +46,7 @@ interface TranscribeResult {
 export function HomePage({
   appVersion,
   modelStatus,
+  sessionStatus,
   isSystemManagedShortcut,
   config,
   onToggleOutputMethod,
@@ -158,6 +164,32 @@ export function HomePage({
     <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="home">
       <div style={{ ...tabPanelPaddedStyle, flex: 1 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <GlassOrb>
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                <div style={{ position: 'absolute', inset: 0, opacity: sessionStatus === 'Ready' ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: sessionStatus === 'Ready' ? 'auto' : 'none' }}>
+                  <JumpingDot />
+                </div>
+                <div style={{ position: 'absolute', inset: 0, opacity: sessionStatus === 'Recording' ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: sessionStatus === 'Recording' ? 'auto' : 'none' }}>
+                  <AudioWave containerHeight={120} />
+                </div>
+                <div style={{ position: 'absolute', inset: 0, opacity: (sessionStatus === 'Transcribing' || sessionStatus === 'Processing' || sessionStatus === 'Typing') ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: (sessionStatus === 'Transcribing' || sessionStatus === 'Processing' || sessionStatus === 'Typing') ? 'auto' : 'none' }}>
+                  <BouncingDots dotSize={24} jumpHeight={32} />
+                </div>
+              </div>
+            </GlassOrb>
+              {sessionStatus && (
+                <div style={{
+                  fontSize: '15px',
+                  color: tokens.colors.textSecondary,
+                  fontFamily: tokens.typography.fontMono,
+                  marginTop: '10px',
+                  marginBottom: '8px',
+                }}>
+                  {sessionStatus}
+                </div>
+              )}
+            </div>
           <div style={{ width: '100%', maxWidth: '520px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
               <ModeSwitcher

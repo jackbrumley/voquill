@@ -44,6 +44,7 @@ function App() {
   const activeConfigSection = useSignal<string | null>(null);
   const appVersion = useSignal<string>('');
   const tabContentRef = useRef<HTMLDivElement | null>(null);
+  const sessionStatus = useSignal<string>('Ready');
 
   const routeFromHash = (hash: string): AppRoute => {
     const normalized = hash.replace(/^#\/?/, '').split('/')[0].trim().toLowerCase();
@@ -158,6 +159,7 @@ function App() {
     },
     onStatusUpdate: (payload) => {
       const nextStatus = typeof payload === 'string' ? payload : payload.status;
+      sessionStatus.value = nextStatus;
       if (nextStatus === 'Error') {
         showToast('Mic not found — check your audio device settings.', 'error');
       }
@@ -275,6 +277,7 @@ function App() {
           activeRoute={activeRoute.value}
           config={configHook.config}
           appVersion={appVersion.value}
+          sessionStatus={sessionStatus.value}
           availableEngines={configHook.availableEngines}
           availableModels={configHook.availableModels}
           modelStatus={configHook.modelStatus}

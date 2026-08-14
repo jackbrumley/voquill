@@ -2,6 +2,8 @@ import { useSignal } from '@preact/signals';
 import { ActionFooter } from '../components/ActionFooter.tsx';
 import { AudioWave } from '../components/AudioWave.tsx';
 import { BouncingDots } from '../components/BouncingDots.tsx';
+import { GlassOrb } from '../components/GlassOrb.tsx';
+import { JumpingDot } from '../components/JumpingDot.tsx';
 import { ReadySweep } from '../components/ReadySweep.tsx';
 import { Button } from '../components/Button.tsx';
 import { ConfigField } from '../components/ConfigField.tsx';
@@ -272,6 +274,22 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
           </div>
         </ConfigField>
 
+        <ConfigField label="Jumping Dot" description="Brand-gradient jumping dot for the ready state.">
+          <div style={{
+            width: '120px',
+            height: '120px',
+            border: '1px dashed rgba(255,255,255,0.2)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <GlassOrb>
+              <JumpingDot />
+            </GlassOrb>
+          </div>
+        </ConfigField>
+
         <ConfigField label="Audio Wave" description="Animated audio visualizer using Voquill brand colors.">
           <div style={{
             width: '120px',
@@ -282,7 +300,9 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <AudioWave containerHeight={120} />
+            <GlassOrb>
+              <AudioWave containerHeight={120} />
+            </GlassOrb>
           </div>
         </ConfigField>
 
@@ -296,7 +316,9 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <BouncingDots />
+            <GlassOrb>
+              <BouncingDots />
+            </GlassOrb>
           </div>
         </ConfigField>
 

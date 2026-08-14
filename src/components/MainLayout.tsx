@@ -12,6 +12,7 @@ interface MainLayoutProps {
   activeRoute: AppRoute;
   config: Config;
   appVersion: string;
+  sessionStatus: string;
   availableEngines: string[];
   availableModels: ModelInfo[];
   modelStatus: Record<string, boolean>;
@@ -86,6 +87,7 @@ export function MainLayout(props: MainLayoutProps) {
             appVersion={props.appVersion}
             modelStatus={props.modelStatus}
             config={props.config}
+            sessionStatus={props.sessionStatus}
             isSystemManagedShortcut={props.isSystemManagedShortcut}
             onToggleOutputMethod={props.onToggleOutputMethod}
             onToggleDiarization={(enabled) => props.onUpdateConfig('diarization_enabled', enabled)}
