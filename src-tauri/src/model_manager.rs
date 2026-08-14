@@ -70,15 +70,7 @@ pub struct ModelManager {
 
 impl ModelManager {
     pub fn new() -> Result<Self, String> {
-        let models_dir = dirs::config_dir()
-            .ok_or("Could not find config directory")?
-            .join("foss-voquill")
-            .join("models");
-
-        if !models_dir.exists() {
-            std::fs::create_dir_all(&models_dir).map_err(|e| e.to_string())?;
-        }
-
+        let models_dir = crate::paths::models_dir()?;
         Ok(Self { models_dir })
     }
 

@@ -14,11 +14,7 @@ pub struct HistoryItem {
 }
 
 fn db_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let mut path = dirs::config_dir().ok_or("Could not find config directory")?;
-    path.push("foss-voquill");
-    std::fs::create_dir_all(&path)?;
-    path.push("history.db");
-    Ok(path)
+    Ok(crate::paths::history_db()?)
 }
 
 fn open_db() -> Result<Connection, Box<dyn std::error::Error>> {
@@ -71,9 +67,7 @@ fn global_db() -> &'static Mutex<Connection> {
 }
 
 fn migrate_from_json(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
-    let mut json_path = dirs::config_dir().ok_or("Could not find config directory")?;
-    json_path.push("foss-voquill");
-    json_path.push("history.json");
+    let json_path = crate::paths::app_root()?.join("history.json");
 
     if !json_path.exists() {
         return Ok(());

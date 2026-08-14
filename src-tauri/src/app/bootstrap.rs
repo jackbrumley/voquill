@@ -118,7 +118,7 @@ pub fn run_setup(
         if is_wayland_session() {
             let state = app.state::<AppState>();
             let host_app_registration = tauri::async_runtime::block_on(async {
-                let app_id = AppID::try_from("org.voquill.foss")
+                let app_id = AppID::try_from("org.voquill.app")
                     .map_err(|error| format!("Invalid host app id: {error}"))?;
                 register_host_app(app_id)
                     .await

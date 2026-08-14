@@ -272,12 +272,7 @@ impl Default for Config {
 }
 
 pub fn get_config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let config_dir = dirs::config_dir()
-        .ok_or("Could not find config directory")?
-        .join("foss-voquill");
-
-    fs::create_dir_all(&config_dir)?;
-    Ok(config_dir.join("config.json"))
+    Ok(crate::paths::config_file()?)
 }
 
 pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {

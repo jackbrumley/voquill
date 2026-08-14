@@ -215,16 +215,14 @@ fn binary_dir(use_gpu: bool) -> Result<PathBuf, PostProcessError> {
     // CPU and Vulkan builds extract into separate variant directories so they
     // never overwrite each other.
     let variant = if use_gpu { "vulkan" } else { "cpu" };
-    let config_dir = dirs::config_dir()
-        .ok_or_else(|| PostProcessError::Api("Could not find config directory".into()))?
-        .join("foss-voquill")
-        .join("models")
+    let bin_dir = crate::paths::models_dir()
+        .map_err(PostProcessError::Api)?
         .join("post-process")
         .join("bin")
         .join(variant);
-    std::fs::create_dir_all(&config_dir)
+    std::fs::create_dir_all(&bin_dir)
         .map_err(|e| PostProcessError::Api(format!("Failed to create bin dir: {}", e)))?;
-    Ok(config_dir)
+    Ok(bin_dir)
 }
 
 fn binary_name() -> String {

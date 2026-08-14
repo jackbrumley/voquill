@@ -30,8 +30,7 @@ pub struct PythonRunner {
 
 impl PythonRunner {
     pub async fn start(app_handle: &tauri::AppHandle) -> Result<Self, String> {
-        let config_root = get_config_root()?;
-        let runner_dir = config_root.join("python-runner");
+        let runner_dir = crate::paths::python_runner_dir()?;
 
         ensure_extracted(app_handle, &runner_dir).await?;
         ensure_portable_python(&runner_dir).await?;
@@ -219,12 +218,6 @@ async fn ensure_venv(runner_dir: &Path) -> Result<(), String> {
 }
 
 // ── Module-level helpers ──────────────────────────────────────────────────
-
-fn get_config_root() -> Result<PathBuf, String> {
-    let mut path = dirs::config_dir().ok_or("Could not find config directory")?;
-    path.push("foss-voquill");
-    Ok(path)
-}
 
 async fn ensure_extracted(app_handle: &tauri::AppHandle, runner_dir: &Path) -> Result<(), String> {
     let version_path = runner_dir.join(".version");

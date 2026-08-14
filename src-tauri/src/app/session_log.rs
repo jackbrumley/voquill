@@ -17,21 +17,11 @@ pub fn set_persistence_enabled(enabled: bool) {
 }
 
 pub fn get_session_log_path() -> Result<PathBuf, String> {
-    let debug_dir = dirs::config_dir()
-        .ok_or_else(|| "Could not find config directory".to_string())?
-        .join("foss-voquill")
-        .join("debug");
-    fs::create_dir_all(&debug_dir).map_err(|error| error.to_string())?;
-    Ok(debug_dir.join("session.log"))
+    Ok(crate::paths::debug_dir()?.join("session.log"))
 }
 
 pub fn get_app_config_root_dir() -> Result<PathBuf, String> {
-    let root_dir = dirs::config_dir()
-        .ok_or_else(|| "Could not find config directory".to_string())?
-        .join("foss-voquill");
-
-    fs::create_dir_all(&root_dir).map_err(|error| error.to_string())?;
-    Ok(root_dir)
+    crate::paths::ensure_app_root()
 }
 
 pub fn clear_directory_contents(

@@ -43,7 +43,7 @@ The `python-runner/` directory at the project root is a self-contained Python Fa
 
 **How it works:**
 1. **Bundling:** `python-runner/**/*` is listed in `tauri.conf.json` `resources`. At build time, all Python source files are bundled with the app.
-2. **Extraction:** On first use (or when the version in `python-runner/.version` differs from the expected `RUNNER_VERSION` in `src-tauri/src/python_runner/mod.rs`), Rust copies the bundled files to `<config_dir>/foss-voquill/python-runner/`.
+2. **Extraction:** On first use (or when the version in `python-runner/.version` differs from the expected `RUNNER_VERSION` in `src-tauri/src/python_runner/mod.rs`), Rust copies the bundled files to `~/.config/voquill-app/python-runner/`.
 3. **Portable Python:** Rust downloads `python-build-standalone` (~25MB) — a relocatable Python build — to `python-runner/python/` if not present. No system Python required.
 4. **Venv + Dependencies:** Rust creates a Python venv from the portable Python at `python-runner/venv/` and `pip install`s requirements from `python-runner/requirements/*.txt`.
 5. **Lifecycle:** Rust spawns `uvicorn server:app` as a sidecar process (same pattern as llama-server). The server exposes:
@@ -129,6 +129,12 @@ All five must pass without warnings. Treat compiler warnings as errors.
 - **Style Consistency:** When touching existing UI, follow the style approach already used in that component/file. Do not introduce a separate styling pattern unless there is a clear architectural reason.
 - **Tauri Core:** Use `@tauri-apps/api` for communication with the backend.
 - **Readiness Gate:** `src/readiness.ts` (`computeReadiness`) is the single source of truth for "can the app be used right now" -- permissions, real input devices (the backend marks the synthetic "System Default" entry with `is_system_default`), configured-device presence, transcription readiness (Local: the catalog-valid engine+model pair is downloaded; API: a non-placeholder key), and hotkey registration (`check_hotkey_status`). `useInitialRoute` owns all redirects: a one-shot launch decision plus a navigation guard rewriting any Home navigation to `#/setup` while unready (probe freshness comes from the window-focus handler re-running mic/model/permission probes). Never duplicate the readiness expression elsewhere.
+
+### 3. Storage Locations & App Identity
+- **Single Owner:** `src-tauri/src/paths.rs` owns every on-disk location. Never call `dirs::config_dir()` / `dirs::home_dir()` directly from feature code -- use the `paths::` helpers (`app_root`, `ensure_app_root`, `config_file`, `history_db`, `models_dir`, `python_runner_dir`, `debug_dir`).
+- **Unified Root:** Everything Voquill persists (config.json, history.db, models/, python-runner/, debug/) lives under `~/.config/voquill-app` on every platform. Linux honors `XDG_CONFIG_HOME` via `dirs::config_dir()`; Windows/macOS resolve `dirs::home_dir()/.config`, deliberately keeping multi-GB models out of roaming `%APPDATA%`.
+- **Legacy Migration:** `paths::migrate_legacy_location()` runs at the top of `main()` before any storage access and moves the pre-1.4.3 directory (`<os config dir>/foss-voquill`, e.g. `%APPDATA%\foss-voquill`) into the new root (rename, copy-fallback, explicit logging of every outcome).
+- **App Identifier:** The Tauri identifier, Wayland app_id, desktop file, and metainfo ID are all `org.voquill.app` -- one reverse-DNS identity across every surface (namespace owned via the voquill.org domain).
 
 ---
 

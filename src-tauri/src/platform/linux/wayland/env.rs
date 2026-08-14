@@ -1,8 +1,8 @@
 pub fn configure_linux_session_environment() {
     // CRITICAL: Set app identity BEFORE any GTK/Portal operations
     // This must happen at the very start so all D-Bus calls are signed with the correct app_id
-    std::env::set_var("WAYLAND_APP_ID", "org.voquill.foss");
-    gtk::glib::set_prgname(Some("org.voquill.foss"));
+    std::env::set_var("WAYLAND_APP_ID", "org.voquill.app");
+    gtk::glib::set_prgname(Some("org.voquill.app"));
     gtk::glib::set_application_name("Voquill");
 
     // Fix for WebKitGTK crashes on Arch-based systems (like CachyOS/Manjaro)

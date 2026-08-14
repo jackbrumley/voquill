@@ -188,22 +188,24 @@ async fn record_and_transcribe_inner(
     }
 
     if enable_recording_logs {
-        let debug_path = dirs::config_dir()
-            .unwrap_or_default()
-            .join("foss-voquill")
-            .join("debug")
-            .join("recordings")
-            .join(format!(
-                "recording_{}.wav",
-                ::chrono::Local::now().format("%Y%m%d_%H%M%S")
-            ));
+        match crate::paths::debug_dir() {
+            Ok(dir) => {
+                let debug_path = dir.join("recordings").join(format!(
+                    "recording_{}.wav",
+                    ::chrono::Local::now().format("%Y%m%d_%H%M%S")
+                ));
 
-        if let Err(error) = std::fs::create_dir_all(debug_path.parent().unwrap()) {
-            crate::log_info!("Failed to create debug directory: {}", error);
-        } else if let Err(error) = std::fs::write(&debug_path, &audio_data) {
-            crate::log_info!("Failed to save debug recording: {}", error);
-        } else {
-            crate::log_info!("Debug recording saved to: {:?}", debug_path);
+                if let Err(error) = std::fs::create_dir_all(debug_path.parent().unwrap()) {
+                    crate::log_info!("Failed to create debug directory: {}", error);
+                } else if let Err(error) = std::fs::write(&debug_path, &audio_data) {
+                    crate::log_info!("Failed to save debug recording: {}", error);
+                } else {
+                    crate::log_info!("Debug recording saved to: {:?}", debug_path);
+                }
+            }
+            Err(error) => {
+                crate::log_info!("Failed to resolve debug directory: {}", error);
+            }
         }
     }
 

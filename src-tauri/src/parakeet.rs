@@ -171,15 +171,13 @@ fn download_spec() -> crate::sidecar::SidecarDownload {
 }
 
 fn binary_dir() -> Result<PathBuf, TranscriptionError> {
-    let config_dir = dirs::config_dir()
-        .ok_or_else(|| TranscriptionError::Model("Could not find config directory".into()))?
-        .join("foss-voquill")
-        .join("models")
+    let bin_dir = crate::paths::models_dir()
+        .map_err(TranscriptionError::Model)?
         .join("parakeet")
         .join("bin");
-    std::fs::create_dir_all(&config_dir)
+    std::fs::create_dir_all(&bin_dir)
         .map_err(|e| TranscriptionError::Model(format!("Failed to create bin dir: {}", e)))?;
-    Ok(config_dir)
+    Ok(bin_dir)
 }
 
 fn binary_name() -> String {

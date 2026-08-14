@@ -41,6 +41,7 @@ mod hotkey;
 mod local_whisper;
 mod model_manager;
 mod parakeet;
+mod paths;
 pub mod platform;
 mod post_process;
 mod python_runner;
@@ -102,12 +103,20 @@ fn main() {
         std::env::set_var("VK_LOADER_LAYERS_DISABLE", "~all~");
     }
 
+    // Migrate legacy data location (%APPDATA%\foss-voquill etc.) to the
+    // unified ~/.config/voquill-app root before anything touches storage.
+    let storage_migration_report = paths::migrate_legacy_location();
+
     let initial_config = config::load_config().unwrap_or_default();
 
     // Session logging is always enabled. The persistence toggle is available
     // for future use (e.g. a private mode setting).
     app::session_log::set_persistence_enabled(true);
     app::session_log::initialize_session_logging();
+
+    if let Some(report) = storage_migration_report {
+        log_info!("Storage migration: {}", report);
+    }
 
     log_cpu_features();
 

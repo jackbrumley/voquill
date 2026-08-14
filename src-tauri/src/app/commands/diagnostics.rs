@@ -67,17 +67,9 @@ use crate::typing;
 #[tauri::command]
 pub async fn open_debug_folder() -> Result<(), String> {
     crate::log_info!("Tauri Command: open_debug_folder invoked");
-    let path = dirs::config_dir()
-        .ok_or("Could not find config directory")?
-        .join("foss-voquill")
-        .join("debug");
+    let path = crate::paths::debug_dir()?;
 
     crate::log_info!("Target debug path: {:?}", path);
-
-    if !path.exists() {
-        crate::log_info!("Creating debug directory...");
-        std::fs::create_dir_all(&path).map_err(|error| error.to_string())?;
-    }
 
     #[cfg(target_os = "linux")]
     {
@@ -131,10 +123,7 @@ pub async fn copy_session_log_to_clipboard() -> Result<(), String> {
 #[tauri::command]
 pub async fn clear_recording_logs() -> Result<u32, String> {
     crate::log_info!("Tauri Command: clear_recording_logs invoked");
-    let debug_dir = dirs::config_dir()
-        .ok_or("Could not find config directory")?
-        .join("foss-voquill")
-        .join("debug");
+    let debug_dir = crate::paths::app_root()?.join("debug");
     let recordings_dir = debug_dir.join("recordings");
 
     let mut total = 0u32;
