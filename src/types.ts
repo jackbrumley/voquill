@@ -149,4 +149,6 @@ export interface StatusUpdatePayload {
   status: string;
 }
 
+export type DictationStatus = 'Ready' | 'Recording' | 'Transcribing' | 'Processing' | 'Typing' | 'Error';
+
 export type AppRoute = 'setup' | 'home' | 'status' | 'history' | 'settings' | 'ui-lab';

@@ -6,12 +6,13 @@ import { HistoryPage } from '../pages/HistoryPage.tsx';
 import { UiLabPage } from '../pages/UiLabPage.tsx';
 import { TabBar } from './TabBar.tsx';
 import { appContentStyle } from '../theme/ui-primitives.ts';
-import type { Config, DownloadPhase, HistoryItem, AudioDevice, EngineCapabilities, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, UpdateCheckResult, AppRoute } from '../types.ts';
+import type { Config, DictationStatus, DownloadPhase, HistoryItem, AudioDevice, EngineCapabilities, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, UpdateCheckResult, AppRoute } from '../types.ts';
 
 interface MainLayoutProps {
   activeRoute: AppRoute;
   config: Config;
   appVersion: string;
+  dictationStatus: DictationStatus;
   availableEngines: string[];
   availableModels: ModelInfo[];
   modelStatus: Record<string, boolean>;
@@ -86,6 +87,7 @@ export function MainLayout(props: MainLayoutProps) {
             appVersion={props.appVersion}
             modelStatus={props.modelStatus}
             config={props.config}
+            dictationStatus={props.dictationStatus}
             isSystemManagedShortcut={props.isSystemManagedShortcut}
             onToggleOutputMethod={props.onToggleOutputMethod}
             onToggleDiarization={(enabled) => props.onUpdateConfig('diarization_enabled', enabled)}

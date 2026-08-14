@@ -18,6 +18,7 @@ import { useAutostart } from './hooks/useAutostart.ts';
 import { useWindowControls } from './hooks/useWindowControls.ts';
 import { useInitialRoute } from './hooks/useInitialRoute.ts';
 import { useGpuStatus } from './hooks/useGpuStatus.ts';
+import { useDictationStatus } from './hooks/useDictationStatus.ts';
 import { computeReadiness, explainReadiness, type ReadinessInputs } from './readiness.ts';
 import type { AppRoute } from './types.ts';
 
@@ -38,6 +39,7 @@ function App() {
   const updatesHook = useUpdates(showToast);
   const autostartHook = useAutostart(showToast);
   const windowControls = useWindowControls(showToast);
+  const dictationStatus = useDictationStatus();
 
   const showModelGuide = useSignal(false);
   const showPostProcessGuide = useSignal(false);
@@ -157,7 +159,7 @@ function App() {
       }
     },
     onStatusUpdate: (payload) => {
-      const nextStatus = typeof payload === 'string' ? payload : payload.status;
+      const nextStatus = dictationStatus.handleStatusUpdate(payload);
       if (nextStatus === 'Error') {
         showToast('Mic not found — check your audio device settings.', 'error');
       }
@@ -275,6 +277,7 @@ function App() {
           activeRoute={activeRoute.value}
           config={configHook.config}
           appVersion={appVersion.value}
+          dictationStatus={dictationStatus.status.value}
           availableEngines={configHook.availableEngines}
           availableModels={configHook.availableModels}
           modelStatus={configHook.modelStatus}

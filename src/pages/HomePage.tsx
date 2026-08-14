@@ -6,15 +6,17 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Card } from '../components/Card.tsx';
 import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
+import { StatusReadout } from '../components/StatusReadout.tsx';
 import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 import { useEffect, useState } from 'preact/hooks';
-import type { Segment } from '../types.ts';
+import type { DictationStatus, Segment } from '../types.ts';
 
 interface HomePageProps {
   appVersion: string;
   modelStatus: Record<string, boolean>;
   isSystemManagedShortcut: boolean;
+  dictationStatus: DictationStatus;
   config: {
     transcription_mode: 'API' | 'Local';
     output_method: 'Typewriter' | 'Clipboard';
@@ -42,6 +44,7 @@ export function HomePage({
   appVersion,
   modelStatus,
   isSystemManagedShortcut,
+  dictationStatus,
   config,
   onToggleOutputMethod,
   onToggleDiarization,
@@ -157,6 +160,9 @@ export function HomePage({
   return (
     <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="home">
       <div style={{ ...tabPanelPaddedStyle, flex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <StatusReadout status={dictationStatus} />
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
           <div style={{ width: '100%', maxWidth: '520px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
