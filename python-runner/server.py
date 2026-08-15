@@ -153,8 +153,12 @@ async def diarize(body: dict) -> dict:
         )
 
     mod = handlers["diarize"]["module"]
-    result = mod.run(audio_path=audio_path, runner_base_dir=RUNNER_BASE_DIR)
-    return result.model_dump()
+    try:
+        result = mod.run(audio_path=audio_path, runner_base_dir=RUNNER_BASE_DIR)
+        return result.model_dump()
+    except Exception as e:
+        logger.exception("Diarization failed")
+        raise HTTPException(status_code=500, detail=f"Diarization failed: {e}")
 
 
 # ── Entry point (used when Rust spawns the server) ─────────────────────────

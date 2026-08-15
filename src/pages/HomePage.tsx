@@ -55,22 +55,28 @@ export function HomePage({
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    (async () => {
-      unlisten = await getCurrentWindow().onDragDropEvent((event) => {
-        if (event.payload.type === 'enter' || event.payload.type === 'over') {
-          isDragOver.value = true;
-        } else if (event.payload.type === 'leave') {
-          isDragOver.value = false;
-        } else if (event.payload.type === 'drop') {
-          isDragOver.value = false;
-          const path = event.payload.paths[0];
-          if (path) {
-            transcribeFile(path);
-          }
+    let cancelled = false;
+    getCurrentWindow().onDragDropEvent((event) => {
+      if (cancelled) return;
+      if (event.payload.type === 'enter' || event.payload.type === 'over') {
+        isDragOver.value = true;
+      } else if (event.payload.type === 'leave') {
+        isDragOver.value = false;
+      } else if (event.payload.type === 'drop') {
+        isDragOver.value = false;
+        const path = event.payload.paths[0];
+        if (path) {
+          transcribeFile(path);
         }
-      });
-    })();
-    return () => { unlisten?.(); };
+      }
+    }).then((fn) => {
+      if (cancelled) { fn(); return; }
+      unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, []);
 
   const handleFilePick = async () => {
@@ -181,30 +187,6 @@ export function HomePage({
             </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', marginTop: '4px', marginBottom: '-6px' }}>
-          <label style={{
-            fontSize: tokens.typography.sizeXs,
-            color: tokens.colors.textSecondary,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            userSelect: 'none',
-          }}>
-            <input
-              type="checkbox"
-              checked={config.diarization_enabled}
-              onChange={(e) => onToggleDiarization((e.target as HTMLInputElement).checked)}
-              style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
-            />
-            <IconUser size={12} />
-            Differentiate voices
-          </label>
-          <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7 }}>
-            Labels each speaker (Person 1, Person 2, etc.)
-          </div>
-        </div>
-
         <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, marginBottom: '-10px' }}>
           Transcribe an Audio File
         </div>
@@ -220,16 +202,41 @@ export function HomePage({
           }}
         >
           {importStatus.value === 'idle' && (
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', gap: tokens.spacing.md }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary, lineHeight: 1.4 }}>
-                  Drop an audio file here or click to browse
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', gap: tokens.spacing.md }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary, lineHeight: 1.4 }}>
+                    Drop an audio file here or click to browse
+                  </div>
+                  <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted }}>
+                    WAV, MP3, M4A, OGG, FLAC, Opus
+                  </div>
                 </div>
-                <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted }}>
-                  WAV, MP3, M4A, OGG, FLAC, Opus
-                </div>
+                <IconUpload size={28} style={{ color: tokens.colors.textMuted, flexShrink: 0 }} />
               </div>
-              <IconUpload size={28} style={{ color: tokens.colors.textMuted, flexShrink: 0 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }} onClick={(e) => e.stopPropagation()}>
+                <label style={{
+                  fontSize: tokens.typography.sizeXs,
+                  color: tokens.colors.textSecondary,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  userSelect: 'none',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={config.diarization_enabled}
+                    onChange={(e) => { e.stopPropagation(); onToggleDiarization((e.target as HTMLInputElement).checked); }}
+                    style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
+                  />
+                  <IconUser size={12} />
+                  Differentiate voices
+                </label>
+                <span style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7 }}>
+                  Labels each speaker
+                </span>
+              </div>
             </div>
           )}
           {importStatus.value === 'transcribing' && (
@@ -336,6 +343,7 @@ export function HomePage({
                     (e.currentTarget as HTMLElement).style.color = '#a9acb5';
                   }}
                 >
+                  <IconUpload size={16} />
                   New Import
                 </button>
               </div>

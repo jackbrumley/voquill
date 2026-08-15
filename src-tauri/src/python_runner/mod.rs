@@ -14,7 +14,7 @@ const RUNNER_PORT_START: u16 = 6051;
 const RUNNER_PORT_END: u16 = 6070;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
 const HEALTH_RETRY_INTERVAL: Duration = Duration::from_millis(500);
-const RUNNER_VERSION: &str = "1.0.0";
+const RUNNER_VERSION: &str = "1.0.9";
 const PYTHON_VERSION: &str = "20250115";
 const PYTHON_DOWNLOAD_BASE: &str =
     "https://github.com/astral-sh/python-build-standalone/releases/download";
@@ -118,6 +118,7 @@ async fn ensure_portable_python(runner_dir: &Path) -> Result<(), String> {
 
     let total = response.content_length().unwrap_or(0);
     let mut downloaded: u64 = 0;
+    let mut last_percent: i32 = -1;
 
     {
         let mut file = tokio::fs::File::create(&archive_path)
@@ -133,7 +134,10 @@ async fn ensure_portable_python(runner_dir: &Path) -> Result<(), String> {
             downloaded += chunk.len() as u64;
             if total > 0 {
                 let percent = ((downloaded as f64 / total as f64) * 100.0) as i32;
-                crate::log_info!("Python download: {}%", percent);
+                if percent != last_percent {
+                    crate::log_info!("Python download: {}%", percent);
+                    last_percent = percent;
+                }
             }
         }
         file.flush()
@@ -252,13 +256,20 @@ async fn ensure_extracted(app_handle: &tauri::AppHandle, runner_dir: &Path) -> R
         .path()
         .resource_dir()
         .map_err(|e| format!("Failed to get resource dir: {}", e))?;
-    let src_dir = resource_dir.join("python-runner");
+    let mut src_dir = resource_dir.join("python-runner");
 
     if !src_dir.exists() {
-        return Err(format!(
-            "python-runner source not found at {} (dev: run from project root, build: bundled as resource)",
-            src_dir.display()
-        ));
+        // Dev mode fallback: look at the project root (parent of src-tauri/)
+        let cargo_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let project_root = cargo_dir.parent().unwrap();
+        src_dir = project_root.join("python-runner");
+        if !src_dir.exists() {
+            return Err(format!(
+                "python-runner source not found at {} or {} (dev: run from project root, build: bundled as resource)",
+                resource_dir.join("python-runner").display(),
+                src_dir.display()
+            ));
+        }
     }
 
     if runner_dir.exists() {
@@ -397,7 +408,7 @@ async fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
             runner_dir.to_string_lossy().as_ref(),
         )
         .stdout(Stdio::null())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::inherit())
         .stdin(Stdio::null())
         .kill_on_drop(true)
         .spawn()

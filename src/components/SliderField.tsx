@@ -1,6 +1,7 @@
 import type { JSX } from 'preact';
 import { useSignal, useSignalEffect } from '@preact/signals';
 import { inputBaseStyle } from '../theme/ui-primitives.ts';
+import { tokens } from '../design-tokens.ts';
 
 interface SliderFieldProps {
   value: number;
@@ -63,7 +64,7 @@ export function SliderField({
       step={1}
       min={minPercent}
       max={maxPercent}
-      style={{ ...inputBaseStyle, ...style } as Record<string, string | number>}
+      style={{ ...inputBaseStyle, accentColor: tokens.colors.accentPrimary, ...style } as Record<string, string | number>}
     />
   );
 }

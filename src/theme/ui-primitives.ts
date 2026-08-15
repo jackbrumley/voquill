@@ -29,7 +29,9 @@ export const titleBarStyle: Style = {
 };
 
 export const titleBarTitleStyle: Style = {
-  fontSize: '13px',
+  display: 'flex',
+  alignItems: 'center',
+  fontSize: '14px',
   fontWeight: 700,
   letterSpacing: '0.04em',
   color: tokens.colors.textSecondary,

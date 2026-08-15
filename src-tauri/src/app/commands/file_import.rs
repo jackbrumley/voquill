@@ -110,11 +110,66 @@ pub async fn transcribe_audio_file(
 
     // ── Optional: Speaker diarization ──
     let result = if current_config.diarization_enabled {
+        // Log audio file info for diagnostics
+        if let Ok(meta) = std::fs::metadata(&path) {
+            let ext = std::path::Path::new(&path)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("?");
+            crate::log_info!(
+                "Diarization audio file: {} (ext={}, size={} bytes)",
+                &path,
+                ext,
+                meta.len()
+            );
+        }
         match run_diarization(&app_handle, &path).await {
             Ok(mut r) => {
-                // Only use diarization text if we got segments back
                 if r.segments.is_empty() {
+                    crate::log_warn!("Diarization returned 0 segments — model may not have detected any speakers");
                     r.text = text.clone();
+                } else {
+                    crate::log_info!(
+                        "Diarization returned {} segments from {}",
+                        r.segments.len(),
+                        r.provider
+                    );
+                    // Merge the Whisper transcript text into the diarization segments
+                    let words: Vec<&str> = text.split_whitespace().collect();
+                    let total_duration: f64 = r
+                        .segments
+                        .iter()
+                        .map(|s| s.end_sec.unwrap_or(0.0) - s.start_sec.unwrap_or(0.0))
+                        .sum();
+                    let mut word_idx = 0;
+                    let n_segs = r.segments.len();
+                    for seg in &mut r.segments {
+                        let duration = seg.end_sec.unwrap_or(0.0) - seg.start_sec.unwrap_or(0.0);
+                        let count = if total_duration > 0.0 {
+                            ((duration / total_duration) * words.len() as f64).round() as usize
+                        } else {
+                            words.len() / n_segs
+                        };
+                        let chunk = words[word_idx..(word_idx + count).min(words.len())].join(" ");
+                        seg.text = chunk;
+                        word_idx += count;
+                    }
+                    r.text = r
+                        .segments
+                        .iter()
+                        .map(|s| {
+                            format!("[{}] {}", s.speaker.as_deref().unwrap_or("Speaker"), s.text)
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+
+                    // If only one speaker, collapse to plain unlabeled text
+                    let unique_speakers: std::collections::HashSet<Option<&str>> =
+                        r.segments.iter().map(|s| s.speaker.as_deref()).collect();
+                    if unique_speakers.len() <= 1 {
+                        r.text = text.clone();
+                        r.segments.clear();
+                    }
                 }
                 r
             }

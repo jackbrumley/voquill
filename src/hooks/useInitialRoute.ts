@@ -34,7 +34,7 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
 
   const routeFromHash = (hash: string): AppRoute => {
     const normalized = hash.replace(/^#\/?/, '').split('/')[0].trim().toLowerCase();
-    if (normalized === 'setup' || normalized === 'home' || normalized === 'history' || normalized === 'settings' || normalized === 'ui-lab') {
+    if (normalized === 'setup' || normalized === 'home' || normalized === 'history' || normalized === 'settings' || normalized === 'ui-lab' || normalized === 'help') {
       return normalized;
     }
     if (normalized === 'status') {
