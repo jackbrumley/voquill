@@ -77,7 +77,9 @@ fn float_to_i16(sample: f32) -> i16 {
     (sample.clamp(-1.0, 1.0) * i16::MAX as f32) as i16
 }
 
-fn write_whisper_wav(samples: &[i16]) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+pub fn write_whisper_wav(
+    samples: &[i16],
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     let mut out = Vec::new();
     {
         let mut writer = WavWriter::new(
@@ -95,6 +97,53 @@ fn write_whisper_wav(samples: &[i16]) -> Result<Vec<u8>, Box<dyn std::error::Err
         writer.finalize()?;
     }
     Ok(out)
+}
+
+/// Parse a full 16kHz mono 16-bit PCM WAV and extract a time-range segment
+/// as a valid WAV binary suitable for passing to whisper.
+///
+/// * `full_wav` — complete 16kHz mono 16-bit WAV bytes
+/// * `start_sec` — start time in seconds (clamped to 0)
+/// * `end_sec` — end time in seconds (clamped to file duration)
+///
+/// Segments shorter than 0.5s are padded with silence to avoid whisper choking
+/// on tiny fragments from diarization boundaries.
+pub fn extract_segment_wav(
+    full_wav: &[u8],
+    start_sec: f64,
+    end_sec: f64,
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let mut reader = hound::WavReader::new(std::io::Cursor::new(full_wav))?;
+    let spec = reader.spec();
+
+    if spec.channels != 1 || spec.sample_rate != 16000 {
+        return Err(format!(
+            "Expected 16kHz mono WAV, got {}ch {}Hz",
+            spec.channels, spec.sample_rate,
+        )
+        .into());
+    }
+
+    let all_samples: Vec<i16> = reader.samples::<i16>().collect::<Result<Vec<_>, _>>()?;
+
+    let total_secs = all_samples.len() as f64 / 16000.0;
+    let start = (start_sec.max(0.0).min(total_secs) * 16000.0) as usize;
+    let end = (end_sec.max(0.0).min(total_secs) * 16000.0) as usize;
+    let end = end.min(all_samples.len());
+
+    let segment = if end <= start || (end - start) < 8000 {
+        // Pad short segments to 0.5s (8000 samples at 16kHz)
+        let mut padded = Vec::with_capacity(8000);
+        if end > start {
+            padded.extend_from_slice(&all_samples[start..end]);
+        }
+        padded.resize(8000, 0);
+        padded
+    } else {
+        all_samples[start..end].to_vec()
+    };
+
+    write_whisper_wav(&segment)
 }
 
 pub fn convert_audio_for_whisper(

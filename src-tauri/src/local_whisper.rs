@@ -2,6 +2,7 @@ use crate::model_manager::ModelManager;
 use crate::transcription::{TranscriptionError, TranscriptionService};
 use async_trait::async_trait;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
@@ -12,6 +13,10 @@ const TRANSCRIBE_TIMEOUT_SECS: u64 = 180;
 /// Hard ceiling on loading a model. If the GPU init hangs, we only bound how
 /// long we wait; the spawned thread continues in the background.
 const MODEL_LOAD_TIMEOUT_SECS: u64 = 120;
+
+/// Monotonically increasing counter for transcribe calls, used to correlate
+/// log entries with specific transcription invocations.
+static TRANSCRIBE_CALL_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// A whisper model kept alive in memory across recordings. The context is the
 /// loaded model file; a fresh `WhisperState` is created from it per call.
@@ -303,6 +308,16 @@ impl TranscriptionService for LocalWhisperService {
                 .map_err(|e| TranscriptionError::Model(e.to_string()))?
         };
 
+        let call_id = TRANSCRIBE_CALL_COUNTER.fetch_add(1, Ordering::SeqCst);
+        let state_ptr = format!("{:p}", &state as *const _);
+        crate::log_info!(
+            "Transcribe call #{}: state={}, language={:?}, prompt_present={}, no_context=true",
+            call_id,
+            state_ptr,
+            language,
+            prompt.is_some(),
+        );
+
         let owned_language = language.map(|l| l.to_string());
         let owned_prompt = prompt.map(|p| p.to_string());
 
@@ -322,7 +337,7 @@ impl TranscriptionService for LocalWhisperService {
             params.set_print_realtime(false);
             params.set_print_special(false);
             params.set_print_timestamps(false);
-            params.set_no_context(true);
+            params.set_no_context(false);
             let run_result = state.full(params, &samples);
             match run_result {
                 Ok(()) => {
