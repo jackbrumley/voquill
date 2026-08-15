@@ -9,6 +9,7 @@ pub async fn transcribe_audio_file(
     crate::log_info!("transcribe_audio_file: {}", path);
 
     let audio_data = std::fs::read(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+    crate::log_info!("File size: {} bytes", audio_data.len());
 
     let wav_data = audio::convert_audio_file_for_whisper(&audio_data)
         .map_err(|e| format!("Failed to convert audio: {}", e))?;
@@ -48,6 +49,14 @@ pub async fn transcribe_audio_file(
             None => Some(dict_str),
         };
     }
+
+    crate::log_info!(
+        "Transcription params: lang={:?}, lang_code={:?}, dictionary={:?}, prompt_hint={:?}",
+        language,
+        lang_code,
+        dictionary_words,
+        prompt_hint,
+    );
 
     let text = match service
         .transcribe(&wav_data, lang_code, prompt_hint.as_deref())
