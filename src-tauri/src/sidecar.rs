@@ -36,6 +36,13 @@ pub async fn ensure_binary(
         return Ok(binary_path);
     }
 
+    // Clear any partial extraction from a previous failed attempt (e.g., a
+    // root wrapper directory left behind by a PreservePaths extraction that
+    // was later switched to Flat).
+    let _ = std::fs::remove_dir_all(&bin_dir);
+    std::fs::create_dir_all(&bin_dir)
+        .with_context(|| format!("Failed to create bin dir {}", bin_dir.display()))?;
+
     crate::log_info!("{} binary not found, downloading...", download.log_label);
     download_and_extract(&bin_dir, &download).await?;
 

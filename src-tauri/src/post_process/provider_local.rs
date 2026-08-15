@@ -207,7 +207,7 @@ fn download_spec(use_gpu: bool) -> Result<crate::sidecar::SidecarDownload, PostP
             BINARY_VERSION, archive_name
         ),
         archive_name: archive_name.to_string(),
-        layout: crate::archive::ExtractLayout::PreservePaths,
+        layout: crate::archive::ExtractLayout::Flat,
     })
 }
 
