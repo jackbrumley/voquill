@@ -337,7 +337,7 @@ impl TranscriptionService for LocalWhisperService {
             params.set_print_realtime(false);
             params.set_print_special(false);
             params.set_print_timestamps(false);
-            params.set_no_context(false);
+            params.set_no_context(true);
             let run_result = state.full(params, &samples);
             match run_result {
                 Ok(()) => {
