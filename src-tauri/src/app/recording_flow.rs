@@ -228,7 +228,7 @@ async fn record_and_transcribe_inner(
     // ── Transcription: per-segment or full-file ──
     let text = if current_config.diarization_enabled_recording {
         // Save the recorded audio to a temp file for diarization
-        let temp_dir = std::env::temp_dir().join("foss-voquill");
+        let temp_dir = crate::paths::temp_dir();
         let _ = std::fs::create_dir_all(&temp_dir);
         let temp_path = temp_dir.join(format!(
             "recording_{}.wav",

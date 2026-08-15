@@ -56,6 +56,12 @@ pub fn debug_dir() -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+/// Temporary directory for runtime artifacts (diarization temp WAV files, etc.).
+/// Cleaned up by the OS across reboots.
+pub fn temp_dir() -> PathBuf {
+    std::env::temp_dir().join(APP_DIR_NAME)
+}
+
 /// One-time migration from the legacy location (`<os config dir>/foss-voquill`,
 /// e.g. `%APPDATA%\foss-voquill` on Windows) to the unified
 /// `~/.config/voquill-app` root.

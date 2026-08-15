@@ -75,7 +75,7 @@ pub async fn transcribe_audio_file(
     // compressed containers (m4a/aac). Write the decoded WAV to a temp file so
     // diarization always receives a format libsndfile supports.
     let diar_path: Option<std::path::PathBuf> = if current_config.diarization_enabled_files {
-        let temp_dir = std::env::temp_dir().join("foss-voquill");
+        let temp_dir = crate::paths::temp_dir();
         let _ = std::fs::create_dir_all(&temp_dir);
         let temp_path = temp_dir.join(format!(
             "file_{}.wav",
