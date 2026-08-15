@@ -44,10 +44,6 @@ fn char_to_vks(ch: char) -> (Vec<VIRTUAL_KEY>, bool) {
         '\'' => (vec![VK_OEM_7], false),
         '\n' => (vec![VK_RETURN], false),
         '\t' => (vec![VK_TAB], false),
-        '“' | '”' => (vec![VK_OEM_7], true),
-        '‘' | '’' => (vec![VK_OEM_7], false),
-        '—' | '–' => (vec![VK_OEM_MINUS], false),
-        '…' => (vec![VK_OEM_PERIOD, VK_OEM_PERIOD, VK_OEM_PERIOD], false),
         _ => (vec![VK_SPACE], false),
     }
 }
