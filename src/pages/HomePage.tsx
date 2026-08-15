@@ -13,16 +13,13 @@ import { BouncingDots } from '../components/BouncingDots.tsx';
 import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 import { useEffect, useState } from 'preact/hooks';
-import type { DictationStatus, Segment } from '../types.ts';
+import type { Config, DictationStatus, Segment } from '../types.ts';
 import { getSpeakerColor } from '../speakerColors.ts';
 
 interface HomePageProps {
   appVersion: string;
   dictationStatus: DictationStatus;
-  config: {
-    output_method: 'Typewriter' | 'Clipboard';
-    diarization_enabled_files: boolean;
-  };
+  config: Config;
   onToggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
   onToggleDiarization: (enabled: boolean) => void;
   hasUpdateAvailable: boolean;
@@ -158,6 +155,18 @@ export function HomePage({
                   marginBottom: '8px',
                 }}>
                   {dictationStatus === 'Error' ? 'Mic not found' : dictationStatus}
+                </div>
+              )}
+              {dictationStatus === 'Ready' && config.hotkey && (
+                <div style={{
+                  fontSize: '13px',
+                  color: tokens.colors.textMuted,
+                  fontFamily: tokens.typography.fontMono,
+                  marginTop: '2px',
+                }}>
+                  {config.hotkey_mode === 'Toggle'
+                    ? `Press ${config.hotkey} to start dictating`
+                    : `Hold ${config.hotkey} to dictate`}
                 </div>
               )}
             </div>
