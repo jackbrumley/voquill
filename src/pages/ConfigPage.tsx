@@ -618,12 +618,12 @@ padding: '12px 16px',
             />
           </ConfigField>
 
-          <ConfigField label="Max Recording Length (minutes)" description="Recording automatically stops and transcribes after this many minutes (1-60).">
+          <ConfigField label="Max Recording Length (minutes)" description="Recording automatically stops and transcribes after this many minutes (1-180).">
             <NumberField
               value={config.max_recording_duration_minutes}
               onChange={(value) => updateConfig('max_recording_duration_minutes', value)}
               min={1}
-              max={60}
+              max={180}
             />
           </ConfigField>
               </>
