@@ -72,10 +72,11 @@ export function SliderField({
   -webkit-appearance: none;
   width: 16px;
   height: 16px;
-  background: ${tokens.colors.accentPrimary};
+  background: #fff;
   border-radius: 50%;
   cursor: pointer;
   margin-top: -5px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 .${id.value}::-moz-range-track {
   width: 100%;
@@ -86,10 +87,11 @@ export function SliderField({
 .${id.value}::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  background: ${tokens.colors.accentPrimary};
+  background: #fff;
   border-radius: 50%;
   cursor: pointer;
   border: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 .${id.value} {
   -webkit-appearance: none;
@@ -101,17 +103,23 @@ export function SliderField({
   cursor: pointer;
 }
       `}</style>
-      <input
-        type="range"
-        className={id.value}
-        value={draftPercent.value}
-        onInput={handleInput}
-        aria-label={ariaLabel}
-        step={1}
-        min={minPercent}
-        max={maxPercent}
-        style={style as Record<string, string | number> | undefined}
-      />
+      <div style={{ width: '100%' }}>
+        <input
+          type="range"
+          className={id.value}
+          value={draftPercent.value}
+          onInput={handleInput}
+          aria-label={ariaLabel}
+          step={1}
+          min={minPercent}
+          max={maxPercent}
+          style={style as Record<string, string | number> | undefined}
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, marginTop: '-4px' }}>
+          <span>{minPercent}%</span>
+          <span>{maxPercent}%</span>
+        </div>
+      </div>
     </>
   );
 }
