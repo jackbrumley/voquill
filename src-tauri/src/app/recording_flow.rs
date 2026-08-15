@@ -261,7 +261,12 @@ async fn record_and_transcribe_inner(
             );
             text
         } else {
-            let diar_result = run_diarization_for_recording(app_handle, &temp_path).await;
+            let diar_result = run_diarization_for_recording(
+                app_handle,
+                &temp_path,
+                current_config.diarization_cluster_threshold,
+            )
+            .await;
             let _ = std::fs::remove_file(&temp_path);
 
             match diar_result {
@@ -444,6 +449,8 @@ async fn record_and_transcribe_inner(
         text
     };
 
+    let text = typing::normalize_for_typing(&text);
+
     if session_token.load(Ordering::SeqCst) {
         crate::log_info!("Session cancelled during transcription; discarding result");
         return Ok(());
@@ -513,6 +520,7 @@ async fn record_and_transcribe_inner(
 async fn run_diarization_for_recording(
     app_handle: &tauri::AppHandle,
     audio_path: &std::path::Path,
+    cluster_threshold: f32,
 ) -> Result<DiarizationResult, String> {
     let app_state = app_handle.state::<crate::AppState>();
 
@@ -544,5 +552,5 @@ async fn run_diarization_for_recording(
     .ok_or("Python runner not available")?;
 
     let path_str = audio_path.to_string_lossy().to_string();
-    runner.diarize(&path_str).await
+    runner.diarize(&path_str, cluster_threshold).await
 }

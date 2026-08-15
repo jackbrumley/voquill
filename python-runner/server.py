@@ -152,9 +152,15 @@ async def diarize(body: dict) -> dict:
             status_code=400, detail=f"audio_path does not exist: {audio_path}"
         )
 
+    cluster_threshold = body.get("cluster_threshold", 0.5)
+
     mod = handlers["diarize"]["module"]
     try:
-        result = mod.run(audio_path=audio_path, runner_base_dir=RUNNER_BASE_DIR)
+        result = mod.run(
+            audio_path=audio_path,
+            runner_base_dir=RUNNER_BASE_DIR,
+            cluster_threshold=cluster_threshold,
+        )
         return result.model_dump()
     except Exception as e:
         logger.exception("Diarization failed")

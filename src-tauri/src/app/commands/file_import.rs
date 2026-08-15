@@ -70,22 +70,57 @@ pub async fn transcribe_audio_file(
         prompt_hint,
     );
 
-    // ── Transcription: per-segment or full-file ──
-    let result = if current_config.diarization_enabled_files {
-        if let Ok(meta) = std::fs::metadata(&path) {
-            let ext = std::path::Path::new(&path)
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("?");
-            crate::log_info!(
-                "Diarization audio file: {} (ext={}, size={} bytes)",
-                &path,
-                ext,
-                meta.len()
-            );
+    // ── Diarization temp file ──
+    // The Python runner reads audio via soundfile/libsnfile, which cannot decode
+    // compressed containers (m4a/aac). Write the decoded WAV to a temp file so
+    // diarization always receives a format libsndfile supports.
+    let diar_path: Option<std::path::PathBuf> = if current_config.diarization_enabled_files {
+        let temp_dir = std::env::temp_dir().join("foss-voquill");
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let temp_path = temp_dir.join(format!(
+            "file_{}.wav",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        match std::fs::write(&temp_path, &wav_data) {
+            Ok(()) => Some(temp_path),
+            Err(e) => {
+                crate::log_warn!("Failed to write temp audio for diarization: {}", e);
+                None
+            }
         }
+    } else {
+        None
+    };
 
-        match run_diarization(&app_handle, &path).await {
+    // ── Transcription: per-segment or full-file ──
+    let diarization_cluster_threshold = current_config.diarization_cluster_threshold;
+    let result = match &diar_path {
+        None => {
+            let text = service
+                .transcribe(&wav_data, lang_code, prompt_hint.as_deref())
+                .await
+                .map_err(|e| format!("Transcription failed: {}", e))?;
+            crate::log_info!(
+                "Transcription received ({}): \"{}\"",
+                service.service_name(),
+                text
+            );
+            DiarizationResult {
+                text,
+                segments: vec![],
+                provider: "none".to_string(),
+            }
+        }
+        Some(diar_path) => match run_diarization(
+            &app_handle,
+            &diar_path.to_string_lossy(),
+            diarization_cluster_threshold,
+        )
+        .await
+        {
             Ok(mut diar) if !diar.segments.is_empty() => {
                 crate::log_info!(
                     "Diarization returned {} segments from {}",
@@ -177,23 +212,13 @@ pub async fn transcribe_audio_file(
                     provider: "none".to_string(),
                 }
             }
-        }
-    } else {
-        let text = service
-            .transcribe(&wav_data, lang_code, prompt_hint.as_deref())
-            .await
-            .map_err(|e| format!("Transcription failed: {}", e))?;
-        crate::log_info!(
-            "Transcription received ({}): \"{}\"",
-            service.service_name(),
-            text
-        );
-        DiarizationResult {
-            text,
-            segments: vec![],
-            provider: "none".to_string(),
-        }
+        },
     };
+
+    // ── Cleanup temp file ──
+    if let Some(path) = &diar_path {
+        let _ = std::fs::remove_file(path);
+    }
 
     // ── Post-processing ──
     let result_text = if !result.text.trim().is_empty() && current_config.post_process_enabled {
@@ -261,10 +286,11 @@ pub async fn transcribe_audio_file(
     Ok(result)
 }
 
-/// Run diarization on the original audio file via the Python runner.
+/// Run diarization on a decoded WAV file via the Python runner.
 async fn run_diarization(
     app_handle: &tauri::AppHandle,
     audio_path: &str,
+    cluster_threshold: f32,
 ) -> Result<DiarizationResult, String> {
     let app_state = app_handle.state::<crate::AppState>();
 
@@ -298,5 +324,5 @@ async fn run_diarization(
     }
     .ok_or("Python runner not available after start attempt")?;
 
-    runner.diarize(audio_path).await
+    runner.diarize(audio_path, cluster_threshold).await
 }

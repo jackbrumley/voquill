@@ -444,10 +444,6 @@ fn keysym_for_char(ch: char) -> u32 {
     match ch {
         '\n' | '\r' => 0xff0d,
         '\t' => 0xff09,
-        '“' | '”' => '"' as u32,
-        '‘' | '’' => '\'' as u32,
-        '—' | '–' => '-' as u32,
-        '…' => '.' as u32,
         _ => ch as u32,
     }
 }
