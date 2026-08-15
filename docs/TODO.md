@@ -1,5 +1,1 @@
-- Add preferred language selection (e.g. "English Australia", "English US")
 - Support non-English / Unicode characters for Linux keyboard input
-- Add auto-start on login (Windows + Linux)
-- Make main window taller to eliminate content scrolling
-- Fix Fedora AppImage build (linuxdeploy strip vs RELR libraries)

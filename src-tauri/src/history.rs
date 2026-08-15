@@ -4,13 +4,15 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
+use crate::diarization::Segment;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoryItem {
     pub id: u64,
     pub text: String,
     pub timestamp: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub segments: Option<String>,
+    pub segments: Option<Vec<Segment>>,
 }
 
 fn db_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
@@ -136,7 +138,7 @@ pub fn add_history_item(
         id,
         text: text.to_string(),
         timestamp,
-        segments: segments.map(|s| s.to_string()),
+        segments: segments.and_then(|s| serde_json::from_str(s).ok()),
     })
 }
 
@@ -150,7 +152,9 @@ pub fn load_history() -> Result<Vec<HistoryItem>, Box<dyn std::error::Error>> {
                 id: row.get::<_, i64>(0)? as u64,
                 text: row.get(1)?,
                 timestamp: row.get(2)?,
-                segments: row.get(3)?,
+                segments: row
+                    .get::<_, Option<String>>(3)?
+                    .and_then(|s| serde_json::from_str(&s).ok()),
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -177,7 +181,9 @@ pub fn search_history(query: &str) -> Result<Vec<HistoryItem>, Box<dyn std::erro
                 id: row.get::<_, i64>(0)? as u64,
                 text: row.get(1)?,
                 timestamp: row.get(2)?,
-                segments: row.get(3)?,
+                segments: row
+                    .get::<_, Option<String>>(3)?
+                    .and_then(|s| serde_json::from_str(&s).ok()),
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;

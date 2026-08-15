@@ -107,7 +107,7 @@ export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipb
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }} key="history">
-      <div style={{ padding: '6px 12px 8px' }}>
+      <div style={{ padding: '12px 12px 8px' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <div style={{ position: 'relative' }}>
             <IconSearch

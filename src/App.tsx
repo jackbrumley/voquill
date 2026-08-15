@@ -49,7 +49,7 @@ function App() {
 
   const routeFromHash = (hash: string): AppRoute => {
     const normalized = hash.replace(/^#\/?/, '').split('/')[0].trim().toLowerCase();
-    if (normalized === 'setup' || normalized === 'home' || normalized === 'history' || normalized === 'settings' || normalized === 'ui-lab') {
+    if (normalized === 'setup' || normalized === 'home' || normalized === 'history' || normalized === 'settings' || normalized === 'ui-lab' || normalized === 'help') {
       return normalized;
     }
     if (normalized === 'status') {
@@ -186,9 +186,10 @@ function App() {
       void configHook.loadModels();
     },
     onHashChange: () => {
-      // Funnel hash edits/back-forward through the same guard as in-app
-      // navigation; replace keeps the guarded URL out of history.
-      navigate(routeFromHash(window.location.hash), true);
+      const parsed = routeFromHash(window.location.hash);
+      if (parsed !== activeRoute.value) {
+        navigate(parsed, true);
+      }
     },
   });
 

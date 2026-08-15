@@ -1,5 +1,17 @@
-use crate::{audio, diarization::DiarizationResult, history};
+use std::collections::HashSet;
+
+use crate::{
+    audio,
+    diarization::{DiarizationResult, Segment},
+    history,
+};
 use tauri::{Emitter, Manager};
+
+fn wav_duration_secs(wav_data: &[u8]) -> Result<f64, String> {
+    let reader =
+        hound::WavReader::new(std::io::Cursor::new(wav_data)).map_err(|e| e.to_string())?;
+    Ok(reader.duration() as f64 / reader.spec().sample_rate as f64)
+}
 
 #[tauri::command]
 pub async fn transcribe_audio_file(
@@ -9,6 +21,7 @@ pub async fn transcribe_audio_file(
     crate::log_info!("transcribe_audio_file: {}", path);
 
     let audio_data = std::fs::read(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+    crate::log_info!("File size: {} bytes", audio_data.len());
 
     let wav_data = audio::convert_audio_file_for_whisper(&audio_data)
         .map_err(|e| format!("Failed to convert audio: {}", e))?;
@@ -49,27 +62,146 @@ pub async fn transcribe_audio_file(
         };
     }
 
-    let text = match service
-        .transcribe(&wav_data, lang_code, prompt_hint.as_deref())
-        .await
-    {
-        Ok(text) => {
+    crate::log_info!(
+        "Transcription params: lang={:?}, lang_code={:?}, dictionary={:?}, prompt_hint={:?}",
+        language,
+        lang_code,
+        dictionary_words,
+        prompt_hint,
+    );
+
+    // ── Transcription: per-segment or full-file ──
+    let result = if current_config.diarization_enabled_files {
+        if let Ok(meta) = std::fs::metadata(&path) {
+            let ext = std::path::Path::new(&path)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("?");
             crate::log_info!(
-                "Transcription received ({}): \"{}\"",
-                service.service_name(),
-                text
+                "Diarization audio file: {} (ext={}, size={} bytes)",
+                &path,
+                ext,
+                meta.len()
             );
-            text
         }
-        Err(e) => return Err(format!("Transcription failed: {}", e)),
+
+        match run_diarization(&app_handle, &path).await {
+            Ok(mut diar) if !diar.segments.is_empty() => {
+                crate::log_info!(
+                    "Diarization returned {} segments from {}",
+                    diar.segments.len(),
+                    diar.provider
+                );
+
+                let full_duration = wav_duration_secs(&wav_data)?;
+                let mut segment_texts: Vec<(Option<String>, String)> = Vec::new();
+
+                for seg in &diar.segments {
+                    let start = seg.start_sec.unwrap_or(0.0);
+                    let end = seg.end_sec.unwrap_or(full_duration);
+
+                    let seg_wav = audio::extract_segment_wav(&wav_data, start, end)
+                        .map_err(|e| format!("Failed to extract segment: {}", e))?;
+
+                    let seg_text = service
+                        .transcribe(&seg_wav, lang_code, prompt_hint.as_deref())
+                        .await
+                        .map_err(|e| format!("Segment transcription failed: {}", e))?;
+                    crate::log_info!(
+                        "Segment [{}]: \"{}\"",
+                        seg.speaker.as_deref().unwrap_or("?"),
+                        seg_text
+                    );
+                    segment_texts.push((seg.speaker.clone(), seg_text));
+                }
+
+                let unique_speakers: HashSet<Option<&str>> =
+                    segment_texts.iter().map(|(s, _)| s.as_deref()).collect();
+
+                if unique_speakers.len() <= 1 {
+                    let full_text: String = segment_texts
+                        .iter()
+                        .map(|(_, t)| t.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    diar.text = full_text;
+                    diar.segments.clear();
+                } else {
+                    let labeled: String = segment_texts
+                        .iter()
+                        .map(|(s, t)| format!("[{}] {}", s.as_deref().unwrap_or("Speaker"), t))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    diar.text = labeled;
+                    diar.segments = segment_texts
+                        .into_iter()
+                        .map(|(speaker, text)| Segment {
+                            speaker,
+                            text,
+                            start_sec: None,
+                            end_sec: None,
+                        })
+                        .collect();
+                }
+
+                diar
+            }
+            Ok(mut diar) => {
+                crate::log_warn!("Diarization returned 0 segments — transcribing full file");
+                let text = service
+                    .transcribe(&wav_data, lang_code, prompt_hint.as_deref())
+                    .await
+                    .map_err(|e| format!("Transcription failed: {}", e))?;
+                crate::log_info!(
+                    "Transcription received ({}): \"{}\"",
+                    service.service_name(),
+                    text
+                );
+                diar.text = text;
+                diar
+            }
+            Err(e) => {
+                crate::log_warn!("Diarization failed, transcribing full file: {}", e);
+                let text = service
+                    .transcribe(&wav_data, lang_code, prompt_hint.as_deref())
+                    .await
+                    .map_err(|e| format!("Transcription failed: {}", e))?;
+                crate::log_info!(
+                    "Transcription received ({}): \"{}\"",
+                    service.service_name(),
+                    text
+                );
+                DiarizationResult {
+                    text,
+                    segments: vec![],
+                    provider: "none".to_string(),
+                }
+            }
+        }
+    } else {
+        let text = service
+            .transcribe(&wav_data, lang_code, prompt_hint.as_deref())
+            .await
+            .map_err(|e| format!("Transcription failed: {}", e))?;
+        crate::log_info!(
+            "Transcription received ({}): \"{}\"",
+            service.service_name(),
+            text
+        );
+        DiarizationResult {
+            text,
+            segments: vec![],
+            provider: "none".to_string(),
+        }
     };
 
-    let text = if !text.trim().is_empty() && current_config.post_process_enabled {
+    // ── Post-processing ──
+    let result_text = if !result.text.trim().is_empty() && current_config.post_process_enabled {
         crate::log_info!("Post-processing file transcription...");
         let post_process_factory = app_state.post_process_factory.clone();
         match post_process_factory.get_service(&current_config).await {
             Ok(processor) => match processor
-                .post_process(&text, &current_config.post_process_prompt)
+                .post_process(&result.text, &current_config.post_process_prompt)
                 .await
             {
                 Ok(cleaned) => {
@@ -85,7 +217,7 @@ pub async fn transcribe_audio_file(
                     if matches!(e, crate::post_process::PostProcessError::Network(_)) {
                         post_process_factory.invalidate_local();
                     }
-                    text
+                    result.text.clone()
                 }
             },
             Err(e) => {
@@ -93,14 +225,14 @@ pub async fn transcribe_audio_file(
                     "Could not create post-process service, using raw text: {}",
                     e
                 );
-                text
+                result.text.clone()
             }
         }
     } else {
-        text
+        result.text.clone()
     };
 
-    if text.trim().is_empty() {
+    if result_text.trim().is_empty() {
         return Ok(DiarizationResult {
             text: String::new(),
             segments: vec![],
@@ -108,34 +240,12 @@ pub async fn transcribe_audio_file(
         });
     }
 
-    // ── Optional: Speaker diarization ──
-    let result = if current_config.diarization_enabled {
-        match run_diarization(&app_handle, &path).await {
-            Ok(mut r) => {
-                // Only use diarization text if we got segments back
-                if r.segments.is_empty() {
-                    r.text = text.clone();
-                }
-                r
-            }
-            Err(e) => {
-                crate::log_warn!("Diarization failed, using plain transcript: {}", e);
-                DiarizationResult {
-                    text: text.clone(),
-                    segments: vec![],
-                    provider: "none".to_string(),
-                }
-            }
-        }
-    } else {
-        DiarizationResult {
-            text: text.clone(),
-            segments: vec![],
-            provider: "none".to_string(),
-        }
-    };
-
     // ── Save to history ──
+    let result = DiarizationResult {
+        text: result_text,
+        segments: result.segments,
+        provider: result.provider,
+    };
     let segments_json = if result.segments.is_empty() {
         None
     } else {

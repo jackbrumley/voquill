@@ -12,11 +12,84 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
+import tarfile
+import urllib.request
 
 from .schemas import DiarizeResponse, Segment
 
 logger = logging.getLogger("voquill.diarization.sherpa")
+
+_SEGMENTATION_MODEL_URL = (
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
+    "speaker-segmentation-models/"
+    "sherpa-onnx-pyannote-segmentation-3-0.tar.bz2"
+)
+_SEGMENTATION_MODEL_DIR = "sherpa-onnx-pyannote-segmentation-3-0"
+_SEGMENTATION_MODEL_FILE = "model.onnx"
+
+_EMBEDDING_MODEL_URL = (
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
+    "speaker-recongition-models/"
+    "3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx"
+)
+_EMBEDDING_MODEL_FILE = "3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx"
+
+
+def _ensure_segmentation_model(runner_base_dir: str) -> str:
+    model_path = os.path.join(
+        runner_base_dir,
+        "models",
+        _SEGMENTATION_MODEL_DIR,
+        _SEGMENTATION_MODEL_FILE,
+    )
+    if os.path.exists(model_path):
+        return model_path
+
+    models_dir = os.path.join(runner_base_dir, "models")
+    os.makedirs(models_dir, exist_ok=True)
+
+    archive_name = f"{_SEGMENTATION_MODEL_DIR}.tar.bz2"
+    archive_path = os.path.join(models_dir, archive_name)
+
+    logger.info("Downloading speaker segmentation model...")
+    urllib.request.urlretrieve(_SEGMENTATION_MODEL_URL, archive_path)
+
+    logger.info("Extracting speaker segmentation model...")
+    with tarfile.open(archive_path, "r:bz2") as tar:
+        tar.extractall(path=models_dir)
+    os.remove(archive_path)
+
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(
+            f"Segmentation model not found after extraction at {model_path}"
+        )
+
+    logger.info("Speaker segmentation model ready at %s", model_path)
+    return model_path
+
+
+def _ensure_embedding_model(runner_base_dir: str) -> str:
+    model_path = os.path.join(
+        runner_base_dir,
+        "models",
+        _EMBEDDING_MODEL_FILE,
+    )
+    if os.path.exists(model_path):
+        return model_path
+
+    models_dir = os.path.join(runner_base_dir, "models")
+    os.makedirs(models_dir, exist_ok=True)
+
+    logger.info("Downloading speaker embedding model...")
+    urllib.request.urlretrieve(_EMBEDDING_MODEL_URL, model_path)
+
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(
+            f"Embedding model not found after download at {model_path}"
+        )
+
+    logger.info("Speaker embedding model ready at %s", model_path)
+    return model_path
 
 
 def is_available() -> bool:
@@ -28,12 +101,6 @@ def is_available() -> bool:
         return False
 
 
-def _ensure_model_dir(base_dir: str) -> str:
-    models_dir = os.path.join(base_dir, "models")
-    os.makedirs(models_dir, exist_ok=True)
-    return models_dir
-
-
 def run(audio_path: str, runner_base_dir: str) -> DiarizeResponse:
     """
     Run speaker diarization on audio_path using sherpa-onnx.
@@ -42,32 +109,26 @@ def run(audio_path: str, runner_base_dir: str) -> DiarizeResponse:
     (where .version lives, and where models/ is created).
     """
     import sherpa_onnx
+    import numpy as np
 
-    model_dir = _ensure_model_dir(runner_base_dir)
+    segmentation_model = _ensure_segmentation_model(runner_base_dir)
+    embedding_model = _ensure_embedding_model(runner_base_dir)
 
     # --- Build the diarization config ---
-    # These models are auto-downloaded by sherpa-onnx on first use.
-    # They are small ONNX models (~20-50MB total).
     config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
-        segmentation=sherpa_onnx.OfflineSpeakerSegmentationConfig(
-            model_type="pyannote",
-            model_config=sherpa_onnx.SpeakerSegmentationModelConfig(
-                model_type="pyannote",
+        segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
+            pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(
+                model=segmentation_model,
             ),
         ),
         embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-            model_type="wespeaker",
-            model_config=sherpa_onnx.SpeakerEmbeddingModelConfig(
-                model_type="wespeaker",
-                model="3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k",
-            ),
+            model=embedding_model,
         ),
-        clustering=sherpa_onnx.SpeakerEmbeddingClusteringConfig(
+        clustering=sherpa_onnx.FastClusteringConfig(
             threshold=0.5,
-            min_num_speakers=1,
-            max_num_speakers=5,
         ),
-        model_dir=model_dir,
+        min_duration_on=0.3,
+        min_duration_off=0.5,
     )
 
     diarizer = sherpa_onnx.OfflineSpeakerDiarization(config)
@@ -79,14 +140,21 @@ def run(audio_path: str, runner_base_dir: str) -> DiarizeResponse:
     if len(samples.shape) > 1:
         samples = samples.mean(axis=1)
 
-    result = diarizer.process(samples, sample_rate)
+    # Resample to 16kHz (sherpa-onnx models expect this)
+    if sample_rate != 16000:
+        duration = len(samples) / sample_rate
+        target_len = int(duration * 16000)
+        indices = np.linspace(0, len(samples) - 1, target_len)
+        samples = np.interp(indices, np.arange(len(samples)), samples).astype(np.float32)
+
+    result = diarizer.process(samples)
 
     # --- Build response ---
     segments = []
     speaker_map: dict[int, str] = {}
     next_label = 1
 
-    for seg in result:
+    for seg in result.sort_by_start_time():
         speaker_id = seg.speaker
         if speaker_id not in speaker_map:
             speaker_map[speaker_id] = f"Person {next_label}"

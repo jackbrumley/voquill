@@ -6,7 +6,10 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Card } from '../components/Card.tsx';
 import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
-import { StatusReadout } from '../components/StatusReadout.tsx';
+import { GlassOrb } from '../components/GlassOrb.tsx';
+import { JumpingDot } from '../components/JumpingDot.tsx';
+import { AudioWave } from '../components/AudioWave.tsx';
+import { BouncingDots } from '../components/BouncingDots.tsx';
 import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 import { useEffect, useState } from 'preact/hooks';
@@ -14,16 +17,10 @@ import type { DictationStatus, Segment } from '../types.ts';
 
 interface HomePageProps {
   appVersion: string;
-  modelStatus: Record<string, boolean>;
-  isSystemManagedShortcut: boolean;
   dictationStatus: DictationStatus;
   config: {
-    transcription_mode: 'API' | 'Local';
     output_method: 'Typewriter' | 'Clipboard';
-    local_model_size: string;
-    hotkey: string;
-    hotkey_mode: 'HoldToTalk' | 'Toggle';
-    diarization_enabled: boolean;
+    diarization_enabled_files: boolean;
   };
   onToggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
   onToggleDiarization: (enabled: boolean) => void;
@@ -42,8 +39,6 @@ interface TranscribeResult {
 
 export function HomePage({
   appVersion,
-  modelStatus,
-  isSystemManagedShortcut,
   dictationStatus,
   config,
   onToggleOutputMethod,
@@ -53,7 +48,6 @@ export function HomePage({
   onCopyToClipboard,
 }: HomePageProps) {
   const [hoveredFooterIcon, setHoveredFooterIcon] = useState<'github' | 'heart' | null>(null);
-  const isToggleMode = config.hotkey_mode === 'Toggle';
   const importStatus = useSignal<ImportStatus>('idle');
   const importResult = useSignal<TranscribeResult | null>(null);
   const importError = useSignal<string>('');
@@ -61,42 +55,29 @@ export function HomePage({
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    (async () => {
-      unlisten = await getCurrentWindow().onDragDropEvent((event) => {
-        if (event.payload.type === 'enter' || event.payload.type === 'over') {
-          isDragOver.value = true;
-        } else if (event.payload.type === 'leave') {
-          isDragOver.value = false;
-        } else if (event.payload.type === 'drop') {
-          isDragOver.value = false;
-          const path = event.payload.paths[0];
-          if (path) {
-            transcribeFile(path);
-          }
+    let cancelled = false;
+    getCurrentWindow().onDragDropEvent((event) => {
+      if (cancelled) return;
+      if (event.payload.type === 'enter' || event.payload.type === 'over') {
+        isDragOver.value = true;
+      } else if (event.payload.type === 'leave') {
+        isDragOver.value = false;
+      } else if (event.payload.type === 'drop') {
+        isDragOver.value = false;
+        const path = event.payload.paths[0];
+        if (path) {
+          transcribeFile(path);
         }
-      });
-    })();
-    return () => { unlisten?.(); };
+      }
+    }).then((fn) => {
+      if (cancelled) { fn(); return; }
+      unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, []);
-
-  const howToSteps = [
-    config.transcription_mode === 'Local'
-      ? (modelStatus[config.local_model_size]
-        ? <>Local Whisper model is <strong style={{ color: tokens.colors.textPrimary }}>Ready</strong>.</>
-        : <>Download a <strong style={{ color: tokens.colors.textPrimary }}>Whisper model</strong> in Settings.</>)
-      : <>Enter your <strong style={{ color: tokens.colors.textPrimary }}>OpenAI API key</strong> in Settings.</>,
-    <>Position cursor in any text field.</>,
-    isToggleMode
-      ? (isSystemManagedShortcut
-        ? <>Press your system shortcut to start recording.</>
-        : <><span>Press </span><strong style={{ color: tokens.colors.textPrimary }}>{config.hotkey}</strong><span> to start recording.</span></>)
-      : (isSystemManagedShortcut
-        ? <>Hold your system shortcut and speak.</>
-        : <><span>Hold </span><strong style={{ color: tokens.colors.textPrimary }}>{config.hotkey}</strong><span> and speak.</span></>),
-    isToggleMode
-      ? <>Press it again to stop and transcribe.</>
-      : <>Release keys to transcribe and type.</>,
-  ];
 
   const handleFilePick = async () => {
     try {
@@ -160,10 +141,33 @@ export function HomePage({
   return (
     <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="home">
       <div style={{ ...tabPanelPaddedStyle, flex: 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <StatusReadout status={dictationStatus} />
-        </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <GlassOrb>
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                <div style={{ position: 'absolute', inset: 0, opacity: dictationStatus === 'Ready' ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: dictationStatus === 'Ready' ? 'auto' : 'none' }}>
+                  <JumpingDot />
+                </div>
+                <div style={{ position: 'absolute', inset: 0, opacity: dictationStatus === 'Recording' ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: dictationStatus === 'Recording' ? 'auto' : 'none' }}>
+                  <AudioWave containerHeight={120} />
+                </div>
+                <div style={{ position: 'absolute', inset: 0, opacity: (dictationStatus === 'Transcribing' || dictationStatus === 'Processing' || dictationStatus === 'Typing') ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: (dictationStatus === 'Transcribing' || dictationStatus === 'Processing' || dictationStatus === 'Typing') ? 'auto' : 'none' }}>
+                  <BouncingDots dotSize={24} jumpHeight={32} />
+                </div>
+              </div>
+            </GlassOrb>
+              {dictationStatus && (
+                <div style={{
+                  fontSize: '15px',
+                  color: tokens.colors.textSecondary,
+                  fontFamily: tokens.typography.fontMono,
+                  marginTop: '10px',
+                  marginBottom: '8px',
+                }}>
+                  {dictationStatus === 'Error' ? 'Mic not found' : dictationStatus}
+                </div>
+              )}
+            </div>
           <div style={{ width: '100%', maxWidth: '520px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
               <ModeSwitcher
@@ -183,44 +187,6 @@ export function HomePage({
             </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '4px', marginBottom: '-6px' }}>
-          <label style={{
-            fontSize: tokens.typography.sizeXs,
-            color: tokens.colors.textSecondary,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            userSelect: 'none',
-          }}>
-            <input
-              type="checkbox"
-              checked={config.diarization_enabled}
-              onChange={(e) => onToggleDiarization((e.target as HTMLInputElement).checked)}
-              style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
-            />
-            <IconUser size={12} />
-            Speaker diarization
-          </label>
-        </div>
-
-        <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, marginBottom: '-10px' }}>
-          Transcribe Your Voice
-        </div>
-
-        <Card>
-          <ol style={{ listStyle: 'none', margin: 0, padding: 0, textAlign: 'left', fontSize: tokens.typography.sizeSm }}>
-            {howToSteps.map((step, index) => (
-              <li key={index} style={{ display: 'grid', gridTemplateColumns: '20px 1fr', alignItems: 'start', marginBottom: '2px', color: tokens.colors.textSecondary }}>
-                <span style={{ color: tokens.colors.accentPrimary, fontWeight: 800, fontFamily: tokens.typography.fontMono, fontSize: tokens.typography.sizeSm }}>
-                  {index + 1}.
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-        </Card>
-
         <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, marginBottom: '-10px' }}>
           Transcribe an Audio File
         </div>
@@ -236,16 +202,41 @@ export function HomePage({
           }}
         >
           {importStatus.value === 'idle' && (
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', gap: tokens.spacing.md }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary, lineHeight: 1.4 }}>
-                  Drop an audio file here or click to browse
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', gap: tokens.spacing.md }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary, lineHeight: 1.4 }}>
+                    Drop an audio file here or click to browse
+                  </div>
+                  <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted }}>
+                    WAV, MP3, M4A, OGG, FLAC, Opus
+                  </div>
                 </div>
-                <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted }}>
-                  WAV, MP3, M4A, OGG, FLAC, Opus
-                </div>
+                <IconUpload size={28} style={{ color: tokens.colors.textMuted, flexShrink: 0 }} />
               </div>
-              <IconUpload size={28} style={{ color: tokens.colors.textMuted, flexShrink: 0 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }} onClick={(e) => e.stopPropagation()}>
+                <label style={{
+                  fontSize: tokens.typography.sizeXs,
+                  color: tokens.colors.textSecondary,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  userSelect: 'none',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={config.diarization_enabled_files}
+                    onChange={(e) => { e.stopPropagation(); onToggleDiarization((e.target as HTMLInputElement).checked); }}
+                    style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
+                  />
+                  <IconUser size={12} />
+                  Differentiate voices
+                </label>
+                <span style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7 }}>
+                  Labels each speaker
+                </span>
+              </div>
             </div>
           )}
           {importStatus.value === 'transcribing' && (
@@ -352,6 +343,7 @@ export function HomePage({
                     (e.currentTarget as HTMLElement).style.color = '#a9acb5';
                   }}
                 >
+                  <IconUpload size={16} />
                   New Import
                 </button>
               </div>

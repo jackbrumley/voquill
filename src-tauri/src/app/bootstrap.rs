@@ -240,6 +240,7 @@ pub fn run_setup(
         initial_config,
         app.handle(),
     );
+    spawn_python_runner_prewarm(app.handle(), initial_config);
 
     Ok(())
 }
@@ -271,5 +272,31 @@ pub fn spawn_post_process_warmup(
     tauri::async_runtime::spawn(async move {
         factory.preload(&config).await;
         let _ = app_handle.emit("post-process-gpu-status-changed", ());
+    });
+}
+
+/// Pre-warms the Python runner for diarization when diarization is enabled.
+/// Spawned asynchronously at startup so it's ready before the user's first
+/// file import, avoiding the ~2s lazy-start delay on first use.
+pub fn spawn_python_runner_prewarm(app_handle: &tauri::AppHandle, config: &Config) {
+    if !config.diarization_enabled_files {
+        return;
+    }
+    let app_handle = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        crate::log_info!("Pre-warming Python runner for diarization...");
+        match crate::python_runner::PythonRunner::start(&app_handle).await {
+            Ok(runner) => {
+                let state = app_handle.state::<AppState>();
+                let mut guard = state.python_runner.lock().unwrap();
+                if guard.is_none() {
+                    *guard = Some(runner);
+                    crate::log_info!("Python runner pre-warmed successfully");
+                }
+            }
+            Err(e) => {
+                crate::log_warn!("Failed to pre-warm Python runner: {}", e);
+            }
+        }
     });
 }

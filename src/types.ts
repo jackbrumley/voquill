@@ -28,7 +28,8 @@ export interface Config {
   post_process_api_key: string;
   post_process_api_model: string;
   post_process_prompt: string;
-  diarization_enabled: boolean;
+  diarization_enabled_files: boolean;
+  diarization_enabled_recording: boolean;
   shortcuts_token?: string;
   input_token?: string;
 }
@@ -151,4 +152,4 @@ export interface StatusUpdatePayload {
 
 export type DictationStatus = 'Ready' | 'Recording' | 'Transcribing' | 'Processing' | 'Typing' | 'Error';
 
-export type AppRoute = 'setup' | 'home' | 'status' | 'history' | 'settings' | 'ui-lab';
+export type AppRoute = 'setup' | 'home' | 'status' | 'history' | 'settings' | 'ui-lab' | 'help';

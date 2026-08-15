@@ -18,7 +18,10 @@ export function TitleBar({ onMinimize, onMaximize, onClose, onMouseDown, onDoubl
       onMouseDown={onMouseDown}
       onDblClick={onDoubleClick}
     >
-      <div style={titleBarTitleStyle}>Voquill</div>
+      <div style={titleBarTitleStyle}>
+        <img src="/logo.svg" alt="Voquill" style={{ height: 18, width: 18, marginRight: 7 }} />
+        Voquill
+      </div>
       <div style={titleBarControlsStyle}>
         <Button variant="titlebarIcon" onClick={onMinimize}>
           <IconMinus size={14} />
