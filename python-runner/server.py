@@ -67,6 +67,11 @@ def _discover_capabilities() -> dict[str, dict[str, Any]]:
             "provider": "sherpa-onnx",
             "description": "Speaker diarization (who spoke when) using sherpa-onnx",
         },
+        "enhance": {
+            "module": "enhancement.provider_noise",
+            "provider": "noisereduce",
+            "description": "Audio noise reduction using spectral gating (noisereduce)",
+        },
     }
 
 
@@ -165,6 +170,37 @@ async def diarize(body: dict) -> dict:
     except Exception as e:
         logger.exception("Diarization failed")
         raise HTTPException(status_code=500, detail=f"Diarization failed: {e}")
+
+
+@app.post("/enhance")
+async def enhance(body: dict) -> dict:
+    handlers = app.state.handlers
+    if "enhance" not in handlers:
+        raise HTTPException(
+            status_code=501,
+            detail="Enhancement capability not available (noisereduce not installed?)",
+        )
+    audio_path = body.get("audio_path")
+    if not audio_path:
+        raise HTTPException(status_code=400, detail="audio_path is required")
+    if not os.path.isfile(audio_path):
+        raise HTTPException(
+            status_code=400, detail=f"audio_path does not exist: {audio_path}"
+        )
+
+    noise_reduction_strength = body.get("noise_reduction_strength", 0.7)
+
+    mod = handlers["enhance"]["module"]
+    try:
+        result = mod.run(
+            audio_path=audio_path,
+            runner_base_dir=RUNNER_BASE_DIR,
+            noise_reduction_strength=noise_reduction_strength,
+        )
+        return result.model_dump()
+    except Exception as e:
+        logger.exception("Enhancement failed")
+        raise HTTPException(status_code=500, detail=f"Enhancement failed: {e}")
 
 
 # ── Entry point (used when Rust spawns the server) ─────────────────────────

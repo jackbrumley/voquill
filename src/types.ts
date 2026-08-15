@@ -40,6 +40,9 @@ export interface Config {
   custom_filler_words: string[];
   append_trailing_space: boolean;
   auto_submit: boolean;
+  paste_after_copy: boolean;
+  noise_reduction_enabled: boolean;
+  noise_reduction_strength: number;
   history_limit: number;
   log_level: string;
   diarization_enabled_files: boolean;

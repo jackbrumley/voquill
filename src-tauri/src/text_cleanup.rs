@@ -83,7 +83,17 @@ pub fn clean_transcription(
     }
 
     let without_fillers = remove_filler_words(text, custom_filler_words);
-    normalize_transcription_output(&without_fillers)
+    let result = normalize_transcription_output(&without_fillers);
+
+    if result != text {
+        crate::log_info!(
+            "Filler word removal: original=\"{}\" cleaned=\"{}\"",
+            text,
+            result
+        );
+    }
+
+    result
 }
 
 #[cfg(test)]

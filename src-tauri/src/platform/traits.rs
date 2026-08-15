@@ -12,6 +12,8 @@ pub trait InputSimulation: Send + Sync {
         typing_speed_interval: f64,
         key_press_duration_ms: u64,
     ) -> Result<(), String>;
+
+    async fn send_ctrl_v(&self, app_handle: &AppHandle) -> Result<(), String>;
 }
 
 #[async_trait]

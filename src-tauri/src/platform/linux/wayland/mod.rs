@@ -32,6 +32,10 @@ impl InputSimulation for WaylandBackend {
         )
         .await
     }
+
+    async fn send_ctrl_v(&self, app_handle: &tauri::AppHandle) -> Result<(), String> {
+        input::send_ctrl_v(app_handle).await
+    }
 }
 
 #[async_trait]

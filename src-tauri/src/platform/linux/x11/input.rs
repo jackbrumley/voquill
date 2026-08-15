@@ -157,11 +157,33 @@ fn paste_via_clipboard_shortcut(
         .ok_or_else(|| "Failed to resolve keycode for 'v'".to_string())?;
 
     send_key_event(connection, keyboard_map.ctrl_keycode, true)?;
+    connection.flush()?;
+    thread::sleep(Duration::from_millis(50));
+
     send_key_event(connection, v_key.keycode, true)?;
     send_key_event(connection, v_key.keycode, false)?;
+    connection.flush()?;
+    thread::sleep(Duration::from_millis(50));
+
     send_key_event(connection, keyboard_map.ctrl_keycode, false)?;
     connection.flush()?;
     Ok(())
+}
+
+pub fn send_ctrl_v() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    crate::log_info!("[X11] send_ctrl_v: connecting to X11 display...");
+    let (connection, _screen_num) = RustConnection::connect(None)?;
+    let keyboard_map = load_keyboard_map(&connection)?;
+    crate::log_info!(
+        "[X11] send_ctrl_v: loaded keyboard map, sending Ctrl+V via XTest (ctrl_keycode={})",
+        keyboard_map.ctrl_keycode
+    );
+    let result = paste_via_clipboard_shortcut(&connection, &keyboard_map);
+    match &result {
+        Ok(()) => crate::log_info!("[X11] send_ctrl_v: Ctrl+V sent successfully"),
+        Err(e) => crate::log_warn!("[X11] send_ctrl_v: failed: {}", e),
+    }
+    result
 }
 
 pub fn type_text_hardware(

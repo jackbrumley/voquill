@@ -28,6 +28,38 @@ pub fn copy_to_clipboard(text: &str) -> Result<(), Box<dyn std::error::Error + S
     Ok(())
 }
 
+pub fn save_clipboard() -> Option<String> {
+    let saved = Clipboard::new().ok().and_then(|mut c| c.get_text().ok());
+    match &saved {
+        Some(text) => {
+            crate::log_info!("Saved clipboard content ({} chars)", text.len());
+        }
+        None => {
+            crate::log_info!("No prior clipboard content to save");
+        }
+    }
+    saved
+}
+
+pub fn restore_clipboard(saved: Option<String>) {
+    if let Some(text) = saved {
+        match Clipboard::new() {
+            Ok(mut clipboard) => {
+                if let Err(e) = clipboard.set_text(text.clone()) {
+                    crate::log_warn!("Failed to restore clipboard: {}", e);
+                } else {
+                    crate::log_info!("Restored clipboard content ({} chars)", text.len());
+                }
+            }
+            Err(e) => {
+                crate::log_warn!("Failed to open clipboard for restore: {}", e);
+            }
+        }
+    } else {
+        crate::log_info!("No clipboard content to restore");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

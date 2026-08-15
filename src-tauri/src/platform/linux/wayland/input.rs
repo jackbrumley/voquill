@@ -9,6 +9,8 @@ use crate::app::state::SessionState;
 use crate::AppState;
 
 const XK_SHIFT_L: i32 = 0xFFE1;
+const XK_CONTROL_L: i32 = 0xFFE3;
+const XK_V: i32 = 0x76;
 
 pub struct WaylandTypeRequest {
     pub text: String,
@@ -18,7 +20,14 @@ pub struct WaylandTypeRequest {
     pub response: tokio::sync::oneshot::Sender<Result<(), String>>,
 }
 
-pub type WaylandTypeSender = tokio::sync::mpsc::UnboundedSender<WaylandTypeRequest>;
+pub enum WaylandInputRequest {
+    TypeText(WaylandTypeRequest),
+    SendCtrlV {
+        response: tokio::sync::oneshot::Sender<Result<(), String>>,
+    },
+}
+
+pub type WaylandInputSender = tokio::sync::mpsc::UnboundedSender<WaylandInputRequest>;
 
 async fn create_portal_session(
     restore_token: Option<&str>,
@@ -125,7 +134,7 @@ pub async fn establish_input_session(
     let (remote_desktop, session, input_token) =
         create_portal_session(requested_restore_token.as_deref()).await?;
 
-    let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<WaylandTypeRequest>();
+    let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<WaylandInputRequest>();
     let (cancel_sender, mut cancel_receiver) = tokio::sync::oneshot::channel::<()>();
 
     {
@@ -167,66 +176,88 @@ pub async fn establish_input_session(
                         break;
                     };
 
-                    let result = send_text_over_portal(
-                        &current_remote_desktop,
-                        &current_session,
-                        &request.text,
-                        request.interval_ms,
-                        request.hold_ms,
-                        &request.session_state,
-                    ).await;
+                    match request {
+                        WaylandInputRequest::TypeText(req) => {
+                            let text = req.text;
+                            let interval_ms = req.interval_ms;
+                            let hold_ms = req.hold_ms;
+                            let session_state = req.session_state;
+                            let response = req.response;
 
-                    let result = match result {
-                        Ok(()) => Ok(()),
-                        Err(error) => {
-                            crate::log_warn!(
-                                "Wayland typing failed (session may have expired): {}. Attempting reconnect...",
-                                error
-                            );
+                            let result = send_text_over_portal(
+                                &current_remote_desktop,
+                                &current_session,
+                                &text,
+                                interval_ms,
+                                hold_ms,
+                                &session_state,
+                            ).await;
 
-                            {
-                                let state = app_handle_for_task.state::<AppState>();
-                                *state.wayland_input_ready.lock().unwrap() = false;
-                            }
+                            let result = match result {
+                                Ok(()) => Ok(()),
+                                Err(error) => {
+                                    crate::log_warn!(
+                                        "Wayland typing failed (session may have expired): {}. Attempting reconnect...",
+                                        error
+                                    );
 
-                            let _ = current_session.close().await;
-
-                            match reconnect_portal_session(&app_handle_for_task).await {
-                                Ok((new_rd, new_sess)) => {
-                                    current_remote_desktop = new_rd;
-                                    current_session = new_sess;
                                     {
                                         let state = app_handle_for_task.state::<AppState>();
-                                        *state.wayland_input_ready.lock().unwrap() = true;
+                                        *state.wayland_input_ready.lock().unwrap() = false;
                                     }
-                                    crate::log_info!("Wayland input session reconnected. Retrying typing...");
 
-                                    send_text_over_portal(
-                                        &current_remote_desktop,
-                                        &current_session,
-                                        &request.text,
-                                        request.interval_ms,
-                                        request.hold_ms,
-                                        &request.session_state,
-                                    ).await
+                                    let _ = current_session.close().await;
+
+                                    match reconnect_portal_session(&app_handle_for_task).await {
+                                        Ok((new_rd, new_sess)) => {
+                                            current_remote_desktop = new_rd;
+                                            current_session = new_sess;
+                                            {
+                                                let state = app_handle_for_task.state::<AppState>();
+                                                *state.wayland_input_ready.lock().unwrap() = true;
+                                            }
+                                            crate::log_info!("Wayland input session reconnected. Retrying typing...");
+
+                                            send_text_over_portal(
+                                                &current_remote_desktop,
+                                                &current_session,
+                                                &text,
+                                                interval_ms,
+                                                hold_ms,
+                                                &session_state,
+                                            ).await
+                                        }
+                                        Err(reconnect_error) => {
+                                            crate::log_warn!(
+                                                "Failed to reconnect Wayland input session: {}",
+                                                reconnect_error
+                                            );
+                                            let state = app_handle_for_task.state::<AppState>();
+                                            *state.wayland_input_ready.lock().unwrap() = false;
+                                            Err(format!(
+                                                "Input session expired and reconnection failed: {}",
+                                                reconnect_error
+                                            ))
+                                        }
+                                    }
                                 }
-                                Err(reconnect_error) => {
-                                    crate::log_warn!(
-                                        "Failed to reconnect Wayland input session: {}",
-                                        reconnect_error
-                                    );
-                                    let state = app_handle_for_task.state::<AppState>();
-                                    *state.wayland_input_ready.lock().unwrap() = false;
-                                    Err(format!(
-                                        "Input session expired and reconnection failed: {}",
-                                        reconnect_error
-                                    ))
-                                }
-                            }
+                            };
+
+                            let _ = response.send(result);
                         }
-                    };
-
-                    let _ = request.response.send(result);
+                        WaylandInputRequest::SendCtrlV { response } => {
+                            crate::log_info!("[Event Loop] Received SendCtrlV request, sending through portal...");
+                            let res = send_ctrl_v_over_portal(
+                                &current_remote_desktop,
+                                &current_session,
+                            ).await;
+                            match &res {
+                                Ok(()) => crate::log_info!("[Event Loop] SendCtrlV portal call succeeded"),
+                                Err(e) => crate::log_warn!("[Event Loop] SendCtrlV portal call failed: {}", e),
+                            }
+                            let _ = response.send(res);
+                        }
+                    }
                 }
             }
         }
@@ -296,18 +327,67 @@ pub async fn type_text_hardware(
     let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
     let session_state = app_handle.state::<AppState>().session_state.clone();
     sender
-        .send(WaylandTypeRequest {
+        .send(WaylandInputRequest::TypeText(WaylandTypeRequest {
             text: text.to_string(),
             interval_ms,
             hold_ms: key_press_duration_ms,
             session_state,
             response: response_sender,
-        })
+        }))
         .map_err(|_| "Wayland input emulation session is unavailable.".to_string())?;
 
     response_receiver
         .await
         .map_err(|_| "Wayland input emulation response channel closed unexpectedly.".to_string())?
+}
+
+pub async fn send_ctrl_v(app_handle: &tauri::AppHandle) -> Result<(), String> {
+    crate::log_info!("send_ctrl_v: checking for active Wayland input session...");
+    let sender = {
+        let state = app_handle.state::<AppState>();
+        let sender_lock = state.wayland_input_sender.lock().unwrap();
+        sender_lock.clone()
+    };
+
+    let sender = match sender {
+        Some(s) => {
+            crate::log_info!("send_ctrl_v: Wayland input session found, sending request");
+            s
+        }
+        None => {
+            let msg =
+                "Wayland input emulation is not active. Complete input setup to enable paste."
+                    .to_string();
+            crate::log_warn!("send_ctrl_v: FAILED - {}", msg);
+            return Err(msg);
+        }
+    };
+
+    let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
+    if let Err(e) = sender.send(WaylandInputRequest::SendCtrlV {
+        response: response_sender,
+    }) {
+        let msg = "Wayland input emulation session is unavailable.".to_string();
+        crate::log_warn!("send_ctrl_v: channel send failed: {}", e);
+        return Err(msg);
+    }
+
+    crate::log_info!("send_ctrl_v: waiting for portal response...");
+    match response_receiver.await {
+        Ok(Ok(())) => {
+            crate::log_info!("send_ctrl_v: portal Ctrl+V completed successfully");
+            Ok(())
+        }
+        Ok(Err(e)) => {
+            crate::log_warn!("send_ctrl_v: portal Ctrl+V failed: {}", e);
+            Err(e)
+        }
+        Err(e) => {
+            let msg = format!("send_ctrl_v: response channel closed: {}", e);
+            crate::log_warn!("{}", msg);
+            Err(msg)
+        }
+    }
 }
 
 async fn send_key(
@@ -446,6 +526,38 @@ fn keysym_for_char(ch: char) -> u32 {
         '\t' => 0xff09,
         _ => ch as u32,
     }
+}
+
+async fn send_ctrl_v_over_portal(
+    remote_desktop: &RemoteDesktop<'_>,
+    session: &ashpd::desktop::Session<'_, RemoteDesktop<'_>>,
+) -> Result<(), String> {
+    crate::log_info!("[Wayland Portal] send_ctrl_v_over_portal: starting Ctrl+V sequence");
+
+    let hold = Duration::from_millis(50);
+
+    crate::log_info!(
+        "[Wayland Portal] send_ctrl_v_over_portal: pressing Control_L (keysym 0xFFE3)"
+    );
+    send_key(remote_desktop, session, XK_CONTROL_L, KeyState::Pressed).await?;
+    tokio::time::sleep(hold).await;
+
+    crate::log_info!(
+        "[Wayland Portal] send_ctrl_v_over_portal: pressing V (keysym 0x{:.2X})",
+        XK_V
+    );
+    send_key(remote_desktop, session, XK_V, KeyState::Pressed).await?;
+    tokio::time::sleep(hold).await;
+
+    crate::log_info!("[Wayland Portal] send_ctrl_v_over_portal: releasing V");
+    send_key(remote_desktop, session, XK_V, KeyState::Released).await?;
+    tokio::time::sleep(Duration::from_millis(10)).await;
+
+    crate::log_info!("[Wayland Portal] send_ctrl_v_over_portal: releasing Control_L");
+    send_key(remote_desktop, session, XK_CONTROL_L, KeyState::Released).await?;
+
+    crate::log_info!("[Wayland Portal] send_ctrl_v_over_portal: Ctrl+V sequence complete");
+    Ok(())
 }
 
 fn is_valid_restore_token(token: &str) -> bool {

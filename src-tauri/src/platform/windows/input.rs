@@ -96,6 +96,20 @@ pub fn type_text_hardware(
     Ok(())
 }
 
+pub fn send_ctrl_v() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::*;
+    crate::log_info!("[Windows] Sending Ctrl+V...");
+    unsafe {
+        emit_vk(VK_CONTROL, true);
+        emit_vk(VIRTUAL_KEY('V' as u16), true);
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        emit_vk(VIRTUAL_KEY('V' as u16), false);
+        emit_vk(VK_CONTROL, false);
+    }
+    crate::log_info!("[Windows] Ctrl+V complete");
+    Ok(())
+}
+
 unsafe fn emit_vk(vk: VIRTUAL_KEY, is_down: bool) {
     let mut input = INPUT {
         r#type: INPUT_KEYBOARD,

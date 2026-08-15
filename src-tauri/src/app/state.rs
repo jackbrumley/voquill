@@ -36,7 +36,7 @@ pub struct AppState {
     pub hotkey_engine_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     #[cfg(target_os = "linux")]
     pub wayland_input_sender:
-        Arc<Mutex<Option<platform::linux::wayland::input::WaylandTypeSender>>>,
+        Arc<Mutex<Option<platform::linux::wayland::input::WaylandInputSender>>>,
     #[cfg(target_os = "linux")]
     pub wayland_input_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     #[cfg(target_os = "linux")]

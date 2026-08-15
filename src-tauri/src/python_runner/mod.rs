@@ -14,7 +14,7 @@ const RUNNER_PORT_START: u16 = 6051;
 const RUNNER_PORT_END: u16 = 6070;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
 const HEALTH_RETRY_INTERVAL: Duration = Duration::from_millis(500);
-const RUNNER_VERSION: &str = "1.0.10";
+const RUNNER_VERSION: &str = "1.1.0";
 const PYTHON_VERSION: &str = "20250115";
 const PYTHON_DOWNLOAD_BASE: &str =
     "https://github.com/astral-sh/python-build-standalone/releases/download";
@@ -65,6 +65,14 @@ impl PythonRunner {
         cluster_threshold: f32,
     ) -> Result<DiarizationResult, String> {
         client::diarize(&self.base_url, audio_path, cluster_threshold).await
+    }
+
+    pub async fn enhance(
+        &self,
+        audio_path: &str,
+        noise_reduction_strength: f32,
+    ) -> Result<String, String> {
+        client::enhance(&self.base_url, audio_path, noise_reduction_strength).await
     }
 }
 
@@ -456,6 +464,13 @@ mod client {
         provider: String,
     }
 
+    #[derive(serde::Deserialize)]
+    struct RawEnhanceResponse {
+        enhanced_path: String,
+        #[allow(dead_code)]
+        provider: String,
+    }
+
     pub async fn diarize(
         base_url: &str,
         audio_path: &str,
@@ -501,5 +516,38 @@ mod client {
             segments: raw.segments,
             provider: raw.provider,
         })
+    }
+
+    pub async fn enhance(
+        base_url: &str,
+        audio_path: &str,
+        noise_reduction_strength: f32,
+    ) -> Result<String, String> {
+        let url = format!("{}/enhance", base_url);
+        let body = serde_json::json!({
+            "audio_path": audio_path,
+            "noise_reduction_strength": noise_reduction_strength,
+        });
+
+        let client = reqwest::Client::new();
+        let response = client
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("Enhancement request failed: {}", e))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(format!("Enhancement returned {}: {}", status, text));
+        }
+
+        let raw: RawEnhanceResponse = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse enhance response: {}", e))?;
+
+        Ok(raw.enhanced_path)
     }
 }

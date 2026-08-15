@@ -216,6 +216,34 @@ async fn record_and_transcribe_inner(
         let guard = config.lock().unwrap();
         guard.clone()
     };
+
+    // Apply audio noise reduction if enabled (before transcription)
+    let audio_data = if current_config.noise_reduction_enabled {
+        crate::app::status::emit_status_to_frontend("Processing").await;
+        match run_noise_reduction(
+            app_handle,
+            &audio_data,
+            current_config.noise_reduction_strength,
+        )
+        .await
+        {
+            Ok(enhanced) => {
+                crate::log_info!(
+                    "Noise reduction applied ({} bytes -> {} bytes)",
+                    audio_data.len(),
+                    enhanced.len()
+                );
+                enhanced
+            }
+            Err(e) => {
+                crate::log_warn!("Noise reduction failed, using raw audio: {}", e);
+                audio_data
+            }
+        }
+    } else {
+        audio_data
+    };
+
     let service = engine_factory.create_service(&current_config).await;
     let service = match service {
         Ok(s) => s,
@@ -489,17 +517,28 @@ async fn record_and_transcribe_inner(
             *session = SessionState::Typing;
         }
         crate::app::status::emit_status_to_frontend("Typing").await;
-        let (typing_speed, hold_duration, output_method, copy_on_typewriter) = {
+        let (
+            typing_speed,
+            hold_duration,
+            output_method,
+            copy_on_typewriter,
+            paste_delay_before_ms,
+            paste_delay_after_ms,
+            paste_after_copy,
+        ) = {
             let config_guard = config.lock().unwrap();
             (
                 config_guard.typing_speed_interval,
                 config_guard.key_press_duration_ms,
                 config_guard.output_method.clone(),
                 config_guard.copy_on_typewriter,
+                config_guard.paste_delay_before_ms,
+                config_guard.paste_delay_after_ms,
+                config_guard.paste_after_copy,
             )
         };
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(paste_delay_before_ms)).await;
 
         if session_token.load(Ordering::SeqCst) {
             crate::log_info!("Session cancelled before typing; discarding output");
@@ -535,11 +574,43 @@ async fn record_and_transcribe_inner(
             }
             OutputMethod::Clipboard => {
                 crate::log_info!("Copying text to clipboard (Clipboard Mode)...");
+                let saved_clipboard = if paste_after_copy {
+                    typing::save_clipboard()
+                } else {
+                    None
+                };
                 if let Err(error) = typing::copy_to_clipboard(&output_text) {
                     crate::log_info!("CLIPBOARD ERROR: {}", error);
                 }
+                if paste_after_copy {
+                    crate::log_info!(
+                        "Paste after copy: waiting {}ms before Ctrl+V...",
+                        paste_delay_before_ms
+                    );
+                    tokio::time::sleep(tokio::time::Duration::from_millis(paste_delay_before_ms))
+                        .await;
+                    crate::log_info!("Calling display_backend.send_ctrl_v()...");
+                    let state = app_handle.state::<crate::AppState>();
+                    match state.display_backend.send_ctrl_v(app_handle).await {
+                        Ok(()) => crate::log_info!("PASTE: send_ctrl_v returned Ok"),
+                        Err(error) => {
+                            crate::log_warn!("PASTE ERROR: send_ctrl_v failed: {}", error)
+                        }
+                    }
+                    crate::log_info!(
+                        "Paste after copy: waiting {}ms after Ctrl+V...",
+                        paste_delay_after_ms
+                    );
+                    tokio::time::sleep(tokio::time::Duration::from_millis(paste_delay_after_ms))
+                        .await;
+                    crate::log_info!("Paste after copy: restoring clipboard...");
+                    typing::restore_clipboard(saved_clipboard);
+                    crate::log_info!("Paste after copy: complete");
+                }
             }
         }
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(paste_delay_after_ms)).await;
     } else {
         crate::log_info!("Transcription was empty, skipping typing.");
     }
@@ -585,4 +656,68 @@ async fn run_diarization_for_recording(
 
     let path_str = audio_path.to_string_lossy().to_string();
     runner.diarize(&path_str, cluster_threshold).await
+}
+
+/// Run noise reduction on captured audio via the Python runner.
+async fn run_noise_reduction(
+    app_handle: &tauri::AppHandle,
+    audio_data: &[u8],
+    noise_reduction_strength: f32,
+) -> Result<Vec<u8>, String> {
+    let app_state = app_handle.state::<crate::AppState>();
+
+    let needs_start = {
+        let guard = app_state.python_runner.lock().unwrap();
+        guard.is_none()
+    };
+
+    if needs_start {
+        crate::log_info!("Lazily starting Python runner for noise reduction...");
+        match crate::python_runner::PythonRunner::start(app_handle).await {
+            Ok(runner) => {
+                let mut guard = app_state.python_runner.lock().unwrap();
+                if guard.is_none() {
+                    *guard = Some(runner);
+                }
+            }
+            Err(e) => {
+                crate::log_warn!("Failed to start Python runner: {}", e);
+                return Err(e);
+            }
+        }
+    }
+
+    let runner = {
+        let guard = app_state.python_runner.lock().unwrap();
+        guard.clone()
+    }
+    .ok_or("Python runner not available")?;
+
+    let temp_dir = crate::paths::temp_dir();
+    let _ = std::fs::create_dir_all(&temp_dir);
+    let input_path = temp_dir.join(format!(
+        "noise_input_{}.wav",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+
+    std::fs::write(&input_path, audio_data)
+        .map_err(|e| format!("Failed to write temp audio for noise reduction: {}", e))?;
+
+    let path_str = input_path.to_string_lossy().to_string();
+    let result = runner.enhance(&path_str, noise_reduction_strength).await;
+
+    // Clean up input file regardless of outcome
+    let _ = std::fs::remove_file(&input_path);
+
+    let enhanced_path = result?;
+    let enhanced_data = std::fs::read(&enhanced_path)
+        .map_err(|e| format!("Failed to read enhanced audio: {}", e))?;
+
+    // Clean up enhanced file
+    let _ = std::fs::remove_file(&enhanced_path);
+
+    Ok(enhanced_data)
 }

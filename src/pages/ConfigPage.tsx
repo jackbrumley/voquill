@@ -72,8 +72,11 @@ interface ConfigPageProps {
     post_process_selected_prompt_id: string | null;
     filler_word_removal_enabled: boolean;
     custom_filler_words: string[];
+    noise_reduction_enabled: boolean;
+    noise_reduction_strength: number;
     append_trailing_space: boolean;
     auto_submit: boolean;
+    paste_after_copy: boolean;
     history_limit: number;
   };
   activeConfigSection: string | null;
@@ -340,6 +343,12 @@ padding: '12px 16px',
             />
           </ConfigField>
 
+          {config.output_method === 'Clipboard' && (
+            <ConfigField label="Paste After Copy" description="Automatically paste via Ctrl+V after copying. Saves and restores your clipboard content.">
+              <Switch name="Paste After Copy" checked={config.paste_after_copy} onChange={(checked) => updateConfig('paste_after_copy', checked)} />
+            </ConfigField>
+          )}
+
           <ConfigField label="Always Copy to Clipboard" description="Also copy transcriptions to clipboard even while using Typewriter output.">
             <Switch name="Always Copy to Clipboard" checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} />
           </ConfigField>
@@ -411,6 +420,28 @@ padding: '12px 16px',
               onStopMicTest={stopMicTest}
               onStopMicPlayback={stopMicPlayback}
             />
+          </ConfigField>
+
+          <ConfigField label="Noise Reduction" description="Reduce background noise from your microphone using spectral gating. Improves transcription accuracy in noisy environments.">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.sm, width: '100%' }}>
+              <Switch name="Noise Reduction" checked={config.noise_reduction_enabled} onChange={(checked) => updateConfig('noise_reduction_enabled', checked)} />
+              {config.noise_reduction_enabled && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+                  <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, textAlign: 'left' }}>
+                    Strength: {Math.round(config.noise_reduction_strength * 100)}%
+                  </div>
+                  <SliderField
+                    value={config.noise_reduction_strength}
+                    min={0.1}
+                    max={1.0}
+                    step={0.05}
+                    onChange={(value) => updateConfig('noise_reduction_strength', value)}
+                    ariaLabel="Noise reduction strength"
+                    style={{ margin: `${tokens.spacing.sm} 0` }}
+                  />
+                </div>
+              )}
+            </div>
           </ConfigField>
               </>
             )}
@@ -938,6 +969,7 @@ padding: '12px 16px',
               <ConfigField label="Auto-Submit (Enter)" description="Press Enter after dictation finishes. Useful for search bars, chat inputs, and form fields.">
                 <Switch name="Auto-Submit" checked={config.auto_submit} onChange={(checked) => updateConfig('auto_submit', checked)} />
               </ConfigField>
+
               </>
             )}
 

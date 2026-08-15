@@ -63,6 +63,10 @@ pub struct Config {
     pub typing_speed_interval: f64,
     #[serde(default = "default_key_press_duration")]
     pub key_press_duration_ms: u64,
+    #[serde(default = "default_paste_delay_before_ms")]
+    pub paste_delay_before_ms: u64,
+    #[serde(default = "default_paste_delay_after_ms")]
+    pub paste_delay_after_ms: u64,
     #[serde(default = "default_pixels_from_bottom")]
     pub pixels_from_bottom: i32,
     #[serde(default = "default_audio_device")]
@@ -116,9 +120,15 @@ pub struct Config {
     #[serde(default)]
     pub custom_filler_words: Vec<String>,
     #[serde(default)]
+    pub noise_reduction_enabled: bool,
+    #[serde(default = "default_noise_reduction_strength")]
+    pub noise_reduction_strength: f32,
+    #[serde(default)]
     pub append_trailing_space: bool,
     #[serde(default)]
     pub auto_submit: bool,
+    #[serde(default)]
+    pub paste_after_copy: bool,
     #[serde(default = "default_history_limit")]
     pub history_limit: usize,
     #[serde(default = "default_log_level")]
@@ -191,6 +201,12 @@ fn default_typing_speed() -> f64 {
 fn default_key_press_duration() -> u64 {
     2
 }
+fn default_paste_delay_before_ms() -> u64 {
+    60
+}
+fn default_paste_delay_after_ms() -> u64 {
+    60
+}
 fn default_pixels_from_bottom() -> i32 {
     150
 }
@@ -241,6 +257,9 @@ fn default_filler_word_removal_enabled() -> bool {
 }
 fn default_history_limit() -> usize {
     500
+}
+fn default_noise_reduction_strength() -> f32 {
+    0.7
 }
 fn default_log_level() -> String {
     "info".to_string()
@@ -303,6 +322,8 @@ impl Default for Config {
             hotkey: default_hotkey(),
             typing_speed_interval: default_typing_speed(),
             key_press_duration_ms: default_key_press_duration(),
+            paste_delay_before_ms: default_paste_delay_before_ms(),
+            paste_delay_after_ms: default_paste_delay_after_ms(),
             pixels_from_bottom: default_pixels_from_bottom(),
             audio_device: default_audio_device(),
             enable_recording_logs: default_enable_recording_logs(),
@@ -329,8 +350,11 @@ impl Default for Config {
             post_process_selected_prompt_id: None,
             filler_word_removal_enabled: default_filler_word_removal_enabled(),
             custom_filler_words: Vec::new(),
+            noise_reduction_enabled: false,
+            noise_reduction_strength: default_noise_reduction_strength(),
             append_trailing_space: false,
             auto_submit: false,
+            paste_after_copy: false,
             history_limit: default_history_limit(),
             log_level: default_log_level(),
             diarization_enabled_files: false,
