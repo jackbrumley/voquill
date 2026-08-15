@@ -150,23 +150,18 @@ export function HomePage({
                 <div style={{
                   fontSize: '15px',
                   color: tokens.colors.textSecondary,
-                  fontFamily: tokens.typography.fontMono,
                   marginTop: '10px',
                   marginBottom: '8px',
+                  textAlign: 'center',
                 }}>
-                  {dictationStatus === 'Error' ? 'Mic not found' : dictationStatus}
-                </div>
-              )}
-              {dictationStatus === 'Ready' && config.hotkey && (
-                <div style={{
-                  fontSize: '13px',
-                  color: tokens.colors.textMuted,
-                  fontFamily: tokens.typography.fontMono,
-                  marginTop: '2px',
-                }}>
-                  {config.hotkey_mode === 'Toggle'
-                    ? `Press ${config.hotkey} to start dictating`
-                    : `Hold ${config.hotkey} to dictate`}
+                  {dictationStatus === 'Error'
+                    ? 'Mic not found'
+                    : dictationStatus === 'Ready' && config.hotkey
+                      ? <>
+                          Ready: {config.hotkey_mode === 'Toggle' ? 'press ' : 'hold '}
+                          <span style={{ fontWeight: 700 }}>{config.hotkey}</span>
+                        </>
+                      : dictationStatus}
                 </div>
               )}
             </div>

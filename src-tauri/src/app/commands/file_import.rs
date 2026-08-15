@@ -220,13 +220,20 @@ pub async fn transcribe_audio_file(
         let _ = std::fs::remove_file(path);
     }
 
+    // ── Filler word removal (pre-processing, no LLM needed) ──
+    let cleaned_text = crate::text_cleanup::clean_transcription(
+        &result.text,
+        current_config.filler_word_removal_enabled,
+        &current_config.custom_filler_words,
+    );
+
     // ── Post-processing ──
-    let result_text = if !result.text.trim().is_empty() && current_config.post_process_enabled {
+    let result_text = if !cleaned_text.trim().is_empty() && current_config.post_process_enabled {
         crate::log_info!("Post-processing file transcription...");
         let post_process_factory = app_state.post_process_factory.clone();
         match post_process_factory.get_service(&current_config).await {
             Ok(processor) => match processor
-                .post_process(&result.text, &current_config.post_process_prompt)
+                .post_process(&cleaned_text, &current_config.resolve_post_process_prompt())
                 .await
             {
                 Ok(cleaned) => {
@@ -238,23 +245,23 @@ pub async fn transcribe_audio_file(
                     cleaned
                 }
                 Err(e) => {
-                    crate::log_warn!("Post-processing failed, using raw text: {}", e);
+                    crate::log_warn!("Post-processing failed, using cleaned text: {}", e);
                     if matches!(e, crate::post_process::PostProcessError::Network(_)) {
                         post_process_factory.invalidate_local();
                     }
-                    result.text.clone()
+                    cleaned_text.clone()
                 }
             },
             Err(e) => {
                 crate::log_warn!(
-                    "Could not create post-process service, using raw text: {}",
+                    "Could not create post-process service, using cleaned text: {}",
                     e
                 );
-                result.text.clone()
+                cleaned_text.clone()
             }
         }
     } else {
-        result.text.clone()
+        cleaned_text.clone()
     };
 
     if result_text.trim().is_empty() {
@@ -276,7 +283,11 @@ pub async fn transcribe_audio_file(
     } else {
         serde_json::to_string(&result.segments).ok()
     };
-    if let Err(e) = history::add_history_item(&result.text, segments_json.as_deref()) {
+    if let Err(e) = history::add_history_item(
+        &result.text,
+        segments_json.as_deref(),
+        Some(current_config.history_limit),
+    ) {
         crate::log_warn!("Failed to save history: {}", e);
     }
     if let Some(window) = app_handle.get_webview_window("main") {

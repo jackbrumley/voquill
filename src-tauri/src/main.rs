@@ -30,6 +30,20 @@ macro_rules! log_warn {
 use serde::Serialize;
 use tauri::Manager;
 
+use clap::Parser;
+
+#[derive(Parser)]
+#[command(
+    name = "voquill",
+    version,
+    about = "Cross-platform push-to-talk dictation app"
+)]
+struct Cli {
+    /// Start hidden in the system tray
+    #[arg(short, long)]
+    start_hidden: bool,
+}
+
 mod app;
 mod archive;
 mod audio;
@@ -46,6 +60,7 @@ pub mod platform;
 mod post_process;
 mod python_runner;
 mod sidecar;
+mod text_cleanup;
 mod transcription;
 mod typing;
 
@@ -92,6 +107,9 @@ fn log_cpu_features() {
 fn log_cpu_features() {}
 
 fn main() {
+    let cli = Cli::parse();
+    let start_hidden = cli.start_hidden;
+
     // Third-party Vulkan "implicit layers" (Steam overlay, OBS capture, NVIDIA
     // Optimus switching) get injected into every Vulkan process and can corrupt
     // vkEnumeratePhysicalDevices on hybrid-graphics machines, causing whisper.cpp
@@ -157,7 +175,7 @@ fn main() {
                 .build(),
         )
         .manage(app_state)
-        .setup(move |app| app::bootstrap::run_setup(app, &initial_config))
+        .setup(move |app| app::bootstrap::run_setup(app, &initial_config, start_hidden))
         .invoke_handler(tauri::generate_handler![
             start_recording,
             stop_recording,
@@ -204,7 +222,8 @@ fn main() {
             check_for_updates,
             get_gpu_status,
             get_post_process_gpu_status,
-            get_engine_capabilities
+            get_engine_capabilities,
+            unload_model
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

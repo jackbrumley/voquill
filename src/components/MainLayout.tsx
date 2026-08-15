@@ -42,7 +42,7 @@ interface MainLayoutProps {
   onNavigate: (route: AppRoute) => void;
   onLogUI: (msg: string) => void;
   onSetActiveConfigSection: (value: string | null) => void;
-  onUpdateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown>) => void;
+  onUpdateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
   onTestApiKey: () => void;
   onDownloadModel: (size: string, engine?: string) => void;
   onLoadModels: () => void;

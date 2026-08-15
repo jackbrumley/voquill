@@ -89,6 +89,7 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
 pub fn run_setup(
     app: &mut tauri::App<tauri::Wry>,
     initial_config: &Config,
+    start_hidden: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     crate::app::status::initialize(app.handle().clone());
 
@@ -200,7 +201,9 @@ pub fn run_setup(
     }
 
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
+        if !start_hidden {
+            let _ = window.show();
+        }
     }
 
     let hotkey_string = initial_config.hotkey.clone();

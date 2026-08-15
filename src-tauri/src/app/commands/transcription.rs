@@ -96,16 +96,30 @@ pub fn get_current_status() -> String {
 }
 
 #[tauri::command]
-pub async fn get_history() -> Result<Vec<history::HistoryItem>, String> {
-    history::load_history().map_err(|error| error.to_string())
+pub async fn get_history(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<history::HistoryItem>, String> {
+    let limit = state.config.lock().unwrap().history_limit;
+    history::load_history(limit).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub async fn search_history(query: String) -> Result<Vec<history::HistoryItem>, String> {
-    history::search_history(&query).map_err(|error| error.to_string())
+pub async fn search_history(
+    query: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<history::HistoryItem>, String> {
+    let limit = state.config.lock().unwrap().history_limit;
+    history::search_history(&query, limit).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 pub async fn clear_history() -> Result<(), String> {
     history::clear_history().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn unload_model(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.engine_factory.unload_all();
+    crate::log_info!("Transcription model unloaded");
+    Ok(())
 }

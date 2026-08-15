@@ -126,6 +126,7 @@ fn sanitize_fts_query(raw: &str) -> String {
 pub fn add_history_item(
     text: &str,
     segments: Option<&str>,
+    limit: Option<usize>,
 ) -> Result<HistoryItem, Box<dyn std::error::Error>> {
     let conn = global_db().lock().unwrap();
     let timestamp = Utc::now().to_rfc3339();
@@ -134,6 +135,19 @@ pub fn add_history_item(
         params![text, timestamp, segments],
     )?;
     let id = conn.last_insert_rowid() as u64;
+
+    // Prune old entries beyond the configured limit
+    if let Some(limit) = limit {
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM history", [], |row| row.get(0))?;
+        if count as usize > limit {
+            let excess = count as usize - limit;
+            conn.execute(
+                "DELETE FROM history WHERE id IN (SELECT id FROM history ORDER BY id ASC LIMIT ?)",
+                params![excess as i64],
+            )?;
+        }
+    }
+
     Ok(HistoryItem {
         id,
         text: text.to_string(),
@@ -142,12 +156,12 @@ pub fn add_history_item(
     })
 }
 
-pub fn load_history() -> Result<Vec<HistoryItem>, Box<dyn std::error::Error>> {
+pub fn load_history(limit: usize) -> Result<Vec<HistoryItem>, Box<dyn std::error::Error>> {
     let conn = global_db().lock().unwrap();
-    let mut stmt = conn
-        .prepare("SELECT id, text, timestamp, segments FROM history ORDER BY id DESC LIMIT 500")?;
+    let mut stmt =
+        conn.prepare("SELECT id, text, timestamp, segments FROM history ORDER BY id DESC LIMIT ?")?;
     let items = stmt
-        .query_map([], |row| {
+        .query_map(params![limit as i64], |row| {
             Ok(HistoryItem {
                 id: row.get::<_, i64>(0)? as u64,
                 text: row.get(1)?,
@@ -161,10 +175,13 @@ pub fn load_history() -> Result<Vec<HistoryItem>, Box<dyn std::error::Error>> {
     Ok(items)
 }
 
-pub fn search_history(query: &str) -> Result<Vec<HistoryItem>, Box<dyn std::error::Error>> {
+pub fn search_history(
+    query: &str,
+    limit: usize,
+) -> Result<Vec<HistoryItem>, Box<dyn std::error::Error>> {
     let sanitized = sanitize_fts_query(query);
     if sanitized.is_empty() {
-        return load_history();
+        return load_history(limit);
     }
     let conn = global_db().lock().unwrap();
     let mut stmt = conn.prepare(
@@ -173,10 +190,10 @@ pub fn search_history(query: &str) -> Result<Vec<HistoryItem>, Box<dyn std::erro
          JOIN history h ON h.id = f.rowid
          WHERE history_fts MATCH ?1
          ORDER BY rank
-         LIMIT 500",
+         LIMIT ?2",
     )?;
     let items = stmt
-        .query_map(params![sanitized], |row| {
+        .query_map(params![sanitized, limit as i64], |row| {
             Ok(HistoryItem {
                 id: row.get::<_, i64>(0)? as u64,
                 text: row.get(1)?,

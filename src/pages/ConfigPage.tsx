@@ -68,6 +68,13 @@ interface ConfigPageProps {
     post_process_api_key: string;
     post_process_api_model: string;
     post_process_prompt: string;
+    post_process_prompts: { id: string; name: string; prompt: string }[];
+    post_process_selected_prompt_id: string | null;
+    filler_word_removal_enabled: boolean;
+    custom_filler_words: string[];
+    append_trailing_space: boolean;
+    auto_submit: boolean;
+    history_limit: number;
   };
   activeConfigSection: string | null;
   setActiveConfigSection: (value: string | null) => void;
@@ -86,7 +93,7 @@ interface ConfigPageProps {
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   overlayPositioningCapabilities: { manual_offset_supported: boolean; detail?: string };
-  updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown>) => void;
+  updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
   testApiKey: () => void;
   downloadModel: (size: string, engine?: string) => void;
   loadModels: () => void;
@@ -172,6 +179,8 @@ export function ConfigPage(props: ConfigPageProps) {
   } = props;
 
   const dictionaryInput = useSignal('');
+  const fillerWordInput = useSignal('');
+  const promptNameInput = useSignal('');
 
   const configGhostPillStyle = {
     borderRadius: '40px',
@@ -183,6 +192,7 @@ export function ConfigPage(props: ConfigPageProps) {
     'general': 'General',
     'audio': 'Audio',
     'dictionary': 'Dictionary',
+    'filler-words': 'Filler Words',
     'transcription': 'Transcription',
     'post-process': 'Post-Processing',
     'typing': 'Typing',
@@ -233,6 +243,7 @@ export function ConfigPage(props: ConfigPageProps) {
           <SectionNavItem title="General" section="general" />
           <SectionNavItem title="Audio" section="audio" />
           <SectionNavItem title="Dictionary" section="dictionary" />
+          <SectionNavItem title="Filler Words" section="filler-words" />
           <SectionNavItem title="Transcription" section="transcription" />
           <SectionNavItem title="Post-Processing" section="post-process" />
           <SectionNavItem title="Typing" section="typing" />
@@ -458,6 +469,93 @@ padding: '12px 16px',
                           const updated = [...(config.dictionary || [])];
                           updated.splice(i, 1);
                           updateConfig('dictionary', updated);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: tokens.colors.textMuted,
+                          cursor: 'pointer',
+                          padding: '0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          lineHeight: 1,
+                        }}
+                        title={`Remove "${word}"`}
+                      >
+                        <IconX size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </ConfigField>
+              </>
+            )}
+
+            {activeConfigSection === 'filler-words' && (
+              <>
+              <ConfigField label="Remove Filler Words" description="Automatically remove filler words (uh, umm, hmm, etc.) from transcriptions using a fast regex pass. Works without post-processing.">
+                <Switch
+                  name="Remove Filler Words"
+                  checked={config.filler_word_removal_enabled}
+                  onChange={(checked) => updateConfig('filler_word_removal_enabled', checked)}
+                />
+              </ConfigField>
+
+              <ConfigField label="Custom Filler Words" description="Add words to also remove. Built-in words (uh, umm, hmm, etc.) are always removed. Add extra words like 'literally', 'actually', 'basically' if you tend to overuse them.">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+              <div style={{ display: 'flex', gap: tokens.spacing.xs, width: '100%' }}>
+                <input
+                  type="text"
+                  value={fillerWordInput.value}
+                  onInput={(e) => { fillerWordInput.value = (e.target as HTMLInputElement).value; }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const trimmed = fillerWordInput.value.trim().toLowerCase();
+                      if (trimmed && !(config.custom_filler_words || []).includes(trimmed)) {
+                        updateConfig('custom_filler_words', [...(config.custom_filler_words || []), trimmed]);
+                      }
+                      fillerWordInput.value = '';
+                    }
+                  }}
+                  placeholder="e.g. literally, basically, actually"
+                  style={{ ...inputBaseStyle, flex: 1 }}
+                />
+                <Button
+                  variant="configAction"
+                  onClick={() => {
+                    const trimmed = fillerWordInput.value.trim().toLowerCase();
+                    if (trimmed && !(config.custom_filler_words || []).includes(trimmed)) {
+                      updateConfig('custom_filler_words', [...(config.custom_filler_words || []), trimmed]);
+                    }
+                    fillerWordInput.value = '';
+                  }}
+                  disabled={!fillerWordInput.value.trim()}
+                >
+                  Add
+                </Button>
+              </div>
+              {(config.custom_filler_words || []).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: tokens.spacing.xs }}>
+                  {(config.custom_filler_words || []).map((word, i) => (
+                    <div key={i} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      background: 'rgba(255,255,255,0.06)',
+                      fontSize: tokens.typography.sizeXs,
+                      color: tokens.colors.textPrimary,
+                    }}>
+                      <span>{word}</span>
+                      <button
+                        onClick={() => {
+                          const updated = [...(config.custom_filler_words || [])];
+                          updated.splice(i, 1);
+                          updateConfig('custom_filler_words', updated);
                         }}
                         style={{
                           background: 'none',
@@ -718,21 +816,104 @@ padding: '12px 16px',
                     </>
                   )}
 
-                  <ConfigField label="System Prompt" description="The system prompt sent to the post-processing model. Customize how your text is cleaned.">
+                  <ConfigField label="System Prompt" description="The system prompt sent to the post-processing model. Customize how your text is cleaned. You can create multiple prompts and switch between them.">
                     <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+                      <div style={{ display: 'flex', gap: tokens.spacing.xs, alignItems: 'center', width: '100%' }}>
+                        <div style={selectWrapperStyle}>
+                          <SelectField
+                            value={config.post_process_selected_prompt_id || '__default__'}
+                            options={[
+                              { value: '__default__', label: 'Default Prompt' },
+                              ...(config.post_process_prompts || []).map((p) => ({ value: p.id, label: p.name })),
+                            ]}
+                            onChange={(id) => updateConfig('post_process_selected_prompt_id', id === '__default__' ? null : id)}
+                            ariaLabel="System prompt"
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          pill
+                          style={configGhostPillStyle}
+                          onClick={() => {
+                            const name = promptNameInput.value.trim() || `Prompt ${(config.post_process_prompts || []).length + 1}`;
+                            const id = `custom_${Date.now()}`;
+                            const prompts = [...(config.post_process_prompts || []), { id, name, prompt: config.post_process_prompt || DEFAULT_POST_PROCESS_PROMPT }];
+                            updateConfig('post_process_prompts', prompts);
+                            updateConfig('post_process_selected_prompt_id', id);
+                            promptNameInput.value = '';
+                          }}
+                        >
+                          + New
+                        </Button>
+                        {config.post_process_selected_prompt_id && (config.post_process_prompts || []).length > 0 && (
+                          <Button
+                            variant="danger"
+                            pill
+                            style={configGhostPillStyle}
+                            onClick={() => {
+                              const prompts = (config.post_process_prompts || []).filter((p) => p.id !== config.post_process_selected_prompt_id);
+                              updateConfig('post_process_prompts', prompts);
+                              updateConfig('post_process_selected_prompt_id', null);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </div>
                       <textarea
                         style={{ ...inputBaseStyle, resize: 'vertical', minHeight: '60px', fontFamily: tokens.typography.fontMono, fontSize: tokens.typography.sizeXs, lineHeight: 1.5 }}
-                        value={config.post_process_prompt}
-                        onChange={(e: Event) => updateConfig('post_process_prompt', (e.target as HTMLTextAreaElement).value)}
+                        value={(() => {
+                          const selectedId = config.post_process_selected_prompt_id;
+                          if (selectedId) {
+                            const found = (config.post_process_prompts || []).find((p) => p.id === selectedId);
+                            if (found) return found.prompt;
+                          }
+                          return config.post_process_prompt;
+                        })()}
+                        onChange={(e: Event) => {
+                          const newText = (e.target as HTMLTextAreaElement).value;
+                          const selectedId = config.post_process_selected_prompt_id;
+                          if (selectedId) {
+                            const prompts = (config.post_process_prompts || []).map((p) =>
+                              p.id === selectedId ? { ...p, prompt: newText } : p,
+                            );
+                            updateConfig('post_process_prompts', prompts);
+                          } else {
+                            updateConfig('post_process_prompt', newText);
+                          }
+                        }}
                       />
-                      <Button
-                        variant="ghost"
-                        pill
-                        style={{ alignSelf: 'flex-start' }}
-                        onClick={() => updateConfig('post_process_prompt', DEFAULT_POST_PROCESS_PROMPT)}
-                      >
-                        Reset to Default
-                      </Button>
+                      <div style={{ display: 'flex', gap: tokens.spacing.xs, alignItems: 'center', width: '100%' }}>
+                        <input
+                          type="text"
+                          value={promptNameInput.value}
+                          onInput={(e) => { promptNameInput.value = (e.target as HTMLInputElement).value; }}
+                          placeholder="New prompt name..."
+                          style={{ ...inputBaseStyle, flex: 1, fontSize: tokens.typography.sizeXs }}
+                        />
+                        <Button variant="ghost" pill style={configGhostPillStyle}
+                          onClick={() => {
+                            const textareaValue = (() => {
+                              const selectedId = config.post_process_selected_prompt_id;
+                              if (selectedId) {
+                                const found = (config.post_process_prompts || []).find((p) => p.id === selectedId);
+                                if (found) return found.prompt;
+                              }
+                              return config.post_process_prompt;
+                            })();
+                            const hasDefault = (config.post_process_prompts || []).some((p) => p.id === '__default__');
+                            const prompts = hasDefault
+                              ? (config.post_process_prompts || []).map((p) => p.id === '__default__' ? { ...p, prompt: textareaValue } : p)
+                              : [{ id: '__default__', name: 'Default', prompt: DEFAULT_POST_PROCESS_PROMPT }, ...(config.post_process_prompts || [])];
+                            updateConfig('post_process_prompts', prompts);
+                            updateConfig('post_process_selected_prompt_id', '__default__');
+                            updateConfig('post_process_prompt', DEFAULT_POST_PROCESS_PROMPT);
+                            promptNameInput.value = '';
+                          }}
+                        >
+                          Reset to Default
+                        </Button>
+                      </div>
                     </div>
                   </ConfigField>
                 </>
@@ -748,6 +929,14 @@ padding: '12px 16px',
 
               <ConfigField label="Key Press Duration (ms)" description="How long each key is held. Increase if characters are skipped.">
                 <NumberField value={config.key_press_duration_ms} onChange={(value) => updateConfig('key_press_duration_ms', value)} min={1} />
+              </ConfigField>
+
+              <ConfigField label="Append Trailing Space" description="Add a trailing space after the typed text. Keeps your cursor positioned for the next word.">
+                <Switch name="Append Trailing Space" checked={config.append_trailing_space} onChange={(checked) => updateConfig('append_trailing_space', checked)} />
+              </ConfigField>
+
+              <ConfigField label="Auto-Submit (Enter)" description="Press Enter after dictation finishes. Useful for search bars, chat inputs, and form fields.">
+                <Switch name="Auto-Submit" checked={config.auto_submit} onChange={(checked) => updateConfig('auto_submit', checked)} />
               </ConfigField>
               </>
             )}
@@ -768,6 +957,10 @@ padding: '12px 16px',
                     <Button variant="danger" pill style={configGhostPillStyle} onClick={async () => { if (await confirm('Delete all recorded WAV files?')) { try { await invoke('clear_recording_logs'); } catch (e) { console.error('Failed to delete recordings:', e); } } }}>Delete</Button>
                   </div>
                 </div>
+              </ConfigField>
+
+              <ConfigField label="Unload Model" description="Free GPU/CPU memory by unloading the transcription model from memory. It will reload automatically on next dictation.">
+                <Button variant="configAction" onClick={async () => { try { await invoke('unload_model'); } catch (e) { console.error('Failed to unload model:', e); } }}>Unload Model</Button>
               </ConfigField>
 
               <ConfigField label="Initial Setup" description="Re-open onboarding checks for permissions, model, and hotkey setup.">

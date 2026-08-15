@@ -1,3 +1,9 @@
+export interface PostProcessPrompt {
+  id: string;
+  name: string;
+  prompt: string;
+}
+
 export interface Config {
   openai_api_key: string;
   api_url: string;
@@ -28,6 +34,14 @@ export interface Config {
   post_process_api_key: string;
   post_process_api_model: string;
   post_process_prompt: string;
+  post_process_prompts: PostProcessPrompt[];
+  post_process_selected_prompt_id: string | null;
+  filler_word_removal_enabled: boolean;
+  custom_filler_words: string[];
+  append_trailing_space: boolean;
+  auto_submit: boolean;
+  history_limit: number;
+  log_level: string;
   diarization_enabled_files: boolean;
   diarization_enabled_recording: boolean;
   diarization_cluster_threshold: number;

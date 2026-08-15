@@ -404,6 +404,13 @@ async fn record_and_transcribe_inner(
         text
     };
 
+    // Apply regex-based filler word removal, works without LLM post-processing
+    let text = crate::text_cleanup::clean_transcription(
+        &text,
+        current_config.filler_word_removal_enabled,
+        &current_config.custom_filler_words,
+    );
+
     let text = if !text.trim().is_empty() && current_config.post_process_enabled {
         crate::log_info!("Post-processing transcription...");
         let post_process_factory = app_handle
@@ -414,7 +421,7 @@ async fn record_and_transcribe_inner(
             Ok(processor) => {
                 crate::app::status::emit_status_to_frontend("Processing").await;
                 match processor
-                    .post_process(&text, &current_config.post_process_prompt)
+                    .post_process(&text, &current_config.resolve_post_process_prompt())
                     .await
                 {
                     Ok(cleaned) => {
@@ -451,13 +458,28 @@ async fn record_and_transcribe_inner(
 
     let text = typing::normalize_for_typing(&text);
 
+    // Apply trailing space if configured
+    let (append_trailing_space, auto_submit, history_limit) = {
+        let config_guard = config.lock().unwrap();
+        (
+            config_guard.append_trailing_space,
+            config_guard.auto_submit,
+            config_guard.history_limit,
+        )
+    };
+    let output_text = if append_trailing_space && !text.is_empty() {
+        format!("{} ", text)
+    } else {
+        text
+    };
+
     if session_token.load(Ordering::SeqCst) {
         crate::log_info!("Session cancelled during transcription; discarding result");
         return Ok(());
     }
 
-    if !text.trim().is_empty() {
-        let _ = history::add_history_item(&text, None);
+    if !output_text.trim().is_empty() {
+        let _ = history::add_history_item(&output_text, None, Some(history_limit));
         if let Some(window) = app_handle.get_webview_window("main") {
             let _ = window.emit("history-updated", ());
         }
@@ -487,7 +509,7 @@ async fn record_and_transcribe_inner(
         match output_method {
             OutputMethod::Typewriter => {
                 if copy_on_typewriter {
-                    if let Err(error) = typing::copy_to_clipboard(&text) {
+                    if let Err(error) = typing::copy_to_clipboard(&output_text) {
                         crate::log_info!("CLIPBOARD ERROR: {}", error);
                     }
                 }
@@ -495,15 +517,25 @@ async fn record_and_transcribe_inner(
                 let state = app_handle.state::<crate::AppState>();
                 if let Err(error) = state
                     .display_backend
-                    .type_text_hardware(app_handle, &text, typing_speed, hold_duration)
+                    .type_text_hardware(app_handle, &output_text, typing_speed, hold_duration)
                     .await
                 {
                     crate::log_info!("TYPING ENGINE ERROR: {}", error);
                 }
+                if auto_submit {
+                    crate::log_info!("Auto-submitting with Enter...");
+                    if let Err(error) = state
+                        .display_backend
+                        .type_text_hardware(app_handle, "\n", typing_speed, hold_duration)
+                        .await
+                    {
+                        crate::log_info!("AUTO-SUBMIT ERROR: {}", error);
+                    }
+                }
             }
             OutputMethod::Clipboard => {
                 crate::log_info!("Copying text to clipboard (Clipboard Mode)...");
-                if let Err(error) = typing::copy_to_clipboard(&text) {
+                if let Err(error) = typing::copy_to_clipboard(&output_text) {
                     crate::log_info!("CLIPBOARD ERROR: {}", error);
                 }
             }
