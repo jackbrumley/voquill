@@ -103,76 +103,76 @@ async fn ensure_portable_python(runner_dir: &Path) -> Result<(), String> {
         python_dir.join("bin").join("python3")
     };
 
-    if python_bin.exists() {
-        return Ok(());
-    }
+    if !python_bin.exists() {
+        let url = portable_python_url()?;
+        let archive_name = portable_python_archive_name()?;
+        let archive_path = runner_dir.join(&archive_name);
 
-    let url = portable_python_url()?;
-    let archive_name = portable_python_archive_name()?;
-    let archive_path = runner_dir.join(&archive_name);
+        crate::log_info!("Downloading portable Python from {}", url);
 
-    crate::log_info!("Downloading portable Python from {}", url);
-
-    let response = reqwest::get(&url)
-        .await
-        .map_err(|e| format!("Failed to download portable Python: {}", e))?
-        .error_for_status()
-        .map_err(|e| format!("Portable Python download returned HTTP error: {}", e))?;
-
-    let total = response.content_length().unwrap_or(0);
-    let mut downloaded: u64 = 0;
-    let mut last_percent: i32 = -1;
-
-    {
-        let mut file = tokio::fs::File::create(&archive_path)
+        let response = reqwest::get(&url)
             .await
-            .map_err(|e| format!("Failed to create archive file: {}", e))?;
+            .map_err(|e| format!("Failed to download portable Python: {}", e))?
+            .error_for_status()
+            .map_err(|e| format!("Portable Python download returned HTTP error: {}", e))?;
 
-        let mut stream = response.bytes_stream();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|e| format!("Download stream error: {}", e))?;
-            file.write_all(&chunk)
+        let total = response.content_length().unwrap_or(0);
+        let mut downloaded: u64 = 0;
+        let mut last_percent: i32 = -1;
+
+        {
+            let mut file = tokio::fs::File::create(&archive_path)
                 .await
-                .map_err(|e| format!("Failed to write archive: {}", e))?;
-            downloaded += chunk.len() as u64;
-            if total > 0 {
-                let percent = ((downloaded as f64 / total as f64) * 100.0) as i32;
-                if percent != last_percent {
-                    crate::log_info!("Python download: {}%", percent);
-                    last_percent = percent;
+                .map_err(|e| format!("Failed to create archive file: {}", e))?;
+
+            let mut stream = response.bytes_stream();
+            while let Some(chunk) = stream.next().await {
+                let chunk = chunk.map_err(|e| format!("Download stream error: {}", e))?;
+                file.write_all(&chunk)
+                    .await
+                    .map_err(|e| format!("Failed to write archive: {}", e))?;
+                downloaded += chunk.len() as u64;
+                if total > 0 {
+                    let percent = ((downloaded as f64 / total as f64) * 100.0) as i32;
+                    if percent != last_percent {
+                        crate::log_info!("Python download: {}%", percent);
+                        last_percent = percent;
+                    }
                 }
             }
+            file.flush()
+                .await
+                .map_err(|e| format!("Failed to flush archive: {}", e))?;
         }
-        file.flush()
-            .await
-            .map_err(|e| format!("Failed to flush archive: {}", e))?;
-    }
 
-    crate::log_info!("Extracting portable Python...");
-    crate::archive::extract_archive(
-        &archive_path,
-        &python_dir,
-        crate::archive::ExtractLayout::PreservePaths,
-    )
-    .map_err(|e| format!("Failed to extract portable Python: {}", e))?;
+        crate::log_info!("Extracting portable Python...");
+        crate::archive::extract_archive(
+            &archive_path,
+            &python_dir,
+            crate::archive::ExtractLayout::PreservePaths,
+        )
+        .map_err(|e| format!("Failed to extract portable Python: {}", e))?;
 
-    let _ = std::fs::remove_file(&archive_path);
+        let _ = std::fs::remove_file(&archive_path);
 
-    // Verify the binary exists after extraction
-    if !python_bin.exists() {
-        return Err(format!(
-            "Portable Python extracted but binary not found at {}",
-            python_bin.display()
-        ));
+        if !python_bin.exists() {
+            return Err(format!(
+                "Portable Python extracted but binary not found at {}",
+                python_bin.display()
+            ));
+        }
     }
 
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         if let Ok(meta) = std::fs::metadata(&python_bin) {
-            let mut perms = meta.permissions();
-            perms.set_mode(perms.mode() | 0o111);
-            let _ = std::fs::set_permissions(&python_bin, perms);
+            let perms = meta.permissions();
+            if perms.mode() & 0o111 == 0 {
+                let mut new_perms = perms;
+                new_perms.set_mode(new_perms.mode() | 0o111);
+                let _ = std::fs::set_permissions(&python_bin, new_perms);
+            }
         }
     }
 
@@ -218,7 +218,22 @@ async fn ensure_venv(runner_dir: &Path) -> Result<(), String> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Failed to create venv: {}", stderr));
+        crate::log_warn!(
+            "First venv creation attempt failed ({}); retrying after cleanup",
+            stderr.trim()
+        );
+        let _ = std::fs::remove_dir_all(&venv_dir);
+        let output = Command::new(&portable)
+            .args(["-m", "venv", &venv_dir.to_string_lossy()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()
+            .await
+            .map_err(|e| format!("Failed to run portable Python venv (retry): {}", e))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Failed to create venv: {}", stderr));
+        }
     }
 
     crate::log_info!("Python venv created");
