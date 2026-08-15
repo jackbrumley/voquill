@@ -583,6 +583,10 @@ padding: '12px 16px',
             </>
           )}
 
+          <ConfigField label="Differentiate Voices in Recordings" description="Detect and label different speakers in live recordings. When enabled, the recording takes slightly longer to process as each speaker segment is transcribed independently.">
+            <Switch name="Diarization Recording" checked={config.diarization_enabled_recording} onChange={(checked) => updateConfig('diarization_enabled_recording', checked)} />
+          </ConfigField>
+
           <ConfigField label="Post-roll (ms)" description="Extra audio (in milliseconds) captured after releasing the hotkey. Helps prevent the last sentence from being cut off, especially with API models.">
             <NumberField
               value={config.post_roll_ms}
@@ -600,10 +604,6 @@ padding: '12px 16px',
               min={1}
               max={60}
             />
-          </ConfigField>
-
-          <ConfigField label="Differentiate Voices in Recordings" description="Detect and label different speakers in live recordings. When enabled, the recording takes slightly longer to process as each speaker segment is transcribed independently.">
-            <Switch name="Diarization Recording" checked={config.diarization_enabled_recording} onChange={(checked) => updateConfig('diarization_enabled_recording', checked)} />
           </ConfigField>
               </>
             )}
