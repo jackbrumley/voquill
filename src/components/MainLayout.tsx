@@ -90,7 +90,7 @@ export function MainLayout(props: MainLayoutProps) {
             config={props.config}
             sessionStatus={props.sessionStatus}
             onToggleOutputMethod={props.onToggleOutputMethod}
-            onToggleDiarization={(enabled) => props.onUpdateConfig('diarization_enabled', enabled)}
+            onToggleDiarization={(enabled) => props.onUpdateConfig('diarization_enabled_files', enabled)}
             hasUpdateAvailable={props.updateResult?.updateAvailable === true}
             onOpenUpdateModal={props.onOpenUpdateModal}
             onCopyToClipboard={props.onCopyToClipboard}

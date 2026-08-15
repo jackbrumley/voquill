@@ -20,7 +20,7 @@ interface HomePageProps {
   sessionStatus: string;
   config: {
     output_method: 'Typewriter' | 'Clipboard';
-    diarization_enabled: boolean;
+    diarization_enabled_files: boolean;
   };
   onToggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
   onToggleDiarization: (enabled: boolean) => void;
@@ -226,7 +226,7 @@ export function HomePage({
                 }}>
                   <input
                     type="checkbox"
-                    checked={config.diarization_enabled}
+                    checked={config.diarization_enabled_files}
                     onChange={(e) => { e.stopPropagation(); onToggleDiarization((e.target as HTMLInputElement).checked); }}
                     style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
                   />

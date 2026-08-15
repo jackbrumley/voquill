@@ -56,6 +56,8 @@ interface ConfigPageProps {
     max_recording_duration_minutes: number;
     engine_config: Record<string, unknown> | null;
     dictionary: string[];
+    diarization_enabled_files: boolean;
+    diarization_enabled_recording: boolean;
     post_process_enabled: boolean;
     post_process_provider: 'Local' | 'API';
     post_process_engine: string;
@@ -598,6 +600,10 @@ padding: '12px 16px',
               min={1}
               max={60}
             />
+          </ConfigField>
+
+          <ConfigField label="Differentiate Voices in Recordings" description="Detect and label different speakers in live recordings. When enabled, the recording takes slightly longer to process as each speaker segment is transcribed independently.">
+            <Switch name="Diarization Recording" checked={config.diarization_enabled_recording} onChange={(checked) => updateConfig('diarization_enabled_recording', checked)} />
           </ConfigField>
               </>
             )}

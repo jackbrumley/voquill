@@ -28,7 +28,8 @@ export interface Config {
   post_process_api_key: string;
   post_process_api_model: string;
   post_process_prompt: string;
-  diarization_enabled: boolean;
+  diarization_enabled_files: boolean;
+  diarization_enabled_recording: boolean;
   shortcuts_token?: string;
   input_token?: string;
 }

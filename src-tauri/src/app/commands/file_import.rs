@@ -71,7 +71,7 @@ pub async fn transcribe_audio_file(
     );
 
     // ── Transcription: per-segment or full-file ──
-    let result = if current_config.diarization_enabled {
+    let result = if current_config.diarization_enabled_files {
         if let Ok(meta) = std::fs::metadata(&path) {
             let ext = std::path::Path::new(&path)
                 .extension()

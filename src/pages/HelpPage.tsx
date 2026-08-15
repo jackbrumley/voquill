@@ -77,7 +77,7 @@ export function HelpPage({ config, modelStatus, isSystemManagedShortcut }: HelpP
               <span style={{ color: tokens.colors.accentPrimary, fontWeight: 800, fontFamily: tokens.typography.fontMono, fontSize: tokens.typography.sizeSm }}>
                 •
               </span>
-              <span>Enable "Differentiate voices" on the Home tab to label each speaker in the transcription.</span>
+              <span>Enable "Differentiate voices" on the file upload or in Settings under Transcription to label speakers in imported files. Enable it in Settings under Transcription for in-app recordings (may be slower).</span>
             </li>
           </ul>
         </Card>

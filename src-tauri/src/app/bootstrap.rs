@@ -279,7 +279,7 @@ pub fn spawn_post_process_warmup(
 /// Spawned asynchronously at startup so it's ready before the user's first
 /// file import, avoiding the ~2s lazy-start delay on first use.
 pub fn spawn_python_runner_prewarm(app_handle: &tauri::AppHandle, config: &Config) {
-    if !config.diarization_enabled {
+    if !config.diarization_enabled_files {
         return;
     }
     let app_handle = app_handle.clone();
