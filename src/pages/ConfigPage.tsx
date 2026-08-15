@@ -7,6 +7,7 @@ import { Switch } from '../components/Switch.tsx';
 import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
 import { Button } from '../components/Button.tsx';
 import { NumberField } from '../components/NumberField.tsx';
+import { SliderField } from '../components/SliderField.tsx';
 import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
 import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
 import { SelectField } from '../components/SelectField.tsx';
@@ -58,6 +59,7 @@ interface ConfigPageProps {
     dictionary: string[];
     diarization_enabled_files: boolean;
     diarization_enabled_recording: boolean;
+    diarization_cluster_threshold: number;
     post_process_enabled: boolean;
     post_process_provider: 'Local' | 'API';
     post_process_engine: string;
@@ -586,6 +588,25 @@ padding: '12px 16px',
           <ConfigField label="Differentiate Voices in Recordings" description="Detect and label different speakers in live recordings. When enabled, the recording takes slightly longer to process as each speaker segment is transcribed independently.">
             <Switch name="Diarization Recording" checked={config.diarization_enabled_recording} onChange={(checked) => updateConfig('diarization_enabled_recording', checked)} />
           </ConfigField>
+
+          {(config.diarization_enabled_recording || config.diarization_enabled_files) && (
+            <ConfigField label="Voice Distinctiveness" description="Higher values merge similar voices (fewer speaker labels); lower values detect more distinct voices. Adjust if you're seeing too many or too few speakers.">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+                <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, textAlign: 'left' }}>
+                  {Math.round(config.diarization_cluster_threshold * 100)}%
+                </div>
+                <SliderField
+                  value={config.diarization_cluster_threshold}
+                  min={0.3}
+                  max={0.95}
+                  step={0.05}
+                  onChange={(value) => updateConfig('diarization_cluster_threshold', value)}
+                  ariaLabel="Voice distinctiveness"
+                  style={{ margin: `${tokens.spacing.sm} 0` }}
+                />
+              </div>
+            </ConfigField>
+          )}
 
           <ConfigField label="Post-roll (ms)" description="Extra audio (in milliseconds) captured after releasing the hotkey. Helps prevent the last sentence from being cut off, especially with API models.">
             <NumberField

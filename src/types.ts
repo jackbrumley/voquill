@@ -30,6 +30,7 @@ export interface Config {
   post_process_prompt: string;
   diarization_enabled_files: boolean;
   diarization_enabled_recording: boolean;
+  diarization_cluster_threshold: number;
   shortcuts_token?: string;
   input_token?: string;
 }

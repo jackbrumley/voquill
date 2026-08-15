@@ -6,6 +6,8 @@ pub const INPUT_SENSITIVITY_MIN: f32 = 0.1;
 pub const INPUT_SENSITIVITY_MAX: f32 = 2.0;
 pub const MAX_RECORDING_DURATION_MINUTES_MIN: u64 = 1;
 pub const MAX_RECORDING_DURATION_MINUTES_MAX: u64 = 60;
+pub const DIARIZATION_CLUSTER_THRESHOLD_MIN: f32 = 0.3;
+pub const DIARIZATION_CLUSTER_THRESHOLD_MAX: f32 = 0.95;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum OutputMethod {
@@ -102,11 +104,17 @@ pub struct Config {
     pub diarization_enabled_files: bool,
     #[serde(default)]
     pub diarization_enabled_recording: bool,
+    #[serde(default = "default_diarization_cluster_threshold")]
+    pub diarization_cluster_threshold: f32,
 }
 
 impl Config {
     pub fn normalize(&mut self) {
         self.normalize_input_sensitivity();
+        self.diarization_cluster_threshold = self.diarization_cluster_threshold.clamp(
+            DIARIZATION_CLUSTER_THRESHOLD_MIN,
+            DIARIZATION_CLUSTER_THRESHOLD_MAX,
+        );
         self.max_recording_duration_minutes = self.max_recording_duration_minutes.clamp(
             MAX_RECORDING_DURATION_MINUTES_MIN,
             MAX_RECORDING_DURATION_MINUTES_MAX,
@@ -196,6 +204,10 @@ fn default_max_recording_duration_minutes() -> u64 {
     10
 }
 
+fn default_diarization_cluster_threshold() -> f32 {
+    0.7
+}
+
 fn normalize_legacy_portal_hotkey(hotkey: &str) -> Option<String> {
     let trimmed = hotkey.trim();
     let lower = trimmed.to_lowercase();
@@ -270,6 +282,7 @@ impl Default for Config {
             post_process_prompt: default_post_process_prompt(),
             diarization_enabled_files: false,
             diarization_enabled_recording: false,
+            diarization_cluster_threshold: default_diarization_cluster_threshold(),
         }
     }
 }
@@ -333,14 +346,15 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     normalized_config.normalize();
     let config_str = serde_json::to_string_pretty(&normalized_config)?;
     log_info!(
-        "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, recording_logs={}, input_sensitivity={:.2}",
+        "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, recording_logs={}, input_sensitivity={:.2}, diarization_cluster_threshold={:.2}",
         normalized_config.transcription_mode,
         normalized_config.local_engine,
         normalized_config.local_model_size,
         normalized_config.hotkey,
         normalized_config.audio_device,
         normalized_config.enable_recording_logs,
-        normalized_config.input_sensitivity
+        normalized_config.input_sensitivity,
+        normalized_config.diarization_cluster_threshold
     );
 
     fs::write(&config_path, config_str)?;

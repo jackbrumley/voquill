@@ -14,6 +14,7 @@ import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 import { useEffect, useState } from 'preact/hooks';
 import type { Segment } from '../types.ts';
+import { getSpeakerColor } from '../speakerColors.ts';
 
 interface HomePageProps {
   appVersion: string;
@@ -109,14 +110,6 @@ export function HomePage({
       importError.value = `Transcription failed: ${e}`;
       importStatus.value = 'error';
     }
-  };
-
-  const speakerColors = ['#43b581', '#faa61a', '#7289da', '#f04747', '#b9bbbe'];
-
-  const getSpeakerColor = (speaker: string | null): string => {
-    if (!speaker) return tokens.colors.textPrimary;
-    const num = speaker === 'Person 1' ? 0 : speaker === 'Person 2' ? 1 : speaker === 'Person 3' ? 2 : speaker === 'Person 4' ? 3 : 4;
-    return speakerColors[num % speakerColors.length];
   };
 
   const copyLabeledText = () => {

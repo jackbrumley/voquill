@@ -14,7 +14,7 @@ const RUNNER_PORT_START: u16 = 6051;
 const RUNNER_PORT_END: u16 = 6070;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
 const HEALTH_RETRY_INTERVAL: Duration = Duration::from_millis(500);
-const RUNNER_VERSION: &str = "1.0.9";
+const RUNNER_VERSION: &str = "1.0.10";
 const PYTHON_VERSION: &str = "20250115";
 const PYTHON_DOWNLOAD_BASE: &str =
     "https://github.com/astral-sh/python-build-standalone/releases/download";
@@ -60,8 +60,12 @@ impl PythonRunner {
         &self.base_url
     }
 
-    pub async fn diarize(&self, audio_path: &str) -> Result<DiarizationResult, String> {
-        client::diarize(&self.base_url, audio_path).await
+    pub async fn diarize(
+        &self,
+        audio_path: &str,
+        cluster_threshold: f32,
+    ) -> Result<DiarizationResult, String> {
+        client::diarize(&self.base_url, audio_path, cluster_threshold).await
     }
 }
 
@@ -444,9 +448,16 @@ mod client {
         provider: String,
     }
 
-    pub async fn diarize(base_url: &str, audio_path: &str) -> Result<DiarizationResult, String> {
+    pub async fn diarize(
+        base_url: &str,
+        audio_path: &str,
+        cluster_threshold: f32,
+    ) -> Result<DiarizationResult, String> {
         let url = format!("{}/diarize", base_url);
-        let body = serde_json::json!({ "audio_path": audio_path });
+        let body = serde_json::json!({
+            "audio_path": audio_path,
+            "cluster_threshold": cluster_threshold,
+        });
 
         let client = reqwest::Client::new();
         let response = client

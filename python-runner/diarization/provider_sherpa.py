@@ -101,12 +101,15 @@ def is_available() -> bool:
         return False
 
 
-def run(audio_path: str, runner_base_dir: str) -> DiarizeResponse:
+def run(audio_path: str, runner_base_dir: str, cluster_threshold: float = 0.5) -> DiarizeResponse:
     """
     Run speaker diarization on audio_path using sherpa-onnx.
 
     runner_base_dir is the python-runner root directory
     (where .version lives, and where models/ is created).
+
+    cluster_threshold controls how aggressively speakers are merged:
+    a larger threshold produces fewer speakers, a smaller one more.
     """
     import sherpa_onnx
     import numpy as np
@@ -125,7 +128,7 @@ def run(audio_path: str, runner_base_dir: str) -> DiarizeResponse:
             model=embedding_model,
         ),
         clustering=sherpa_onnx.FastClusteringConfig(
-            threshold=0.5,
+            threshold=cluster_threshold,
         ),
         min_duration_on=0.3,
         min_duration_off=0.5,

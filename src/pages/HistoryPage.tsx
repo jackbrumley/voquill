@@ -1,6 +1,7 @@
 import { IconCopy, IconSearch, IconX } from '@tabler/icons-preact';
 import { tokens } from '../design-tokens.ts';
 import type { HistoryItem } from '../types.ts';
+import { getSpeakerColor } from '../speakerColors.ts';
 
 interface HistoryPageProps {
   history: HistoryItem[];
@@ -45,13 +46,7 @@ function highlightText(text: string, query: string): HighlightSegment[] {
   return segments.length > 0 ? segments : [{ text, highlighted: false }];
 }
 
-const speakerColors = ['#43b581', '#faa61a', '#7289da', '#f04747', '#b9bbbe'];
 
-function getSpeakerColor(speaker: string | null): string {
-  if (!speaker) return tokens.colors.textPrimary;
-  const num = speaker === 'Person 1' ? 0 : speaker === 'Person 2' ? 1 : speaker === 'Person 3' ? 2 : speaker === 'Person 4' ? 3 : 4;
-  return speakerColors[num % speakerColors.length];
-}
 
 function renderItemText(item: HistoryItem, searchQuery: string) {
   const segments = item.segments;
