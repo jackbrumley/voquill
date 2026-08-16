@@ -439,6 +439,13 @@ async fn record_and_transcribe_inner(
         &current_config.custom_filler_words,
     );
 
+    // Save the raw (pre-post-process) text for history display
+    let raw_text = if current_config.post_process_enabled {
+        Some(text.clone())
+    } else {
+        None
+    };
+
     let text = if !text.trim().is_empty() && current_config.post_process_enabled {
         crate::log_info!("Post-processing transcription...");
         let post_process_factory = app_handle
@@ -512,7 +519,8 @@ async fn record_and_transcribe_inner(
     }
 
     if !output_text.trim().is_empty() {
-        let _ = history::add_history_item(&output_text, None, Some(history_limit));
+        let _ =
+            history::add_history_item(&output_text, None, Some(history_limit), raw_text.as_deref());
         if let Some(window) = app_handle.get_webview_window("main") {
             let _ = window.emit("history-updated", ());
         }

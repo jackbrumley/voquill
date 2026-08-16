@@ -227,6 +227,13 @@ pub async fn transcribe_audio_file(
         &current_config.custom_filler_words,
     );
 
+    // Save the raw (pre-post-process) text for history display
+    let file_raw_text = if current_config.post_process_enabled {
+        Some(cleaned_text.clone())
+    } else {
+        None
+    };
+
     // ── Post-processing ──
     let result_text = if !cleaned_text.trim().is_empty() && current_config.post_process_enabled {
         crate::log_info!("Post-processing file transcription...");
@@ -292,6 +299,7 @@ pub async fn transcribe_audio_file(
         &result.text,
         segments_json.as_deref(),
         Some(current_config.history_limit),
+        file_raw_text.as_deref(),
     ) {
         crate::log_warn!("Failed to save history: {}", e);
     }

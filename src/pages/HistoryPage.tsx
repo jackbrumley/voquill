@@ -1,4 +1,5 @@
 import { IconCopy, IconSearch, IconX } from '@tabler/icons-preact';
+import { useSignal } from '@preact/signals';
 import { tokens } from '../design-tokens.ts';
 import type { HistoryItem } from '../types.ts';
 import { getSpeakerColor } from '../speakerColors.ts';
@@ -48,10 +49,11 @@ function highlightText(text: string, query: string): HighlightSegment[] {
 
 
 
-function renderItemText(item: HistoryItem, searchQuery: string) {
+function renderItemText(item: HistoryItem, searchQuery: string, isRaw: boolean) {
+  const text = isRaw && item.raw_text ? item.raw_text : item.text;
   const segments = item.segments;
 
-  if (segments && segments.length > 0) {
+  if (segments && segments.length > 0 && !isRaw) {
     // Render with speaker labels
     return segments.map((seg, i) => (
       <div key={i} style={{ marginBottom: '2px' }}>
@@ -75,16 +77,28 @@ function renderItemText(item: HistoryItem, searchQuery: string) {
 
   // Fall back to plain text
   if (searchQuery) {
-    return highlightText(item.text, searchQuery).map((seg, i) =>
+    return highlightText(text, searchQuery).map((seg, i) =>
       seg.highlighted
         ? <span key={i} style={{ background: 'rgba(255, 213, 0, 0.2)', color: '#ffd700', borderRadius: '3px', padding: '0 2px' }}>{seg.text}</span>
         : <span key={i}>{seg.text}</span>
     );
   }
-  return item.text;
+  return text;
 }
 
 export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipboard, onSearch }: HistoryPageProps) {
+  const showRaw = useSignal<Set<number>>(new Set());
+
+  const toggleRaw = (id: number) => {
+    const next = new Set(showRaw.value);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    showRaw.value = next;
+  };
+
   const displayItems = searchQuery.trim() ? searchResults : history;
 
   const inputBaseStyle: Record<string, string | number> = {
@@ -157,15 +171,35 @@ export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipb
               {searchQuery.trim() ? 'No transcriptions match your search.' : 'No transcriptions yet.'}
             </p>
           ) : (
-            displayItems.map((item) => (
+            displayItems.map((item) => {
+              const isRaw = showRaw.value.has(item.id);
+              const displayText = isRaw && item.raw_text ? item.raw_text : item.text;
+              return (
               <div key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
                 <div style={{ color: '#f1f4f8', fontSize: tokens.typography.sizeSm, lineHeight: 1.45 }}>
-                  {renderItemText(item, searchQuery.trim())}
+                  {renderItemText(item, searchQuery.trim(), isRaw)}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', marginTop: '4px', gap: tokens.spacing.sm }}>
                   <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted }}>{new Date(item.timestamp).toLocaleString()}</div>
+                  {item.raw_text && (
+                    <button
+                      onClick={() => toggleRaw(item.id)}
+                      title={isRaw ? 'Show cleaned' : 'Show original'}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: tokens.typography.sizeXs,
+                        background: isRaw ? 'rgba(100, 200, 255, 0.15)' : 'rgba(255,255,255,0.06)',
+                        border: `1px solid ${isRaw ? 'rgba(100, 200, 255, 0.3)' : 'rgba(255,255,255,0.1)'}`,
+                        borderRadius: '4px',
+                        color: isRaw ? '#64c8ff' : tokens.colors.textMuted,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {isRaw ? 'Cleaned' : 'Original'}
+                    </button>
+                  )}
                   <button
-                    onClick={() => onCopyToClipboard(item.text)}
+                    onClick={() => onCopyToClipboard(displayText)}
                     title="Copy to clipboard"
                     style={{
                       marginLeft: 'auto',
@@ -195,7 +229,8 @@ export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipb
                   </button>
                 </div>
               </div>
-            ))
+            );
+          })
           )}
         </div>
       </div>

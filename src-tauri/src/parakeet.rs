@@ -10,7 +10,7 @@ use tokio_tungstenite::connect_async;
 
 const BINARY_VERSION: &str = "1.13.4";
 const PORT_START: u16 = 6006;
-const PORT_END: u16 = 6029;
+const PORT_END: u16 = 6080;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 const TRANSCRIBE_TIMEOUT: Duration = Duration::from_secs(300);
 

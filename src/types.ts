@@ -67,6 +67,7 @@ export interface HistoryItem {
   text: string;
   timestamp: string;
   segments?: Segment[] | null;
+  raw_text?: string | null;
 }
 
 export interface Segment {

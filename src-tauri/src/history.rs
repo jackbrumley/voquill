@@ -13,6 +13,8 @@ pub struct HistoryItem {
     pub timestamp: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub segments: Option<Vec<Segment>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_text: Option<String>,
 }
 
 fn db_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
@@ -36,6 +38,10 @@ fn open_db() -> Result<Connection, Box<dyn std::error::Error>> {
 
     // Migrate: add segments column if missing (pre-1.4.3 databases)
     conn.execute_batch("ALTER TABLE history ADD COLUMN segments TEXT")
+        .ok();
+
+    // Migrate: add raw_text column if missing (pre-1.6.0 databases)
+    conn.execute_batch("ALTER TABLE history ADD COLUMN raw_text TEXT")
         .ok();
 
     conn.execute_batch(
@@ -127,12 +133,13 @@ pub fn add_history_item(
     text: &str,
     segments: Option<&str>,
     limit: Option<usize>,
+    raw_text: Option<&str>,
 ) -> Result<HistoryItem, Box<dyn std::error::Error>> {
     let conn = global_db().lock().unwrap();
     let timestamp = Utc::now().to_rfc3339();
     conn.execute(
-        "INSERT INTO history (text, timestamp, segments) VALUES (?1, ?2, ?3)",
-        params![text, timestamp, segments],
+        "INSERT INTO history (text, timestamp, segments, raw_text) VALUES (?1, ?2, ?3, ?4)",
+        params![text, timestamp, segments, raw_text],
     )?;
     let id = conn.last_insert_rowid() as u64;
 
@@ -153,13 +160,15 @@ pub fn add_history_item(
         text: text.to_string(),
         timestamp,
         segments: segments.and_then(|s| serde_json::from_str(s).ok()),
+        raw_text: raw_text.map(|s| s.to_string()),
     })
 }
 
 pub fn load_history(limit: usize) -> Result<Vec<HistoryItem>, Box<dyn std::error::Error>> {
     let conn = global_db().lock().unwrap();
-    let mut stmt =
-        conn.prepare("SELECT id, text, timestamp, segments FROM history ORDER BY id DESC LIMIT ?")?;
+    let mut stmt = conn.prepare(
+        "SELECT id, text, timestamp, segments, raw_text FROM history ORDER BY id DESC LIMIT ?",
+    )?;
     let items = stmt
         .query_map(params![limit as i64], |row| {
             Ok(HistoryItem {
@@ -169,6 +178,7 @@ pub fn load_history(limit: usize) -> Result<Vec<HistoryItem>, Box<dyn std::error
                 segments: row
                     .get::<_, Option<String>>(3)?
                     .and_then(|s| serde_json::from_str(&s).ok()),
+                raw_text: row.get::<_, Option<String>>(4)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -185,7 +195,7 @@ pub fn search_history(
     }
     let conn = global_db().lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT h.id, h.text, h.timestamp, h.segments
+        "SELECT h.id, h.text, h.timestamp, h.segments, h.raw_text
          FROM history_fts f
          JOIN history h ON h.id = f.rowid
          WHERE history_fts MATCH ?1
@@ -201,6 +211,7 @@ pub fn search_history(
                 segments: row
                     .get::<_, Option<String>>(3)?
                     .and_then(|s| serde_json::from_str(&s).ok()),
+                raw_text: row.get::<_, Option<String>>(4)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;

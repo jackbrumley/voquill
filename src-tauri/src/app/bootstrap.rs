@@ -166,7 +166,9 @@ pub fn run_setup(
         .icon(app.default_window_icon().unwrap().clone())
         .on_menu_event(|app_handle, event| match event.id.as_ref() {
             "quit" => {
-                std::process::exit(0);
+                let state = app_handle.state::<AppState>();
+                state.cleanup();
+                app_handle.exit(0);
             }
             "open" => {
                 if let Some(window) = app_handle.get_webview_window("main") {

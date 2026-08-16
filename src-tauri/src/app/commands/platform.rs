@@ -312,6 +312,8 @@ pub async fn minimize_to_tray_or_taskbar(app_handle: tauri::AppHandle) -> Result
 
 #[tauri::command]
 pub async fn quit_application(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let state = app_handle.state::<AppState>();
+    state.cleanup();
     app_handle.exit(0);
     Ok(())
 }
