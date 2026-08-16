@@ -57,13 +57,23 @@ Setup EXE installs per-user (no admin). MSI is a system-wide install intended fo
 
 ## Features
 
-- **Private by Default** - High-performance offline transcription ensures total data sovereignty.
-- **Global Push-to-Talk** - Hold a customizable shortcut to record and release to transcribe instantly.
-- **Universal Input** - Transcribed text is injected directly into your active window as keystrokes.
-- **Windows and Linux Support** - Native support for Windows and Linux desktops.
-- **Full Wayland Support** - Uses XDG Portals for global shortcuts, input simulation, and microphone access. Works on GNOME, KDE, and other Wayland compositors.
-- **Minimalist Design** - An unobtrusive overlay provides status updates without getting in your way.
-- **History Management** - Quickly access, copy, and manage your previous transcriptions.
+- **Private by Default** — Offline transcription via Whisper.cpp with Vulkan GPU acceleration. Your voice never leaves your device. No accounts, no cloud, no subscriptions.
+- **Push-to-Talk** — Hold-to-Talk and Toggle modes. Customizable hotkey with capture UI. Press the hotkey during transcription to cancel.
+- **Two Output Methods** — Typewriter (direct keystroke simulation via Wayland Portal / X11 XTest / Windows SendInput) or Clipboard with optional auto-paste via Ctrl+V.
+- **Custom Dictionary** — Add names, jargon, or technical terms to improve transcription accuracy.
+- **Regex Filler Word Removal** — Strips "uh", "umm", "hmm" instantly. No LLM needed. Customizable word list.
+- **LLM Post-Processing** — Local (llama-server GGUF models) or cloud API (OpenAI-compatible). Multiple saved prompts. GPU acceleration with graceful fallback.
+- **Speaker Diarization** — Detect and label different speakers in recordings and live dictation. Configurable clustering threshold.
+- **Audio Noise Reduction** — Reduce background noise via spectral gating before transcription. Configurable strength slider.
+- **Audio File Import** — Drag-and-drop or file picker. Supports WAV, MP3, M4A, OGG, FLAC. Full diarization and post-processing pipeline.
+- **History with Full-Text Search** — SQLite-backed with FTS5 search. Configurable limit with auto-prune.
+- **Full Wayland Support** — Uses XDG Portals for global shortcuts, input emulation, microphone access, and overlay. Works on GNOME, KDE, and other Wayland compositors. No external tools needed.
+- **Windows and Linux Support** — Native on both platforms with display server auto-detection.
+- **Minimalist Overlay** — Transparent status overlay during recording and transcription. Platform-native positioning (Layer Shell on Wayland).
+- **CLI** — `--start-hidden` to launch to system tray. More flags coming.
+- **Engine Flexibility** — Local Whisper (CPU/GPU), Parakeet/sherpa-onnx, or any OpenAI-compatible API.
+
+> See the full feature breakdown with planned items at [docs/FEATURES.md](docs/FEATURES.md).
 
 ---
 
@@ -115,8 +125,8 @@ On Windows, all Tauri/Cargo build artifacts are written to `C:\vb` to avoid long
 
 ## Known Issues
 
-- Linux input is currently limited to standard English characters. Non-English characters and broader Unicode support are planned.
-- Language selection acts as a transcription hint and may not work.
+- Language selection acts as a transcription hint and may not be reliably applied by all engines.
+- Unicode and non-English keyboard input is best-effort; the Typewriter mode normalizes common Unicode characters (curly quotes, em-dashes, ellipses) to ASCII equivalents.
 - AppImage is a cross-distro fallback, not the primary support target; desktop/portal integration can vary compared to distro-native `.deb`/`.rpm` installs.
 - Fedora AppImage builds can fail due to linuxdeploy strip incompatibility with RELR system libraries.
 
