@@ -156,15 +156,24 @@ fn paste_via_clipboard_shortcut(
     let v_key = resolve_keysym_keycode(keyboard_map, 'v' as u32)
         .ok_or_else(|| "Failed to resolve keycode for 'v'".to_string())?;
 
+    // Safety clear: release Ctrl first to clear any latent modifier state
+    send_key_event(connection, keyboard_map.ctrl_keycode, false)?;
+    connection.flush()?;
+    thread::sleep(Duration::from_millis(10));
+
+    // Press Ctrl and wait for X server to register modifier
     send_key_event(connection, keyboard_map.ctrl_keycode, true)?;
     connection.flush()?;
     thread::sleep(Duration::from_millis(50));
 
+    // Press and release V
     send_key_event(connection, v_key.keycode, true)?;
     send_key_event(connection, v_key.keycode, false)?;
     connection.flush()?;
     thread::sleep(Duration::from_millis(50));
 
+    // Release Ctrl (twice for safety to prevent stuck modifier)
+    send_key_event(connection, keyboard_map.ctrl_keycode, false)?;
     send_key_event(connection, keyboard_map.ctrl_keycode, false)?;
     connection.flush()?;
     Ok(())

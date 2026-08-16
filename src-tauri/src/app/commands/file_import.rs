@@ -233,7 +233,12 @@ pub async fn transcribe_audio_file(
         let post_process_factory = app_state.post_process_factory.clone();
         match post_process_factory.get_service(&current_config).await {
             Ok(processor) => match processor
-                .post_process(&cleaned_text, &current_config.resolve_post_process_prompt())
+                .post_process(
+                    &cleaned_text,
+                    &current_config.resolve_post_process_prompt(),
+                    &current_config.resolve_user_prompt_template(),
+                    current_config.resolve_max_output_tokens(),
+                )
                 .await
             {
                 Ok(cleaned) => {

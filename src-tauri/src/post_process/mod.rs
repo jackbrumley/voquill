@@ -19,12 +19,12 @@ impl std::error::Error for PostProcessError {}
 
 #[async_trait]
 pub trait PostProcessService: Send + Sync {
-    /// Cleans `text` using `system_prompt`. The prompt is request-scoped:
-    /// editing it never requires rebuilding the underlying service.
     async fn post_process(
         &self,
         text: &str,
         system_prompt: &str,
+        user_prompt_template: &str,
+        max_output_tokens: u32,
     ) -> Result<String, PostProcessError>;
     fn service_name(&self) -> &'static str;
 }

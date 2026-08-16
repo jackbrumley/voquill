@@ -449,7 +449,12 @@ async fn record_and_transcribe_inner(
             Ok(processor) => {
                 crate::app::status::emit_status_to_frontend("Processing").await;
                 match processor
-                    .post_process(&text, &current_config.resolve_post_process_prompt())
+                    .post_process(
+                        &text,
+                        &current_config.resolve_post_process_prompt(),
+                        &current_config.resolve_user_prompt_template(),
+                        current_config.resolve_max_output_tokens(),
+                    )
                     .await
                 {
                     Ok(cleaned) => {

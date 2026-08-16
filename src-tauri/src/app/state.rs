@@ -57,6 +57,63 @@ pub struct HotkeyBindingState {
     pub active_trigger: Option<String>,
 }
 
+impl AppState {
+    /// Terminate all child processes and release OS resources synchronously.
+    /// Called before app exit so children (Python runner, llama-server, etc.)
+    /// are killed and their ports freed before the process terminates.
+    pub fn cleanup(&self) {
+        crate::log_info!("AppState: cleaning up child processes");
+
+        // 1. Kill Python runner (uvicorn) — extracting from Arc drops the
+        //    Child handle, which triggers kill_on_drop(true) → SIGKILL.
+        {
+            let mut guard = self.python_runner.lock().unwrap();
+            if guard.take().is_some() {
+                crate::log_info!("Python runner terminated");
+            }
+        }
+
+        // 2. Kill post-process sidecar (llama-server).
+        self.post_process_factory.invalidate_local();
+
+        // 3. Stop the persistent audio engine.
+        {
+            let mut guard = self.audio_engine.lock().unwrap();
+            if guard.take().is_some() {
+                crate::log_info!("Audio engine stopped");
+            }
+        }
+
+        // 4. Stop any playback stream.
+        {
+            let mut guard = self.playback_stream.lock().unwrap();
+            if guard.take().is_some() {
+                crate::log_info!("Playback stream stopped");
+            }
+        }
+
+        // 5. Cancel any in-flight dictation session.
+        {
+            let mut guard = self.active_session.lock().unwrap();
+            *guard = None;
+        }
+
+        // 6. Cancel Wayland portal sessions (Linux).
+        #[cfg(target_os = "linux")]
+        {
+            if let Some(sender) = self.hotkey_engine_cancel.lock().unwrap().take() {
+                let _ = sender.send(());
+            }
+            if let Some(sender) = self.wayland_input_cancel.lock().unwrap().take() {
+                let _ = sender.send(());
+            }
+            self.wayland_input_sender.lock().unwrap().take();
+        }
+
+        crate::log_info!("AppState: cleanup complete");
+    }
+}
+
 impl Default for AppState {
     fn default() -> Self {
         Self {

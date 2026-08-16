@@ -2,6 +2,8 @@ export interface PostProcessPrompt {
   id: string;
   name: string;
   prompt: string;
+  user_prompt_template?: string | null;
+  max_output_tokens?: number | null;
 }
 
 export interface Config {
@@ -34,6 +36,8 @@ export interface Config {
   post_process_api_key: string;
   post_process_api_model: string;
   post_process_prompt: string;
+  post_process_user_prompt_template: string;
+  post_process_max_output_tokens: number;
   post_process_prompts: PostProcessPrompt[];
   post_process_selected_prompt_id: string | null;
   filler_word_removal_enabled: boolean;

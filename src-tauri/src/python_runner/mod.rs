@@ -9,9 +9,8 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
-
-const RUNNER_PORT_START: u16 = 6051;
-const RUNNER_PORT_END: u16 = 6070;
+const RUNNER_PORT_START: u16 = 6201;
+const RUNNER_PORT_END: u16 = 6350;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
 const HEALTH_RETRY_INTERVAL: Duration = Duration::from_millis(500);
 const RUNNER_VERSION: &str = "1.1.0";

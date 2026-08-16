@@ -9,8 +9,8 @@ use tokio::process::Child;
 use tokio::sync::Mutex;
 
 const BINARY_VERSION: &str = "b10331";
-const PORT_START: u16 = 6030;
-const PORT_END: u16 = 6050;
+const PORT_START: u16 = 6101;
+const PORT_END: u16 = 6200;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -137,13 +137,16 @@ impl PostProcessService for SidecarPostProcess {
         &self,
         text: &str,
         system_prompt: &str,
+        user_prompt_template: &str,
+        max_output_tokens: u32,
     ) -> Result<String, PostProcessError> {
-        let messages = super::prompt::build_post_process_messages(text, system_prompt);
+        let messages =
+            super::prompt::build_post_process_messages(text, system_prompt, user_prompt_template);
 
         let body = serde_json::json!({
             "model": self.model_size,
             "messages": messages,
-            "max_tokens": super::prompt::max_output_tokens(text),
+            "max_tokens": super::prompt::max_output_tokens(text, max_output_tokens),
             "temperature": 0.0,
         });
 
