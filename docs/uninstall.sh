@@ -89,7 +89,9 @@ BINARY_PATHS=(
 # Known desktop integration files
 DESKTOP_FILES=(
   "/usr/share/applications/voquill.desktop"
+  "/usr/share/applications/org.voquill.app.desktop"
   "${HOME}/.local/share/applications/voquill.desktop"
+  "${HOME}/.local/share/applications/org.voquill.app.desktop"
 )
 
 ICON_DIRS=(
@@ -267,6 +269,16 @@ if optional_cmd gtk-update-icon-cache; then
     log "Refreshing user icon cache"
     gtk-update-icon-cache -f -t "${HOME}/.local/share/icons/hicolor" >/dev/null 2>&1 || true
   fi
+fi
+
+# Rebuild KDE's menu database so removed .desktop entries disappear from the
+# application launcher / start menu immediately.
+if optional_cmd kbuildsycoca6; then
+  log "Rebuilding KDE menu cache"
+  kbuildsycoca6 --noincremental >/dev/null 2>&1 || true
+elif optional_cmd kbuildsycoca5; then
+  log "Rebuilding KDE menu cache"
+  kbuildsycoca5 --noincremental >/dev/null 2>&1 || true
 fi
 
 log "Uninstall complete"
