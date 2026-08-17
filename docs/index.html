@@ -18,10 +18,21 @@ container_class: home-container
   <h1>FOSS Voquill</h1>
   <p class="tagline">Truly free &amp; open-source offline dictation that types into any app. Voice-to-text runs locally so your data never leaves your device.</p>
   <div class="platform-support">
-    <span class="platform-label">Linux (Wayland)</span>
+    <span class="platform-label" data-platform="linux">Linux</span>
     <div class="platform-divider"></div>
-    <span class="platform-label">Windows</span>
+    <span class="platform-label" data-platform="windows">Windows</span>
   </div>
+
+  <div class="install-code-wrapper">
+    <pre class="install-code-block" id="install-code"></pre>
+    <button class="install-copy-btn" id="install-copy-btn" aria-label="Copy to clipboard">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </svg>
+    </button>
+  </div>
+  <div class="install-variants" id="install-variants"></div>
 </header>
 
 <hr class="section-divider">
@@ -31,8 +42,8 @@ container_class: home-container
     <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn">
       <img src="{{ '/download.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
       <span class="btn-text">
-        <span class="btn-title">Download</span>
-        <span class="btn-subtitle">Latest release</span>
+        <span class="btn-title">Releases</span>
+        <span class="btn-subtitle">GitHub releases</span>
       </span>
     </a>
   </div>
@@ -55,7 +66,7 @@ container_class: home-container
 </div>
 
 <p class="how-it-works">
-  Voquill listens while you hold push-to-talk, transcribes when you release, and writes the result exactly where your cursor is. It types like a keyboard, so it works anywhere and everywhere across your system. Free and open source with Windows and Linux support, it runs locally on your device so your voice and transcriptions stay private.
+  Voquill turns your voice into text right where your cursor is. Use hold-to-talk or toggle mode to dictate, and it types into any app — emails, docs, browsers, editors. Free and open source with Windows and Linux support, it runs entirely on your device so your voice stays private.
 </p>
 
 <div class="hero-container">
@@ -74,6 +85,36 @@ container_class: home-container
   <a href="{{ '/screenshots.html' | relative_url }}" class="btn btn-secondary">Screenshots</a>
 </div>
 
+<section class="feature-list">
+  <h2 class="feature-list-heading">Features</h2>
+  <ul>
+    <li>
+      <strong>Post-Processing &amp; Polish</strong>
+      <span class="feature-desc">Filler-word removal strips "uh", "umm", "hmm" instantly. Optional LLM post-processing (local or cloud) turns rough speech into clean, publication-ready text.</span>
+    </li>
+    <li>
+      <strong>Local &amp; Private</strong>
+      <span class="feature-desc">Runs entirely on-device with Whisper.cpp GPU acceleration. Voice data never leaves your computer.</span>
+    </li>
+    <li>
+      <strong>Flexible Transcription</strong>
+      <span class="feature-desc">Local Whisper (CPU/GPU), Parakeet/sherpa-onnx, or any OpenAI-compatible API.</span>
+    </li>
+    <li>
+      <strong>Speaker Diarization</strong>
+      <span class="feature-desc">Automatically detects and labels different speakers in live dictation and imported files.</span>
+    </li>
+    <li>
+      <strong>Audio File Import</strong>
+      <span class="feature-desc">WAV, MP3, M4A, OGG, FLAC through the full pipeline.</span>
+    </li>
+    <li>
+      <strong>Native Platform Support</strong>
+      <span class="feature-desc">Full Wayland (XDG Portals), X11, and Windows.</span>
+    </li>
+  </ul>
+</section>
+
 <section class="philosophy-grid">
   <div class="card">
     <h3>Truly Free</h3>
@@ -90,3 +131,5 @@ container_class: home-container
 </section>
 
 <p class="provenance home-provenance">FOSS Voquill is the original project, first published in July 2025 by Jack Brumley and built to give back to the open-source community.</p>
+
+<script src="{{ '/assets/install-widget.js' | relative_url }}" defer></script>

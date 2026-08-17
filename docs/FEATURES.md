@@ -1,6 +1,6 @@
 # Features
 
-Voquill is a **private, offline-first, system-wide push-to-talk dictation app** for Linux and Windows.
+Voquill is a **private, offline-first, system-wide dictation app** for Linux and Windows.
 
 ---
 

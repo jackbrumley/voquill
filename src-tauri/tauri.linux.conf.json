@@ -1,24 +1,28 @@
 {
-  "productName": "org.voquill.app",
+  "productName": "voquill",
   "bundle": {
     "linux": {
       "deb": {
         "replaces": [
           "voquill",
+          "org.voquill.app",
           "org.voquill.foss"
         ],
         "conflicts": [
           "voquill",
+          "org.voquill.app",
           "org.voquill.foss"
         ]
       },
       "rpm": {
         "obsoletes": [
           "voquill",
+          "org.voquill.app",
           "org.voquill.foss"
         ],
         "conflicts": [
           "voquill",
+          "org.voquill.app",
           "org.voquill.foss"
         ]
       }
