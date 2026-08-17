@@ -100,10 +100,16 @@ clean_old_packages() {
   local pm="$1"
   local removed=false
   for pkg in "voquill" "org.voquill.app" "org.voquill.foss"; do
-    if [[ "$pm" == "dnf" ]] && rpm -q "$pkg" >/dev/null 2>&1; then
-      log "Removing old package: ${pkg}"
-      sudo dnf remove -y "$pkg" 2>/dev/null || true
-      removed=true
+    if [[ "$pm" == "dnf" ]]; then
+      # Tauri converts dots to dashes in RPM package names, try both
+      for rpm_name in "$pkg" "${pkg//./-}"; do
+        if rpm -q "$rpm_name" >/dev/null 2>&1; then
+          log "Removing old package: ${rpm_name}"
+          sudo dnf remove -y "$rpm_name" 2>/dev/null || true
+          removed=true
+          break
+        fi
+      done
     elif [[ "$pm" == "apt" ]] && dpkg -l "$pkg" >/dev/null 2>&1; then
       log "Removing old package: ${pkg}"
       sudo apt remove -y "$pkg" 2>/dev/null || true

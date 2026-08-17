@@ -112,10 +112,17 @@ package_installed=false
 
 # Check if any package is installed
 for pkg in "${PACKAGE_NAMES[@]}"; do
-  if optional_cmd rpm && rpm -q "$pkg" >/dev/null 2>&1; then
-    package_installed=true
-    system_changes_required=true
-  elif optional_cmd dpkg && dpkg -l "$pkg" >/dev/null 2>&1; then
+  if optional_cmd rpm; then
+    # Tauri converts dots to dashes in RPM package names, try both
+    for rpm_name in "$pkg" "${pkg//./-}"; do
+      if rpm -q "$rpm_name" >/dev/null 2>&1; then
+        package_installed=true
+        system_changes_required=true
+        break
+      fi
+    done
+  fi
+  if [[ "$package_installed" != true ]] && optional_cmd dpkg && dpkg -l "$pkg" >/dev/null 2>&1; then
     package_installed=true
     system_changes_required=true
   fi
@@ -168,10 +175,17 @@ fi
 
 # Remove via package manager
 for pkg in "${PACKAGE_NAMES[@]}"; do
-  if optional_cmd rpm && rpm -q "$pkg" >/dev/null 2>&1; then
-    log "Removing RPM package: ${pkg}"
-    run_as_root dnf remove -y "$pkg" 2>/dev/null || run_as_root rpm -e "$pkg" 2>/dev/null || log "Package removal may have already been handled"
-  elif optional_cmd dpkg && dpkg -l "$pkg" >/dev/null 2>&1; then
+  if optional_cmd rpm; then
+    # Tauri converts dots to dashes in RPM package names, try both
+    for rpm_name in "$pkg" "${pkg//./-}"; do
+      if rpm -q "$rpm_name" >/dev/null 2>&1; then
+        log "Removing RPM package: ${rpm_name}"
+        run_as_root dnf remove -y "$rpm_name" 2>/dev/null || run_as_root rpm -e "$rpm_name" 2>/dev/null || log "Package removal may have already been handled"
+        break
+      fi
+    done
+  fi
+  if optional_cmd dpkg && dpkg -l "$pkg" >/dev/null 2>&1; then
     log "Removing DEB package: ${pkg}"
     run_as_root apt remove -y "$pkg" 2>/dev/null || run_as_root dpkg -r "$pkg" 2>/dev/null || log "Package removal may have already been handled"
   fi
