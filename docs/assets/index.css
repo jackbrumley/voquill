@@ -309,7 +309,6 @@ h1 {
   display: flex;
   gap: 0.3rem;
   flex-wrap: wrap;
-  min-height: 1.6rem;
   margin-top: 0.4rem;
   justify-content: center;
 }
