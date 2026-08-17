@@ -53,8 +53,8 @@ resolve_arch() {
   local arch
   arch="$(uname -m)"
   case "$arch" in
-    x86_64|amd64) printf "x86_64" ;;
-    aarch64|arm64) printf "aarch64" ;;
+    x86_64|amd64) printf "x64" ;;
+    aarch64|arm64) printf "arm64" ;;
     *) fail "unsupported architecture: $arch" ;;
   esac
 }
@@ -94,16 +94,6 @@ fetch_latest_release_tag() {
   tag="$(curl -fL --retry 3 --connect-timeout 10 -s "$api_url" | grep '"tag_name"' | head -n1 | sed 's/.*"tag_name": "\(.*\)",/\1/')"
   [[ -n "$tag" ]] || fail "could not determine latest release tag from GitHub API"
   printf "%s" "$tag"
-}
-
-fetch_asset_download_url() {
-  local tag="$1"
-  local asset_name="$2"
-  local api_url="https://api.github.com/repos/${REPO}/releases/tags/${tag}"
-  local download_url
-  download_url="$(curl -fL --retry 3 --connect-timeout 10 -s "$api_url" | grep '"name":' | grep -B1 "\"${asset_name}\"" | grep '"browser_download_url"' | sed 's/.*"browser_download_url": "\(.*\)",/\1/' | head -n1)"
-  [[ -n "$download_url" ]] || fail "could not find asset '${asset_name}' in release ${tag}"
-  printf "%s" "$download_url"
 }
 
 clean_old_packages() {
@@ -229,12 +219,12 @@ else
     package_ext="$(resolve_package_ext "$pm")"
     gh_asset_name="${BIN_NAME}-${release_tag#v}-${os}-${arch}.${package_ext}"
     log "Resolving asset: ${gh_asset_name}"
-    asset_url="$(fetch_asset_download_url "$release_tag" "$gh_asset_name")"
+    asset_url="https://github.com/${REPO}/releases/download/${release_tag}/${gh_asset_name}"
     checksum_url="${asset_url}.sha256"
   else
     gh_asset_name="${BIN_NAME}-${release_tag#v}-${os}-${arch}.AppImage"
     log "Resolving asset: ${gh_asset_name}"
-    asset_url="$(fetch_asset_download_url "$release_tag" "$gh_asset_name")"
+    asset_url="https://github.com/${REPO}/releases/download/${release_tag}/${gh_asset_name}"
     checksum_url="${asset_url}.sha256"
   fi
 fi

@@ -24,20 +24,32 @@ On a Linux machine:
 ```bash
 npm run tauri:build
 ```
-Artifacts will be in `src-tauri/target/release/bundle/deb/`, `src-tauri/target/release/bundle/rpm/`, and `src-tauri/target/release/bundle/appimage/`.
-
-Release support policy:
-- Primary supported Linux artifacts: `.deb` and `.rpm`.
-- AppImage is a compatibility fallback for other distros/environments.
-
-Note: On Fedora/RHEL hosts, AppImage bundling may fail due a linuxdeploy strip incompatibility with RELR-enabled system libraries. Build AppImage on Ubuntu/Mint/Kubuntu, or run `npm run tauri -- build --bundles deb,rpm` on Fedora.
 
 ### Windows (MSI/EXE)
 On a Windows machine:
 ```bash
 npm run tauri:build
 ```
-Artifacts will be in `src-tauri/target/release/bundle/msi/` and `src-tauri/target/release/`.
+
+### Package Release Artifacts
+
+After building on each platform, run the packaging script to rename the build
+outputs to the standard naming convention and generate checksums:
+
+```bash
+node scripts/package-release.mjs
+```
+
+Renamed artifacts and `.sha256` checksum files are written to `release-artifacts/`
+in the project root. The script skips any stale artifacts whose embedded version
+does not match the current version in `src-tauri/tauri.conf.json`.
+
+Asset naming convention (automatic):
+- `voquill-<version>-linux-x64.deb`
+- `voquill-<version>-linux-x64.rpm`
+- `voquill-<version>-linux-x64.AppImage`
+- `voquill-<version>-windows-x64-setup.exe`
+- `voquill-<version>-windows-x64.msi`
 
 ## 3. Create a GitHub Release
 
@@ -82,15 +94,10 @@ Example for v1.2.6:
 - `voquill-1.2.6-windows-x64-setup.exe`
 - `voquill-1.2.6-windows-x64.msi`
 
-3. **Upload Assets**:
-   Manually upload assets using the naming convention above.
-   For Linux, upload:
-   - `src-tauri/target/release/bundle/appimage/*.AppImage`
-   - `src-tauri/target/release/bundle/deb/*.deb`
-   - `src-tauri/target/release/bundle/rpm/*.rpm`
-   For Windows, upload:
-   - `src-tauri/target/release/bundle/nsis/*-setup.exe`
-   - `src-tauri/target/release/bundle/msi/*.msi`
+3. **Upload Assets from `release-artifacts/`**:
+   Upload every file from the `release-artifacts/` directory (artifacts + `.sha256` files)
+   to the GitHub release.
+   The files are already named according to the convention above.
 
 4. **Publish**:
    Review the release and click "Publish release".
