@@ -55,6 +55,10 @@ h1 {
   align-items: center;
 }
 
+.platform-spacer {
+  flex: 0 0 60px;
+}
+
 .platform-label {
   font-size: 0.8rem;
   font-weight: 800;
