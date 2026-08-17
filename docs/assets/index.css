@@ -36,15 +36,23 @@ h1 {
   letter-spacing: 0.3em;
   color: rgba(255, 255, 255, 0.3);
   text-transform: uppercase;
-  margin-right: 0.75rem;
+  flex: 0 0 60px;
+  text-align: left;
 }
 
-.platform-support {
+.platform-row {
+  display: flex;
+  align-items: center;
+  max-width: 680px;
+  margin: 0.75rem auto 0;
+}
+
+.platform-labels {
   display: flex;
   justify-content: center;
+  flex: 1;
+  gap: 1rem;
   align-items: center;
-  gap: 0.75rem;
-  margin-top: 1.25rem;
 }
 
 .platform-label {
