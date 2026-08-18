@@ -58,10 +58,13 @@ impl PostProcessService for APIPostProcessService {
         let cleaned = data["choices"][0]["message"]["content"]
             .as_str()
             .ok_or_else(|| PostProcessError::Api("No content in response".to_string()))?
-            .trim()
-            .to_string();
-        let cleaned = cleaned.replace('\n', " ");
-        let cleaned = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+            .trim();
+        let cleaned = cleaned
+            .lines()
+            .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
+            .filter(|l| !l.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
 
         Ok(cleaned)
     }
@@ -118,10 +121,13 @@ pub async fn test_connection(
     let cleaned = data["choices"][0]["message"]["content"]
         .as_str()
         .ok_or_else(|| "No content in response".to_string())?
-        .trim()
-        .to_string();
-    let cleaned = cleaned.replace('\n', " ");
-    let cleaned = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+        .trim();
+    let cleaned = cleaned
+        .lines()
+        .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
+        .filter(|l| !l.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
 
     Ok(cleaned)
 }

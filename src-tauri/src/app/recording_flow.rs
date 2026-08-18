@@ -254,6 +254,7 @@ async fn record_and_transcribe_inner(
     };
 
     // ── Transcription: per-segment or full-file ──
+    let mut diar_segments: Vec<crate::diarization::Segment> = Vec::new();
     let text = if current_config.diarization_enabled_recording {
         // Save the recorded audio to a temp file for diarization
         let temp_dir = crate::paths::temp_dir();
@@ -305,8 +306,7 @@ async fn record_and_transcribe_inner(
                         diar.provider
                     );
 
-                    let mut segment_texts: Vec<String> = Vec::new();
-                    let mut speakers: Vec<Option<String>> = Vec::new();
+                    let mut segment_pairs: Vec<(Option<String>, String)> = Vec::new();
 
                     for seg in &diar.segments {
                         let start = seg.start_sec.unwrap_or(0.0);
@@ -335,22 +335,34 @@ async fn record_and_transcribe_inner(
                             seg.speaker.as_deref().unwrap_or("?"),
                             seg_text
                         );
-                        speakers.push(seg.speaker.clone());
-                        segment_texts.push(seg_text);
+                        segment_pairs.push((seg.speaker.clone(), seg_text));
                     }
 
-                    if segment_texts.is_empty() {
+                    if segment_pairs.is_empty() {
                         String::new()
                     } else {
                         let unique_speakers: std::collections::HashSet<Option<&str>> =
-                            speakers.iter().map(|s| s.as_deref()).collect();
+                            segment_pairs.iter().map(|(s, _)| s.as_deref()).collect();
 
                         if unique_speakers.len() <= 1 {
-                            segment_texts.join(" ")
-                        } else {
-                            speakers
+                            segment_pairs
                                 .iter()
-                                .zip(segment_texts.iter())
+                                .map(|(_, t)| t.as_str())
+                                .collect::<Vec<_>>()
+                                .join(" ")
+                        } else {
+                            diar_segments = segment_pairs
+                                .iter()
+                                .map(|(s, t)| crate::diarization::Segment {
+                                    speaker: s.clone(),
+                                    text: t.clone(),
+                                    start_sec: None,
+                                    end_sec: None,
+                                })
+                                .collect();
+
+                            segment_pairs
+                                .iter()
                                 .map(|(s, t)| {
                                     format!("[{}] {}", s.as_deref().unwrap_or("Speaker"), t)
                                 })
@@ -519,8 +531,17 @@ async fn record_and_transcribe_inner(
     }
 
     if !output_text.trim().is_empty() {
-        let _ =
-            history::add_history_item(&output_text, None, Some(history_limit), raw_text.as_deref());
+        let segments_json = if diar_segments.is_empty() {
+            None
+        } else {
+            serde_json::to_string(&diar_segments).ok()
+        };
+        let _ = history::add_history_item(
+            &output_text,
+            segments_json.as_deref(),
+            Some(history_limit),
+            raw_text.as_deref(),
+        );
         if let Some(window) = app_handle.get_webview_window("main") {
             let _ = window.emit("history-updated", ());
         }
