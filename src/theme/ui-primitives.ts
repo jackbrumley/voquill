@@ -11,7 +11,7 @@ export const appShellStyle: Style = {
   width: '100%',
   height: '100%',
   position: 'relative',
-  background: `linear-gradient(135deg, ${tokens.colors.bgGradientWarm} 0%, ${tokens.colors.bgPrimary} 50%, ${tokens.colors.bgGradientCool} 100%)`,
+  background: 'radial-gradient(ellipse 90% 60% at 50% -10%, rgba(88, 101, 242, 0.18) 0%, rgba(196, 57, 145, 0.12) 40%, transparent 80%), linear-gradient(180deg, #161822 0%, #0f1117 100%)',
   color: tokens.colors.textPrimary,
 };
 
@@ -21,9 +21,8 @@ export const titleBarStyle: Style = {
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: '0 12px',
-  background: tokens.colors.bgTertiary,
-  backdropFilter: 'blur(10px)',
-  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+  background: 'transparent',
+  borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
   userSelect: 'none',
   WebkitUserSelect: 'none',
 };
@@ -48,7 +47,7 @@ export const tabNavStyle: Style = {
   display: 'flex',
   padding: '0 8px',
   background: 'transparent',
-  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+  borderBottom: 'none',
   alignItems: 'stretch',
 };
 

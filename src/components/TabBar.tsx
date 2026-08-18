@@ -1,7 +1,6 @@
 import type { AppRoute } from '../types.ts';
 
-const ACCENT = '#5865f2';
-const TEXT_INACTIVE = '#A9ACB5';
+const TEXT_INACTIVE = '#c5cbd3';
 
 interface Tab {
   value: AppRoute;
@@ -71,8 +70,10 @@ export function TabBar({ active, tabs, onNavigate, onLogUI }: TabBarProps) {
           bottom: 0,
           left: `${((activeIndex + 0.5) / tabs.length) * 100}%`,
           width: '72px',
-          height: '2px',
-          background: ACCENT,
+          height: '3px',
+          borderRadius: '2px',
+          background: 'linear-gradient(90deg, #5865f2 0%, #c43991 100%)',
+          boxShadow: '0 0 10px rgba(196, 57, 145, 0.35)',
           transform: 'translateX(-50%)',
           transition: 'left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         }} />

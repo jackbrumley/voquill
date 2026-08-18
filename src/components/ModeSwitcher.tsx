@@ -21,11 +21,12 @@ export function ModeSwitcher<T extends string>({ value, options, onToggle, class
 
   return (
     <div className={className} style={{ display: 'flex' }}>
-<div
+      <div
         style={{
           position: 'relative',
           display: 'flex',
           background: tokens.colors.bgSecondary,
+          border: '1px solid rgba(255, 255, 255, 0.08)',
           borderRadius: '24px',
           padding: '4px',
           boxShadow: tokens.shadows.sm,
@@ -39,10 +40,10 @@ export function ModeSwitcher<T extends string>({ value, options, onToggle, class
             left: '4px',
             width: 'calc(50% - 4px)',
             height: 'calc(100% - 8px)',
-            background: tokens.colors.accentPrimary,
+            background: 'linear-gradient(135deg, #5865f2 0%, #4338ca 100%)',
             borderRadius: '22px',
             transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            boxShadow: tokens.shadows.md,
+            boxShadow: '0 2px 8px rgba(88, 101, 242, 0.22)',
             zIndex: 1,
             transform: sliderTransform,
           }}

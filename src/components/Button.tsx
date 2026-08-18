@@ -101,19 +101,21 @@ export const Button = ({
       border: '1px solid transparent',
       background: 'rgba(255, 255, 255, 0.1)',
       color: tokens.colors.textPrimary,
-      width: '30px',
-      height: '30px',
+      width: '28px',
+      height: '28px',
       padding: 0,
-      borderRadius: '999px',
+      borderRadius: '8px',
+      transition: tokens.transitions.fast,
     },
     titlebarClose: {
       border: '1px solid transparent',
       background: 'rgba(239, 68, 68, 0.28)',
       color: tokens.colors.textPrimary,
-      width: '30px',
-      height: '30px',
+      width: '28px',
+      height: '28px',
       padding: 0,
-      borderRadius: '999px',
+      borderRadius: '8px',
+      transition: tokens.transitions.fast,
     },
   };
 
@@ -132,9 +134,11 @@ export const Button = ({
     icon: { background: 'rgba(255, 255, 255, 0.14)', transform: 'translateY(-1px)' },
     titlebarIcon: {
       background: 'rgba(255, 255, 255, 0.3)',
+      color: tokens.colors.textPrimary,
     },
     titlebarClose: {
       background: 'rgba(239, 68, 68, 0.58)',
+      color: tokens.colors.textPrimary,
     },
   };
 

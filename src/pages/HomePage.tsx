@@ -124,44 +124,61 @@ export function HomePage({
     onCopyToClipboard(plain);
   };
 
-  const dropZoneBorderColor = isDragOver.value
-    ? tokens.colors.accentPrimary
-    : 'rgba(255, 255, 255, 0.15)';
-
   return (
     <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="home">
       <div style={{ ...tabPanelPaddedStyle, flex: 1 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <GlassOrb>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '16px' }}>
+              <GlassOrb size={80}>
               <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                 <div style={{ position: 'absolute', inset: 0, opacity: dictationStatus === 'Ready' ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: dictationStatus === 'Ready' ? 'auto' : 'none' }}>
-                  <JumpingDot />
+                  <JumpingDot dotSize={24} jumpHeight={30} />
                 </div>
                 <div style={{ position: 'absolute', inset: 0, opacity: dictationStatus === 'Recording' ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: dictationStatus === 'Recording' ? 'auto' : 'none' }}>
-                  <AudioWave containerHeight={120} />
+                  <AudioWave containerHeight={80} barWidth={5} gap={3} />
                 </div>
                 <div style={{ position: 'absolute', inset: 0, opacity: (dictationStatus === 'Transcribing' || dictationStatus === 'Processing' || dictationStatus === 'Typing') ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: (dictationStatus === 'Transcribing' || dictationStatus === 'Processing' || dictationStatus === 'Typing') ? 'auto' : 'none' }}>
-                  <BouncingDots dotSize={24} jumpHeight={32} />
+                  <BouncingDots dotSize={16} jumpHeight={18} />
                 </div>
               </div>
             </GlassOrb>
               {dictationStatus && (
-                <div style={{
-                  fontSize: '15px',
-                  color: tokens.colors.textSecondary,
-                  marginTop: '10px',
-                  marginBottom: '8px',
-                  textAlign: 'center',
-                }}>
-                  {dictationStatus === 'Error'
-                    ? 'Mic not found'
-                    : dictationStatus === 'Ready' && config.hotkey
-                      ? <>
-                          Ready: {config.hotkey_mode === 'Toggle' ? 'press ' : 'hold '}
-                          <span style={{ fontWeight: 700 }}>{config.hotkey}</span>
-                        </>
-                      : dictationStatus}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '6px', marginBottom: '8px' }}>
+                  <div style={{
+                    fontSize: '28px',
+                    fontWeight: 700,
+                    color: tokens.colors.textPrimary,
+                    letterSpacing: '-0.02em',
+                    lineHeight: 1.2,
+                    textAlign: 'center',
+                  }}>
+                    {dictationStatus === 'Error' ? 'Mic not found' : dictationStatus}
+                  </div>
+                  {dictationStatus === 'Ready' && config.hotkey ? (
+                    <div style={{
+                      fontSize: tokens.typography.sizeSm,
+                      color: '#e2e8f0',
+                      textAlign: 'center',
+                      marginTop: '4px',
+                      letterSpacing: '0.01em',
+                    }}>
+                      {config.hotkey_mode === 'Toggle' ? 'Press ' : 'Hold '}
+                      <span style={{ color: '#818cf8', fontWeight: 600 }}>
+                        {config.hotkey}
+                      </span>
+                      {' to start dictation'}
+                    </div>
+                  ) : (
+                    <div style={{
+                      fontSize: tokens.typography.sizeSm,
+                      color: '#94a3b8',
+                      textAlign: 'center',
+                      marginTop: '4px',
+                      minHeight: '18px',
+                    }}>
+                      {dictationStatus === 'Recording' ? 'Listening...' : (dictationStatus === 'Transcribing' || dictationStatus === 'Processing' || dictationStatus === 'Typing') ? 'Transcribing speech...' : ''}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -176,7 +193,7 @@ export function HomePage({
                 ]}
               />
             </div>
-            <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, textAlign: 'center' }} key={`desc-${config.output_method}`}>
+            <div style={{ fontSize: tokens.typography.sizeXs, color: '#cbd5e1', opacity: 0.9, textAlign: 'center' }} key={`desc-${config.output_method}`}>
               {config.output_method === 'Typewriter'
                 ? 'Types directly into your active cursor.'
                 : 'Copies results to your clipboard.'}
@@ -184,37 +201,56 @@ export function HomePage({
             </div>
         </div>
 
-        <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7, marginBottom: '-10px' }}>
+        <div style={{
+          fontSize: '11px',
+          fontWeight: 600,
+          color: '#cbd5e1',
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          marginBottom: '-6px',
+          paddingLeft: '2px',
+        }}>
           Transcribe an Audio File
         </div>
 
         <Card
           onClick={handleFilePick}
           style={{
-            padding: '12px',
-            border: `2px dashed ${dropZoneBorderColor}`,
-            cursor: 'pointer',
-            boxShadow: isDragOver.value ? tokens.shadows.accent : tokens.shadows.md,
-            transition: tokens.transitions.fast,
+            padding: '14px',
+            boxShadow: isDragOver.value ? tokens.shadows.accent : undefined,
           }}
         >
           {importStatus.value === 'idle' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', gap: tokens.spacing.md }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary, lineHeight: 1.4 }}>
+                  <div style={{ fontSize: tokens.typography.sizeSm, color: '#ffffff', fontWeight: 500, lineHeight: 1.4 }}>
                     Drop an audio file here or click to browse
                   </div>
-                  <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted }}>
+                  <div style={{ fontSize: tokens.typography.sizeXs, color: '#94a3b8', marginTop: '2px' }}>
                     WAV, MP3, M4A, OGG, FLAC, Opus
                   </div>
                 </div>
-                <IconUpload size={28} style={{ color: tokens.colors.textMuted, flexShrink: 0 }} />
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'rgba(88, 101, 242, 0.12)',
+                  border: '1px solid rgba(88, 101, 242, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#818cf8',
+                  flexShrink: 0,
+                }}>
+                  <IconUpload size={20} />
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }} onClick={(e) => e.stopPropagation()}>
                 <label style={{
                   fontSize: tokens.typography.sizeXs,
-                  color: tokens.colors.textSecondary,
+                  color: '#e2e8f0',
+                  fontWeight: 500,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -227,10 +263,10 @@ export function HomePage({
                     onChange={(e) => { e.stopPropagation(); onToggleDiarization((e.target as HTMLInputElement).checked); }}
                     style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
                   />
-                  <IconUser size={12} />
+                  <IconUser size={13} style={{ color: '#94a3b8' }} />
                   Differentiate voices
                 </label>
-                <span style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, opacity: 0.7 }}>
+                <span style={{ fontSize: tokens.typography.sizeXs, color: '#94a3b8' }}>
                   Labels each speaker
                 </span>
               </div>
