@@ -33,8 +33,8 @@ from pydantic import BaseModel
 # ── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
-    format="[%(asctime)s] %(name)s: %(message)s",
-    datefmt="%H:%M:%S%.3f",
+    format="[%(asctime)s.%(msecs)03d] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
 )
 logger = logging.getLogger("voquill.server")
 

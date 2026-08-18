@@ -52,6 +52,12 @@ pub struct SettingOption {
     pub label: String,
 }
 
+impl Default for EngineFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EngineFactory {
     pub fn new() -> Self {
         Self {

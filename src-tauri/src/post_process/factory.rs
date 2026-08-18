@@ -34,6 +34,12 @@ pub struct PostProcessFactory {
     last_gpu_error: Arc<Mutex<Option<String>>>,
 }
 
+impl Default for PostProcessFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PostProcessFactory {
     pub fn new() -> Self {
         Self {

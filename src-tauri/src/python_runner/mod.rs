@@ -37,10 +37,10 @@ impl PythonRunner {
         ensure_deps(&runner_dir).await?;
 
         let port = find_free_port().await?;
-        let process = spawn_server(&runner_dir, port).await?;
+        let mut process = spawn_server(&runner_dir, port).await?;
         let base_url = format!("http://127.0.0.1:{}", port);
 
-        wait_for_health(&base_url).await?;
+        wait_for_health(&mut process, &base_url).await?;
 
         crate::log_info!(
             "Python runner started on port {} (dir={})",
@@ -73,6 +73,17 @@ impl PythonRunner {
     ) -> Result<String, String> {
         client::enhance(&self.base_url, audio_path, noise_reduction_strength).await
     }
+}
+
+// ── Command helper ────────────────────────────────────────────────────────
+
+fn silent_command(program: impl AsRef<Path>) -> Command {
+    let mut cmd = Command::new(program.as_ref());
+    #[cfg(target_os = "windows")]
+    {
+        cmd.creation_flags(0x08000000);
+    }
+    cmd
 }
 
 // ── Portable Python download ──────────────────────────────────────────────
@@ -197,17 +208,16 @@ fn portable_python_bin(runner_dir: &Path) -> PathBuf {
 
 /// Create a venv at runner_dir/venv using the portable Python.
 async fn ensure_venv(runner_dir: &Path) -> Result<(), String> {
-    let venv_dir = runner_dir.join("venv");
-    let venv_python = if cfg!(target_os = "windows") {
-        venv_dir.join("Scripts").join("python.exe")
-    } else {
-        venv_dir.join("bin").join("python")
-    };
-
+    let venv_python = python_bin_path(runner_dir);
     if venv_python.exists() {
         return Ok(());
     }
 
+    create_venv(runner_dir).await
+}
+
+async fn create_venv(runner_dir: &Path) -> Result<(), String> {
+    let venv_dir = runner_dir.join("venv");
     let portable = portable_python_bin(runner_dir);
     crate::log_info!(
         "Creating Python venv at {} using {}",
@@ -215,7 +225,11 @@ async fn ensure_venv(runner_dir: &Path) -> Result<(), String> {
         portable.display()
     );
 
-    let output = Command::new(&portable)
+    if venv_dir.exists() {
+        let _ = std::fs::remove_dir_all(&venv_dir);
+    }
+
+    let output = silent_command(&portable)
         .args(["-m", "venv", &venv_dir.to_string_lossy()])
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -230,7 +244,7 @@ async fn ensure_venv(runner_dir: &Path) -> Result<(), String> {
             stderr.trim()
         );
         let _ = std::fs::remove_dir_all(&venv_dir);
-        let output = Command::new(&portable)
+        let output = silent_command(&portable)
             .args(["-m", "venv", &venv_dir.to_string_lossy()])
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -291,11 +305,7 @@ async fn ensure_extracted(app_handle: &tauri::AppHandle, runner_dir: &Path) -> R
         }
     }
 
-    if runner_dir.exists() {
-        std::fs::remove_dir_all(runner_dir)
-            .map_err(|e| format!("Failed to remove old python-runner: {}", e))?;
-    }
-
+    // Copy source files and modules, preserving runtime data (python/, venv/, models/)
     copy_dir_recursive(&src_dir, runner_dir)
         .map_err(|e| format!("Failed to copy python-runner: {}", e))?;
 
@@ -339,10 +349,8 @@ async fn find_free_port() -> Result<u16, String> {
     ))
 }
 
-async fn ensure_deps(runner_dir: &Path) -> Result<(), String> {
-    let python_bin = python_bin_path(runner_dir);
+fn collect_requirements(runner_dir: &Path) -> Result<String, String> {
     let req_dir = runner_dir.join("requirements");
-
     let mut all_reqs = String::new();
     if req_dir.exists() {
         let mut entries: Vec<_> = std::fs::read_dir(&req_dir)
@@ -360,30 +368,30 @@ async fn ensure_deps(runner_dir: &Path) -> Result<(), String> {
             }
         }
     }
+    Ok(all_reqs)
+}
 
-    if all_reqs.trim().is_empty() {
-        return Ok(());
-    }
-
-    let check_output = Command::new(&python_bin)
-        .args(["-c", "import fastapi, uvicorn, pydantic"])
+async fn check_deps(python_bin: &Path) -> bool {
+    silent_command(python_bin)
+        .args([
+            "-c",
+            "import fastapi, uvicorn, pydantic, sherpa_onnx, soundfile, noisereduce, numpy, scipy",
+        ])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .output()
+        .status()
         .await
-        .map_err(|e| format!("Failed to check deps: {}", e))?;
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
 
-    if check_output.status.success() {
-        return Ok(());
-    }
-
-    crate::log_info!("Installing Python dependencies...");
-
+async fn run_pip_install(runner_dir: &Path, all_reqs: &str) -> Result<(), String> {
+    let python_bin = python_bin_path(runner_dir);
     let req_file = runner_dir.join(".combined-requirements.txt");
-    std::fs::write(&req_file, &all_reqs)
+    std::fs::write(&req_file, all_reqs)
         .map_err(|e| format!("Failed to write combined requirements: {}", e))?;
 
-    let output = Command::new(&python_bin)
+    let output = silent_command(&python_bin)
         .args(["-m", "pip", "install", "-r", &req_file.to_string_lossy()])
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -397,8 +405,36 @@ async fn ensure_deps(runner_dir: &Path) -> Result<(), String> {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("pip install failed: {}", stderr));
     }
+    Ok(())
+}
 
-    crate::log_info!("Python dependencies installed");
+async fn ensure_deps(runner_dir: &Path) -> Result<(), String> {
+    let python_bin = python_bin_path(runner_dir);
+    if check_deps(&python_bin).await {
+        return Ok(());
+    }
+
+    let all_reqs = collect_requirements(runner_dir)?;
+    if all_reqs.trim().is_empty() {
+        return Ok(());
+    }
+
+    crate::log_info!("Installing Python dependencies...");
+    if run_pip_install(runner_dir, &all_reqs).await.is_ok() && check_deps(&python_bin).await {
+        crate::log_info!("Python dependencies installed and verified");
+        return Ok(());
+    }
+
+    // Recreate clean venv if packages or metadata were corrupted
+    crate::log_warn!("Dependency check failed — recreating clean venv...");
+    create_venv(runner_dir).await?;
+    run_pip_install(runner_dir, &all_reqs).await?;
+
+    if !check_deps(&python_bin).await {
+        return Err("Python dependencies failed verification after fresh install".into());
+    }
+
+    crate::log_info!("Python dependencies installed and verified");
     Ok(())
 }
 
@@ -419,7 +455,7 @@ async fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
     let server_script_str = server_script
         .to_str()
         .ok_or_else(|| "Invalid server.py path".to_string())?;
-    let child = Command::new(&python_bin)
+    let child = silent_command(&python_bin)
         .args([server_script_str])
         .env("VOQUILL_PORT", port.to_string())
         .env(
@@ -427,7 +463,7 @@ async fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
             runner_dir.to_string_lossy().as_ref(),
         )
         .stdout(Stdio::null())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::piped())
         .stdin(Stdio::null())
         .kill_on_drop(true)
         .spawn()
@@ -436,11 +472,33 @@ async fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
     Ok(child)
 }
 
-async fn wait_for_health(base_url: &str) -> Result<(), String> {
+async fn wait_for_health(process: &mut Child, base_url: &str) -> Result<(), String> {
     let health_url = format!("{}/health", base_url);
     let start = std::time::Instant::now();
 
     while start.elapsed() < STARTUP_TIMEOUT {
+        match process.try_wait() {
+            Ok(Some(status)) => {
+                let stderr_output = if let Some(mut stderr) = process.stderr.take() {
+                    use tokio::io::AsyncReadExt;
+                    let mut buf = String::new();
+                    let _ = stderr.read_to_string(&mut buf).await;
+                    buf
+                } else {
+                    String::new()
+                };
+                return Err(format!(
+                    "Python runner exited prematurely with status {} ({})",
+                    status,
+                    stderr_output.trim()
+                ));
+            }
+            Ok(None) => {}
+            Err(e) => {
+                crate::log_warn!("Failed to check Python runner status: {}", e);
+            }
+        }
+
         match reqwest::get(&health_url).await {
             Ok(resp) if resp.status().is_success() => return Ok(()),
             _ => tokio::time::sleep(HEALTH_RETRY_INTERVAL).await,
@@ -454,99 +512,4 @@ async fn wait_for_health(base_url: &str) -> Result<(), String> {
 }
 
 // ── HTTP client ───────────────────────────────────────────────────────────
-mod client {
-    use crate::diarization::{DiarizationResult, Segment};
-
-    #[derive(serde::Deserialize)]
-    struct RawDiarizeResponse {
-        segments: Vec<Segment>,
-        provider: String,
-    }
-
-    #[derive(serde::Deserialize)]
-    struct RawEnhanceResponse {
-        enhanced_path: String,
-        #[allow(dead_code)]
-        provider: String,
-    }
-
-    pub async fn diarize(
-        base_url: &str,
-        audio_path: &str,
-        cluster_threshold: f32,
-    ) -> Result<DiarizationResult, String> {
-        let url = format!("{}/diarize", base_url);
-        let body = serde_json::json!({
-            "audio_path": audio_path,
-            "cluster_threshold": cluster_threshold,
-        });
-
-        let client = reqwest::Client::new();
-        let response = client
-            .post(&url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| format!("Diarization request failed: {}", e))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
-            return Err(format!("Diarization returned {}: {}", status, text));
-        }
-
-        let raw: RawDiarizeResponse = response
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse diarization response: {}", e))?;
-
-        let labeled = raw
-            .segments
-            .iter()
-            .map(|s| {
-                let label = s.speaker.as_deref().unwrap_or("Speaker");
-                format!("[{}] {}", label, s.text)
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        Ok(DiarizationResult {
-            text: labeled,
-            segments: raw.segments,
-            provider: raw.provider,
-        })
-    }
-
-    pub async fn enhance(
-        base_url: &str,
-        audio_path: &str,
-        noise_reduction_strength: f32,
-    ) -> Result<String, String> {
-        let url = format!("{}/enhance", base_url);
-        let body = serde_json::json!({
-            "audio_path": audio_path,
-            "noise_reduction_strength": noise_reduction_strength,
-        });
-
-        let client = reqwest::Client::new();
-        let response = client
-            .post(&url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| format!("Enhancement request failed: {}", e))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
-            return Err(format!("Enhancement returned {}: {}", status, text));
-        }
-
-        let raw: RawEnhanceResponse = response
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse enhance response: {}", e))?;
-
-        Ok(raw.enhanced_path)
-    }
-}
+mod client;
