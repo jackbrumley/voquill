@@ -78,6 +78,7 @@ impl PythonRunner {
 // ── Command helper ────────────────────────────────────────────────────────
 
 fn silent_command(program: impl AsRef<Path>) -> Command {
+    #[allow(unused_mut)]
     let mut cmd = Command::new(program.as_ref());
     #[cfg(target_os = "windows")]
     {

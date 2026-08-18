@@ -39,6 +39,7 @@ sha2 = "0.10"
 async-trait = "0.1"
 clap = { version = "4", features = ["derive"] }
 regex = "1"
+rubato = "0.4"
 once_cell = "1"
 x11rb = { version = "0.13.2", features = ["xtest"] }
 tauri-plugin-clipboard-manager = "^2.3"

@@ -1,4 +1,5 @@
 use hound::{WavSpec, WavWriter};
+use rubato::{FftFixedInOut, Resampler};
 
 use super::decode::decode_compressed_audio;
 
@@ -242,25 +243,37 @@ pub fn convert_audio_for_whisper(
 }
 
 pub fn resample_audio_f32(samples: &[f32], from: u32, to: u32) -> Vec<f32> {
-    if from == to {
+    if from == to || samples.is_empty() {
         return samples.to_vec();
     }
-    let ratio = from as f64 / to as f64;
-    let len = (samples.len() as f64 / ratio) as usize;
-    let mut out = Vec::with_capacity(len);
-    for i in 0..len {
-        let pos = i as f64 * ratio;
-        let idx = pos as usize;
-        let frac = pos - idx as f64;
-        if idx + 1 < samples.len() {
-            let s1 = samples[idx] as f64;
-            let s2 = samples[idx + 1] as f64;
-            out.push((s1 + (s2 - s1) * frac) as f32);
-        } else if idx < samples.len() {
-            out.push(samples[idx]);
+    let mut resampler = FftFixedInOut::<f32>::new(from as usize, to as usize, 1024, 1);
+    let frames_needed = resampler.nbr_frames_needed();
+    let expected_output_len = (samples.len() as f64 * to as f64 / from as f64).round() as usize;
+    let mut output = Vec::with_capacity(expected_output_len + frames_needed);
+
+    let mut pos = 0;
+    while pos < samples.len() {
+        let end = (pos + frames_needed).min(samples.len());
+        let chunk = &samples[pos..end];
+        let input_chunk = if chunk.len() < frames_needed {
+            let mut padded = chunk.to_vec();
+            padded.resize(frames_needed, 0.0);
+            padded
+        } else {
+            chunk.to_vec()
+        };
+
+        let resampled = resampler
+            .process(&[input_chunk])
+            .expect("Rubato FFT resampling failed");
+        if let Some(chan) = resampled.into_iter().next() {
+            output.extend_from_slice(&chan);
         }
+        pos += frames_needed;
     }
-    out
+
+    output.truncate(expected_output_len);
+    output
 }
 
 pub fn process_sample(s: f32) -> i16 {
@@ -275,5 +288,55 @@ fn soft_clip(x: f32) -> f32 {
         0.7 + 0.3 * ((x - 0.7) / 0.3).tanh()
     } else {
         -0.7 - 0.3 * ((-x - 0.7) / 0.3).tanh()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resample_same_rate_is_identity() {
+        let input = vec![0.1, -0.2, 0.3, -0.4];
+        let output = resample_audio_f32(&input, 16000, 16000);
+        assert_eq!(input, output);
+    }
+
+    #[test]
+    fn resample_empty_is_empty() {
+        let output = resample_audio_f32(&[], 44100, 16000);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn resample_short_audio() {
+        let input = vec![0.1; 100];
+        let output = resample_audio_f32(&input, 44100, 16000);
+        let expected_len = (100.0 * 16000.0 / 44100.0_f64).round() as usize;
+        assert_eq!(output.len(), expected_len);
+    }
+
+    #[test]
+    fn resample_1s_audio_44100_to_16000() {
+        let input = vec![0.05; 44148];
+        let output = resample_audio_f32(&input, 44100, 16000);
+        let expected_len = (44148.0 * 16000.0 / 44100.0_f64).round() as usize;
+        assert_eq!(output.len(), expected_len);
+    }
+
+    #[test]
+    fn resample_exact_failing_length_35s() {
+        // The exact sample count from the crash log: 1,585,268 samples (35.9s at 44.1kHz)
+        let input = vec![0.02; 1585268];
+        let output = resample_audio_f32(&input, 44100, 16000);
+        let expected_len = (1585268.0 * 16000.0 / 44100.0_f64).round() as usize;
+        assert_eq!(output.len(), expected_len);
+    }
+
+    #[test]
+    fn resample_48k_to_16k() {
+        let input = vec![0.01; 48000 * 5]; // 5 seconds of 48kHz
+        let output = resample_audio_f32(&input, 48000, 16000);
+        assert_eq!(output.len(), 16000 * 5);
     }
 }
