@@ -152,17 +152,13 @@ async fn record_and_transcribe_inner(
         return Ok(());
     }
 
-    let (enable_recording_logs, language_choice) = {
+    let (enable_recording_logs, language_choice, prompt_hint) = {
         let config_guard = config.lock().unwrap();
         (
             config_guard.enable_recording_logs,
             config_guard.language.clone(),
+            config_guard.resolve_prompt_hint(),
         )
-    };
-
-    let dictionary_words = {
-        let config_guard = config.lock().unwrap();
-        config_guard.dictionary.clone()
     };
 
     let lang_code = match language_choice.as_str() {
@@ -172,21 +168,6 @@ async fn record_and_transcribe_inner(
         "en-US" => Some("en"),
         code => Some(code),
     };
-
-    let mut prompt_hint: Option<String> = match language_choice.as_str() {
-        "en-AU" => Some("Australian spelling.".to_string()),
-        "en-GB" => Some("British spelling.".to_string()),
-        "en-US" => Some("American spelling.".to_string()),
-        _ => None,
-    };
-
-    if !dictionary_words.is_empty() {
-        let dict_str = dictionary_words.join(", ");
-        prompt_hint = match prompt_hint {
-            Some(hint) => Some(format!("{}, {}", hint, dict_str)),
-            None => Some(dict_str),
-        };
-    }
 
     if enable_recording_logs {
         match crate::paths::debug_dir() {

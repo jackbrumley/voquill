@@ -3,7 +3,7 @@
   <id>org.voquill.app</id>
   <name>Voquill</name>
   <summary>Push-to-talk dictation app with local transcription</summary>
-  <project_license>MIT</project_license>
+  <project_license>AGPL-3.0-only</project_license>
   <metadata_license>CC0-1.0</metadata_license>
   <developer id="org.voquill">
     <name>Jack Brumley</name>

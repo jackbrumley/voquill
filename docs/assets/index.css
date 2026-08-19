@@ -51,8 +51,10 @@ h1 {
   display: flex;
   justify-content: center;
   flex: 1;
-  gap: 1rem;
+  position: relative;
+  gap: 1.25rem;
   align-items: center;
+  padding-bottom: 4px;
 }
 
 .platform-spacer {
@@ -60,32 +62,39 @@ h1 {
 }
 
 .platform-label {
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 0.25em;
-  color: #e3e8f0;
+  background: transparent;
+  border: none;
+  font-family: var(--typography-font-main);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #a9acb5;
   text-transform: uppercase;
-  padding: 0.35rem 0.6rem;
-  border-radius: 8px;
-  transition: all 0.2s ease;
+  padding: 0.25rem 0.6rem 0.15rem;
   cursor: pointer;
+  transition: color 0.2s ease, opacity 0.2s ease;
+  user-select: none;
+  outline: none;
 }
 
 .platform-label:hover {
-  transform: scale(1.08);
-}
-
-.platform-label.active {
-  background: linear-gradient(135deg, rgba(88, 101, 242, 0.4) 0%, rgba(196, 57, 145, 0.25) 100%);
-  border: 1px solid rgba(88, 101, 242, 0.5);
-  box-shadow: 0 0 12px rgba(88, 101, 242, 0.25);
   color: #ffffff;
 }
 
-.platform-divider {
-  width: 1px;
-  height: 16px;
-  background: rgba(255, 255, 255, 0.2);
+.platform-label.active {
+  color: #ffffff;
+}
+
+.platform-tab-indicator {
+  position: absolute;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #5865f2 0%, #c43991 100%);
+  box-shadow: 0 0 10px rgba(196, 57, 145, 0.4);
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+  pointer-events: none;
+  opacity: 0;
 }
 
 .philosophy-grid {
@@ -280,7 +289,7 @@ h1 {
 
 .install-code-wrapper {
   position: relative;
-  margin-top: 0.5rem;
+  margin-top: 0.15rem;
   max-width: 680px;
   margin-left: auto;
   margin-right: auto;
@@ -341,6 +350,7 @@ h1 {
   flex-wrap: wrap;
   margin-top: 0.4rem;
   justify-content: center;
+  min-height: 24px;
 }
 
 .install-variant-btn {

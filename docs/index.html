@@ -1,8 +1,8 @@
 ---
 layout: default
-title: FOSS Voquill | Free & Private Dictation
+title: Voquill | Free & Private Dictation
 description: FOSS, truly free & open-source offline dictation for Windows and Linux. Types directly into any app—voice-to-text runs locally so your data never leaves your device. No subscriptions.
-og_title: FOSS Voquill | Free & Private Dictation
+og_title: Voquill | Free & Private Dictation
 og_description: FOSS, truly free & open-source offline dictation that types into any app. Local voice-to-text keeps your data on your device. No subscriptions.
 og_url: https://voquill.org/
 og_image: https://voquill.org/screenshots/screenshot-status.png
@@ -15,14 +15,14 @@ container_class: home-container
 ---
 <header>
   <img src="{{ '/logo.png' | relative_url }}" alt="Voquill Logo" class="logo">
-  <h1>FOSS Voquill</h1>
+  <h1>Voquill</h1>
   <p class="tagline">Truly free &amp; open-source offline dictation that types into any app. Voice-to-text runs locally so your data never leaves your device.</p>
   <div class="platform-row">
     <span class="install-heading">Install</span>
-    <div class="platform-labels">
-      <span class="platform-label" data-platform="linux">Linux</span>
-      <div class="platform-divider"></div>
-      <span class="platform-label" data-platform="windows">Windows</span>
+    <div class="platform-labels" id="platform-labels">
+      <button type="button" class="platform-label" data-platform="linux">Linux</button>
+      <button type="button" class="platform-label" data-platform="windows">Windows</button>
+      <div class="platform-tab-indicator" id="platform-tab-indicator"></div>
     </div>
     <div class="platform-spacer"></div>
   </div>
@@ -50,7 +50,7 @@ container_class: home-container
     <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn">
       <img src="{{ '/download.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
       <span class="btn-text">
-        <span class="btn-title">Releases</span>
+        <span class="btn-title">Download</span>
         <span class="btn-subtitle">GitHub releases</span>
       </span>
     </a>

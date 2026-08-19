@@ -57,6 +57,7 @@ fn warm_up(context: &WhisperContext, model_size: &str, use_gpu: bool) {
     params.set_print_realtime(false);
     params.set_print_special(false);
     params.set_print_timestamps(false);
+    params.set_suppress_nst(true);
     let start = Instant::now();
     match state.full(params, &silence) {
         Ok(()) => {
@@ -338,6 +339,7 @@ impl TranscriptionService for LocalWhisperService {
             params.set_print_special(false);
             params.set_print_timestamps(false);
             params.set_no_context(true);
+            params.set_suppress_nst(true);
             let run_result = state.full(params, &samples);
             match run_result {
                 Ok(()) => {

@@ -45,8 +45,52 @@
   var codeBlock = document.getElementById('install-code');
   var copyBtn = document.getElementById('install-copy-btn');
   var variantContainer = document.getElementById('install-variants');
-  var selectedPlatform = null;
-  var selectedVariant = null;
+  var indicator = document.getElementById('platform-tab-indicator');
+  var labelsContainer = document.getElementById('platform-labels');
+
+  function detectInitialPlatform() {
+    try {
+      var ua = (navigator.userAgent || '').toLowerCase();
+      var plat = (navigator.userAgentData && navigator.userAgentData.platform
+        ? navigator.userAgentData.platform
+        : navigator.platform || '').toLowerCase();
+
+      if (plat.indexOf('win') !== -1 || ua.indexOf('windows') !== -1) {
+        return 'windows';
+      }
+      if (
+        (plat.indexOf('linux') !== -1 || plat.indexOf('x11') !== -1 || ua.indexOf('linux') !== -1 || ua.indexOf('x11') !== -1) &&
+        ua.indexOf('android') === -1
+      ) {
+        return 'linux';
+      }
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  }
+
+  var detected = detectInitialPlatform();
+  var selectedPlatform = detected;
+  var selectedVariant = detected ? Object.keys(COMMANDS[detected])[0] : null;
+
+  function updateIndicator() {
+    var activeBtn = document.querySelector('.platform-label.active');
+    if (!activeBtn || !indicator || !labelsContainer) {
+      if (indicator) indicator.style.opacity = '0';
+      return;
+    }
+    var containerRect = labelsContainer.getBoundingClientRect();
+    var btnRect = activeBtn.getBoundingClientRect();
+    var left = btnRect.left - containerRect.left;
+    indicator.style.left = left + 'px';
+    indicator.style.width = btnRect.width + 'px';
+    indicator.style.opacity = '1';
+  }
+
+  function setCodeText(text) {
+    codeBlock.textContent = text;
+  }
 
   function renderCommand() {
     if (!selectedPlatform) {
@@ -54,10 +98,19 @@
       codeBlock.classList.add('placeholder');
       variantContainer.innerHTML = '';
       copyBtn.style.display = 'none';
+      for (var p0 = 0; p0 < platformLabels.length; p0++) {
+        platformLabels[p0].classList.remove('active');
+      }
+      updateIndicator();
       return;
     }
     codeBlock.classList.remove('placeholder');
     copyBtn.style.display = '';
+
+    for (var p = 0; p < platformLabels.length; p++) {
+      var isCurrent = platformLabels[p].getAttribute('data-platform') === selectedPlatform;
+      platformLabels[p].classList.toggle('active', isCurrent);
+    }
 
     var platform = COMMANDS[selectedPlatform];
     if (!platform) return;
@@ -67,8 +120,9 @@
       selectedVariant = keys[0];
       variant = platform[keys[0]];
     }
-    codeBlock.textContent = variant.command;
+    setCodeText(variant.command);
     updateVariantButtons();
+    updateIndicator();
   }
 
   function updateVariantButtons() {
@@ -81,7 +135,7 @@
       var key = keys[i];
       var v = platform[key];
       var active = key === selectedVariant ? ' active' : '';
-      html += '<button class="install-variant-btn' + active + '" data-install-variant="' + key + '">' + v.label + '</button>';
+      html += '<button type="button" class="install-variant-btn' + active + '" data-install-variant="' + key + '">' + v.label + '</button>';
     }
     variantContainer.innerHTML = html;
     var variantButtons = document.querySelectorAll('[data-install-variant]');
@@ -108,7 +162,10 @@
     for (var i = 0; i < siblings.length; i++) {
       siblings[i].classList.toggle('active', siblings[i] === btn);
     }
-    renderCommand();
+    var platform = COMMANDS[selectedPlatform];
+    if (platform && platform[selectedVariant]) {
+      setCodeText(platform[selectedVariant].command);
+    }
   }
 
   function onCopyClick() {
@@ -156,6 +213,7 @@
     platformLabels[i].addEventListener('click', onPlatformClick);
   }
   copyBtn.addEventListener('click', onCopyClick);
+  window.addEventListener('resize', updateIndicator);
 
   renderCommand();
 })();

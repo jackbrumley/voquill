@@ -195,6 +195,42 @@ impl Config {
         self.post_process_max_output_tokens
     }
 
+    /// Builds a cleanly punctuated prompt hint for transcription models.
+    /// Ensures spelling hints and dictionary hotwords end with terminal
+    /// punctuation so Whisper treats preceding text as complete sentences
+    /// rather than open-ended phrases (which cause hallucinated leading dashes/bullets).
+    pub fn resolve_prompt_hint(&self) -> Option<String> {
+        let spelling_hint = match self.language.as_str() {
+            "en-AU" => Some("Australian spelling."),
+            "en-GB" => Some("British spelling."),
+            "en-US" => Some("American spelling."),
+            _ => None,
+        };
+
+        let mut parts = Vec::new();
+        if let Some(hint) = spelling_hint {
+            parts.push(hint.to_string());
+        }
+        if !self.dictionary.is_empty() {
+            let mut dict_str = self.dictionary.join(", ");
+            let trimmed = dict_str.trim();
+            if !trimmed.is_empty()
+                && !trimmed.ends_with('.')
+                && !trimmed.ends_with('!')
+                && !trimmed.ends_with('?')
+            {
+                dict_str.push('.');
+            }
+            parts.push(dict_str);
+        }
+
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join(" "))
+        }
+    }
+
     pub fn normalize(&mut self) {
         self.normalize_input_sensitivity();
         self.diarization_cluster_threshold = self.diarization_cluster_threshold.clamp(
@@ -497,4 +533,68 @@ pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     fs::write(&config_path, config_str)?;
     log_info!("Config saved successfully to: {:?}", config_path);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_prompt_hint_empty_auto_is_none() {
+        let config = Config {
+            language: "auto".to_string(),
+            dictionary: vec![],
+            ..Default::default()
+        };
+        assert_eq!(config.resolve_prompt_hint(), None);
+    }
+
+    #[test]
+    fn resolve_prompt_hint_dictionary_only_has_terminal_period() {
+        let config = Config {
+            language: "auto".to_string(),
+            dictionary: vec!["xylophone".to_string(), "Voquill".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(
+            config.resolve_prompt_hint(),
+            Some("xylophone, Voquill.".to_string())
+        );
+    }
+
+    #[test]
+    fn resolve_prompt_hint_with_spelling_and_dictionary() {
+        let config = Config {
+            language: "en-US".to_string(),
+            dictionary: vec!["Voquill".to_string(), "llama".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(
+            config.resolve_prompt_hint(),
+            Some("American spelling. Voquill, llama.".to_string())
+        );
+    }
+
+    #[test]
+    fn resolve_prompt_hint_preserves_existing_terminal_punctuation() {
+        let config = Config {
+            language: "auto".to_string(),
+            dictionary: vec!["Voquill!".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(config.resolve_prompt_hint(), Some("Voquill!".to_string()));
+    }
+
+    #[test]
+    fn resolve_prompt_hint_spelling_only() {
+        let config = Config {
+            language: "en-GB".to_string(),
+            dictionary: vec![],
+            ..Default::default()
+        };
+        assert_eq!(
+            config.resolve_prompt_hint(),
+            Some("British spelling.".to_string())
+        );
+    }
 }

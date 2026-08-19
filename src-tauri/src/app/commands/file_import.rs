@@ -38,7 +38,7 @@ pub async fn transcribe_audio_file(
         .map_err(|e| format!("Failed to create transcription service: {}", e))?;
 
     let language = current_config.language.clone();
-    let dictionary_words = current_config.dictionary.clone();
+    let prompt_hint = current_config.resolve_prompt_hint();
     let lang_code = match language.as_str() {
         "auto" => None,
         "en-AU" => Some("en"),
@@ -47,26 +47,11 @@ pub async fn transcribe_audio_file(
         code => Some(code),
     };
 
-    let mut prompt_hint: Option<String> = match language.as_str() {
-        "en-AU" => Some("Australian spelling.".to_string()),
-        "en-GB" => Some("British spelling.".to_string()),
-        "en-US" => Some("American spelling.".to_string()),
-        _ => None,
-    };
-
-    if !dictionary_words.is_empty() {
-        let dict_str = dictionary_words.join(", ");
-        prompt_hint = match prompt_hint {
-            Some(hint) => Some(format!("{}, {}", hint, dict_str)),
-            None => Some(dict_str),
-        };
-    }
-
     crate::log_info!(
         "Transcription params: lang={:?}, lang_code={:?}, dictionary={:?}, prompt_hint={:?}",
         language,
         lang_code,
-        dictionary_words,
+        current_config.dictionary,
         prompt_hint,
     );
 
