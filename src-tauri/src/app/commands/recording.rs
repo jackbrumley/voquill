@@ -152,12 +152,20 @@ pub async fn start_recording(
 
 #[tauri::command]
 pub async fn stop_recording(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut session = state.session_state.lock().unwrap();
-    if *session == SessionState::Recording {
-        *session = SessionState::Transcribing;
-        crate::log_info!("stop_recording: Recording -> Transcribing (capture will finalize)");
-    } else {
-        crate::log_info!("stop_recording: ignored in session state {:?}", *session);
+    let should_emit = {
+        let mut session = state.session_state.lock().unwrap();
+        if *session == SessionState::Recording {
+            *session = SessionState::Transcribing;
+            crate::log_info!("stop_recording: Recording -> Transcribing (capture will finalize)");
+            true
+        } else {
+            crate::log_info!("stop_recording: ignored in session state {:?}", *session);
+            false
+        }
+    };
+
+    if should_emit {
+        crate::app::status::emit_status_update("Transcribing").await;
     }
 
     Ok(())

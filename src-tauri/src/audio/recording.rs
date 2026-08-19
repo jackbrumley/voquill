@@ -1,11 +1,10 @@
 use std::sync::{mpsc, Arc, Mutex};
 
-use hound::{WavSpec, WavWriter};
 use ringbuf::traits::Consumer;
 
 use crate::app::state::SessionState;
 
-use super::conversion::{convert_audio_for_whisper, process_sample};
+use super::conversion::finalize_captured_audio_for_whisper;
 use super::engine::PersistentAudioEngine;
 
 pub async fn record_audio_while_flag(
@@ -30,28 +29,13 @@ pub async fn record_audio_while_flag(
         *eng.recording_tx.lock().unwrap() = Some(tx);
     }
 
-    let (data_tx, data_rx) = mpsc::channel::<Vec<u8>>();
+    let (data_tx, data_rx) = mpsc::channel::<Vec<f32>>();
     std::thread::spawn(move || {
         let mut all = samples;
         while let Ok(s) = rx.recv() {
             all.push(s);
         }
-        let mut out = Vec::new();
-        if let Ok(mut w) = WavWriter::new(
-            std::io::Cursor::new(&mut out),
-            WavSpec {
-                channels: 1,
-                sample_rate,
-                bits_per_sample: 16,
-                sample_format: hound::SampleFormat::Int,
-            },
-        ) {
-            for s in all {
-                let _ = w.write_sample(process_sample(s));
-            }
-            let _ = w.finalize();
-        }
-        let _ = data_tx.send(out);
+        let _ = data_tx.send(all);
     });
 
     let capture_started = tokio::time::Instant::now();
@@ -79,12 +63,13 @@ pub async fn record_audio_while_flag(
     if let Some(eng) = engine.lock().unwrap().as_ref() {
         *eng.recording_tx.lock().unwrap() = None;
     }
-    let final_wav = data_rx.recv()?;
+    let raw_samples = data_rx.recv()?;
     crate::log_info!(
-        "record_audio_while_flag: captured {} bytes of wav before whisper conversion",
-        final_wav.len()
+        "record_audio_while_flag: captured {} raw float samples at {}Hz",
+        raw_samples.len(),
+        sample_rate
     );
-    convert_audio_for_whisper(&final_wav, sample_rate, 1)
+    finalize_captured_audio_for_whisper(&raw_samples, sample_rate)
 }
 
 pub async fn record_mic_test<F>(

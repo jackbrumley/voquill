@@ -23,28 +23,7 @@ pub fn convert_audio_file_for_whisper(
     );
     let mono = downmix_to_mono(&decoded.samples, decoded.channels);
     crate::log_info!("Downmixed to {} mono samples", mono.len());
-    let resampled = resample_audio_f32(&mono, decoded.sample_rate, 16000);
-    crate::log_info!(
-        "Resampled {} -> {} samples ({}Hz -> 16000Hz)",
-        mono.len(),
-        resampled.len(),
-        decoded.sample_rate,
-    );
-    let normalized = normalize_peak(&resampled);
-    let peak = normalized.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    let rms = (normalized.iter().map(|s| s * s).sum::<f32>() / normalized.len() as f32).sqrt();
-    crate::log_info!(
-        "Output audio: {} samples ({:.1}s at 16kHz), peak={:.4}, rms={:.6}",
-        normalized.len(),
-        normalized.len() as f64 / 16000.0,
-        peak,
-        rms,
-    );
-    let samples: Vec<i16> = normalized
-        .iter()
-        .map(|&sample| float_to_i16(sample))
-        .collect();
-    write_whisper_wav(&samples)
+    finalize_captured_audio_for_whisper(&mono, decoded.sample_rate)
 }
 
 fn is_wav_file(data: &[u8]) -> bool {
@@ -195,38 +174,37 @@ pub fn convert_audio_for_whisper(
         spec.channels
     );
 
-    let mono = if spec.channels > 1 {
-        let m = samples
-            .chunks_exact(spec.channels as usize)
-            .map(|frame| frame.iter().sum::<f32>() / spec.channels as f32)
-            .collect::<Vec<_>>();
-        crate::log_info!(
-            "Downmixed {} channels -> {} mono samples",
-            spec.channels,
-            m.len()
-        );
-        m
-    } else {
-        samples
-    };
+    let mono = downmix_to_mono(&samples, spec.channels as usize);
+    finalize_captured_audio_for_whisper(&mono, spec.sample_rate)
+}
 
-    let resampled = if spec.sample_rate != 16000 {
-        let r = resample_audio_f32(&mono, spec.sample_rate, 16000);
+/// Finalize in-memory float audio samples for whisper:
+/// - Skips resampling if the stream is already 16,000Hz (0ms latency).
+/// - Resamples with band-limited FFT if not 16,000Hz.
+/// - Normalizes peak amplitude up to 1.0 (max 10x gain).
+/// - Writes single 16-bit mono 16kHz PCM WAV.
+pub fn finalize_captured_audio_for_whisper(
+    samples: &[f32],
+    sample_rate: u32,
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let resampled = if sample_rate != 16000 {
         crate::log_info!(
-            "Resampled {} -> {} samples ({}Hz -> 16000Hz)",
-            mono.len(),
-            r.len(),
-            spec.sample_rate,
+            "Resampling audio: {}Hz -> 16000Hz ({} samples)",
+            sample_rate,
+            samples.len()
         );
-        r
+        resample_audio_f32(samples, sample_rate, 16000)
     } else {
-        mono
+        samples.to_vec()
     };
 
     let normalized = normalize_peak(&resampled);
-
     let peak = normalized.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    let rms = (normalized.iter().map(|s| s * s).sum::<f32>() / normalized.len() as f32).sqrt();
+    let rms = if normalized.is_empty() {
+        0.0
+    } else {
+        (normalized.iter().map(|s| s * s).sum::<f32>() / normalized.len() as f32).sqrt()
+    };
     crate::log_info!(
         "Output audio: {} samples ({:.1}s at 16kHz), peak={:.4}, rms={:.6}",
         normalized.len(),
@@ -234,7 +212,6 @@ pub fn convert_audio_for_whisper(
         peak,
         rms,
     );
-
     let samples_i16: Vec<i16> = normalized
         .iter()
         .map(|&sample| float_to_i16(sample))
@@ -274,21 +251,6 @@ pub fn resample_audio_f32(samples: &[f32], from: u32, to: u32) -> Vec<f32> {
 
     output.truncate(expected_output_len);
     output
-}
-
-pub fn process_sample(s: f32) -> i16 {
-    let clipped = soft_clip(s);
-    (clipped * i16::MAX as f32).clamp(i16::MIN as f32, i16::MAX as f32) as i16
-}
-
-fn soft_clip(x: f32) -> f32 {
-    if x.abs() <= 0.7 {
-        x
-    } else if x > 0.7 {
-        0.7 + 0.3 * ((x - 0.7) / 0.3).tanh()
-    } else {
-        -0.7 - 0.3 * ((-x - 0.7) / 0.3).tanh()
-    }
 }
 
 #[cfg(test)]
@@ -338,5 +300,27 @@ mod tests {
         let input = vec![0.01; 48000 * 5]; // 5 seconds of 48kHz
         let output = resample_audio_f32(&input, 48000, 16000);
         assert_eq!(output.len(), 16000 * 5);
+    }
+
+    #[test]
+    fn finalize_captured_audio_16k_direct_path() {
+        let input = vec![0.5; 16000]; // 1 second of 16kHz
+        let wav_bytes =
+            finalize_captured_audio_for_whisper(&input, 16000).expect("finalize failed");
+        let reader = hound::WavReader::new(std::io::Cursor::new(wav_bytes)).unwrap();
+        assert_eq!(reader.spec().sample_rate, 16000);
+        assert_eq!(reader.spec().channels, 1);
+        assert_eq!(reader.duration(), 16000);
+    }
+
+    #[test]
+    fn finalize_captured_audio_44100_resampled_path() {
+        let input = vec![0.3; 44100]; // 1 second of 44.1kHz
+        let wav_bytes =
+            finalize_captured_audio_for_whisper(&input, 44100).expect("finalize failed");
+        let reader = hound::WavReader::new(std::io::Cursor::new(wav_bytes)).unwrap();
+        assert_eq!(reader.spec().sample_rate, 16000);
+        assert_eq!(reader.spec().channels, 1);
+        assert_eq!(reader.duration(), 16000);
     }
 }

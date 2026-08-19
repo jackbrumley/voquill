@@ -1,13 +1,15 @@
 :root {
-  --colors-bg-primary: #2b2e34;
-  --colors-bg-gradient-warm: #3a2c3d;
-  --colors-bg-gradient-cool: #243942;
+  --colors-bg-primary: #161822;
+  --colors-bg-dark: #0f1117;
+  --colors-bg-gradient-warm: #1e1b4b;
+  --colors-bg-gradient-cool: #0c1424;
   --colors-text-primary: #ffffff;
   --colors-text-secondary: #c5cbd3;
+  --colors-text-muted: #94a3b8;
   --colors-accent-primary: #5865f2;
   --colors-accent-hover: #4752c4;
   --colors-success: #10b981;
-  --colors-glass-bg: rgba(35, 37, 42, 0.72);
+  --colors-glass-bg: rgba(26, 29, 38, 0.65);
   --colors-glass-blur: 16px;
   --typography-font-main: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   --typography-font-mono: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
@@ -22,7 +24,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  background: linear-gradient(135deg, var(--colors-bg-gradient-warm) 0%, var(--colors-bg-primary) 50%, var(--colors-bg-gradient-cool) 100%);
+  background: 
+    radial-gradient(ellipse 90% 60% at 50% -10%, rgba(88, 101, 242, 0.18) 0%, rgba(196, 57, 145, 0.12) 40%, transparent 80%),
+    linear-gradient(180deg, #161822 0%, #0f1117 100%);
   background-attachment: fixed;
   color: var(--colors-text-primary);
   line-height: 1.5;

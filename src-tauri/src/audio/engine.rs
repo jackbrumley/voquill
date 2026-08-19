@@ -15,16 +15,35 @@ pub struct PersistentAudioEngine {
 
 impl PersistentAudioEngine {
     pub fn new(device: &cpal::Device, sensitivity: f32) -> Result<Self, String> {
-        let config = device
-            .default_input_config()
-            .map_err(|e| format!("Failed to get default input config: {}", e))?;
+        let preferred_config = select_preferred_config(device);
+        match Self::try_build_stream(device, preferred_config, sensitivity) {
+            Ok(engine) => Ok(engine),
+            Err(err) => {
+                crate::log_warn!(
+                    "Audio Engine: Preferred stream init failed ({}); falling back to default config",
+                    err
+                );
+                let default_config = device
+                    .default_input_config()
+                    .map_err(|e| format!("Failed to get default input config: {}", e))?;
+                Self::try_build_stream(device, default_config, sensitivity)
+            }
+        }
+    }
+
+    fn try_build_stream(
+        device: &cpal::Device,
+        config: cpal::SupportedStreamConfig,
+        sensitivity: f32,
+    ) -> Result<Self, String> {
         let sample_rate = config.sample_rate();
         let channels = config.channels();
 
         crate::log_info!(
-            "Audio Engine: Opening native stream ({}Hz, {} channels)",
+            "Audio Engine: Opening stream ({}Hz, {} channels, format={:?})",
             sample_rate,
-            channels
+            channels,
+            config.sample_format()
         );
 
         let pre_roll_size = (sample_rate as f32 * 0.2) as usize;
@@ -41,7 +60,7 @@ impl PersistentAudioEngine {
 
         let mut audio_callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
             for frame in data.chunks(channels_usize) {
-                let sample_raw: f32 = frame.iter().sum();
+                let sample_raw: f32 = frame.iter().sum::<f32>() / channels_usize as f32;
                 let sample = sample_raw * sensitivity;
 
                 let _ = pre_roll_prod.try_push(sample);
@@ -80,7 +99,47 @@ impl PersistentAudioEngine {
             pre_roll_consumer: Arc::new(Mutex::new(pre_roll_cons)),
             recording_tx,
             sample_rate,
-            channels,
+            channels: 1, // downmixed to mono in callback
         })
     }
+}
+
+fn select_preferred_config(device: &cpal::Device) -> cpal::SupportedStreamConfig {
+    let target_rate: cpal::SampleRate = 16000;
+
+    if let Ok(ranges) = device.supported_input_configs() {
+        let ranges_vec: Vec<_> = ranges.collect();
+
+        // 1. First choice: 16kHz mono (1 channel)
+        for range in &ranges_vec {
+            if range.channels() == 1
+                && range.min_sample_rate() <= target_rate
+                && target_rate <= range.max_sample_rate()
+            {
+                crate::log_info!("Audio Engine: Probed device supports 16000Hz mono");
+                return range.with_sample_rate(target_rate);
+            }
+        }
+
+        // 2. Second choice: 16kHz any channels (will be downmixed to mono in callback)
+        for range in &ranges_vec {
+            if range.min_sample_rate() <= target_rate && target_rate <= range.max_sample_rate() {
+                crate::log_info!(
+                    "Audio Engine: Probed device supports 16000Hz ({} channels)",
+                    range.channels()
+                );
+                return range.with_sample_rate(target_rate);
+            }
+        }
+    }
+
+    // 3. Fall back to device default
+    device.default_input_config().unwrap_or_else(|_| {
+        cpal::SupportedStreamConfig::new(
+            1,
+            target_rate,
+            cpal::SupportedBufferSize::Unknown,
+            SampleFormat::F32,
+        )
+    })
 }
