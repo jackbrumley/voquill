@@ -2,8 +2,9 @@
 Audio enhancement: noise reduction using noisereduce library.
 
 Uses spectral gating to reduce background noise from audio files.
-The noise profile is estimated from the first 500ms of audio (assumed
-to contain only background noise), then applied to the full signal.
+Estimates the noise floor statistics across the signal without assuming
+any specific time slice is silent, avoiding voice clipping when speech
+starts immediately.
 
 Can be used as a pre-processing step before transcription to improve
 accuracy in noisy environments.
@@ -13,13 +14,10 @@ from __future__ import annotations
 
 import logging
 import os
-import tempfile
 
 from .schemas import EnhanceResponse
 
 logger = logging.getLogger("voquill.enhancement.noise")
-
-_NOISE_PROFILE_DURATION_MS = 500
 
 
 def is_available() -> bool:
@@ -41,7 +39,7 @@ def run(
     """
     Reduce background noise in audio_path using spectral gating.
 
-    The noise profile is estimated from the first 500ms of audio.
+    Estimates stationary noise statistics across the audio signal.
     noise_reduction_strength (0.0-1.0) controls how aggressively noise
     is removed: 0.0 = no reduction, 1.0 = maximum reduction.
     Default 0.7 works well for most environments.
@@ -67,16 +65,9 @@ def run(
         len(samples) / sample_rate,
     )
 
-    clip_to_sample = max(1, int(sample_rate * _NOISE_PROFILE_DURATION_MS / 1000))
-    noise_profile = samples[: min(clip_to_sample, len(samples))]
-    if len(noise_profile) == 0:
-        logger.warning("Audio too short for noise profiling, using full signal")
-        noise_profile = samples
-
     enhanced = noisereduce.reduce_noise(
         y=samples,
         sr=sample_rate,
-        y_noise=noise_profile,
         prop_decrease=noise_reduction_strength,
         stationary=True,
     )

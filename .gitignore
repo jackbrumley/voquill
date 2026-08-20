@@ -25,6 +25,10 @@ src-tauri/gen/schemas/
 # App Data
 src-tauri/debug
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
