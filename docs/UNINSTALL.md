@@ -13,11 +13,17 @@ Voquill supports a one-command uninstall flow from the website, matching the ins
 
 ## Quick Uninstall (Safe Default)
 
-Removes the Voquill package (via `dnf` or `apt`) and cleans up desktop integration files.
+Removes the Voquill package (or runs Windows MSI uninstaller) and cleans up desktop integration files.
 Leaves your user data (`~/.config/voquill-app`) intact so you don't lose models or settings.
 
+**Linux:**
 ```bash
 curl -sf https://voquill.org/uninstall.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://voquill.org/uninstall.ps1 | iex
 ```
 
 ## Full Purge (Clean Slate)
@@ -25,17 +31,23 @@ curl -sf https://voquill.org/uninstall.sh | bash
 Removes Voquill and wipes all user data — models, config, history, logs, and the entire
 `~/.config/voquill-app` directory.
 
+**Linux:**
 ```bash
 curl -sf https://voquill.org/uninstall.sh | bash -s -- --purge-data --yes
 ```
 
+**Windows (PowerShell):**
+```powershell
+irm https://voquill.org/uninstall.ps1 | iex -args "-PurgeData -Yes"
+```
+
 ## Script Options
 
-| Option | Description |
-|--------|-------------|
-| `--purge-data` | Also remove `~/.config/voquill-app` (models, config, history, logs) |
-| `--yes` | Run non-interactively (skip confirmation prompts) |
-| `--help` | Show script usage |
+| Option (Linux) | Option (Windows) | Description |
+|----------------|------------------|-------------|
+| `--purge-data` | `-PurgeData` | Also remove `~/.config/voquill-app` (models, config, history, logs) |
+| `--yes` | `-Yes` | Run non-interactively (skip confirmation prompts) |
+| `--help` | `-Help` | Show script usage |
 
 ## What Gets Removed
 
