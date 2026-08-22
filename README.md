@@ -21,11 +21,12 @@ FOSS Voquill is offline dictation that works in any app on your system. Your voi
 
 It exists because dictation should be a basic utility, not a locked service. If you want private, system-wide push-to-talk transcription on Linux or Windows, this is built for that workflow.
 
-## Watch the Promo
+## Screenshots
 
-[![Watch the Voquill promo video](https://img.youtube.com/vi/yKKyPUwEpDg/maxresdefault.jpg)](https://youtu.be/yKKyPUwEpDg)
-
-Prefer direct link: https://youtu.be/yKKyPUwEpDg
+![Voquill Home and Dictation Interface](docs/screenshots/screenshot-1.png)
+![Voquill History and Transcription Playback](docs/screenshots/screenshot-2.png)
+![Voquill Settings and Configuration](docs/screenshots/screenshot-3.png)
+![Voquill Help and Usage Guide](docs/screenshots/screenshot-4.png)
 
 ## Install
 
@@ -86,12 +87,11 @@ In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and fr
 - **Truly Free**: No subscriptions, no paid tiers. Free to use and build on.
 - **Privacy First**: Your voice stays on your device. Transcription runs locally.
 
-## Screenshots
+## Watch the Promo
 
-![Voquill Home and Dictation Interface](docs/screenshots/screenshot-1.png)
-![Voquill History and Transcription Playback](docs/screenshots/screenshot-2.png)
-![Voquill Settings and Configuration](docs/screenshots/screenshot-3.png)
-![Voquill Help and Usage Guide](docs/screenshots/screenshot-4.png)
+[![Watch the Voquill promo video](https://img.youtube.com/vi/yKKyPUwEpDg/maxresdefault.jpg)](https://youtu.be/yKKyPUwEpDg)
+
+Prefer direct link: https://youtu.be/yKKyPUwEpDg
 
 ---
 

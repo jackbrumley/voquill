@@ -73,17 +73,15 @@ container_class: home-container
   </div>
 </div>
 
-<div class="hero-container">
-  <div class="hero-media">
-    <iframe
-      src="https://www.youtube-nocookie.com/embed/yKKyPUwEpDg"
-      title="FOSS Voquill promo video"
-      loading="lazy"
-      allow="picture-in-picture; web-share"
-      referrerpolicy="strict-origin-when-cross-origin"
-      allowfullscreen
-    ></iframe>
-  </div>
+<div class="hero-screenshots-grid">
+  <a href="{{ '/screenshots.html' | relative_url }}" class="hero-screenshot-card">
+    <img src="{{ '/screenshots/screenshot-1.png' | relative_url }}" alt="Voquill Dictation Interface" loading="eager">
+    <span class="hero-screenshot-caption">Main Dictation &amp; Audio Import</span>
+  </a>
+  <a href="{{ '/screenshots.html' | relative_url }}" class="hero-screenshot-card">
+    <img src="{{ '/screenshots/screenshot-2.png' | relative_url }}" alt="Voquill History & Playback Interface" loading="eager">
+    <span class="hero-screenshot-caption">History &amp; Audio Playback</span>
+  </a>
 </div>
 
 <section class="feature-list">
@@ -131,8 +129,22 @@ container_class: home-container
   </div>
 </section>
 
+<div class="hero-container video-section">
+  <h3 class="video-heading">Walkthrough Video</h3>
+  <div class="hero-media">
+    <iframe
+      src="https://www.youtube-nocookie.com/embed/yKKyPUwEpDg"
+      title="FOSS Voquill promo video"
+      loading="lazy"
+      allow="picture-in-picture; web-share"
+      referrerpolicy="strict-origin-when-cross-origin"
+      allowfullscreen
+    ></iframe>
+  </div>
+</div>
+
 <div class="gallery-action">
-  <a href="{{ '/screenshots.html' | relative_url }}" class="btn btn-secondary">Screenshots</a>
+  <a href="{{ '/screenshots.html' | relative_url }}" class="btn btn-secondary">View All Screenshots</a>
 </div>
 
 <p class="provenance home-provenance">FOSS Voquill is the original project, first published in July 2025 by Jack Brumley and built to give back to the open-source community.</p>

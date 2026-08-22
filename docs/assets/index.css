@@ -252,10 +252,72 @@ h1 {
   letter-spacing: 0.02em;
 }
 
+.hero-screenshots-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+  margin: 1.75rem auto 2rem;
+  max-width: 960px;
+  width: 100%;
+}
+
+.hero-screenshot-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--colors-glass-bg);
+  backdrop-filter: blur(var(--colors-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colors-glass-blur));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hero-screenshot-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+.hero-screenshot-card img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hero-screenshot-caption {
+  padding: 0.65rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--colors-text-secondary);
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+
+.hero-screenshot-card:hover .hero-screenshot-caption {
+  color: var(--colors-text-primary);
+}
+
 .hero-container {
   margin: 2rem auto;
   max-width: 800px;
   width: 100%;
+}
+
+.video-section {
+  margin: 2.5rem auto 1.5rem;
+}
+
+.video-heading {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--colors-text-secondary);
+  text-align: center;
+  margin-bottom: 1rem;
 }
 
 .hero-media {
@@ -406,6 +468,12 @@ h1 {
 @media (max-width: 600px) {
   h1 {
     font-size: 2.25rem;
+  }
+
+  .hero-screenshots-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin: 1.25rem auto 1.5rem;
   }
 
   .philosophy-grid {
