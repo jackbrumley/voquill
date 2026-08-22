@@ -77,7 +77,7 @@ const sectionTitleMap: Record<string, string> = {
   'dictionary': 'Dictionary',
   'filler-words': 'Filler Words',
   'post-process': 'Post-Processing',
-  'typing': 'Typing',
+  'typing': 'Typing & Output',
   'debug': 'Debug',
 };
 
@@ -173,7 +173,7 @@ export function ConfigPage(props: ConfigPageProps) {
           <SectionNavItem title="Dictionary" section="dictionary" />
           <SectionNavItem title="Filler Words" section="filler-words" />
           <SectionNavItem title="Post-Processing" section="post-process" />
-          <SectionNavItem title="Typing" section="typing" />
+          <SectionNavItem title="Typing & Output" section="typing" />
           <SectionNavItem title="Debug" section="debug" />
         </div>
       ) : (
@@ -216,7 +216,6 @@ export function ConfigPage(props: ConfigPageProps) {
                 autostartEnabled={autostartEnabled}
                 onToggleAutostart={onToggleAutostart}
                 overlayPositioningCapabilities={overlayPositioningCapabilities}
-                languageOptions={languageOptions}
               />
             )}
 
@@ -251,6 +250,7 @@ export function ConfigPage(props: ConfigPageProps) {
                 downloadModel={downloadModel}
                 loadModels={loadModels}
                 setShowModelGuide={setShowModelGuide}
+                languageOptions={languageOptions}
               />
             )}
 

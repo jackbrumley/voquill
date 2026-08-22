@@ -13,6 +13,7 @@ export const appShellStyle: Style = {
   position: 'relative',
   background: 'radial-gradient(ellipse 90% 60% at 50% -10%, rgba(88, 101, 242, 0.18) 0%, rgba(196, 57, 145, 0.12) 40%, transparent 80%), linear-gradient(180deg, #161822 0%, #0f1117 100%)',
   color: tokens.colors.textPrimary,
+  border: '1px solid rgba(255, 255, 255, 0.06)',
 };
 
 export const titleBarStyle: Style = {

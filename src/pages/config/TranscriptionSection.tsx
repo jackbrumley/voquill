@@ -28,6 +28,7 @@ interface TranscriptionSectionProps {
   downloadModel: (size: string, engine?: string) => void;
   loadModels: () => void;
   setShowModelGuide: (show: boolean) => void;
+  languageOptions: { value: string; label: string }[];
 }
 
 export function TranscriptionSection({
@@ -46,6 +47,7 @@ export function TranscriptionSection({
   downloadModel,
   loadModels,
   setShowModelGuide,
+  languageOptions,
 }: TranscriptionSectionProps) {
   return (
     <>
@@ -165,6 +167,17 @@ export function TranscriptionSection({
           )}
         </>
       )}
+
+      <ConfigField label="Language Hint" labelBadge="Experimental" description="Best-effort language hint for transcription models. Helps with spelling preferences (e.g. Australian, British, American English) and non-English dictation.">
+        <div style={selectWrapperStyle}>
+          <SelectField
+            value={config.language}
+            options={languageOptions}
+            onChange={(nextLanguage) => updateConfig('language', nextLanguage)}
+            ariaLabel="Language hint"
+          />
+        </div>
+      </ConfigField>
 
       <ConfigField label="Differentiate Voices in Recordings" description="Detect and label different speakers in live recordings. When enabled, the recording takes slightly longer to process as each speaker segment is transcribed independently.">
         <Switch name="Diarization Recording" checked={config.diarization_enabled_recording} onChange={(checked) => updateConfig('diarization_enabled_recording', checked)} />

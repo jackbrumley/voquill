@@ -1,12 +1,10 @@
-import { useSignal } from '@preact/signals';
 import { ConfigField } from '../../components/ConfigField.tsx';
 import { Switch } from '../../components/Switch.tsx';
 import { ModeSwitcher } from '../../components/ModeSwitcher.tsx';
 import { Button } from '../../components/Button.tsx';
 import { NumberField } from '../../components/NumberField.tsx';
-import { SelectField } from '../../components/SelectField.tsx';
-import type { Config, PasteShortcut } from '../../types.ts';
-import { helperTextStyle, inputBaseStyle, selectWrapperStyle } from '../../theme/ui-primitives.ts';
+import type { Config } from '../../types.ts';
+import { helperTextStyle, inputBaseStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
 
 const configGhostPillStyle = {
@@ -29,7 +27,6 @@ interface GeneralSectionProps {
   autostartEnabled: boolean;
   onToggleAutostart: (enabled: boolean) => void;
   overlayPositioningCapabilities: { manual_offset_supported: boolean; detail?: string };
-  languageOptions: { value: string; label: string }[];
 }
 
 export function GeneralSection({
@@ -45,10 +42,7 @@ export function GeneralSection({
   autostartEnabled,
   onToggleAutostart,
   overlayPositioningCapabilities,
-  languageOptions,
 }: GeneralSectionProps) {
-  const hasManuallyToggledPaste = useSignal(false);
-
   return (
     <>
       <ConfigField
@@ -103,84 +97,6 @@ export function GeneralSection({
         )}
       </ConfigField>
 
-      <ConfigField label="Output Method" description="Choose how transcriptions are inserted when dictation finishes.">
-        <ModeSwitcher
-          value={config.output_method}
-          onToggle={(value) => {
-            updateConfig('output_method', value);
-            if (value === 'Clipboard' && !hasManuallyToggledPaste.value) {
-              updateConfig('paste_after_copy', true);
-            }
-          }}
-          options={[
-            { value: 'Typewriter', label: 'Typewriter', title: 'Type directly into your active cursor' },
-            { value: 'Clipboard', label: 'Clipboard', title: 'Copy transcription results to your clipboard' },
-          ]}
-        />
-      </ConfigField>
-
-      {config.output_method === 'Clipboard' && (
-        <>
-          <ConfigField label="Paste After Copy" description="Automatically paste after copying. Saves and restores your clipboard content.">
-            <Switch name="Paste After Copy" checked={config.paste_after_copy} onChange={(checked) => {
-              hasManuallyToggledPaste.value = true;
-              updateConfig('paste_after_copy', checked);
-            }} />
-          </ConfigField>
-
-          {config.paste_after_copy && (
-            <ConfigField label="Paste Shortcut" description="Keyboard shortcut simulated to paste your transcription.">
-              <div style={selectWrapperStyle}>
-                <SelectField
-                  value={config.paste_shortcut}
-                  options={[
-                    {
-                      value: 'ShiftInsert',
-                      label: 'Shift + Insert (Universal — Terminal & GUI)',
-                    },
-                    {
-                      value: 'CtrlV',
-                      label: 'Ctrl + V (Standard Desktop)',
-                    },
-                    {
-                      value: 'CtrlShiftV',
-                      label: 'Ctrl + Shift + V (Terminal Only)',
-                    },
-                  ]}
-                  onChange={(nextShortcut) => updateConfig('paste_shortcut', nextShortcut as PasteShortcut)}
-                  ariaLabel="Paste Shortcut"
-                />
-              </div>
-              <div style={helperTextStyle}>
-                {config.paste_shortcut === 'ShiftInsert' && (
-                  'Shift + Insert is the universal paste shortcut supported by both terminal emulators (e.g. GNOME Terminal, Alacritty, Kitty) and standard desktop applications.'
-                )}
-                {config.paste_shortcut === 'CtrlV' && (
-                  'Ctrl + V is standard across desktop browsers and office apps, but is usually intercepted or ignored in terminal emulators.'
-                )}
-                {config.paste_shortcut === 'CtrlShiftV' && (
-                  'Ctrl + Shift + V is standard in terminal emulators, but is not recognized by standard desktop GUI apps.'
-                )}
-              </div>
-            </ConfigField>
-          )}
-        </>
-      )}
-
-      {config.output_method === 'Typewriter' && (
-        <ConfigField label="Always Copy to Clipboard" description="Also copy transcriptions to clipboard while typing directly into your active cursor.">
-          <Switch name="Always Copy to Clipboard" checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} />
-        </ConfigField>
-      )}
-
-      <ConfigField label="Updates" description="Check for newer Voquill releases.">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
-          <Button variant="ghost" pill style={configGhostPillStyle} onClick={onCheckForUpdates} disabled={checkingUpdates}>
-            {checkingUpdates ? 'Checking...' : 'Check for Updates'}
-          </Button>
-        </div>
-      </ConfigField>
-
       <ConfigField label="Launch on System Startup" description="Automatically starts Voquill when you log in.">
         <Switch name="Launch on System Startup" checked={autostartEnabled} onChange={onToggleAutostart} />
       </ConfigField>
@@ -201,14 +117,11 @@ export function GeneralSection({
         </div>
       </ConfigField>
 
-      <ConfigField label="Language Hint" labelBadge="Experimental" description="Best-effort language hint for transcription. Some engines/models may ignore this setting or apply it inconsistently.">
-        <div style={selectWrapperStyle}>
-          <SelectField
-            value={config.language}
-            options={languageOptions}
-            onChange={(nextLanguage) => updateConfig('language', nextLanguage)}
-            ariaLabel="Language hint"
-          />
+      <ConfigField label="Updates" description="Check for newer Voquill releases.">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>
+          <Button variant="ghost" pill style={configGhostPillStyle} onClick={onCheckForUpdates} disabled={checkingUpdates}>
+            {checkingUpdates ? 'Checking...' : 'Check for Updates'}
+          </Button>
         </div>
       </ConfigField>
     </>
