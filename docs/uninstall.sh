@@ -77,7 +77,7 @@ if [[ ! -t 0 ]]; then
 fi
 
 # Known package names (current + legacy)
-PACKAGE_NAMES=("voquill" "org.voquill.app" "org.voquill.foss")
+PACKAGE_NAMES=("voquill" "org.voquill.desktop" "org.voquill.app" "org.voquill.foss")
 
 # Known binary locations
 BINARY_PATHS=(
@@ -89,8 +89,10 @@ BINARY_PATHS=(
 # Known desktop integration files
 DESKTOP_FILES=(
   "/usr/share/applications/voquill.desktop"
+  "/usr/share/applications/org.voquill.desktop.desktop"
   "/usr/share/applications/org.voquill.app.desktop"
   "${HOME}/.local/share/applications/voquill.desktop"
+  "${HOME}/.local/share/applications/org.voquill.desktop.desktop"
   "${HOME}/.local/share/applications/org.voquill.app.desktop"
 )
 
@@ -100,6 +102,8 @@ ICON_DIRS=(
 )
 
 METAINFO_FILES=(
+  "/usr/share/metainfo/org.voquill.desktop.metainfo.xml"
+  "/usr/share/appdata/org.voquill.desktop.metainfo.xml"
   "/usr/share/metainfo/org.voquill.app.metainfo.xml"
   "/usr/share/appdata/org.voquill.app.metainfo.xml"
 )
@@ -221,8 +225,9 @@ done
 for icon_dir in "${ICON_DIRS[@]}"; do
   require_safe_path "$icon_dir"
   icon_path="${icon_dir}/voquill.svg"
+  desktop_icon_path="${icon_dir}/org.voquill.desktop.svg"
   legacy_icon_path="${icon_dir}/org.voquill.app.svg"
-  for ico in "$icon_path" "$legacy_icon_path"; do
+  for ico in "$icon_path" "$desktop_icon_path" "$legacy_icon_path"; do
     if [[ -e "$ico" || -L "$ico" ]]; then
       log "Removing icon: ${ico}"
       if [[ "$ico" == /usr/share/* ]]; then

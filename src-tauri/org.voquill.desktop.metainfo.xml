@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>org.voquill.app</id>
+  <id>org.voquill.desktop</id>
   <name>Voquill</name>
   <summary>Push-to-talk dictation app with local transcription</summary>
   <project_license>AGPL-3.0-only</project_license>
@@ -9,8 +9,8 @@
     <name>Jack Brumley</name>
   </developer>
   <pkgname>voquill</pkgname>
-  <launchable type="desktop-id">org.voquill.app.desktop</launchable>
-  <icon type="stock">org.voquill.app</icon>
+  <launchable type="desktop-id">voquill.desktop</launchable>
+  <icon type="stock">org.voquill.desktop</icon>
   <icon type="stock">voquill</icon>
   <description>
     <p>

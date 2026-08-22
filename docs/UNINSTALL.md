@@ -41,11 +41,11 @@ curl -sf https://voquill.org/uninstall.sh | bash -s -- --purge-data --yes
 
 | Location | Always | With `--purge-data` |
 |----------|--------|---------------------|
-| System package (`voquill`, `org.voquill.app`, `org.voquill.foss`) | Yes | Yes |
+| System package (`voquill`, `org.voquill.desktop`, `org.voquill.app`, `org.voquill.foss`) | Yes | Yes |
 | Binary (`/usr/bin/voquill`, `~/.local/bin/voquill`) | Yes | Yes |
 | Desktop file (`*.desktop`) | Yes | Yes |
 | Icons (`/usr/share/icons/hicolor/*/apps/voquill.*`) | Yes | Yes |
-| Metainfo (`/usr/share/metainfo/org.voquill.app.metainfo.xml`) | Yes | Yes |
+| Metainfo (`/usr/share/metainfo/org.voquill.desktop.metainfo.xml`) | Yes | Yes |
 | User data (`~/.config/voquill-app`) | No | Yes |
 | Legacy data (`~/.config/foss-voquill`) | No | Yes |
 

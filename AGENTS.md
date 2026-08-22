@@ -134,7 +134,7 @@ All five must pass without warnings. Treat compiler warnings as errors.
 - **Single Owner:** `src-tauri/src/paths.rs` owns every on-disk location. Never call `dirs::config_dir()` / `dirs::home_dir()` directly from feature code -- use the `paths::` helpers (`app_root`, `ensure_app_root`, `config_file`, `history_db`, `models_dir`, `python_runner_dir`, `debug_dir`).
 - **Unified Root:** Everything Voquill persists (config.json, history.db, models/, python-runner/, debug/) lives under `~/.config/voquill-app` on every platform. Linux honors `XDG_CONFIG_HOME` via `dirs::config_dir()`; Windows/macOS resolve `dirs::home_dir()/.config`, deliberately keeping multi-GB models out of roaming `%APPDATA%`.
 - **Legacy Migration:** `paths::migrate_legacy_location()` runs at the top of `main()` before any storage access and moves the pre-1.4.3 directory (`<os config dir>/foss-voquill`, e.g. `%APPDATA%\foss-voquill`) into the new root (rename, copy-fallback, explicit logging of every outcome).
-- **App Identifier:** The Tauri identifier, Wayland app_id, desktop file, and metainfo ID are all `org.voquill.app` -- one reverse-DNS identity across every surface (namespace owned via the voquill.org domain).
+- **App Identifier:** The Tauri identifier, Wayland app_id, desktop file, and metainfo ID are all `org.voquill.desktop` -- one reverse-DNS identity across every surface (namespace owned via the voquill.org domain).
 
 ---
 

@@ -99,7 +99,7 @@ fetch_latest_release_tag() {
 clean_old_packages() {
   local pm="$1"
   local removed=false
-  for pkg in "voquill" "org.voquill.app" "org.voquill.foss"; do
+  for pkg in "voquill" "org.voquill.desktop" "org.voquill.app" "org.voquill.foss"; do
     if [[ "$pm" == "dnf" ]]; then
       # Tauri converts dots to dashes in RPM package names, try both
       for rpm_name in "$pkg" "${pkg//./-}"; do
