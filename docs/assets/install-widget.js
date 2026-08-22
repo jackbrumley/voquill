@@ -5,13 +5,13 @@
 
   var COMMANDS = {
     linux: {
-      user: {
-        label: 'User Install',
+      system: {
+        label: 'System Install',
         command: 'curl -sf https://voquill.org/install.sh | bash',
       },
-      system: {
-        label: 'System Package',
-        command: 'curl -sf https://voquill.org/install.sh | sudo bash -s -- --system --yes',
+      appimage: {
+        label: 'AppImage',
+        command: 'curl -sf https://voquill.org/install.sh | bash -s -- --appimage',
       },
       uninstall: {
         label: 'Uninstall',
