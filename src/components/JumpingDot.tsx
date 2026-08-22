@@ -34,6 +34,7 @@ export function JumpingDot({ dotSize = 36, jumpHeight = 52 }: JumpingDotProps) {
           height: `${dotSize}px`,
           borderRadius: '50%',
           background: 'linear-gradient(135deg, #5ab7d6 15%, rgba(123, 120, 163, 1) 34%, rgba(156, 90, 136, 1) 54%, #c43991 85%)',
+          boxShadow: '0 4px 10px rgba(0, 0, 0, 0.3), 0 0 12px rgba(196, 57, 145, 0.35)',
           animation: 'voquill-ready-dot-jump 3s infinite ease-in-out',
         }}></span>
       </div>
