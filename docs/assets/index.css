@@ -452,8 +452,8 @@ h1 {
 }
 
 .btn-icon {
-  width: 1em;
-  height: 1em;
+  width: 1.65em;
+  height: 1.65em;
   display: block;
   flex-shrink: 0;
   align-self: center;
