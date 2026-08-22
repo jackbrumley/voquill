@@ -1,0 +1,160 @@
+---
+layout: default
+title: Frequently Asked Questions | FOSS Voquill
+description: Answers to common questions about FOSS Voquill, including privacy, local models, offline functionality, open-source licensing, and platform support.
+canonical: https://voquill.org/faq.html
+stylesheets:
+  - /assets/faq.css
+body_class: centered-page
+container_class: faq-container
+provenance: Founded July 2025 by Jack Brumley
+---
+<div class="faq-nav-bar">
+  <a href="{{ '/' | relative_url }}" class="btn btn-secondary btn-compact">&larr; Back to Home</a>
+</div>
+
+<header class="faq-header">
+  <h1>Frequently Asked Questions</h1>
+  <p class="tagline">Everything you need to know about FOSS Voquill, privacy, local AI models, and offline dictation.</p>
+</header>
+
+<div class="faq-list">
+
+  <article class="faq-item" id="is-voquill-free">
+    <h3 class="faq-question">Is Voquill really free?</h3>
+    <div class="faq-answer">
+      <p>Yes. Voquill is completely free and open source, with no subscription, paid tier, account requirement or feature restrictions.</p>
+      <p>The project was built as a useful desktop tool, not as a service that needs to generate recurring revenue. The intention is to keep it that way.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="telemetry-and-data">
+    <h3 class="faq-question">Does Voquill collect any data or telemetry?</h3>
+    <div class="faq-answer">
+      <p>No. Voquill collects absolutely no telemetry, analytics or usage data.</p>
+      <p>There is no Voquill cloud service, account system or remote backend for the application to report to. What you say, what you transcribe and how you use the application are not sent back anywhere.</p>
+      <p>The application only makes external connections when they are needed for something you have chosen to do, such as downloading a speech or AI model, checking for or downloading an update from GitHub Releases, or connecting to an API provider that you have configured yourself.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="voice-privacy">
+    <h3 class="faq-question">Does my voice leave my computer?</h3>
+    <div class="faq-answer">
+      <p>Not when using Voquill's local transcription and post-processing options.</p>
+      <p>Speech recognition, audio processing and AI post-processing can all run entirely on your own computer. Your microphone audio does not need to be uploaded anywhere.</p>
+      <p>Voquill also supports optional API-based transcription and post-processing services. If you choose to configure one of these, the relevant data will be sent to that provider according to its own privacy policy. These services are entirely optional and are not required to use Voquill.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="internet-connection">
+    <h3 class="faq-question">Does Voquill need an internet connection?</h3>
+    <div class="faq-answer">
+      <p>No. Once the required local models have been downloaded, Voquill can be used completely offline.</p>
+      <p>An internet connection is only needed when downloading models or software updates, or when using an optional cloud API that you have configured yourself.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="why-created">
+    <h3 class="faq-question">Why was Voquill created?</h3>
+    <div class="faq-answer">
+      <p>Voquill started as a small Python script because I wanted a better way to dictate text on my own computer.</p>
+      <p>The built-in dictation tools available to me did not work as well as I wanted, so I built something that did. That script gradually turned into a proper desktop application as I learned more about application development and kept improving the tool for my own everyday use.</p>
+      <p>Voquill is now something I use every day for work, writing, development and general computer use.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="why-open-source">
+    <h3 class="faq-question">Why is Voquill open source?</h3>
+    <div class="faq-answer">
+      <p>Open-source software has given me an enormous amount of value both professionally and personally, and Voquill is my way of giving something useful back.</p>
+      <p>It started as a tool I built for myself, but once it became useful there was little reason to keep it to myself. If other people get the same value from it, that is a good outcome for the project.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="business-model">
+    <h3 class="faq-question">What is the business model?</h3>
+    <div class="faq-answer">
+      <p>There isn't one.</p>
+      <p>Voquill is not backed by advertising, subscriptions, data collection or a hosted service. It is a free utility that runs on hardware you already own.</p>
+      <p>There are currently no plans to introduce a paid version or subscription. The intention is for Voquill to remain a free and open-source project.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="why-run-locally">
+    <h3 class="faq-question">Why does Voquill run locally?</h3>
+    <div class="faq-answer">
+      <p>Voice input should not inherently require a cloud service.</p>
+      <p>A keyboard sends text directly into your computer. A mouse sends movement directly into your computer. Modern computers are now powerful enough for speech recognition to work in much the same way.</p>
+      <p>Voquill is built around the idea that your voice, your hardware and your software should be enough. If the computer can process the audio locally, there should be no requirement to send it somewhere else or pay an ongoing fee just to turn speech into text.</p>
+      <p>Cloud services remain available as an option for people who want them, but they are not a requirement.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="vs-built-in">
+    <h3 class="faq-question">Why use Voquill instead of built-in voice typing?</h3>
+    <div class="faq-answer">
+      <p>Built-in dictation tools are useful for basic speech-to-text, but Voquill is designed to provide much more control over the process.</p>
+      <p>It supports local speech recognition models, custom dictionaries, filler-word removal, searchable transcription history, audio-file transcription, speaker diarisation and optional AI post-processing.</p>
+      <p>Voquill can also transform spoken language into more polished written text rather than simply reproducing every word exactly as it was spoken.</p>
+      <p>On Linux, Voquill also has native Wayland support, including portal-based global shortcuts and text input, rather than relying on older X11-only methods.</p>
+      <p>Most importantly, all of this can be done locally.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="how-different">
+    <h3 class="faq-question">How is Voquill different from other dictation tools?</h3>
+    <div class="faq-answer">
+      <p>There are several excellent dictation applications available, and different tools suit different users.</p>
+      <p>Voquill focuses on being a fully open-source, local-first desktop utility for Windows and Linux. It combines everyday system-wide dictation with audio-file transcription, speaker diarisation, optional local AI post-processing and native Wayland support, without requiring an account or subscription.</p>
+      <p>The goal is not to replicate every feature offered by commercial services. It is to provide a capable tool that can continue working independently on the user's own computer.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="any-application">
+    <h3 class="faq-question">Does Voquill work in any application?</h3>
+    <div class="faq-answer">
+      <p>Voquill is designed to work as a system-wide input tool rather than being tied to a particular text editor or application.</p>
+      <p>Transcribed text can be entered into the currently active application, allowing Voquill to be used for email, web browsers, office applications, messaging, development tools, documentation and most other places where normal keyboard input works.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="if-domain-disappears">
+    <h3 class="faq-question">What happens if Voquill.org ever disappears?</h3>
+    <div class="faq-answer">
+      <p>The locally installed application does not depend on Voquill.org or any Voquill-operated backend to function.</p>
+      <p>Local transcription and post-processing run on your own computer using models stored locally. There is no account that needs to remain active and no hosted Voquill service that needs to continue operating.</p>
+      <p>As long as the application and its required models are available on the computer, the local functionality can continue to work independently.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="macos-support">
+    <h3 class="faq-question">Why isn't macOS supported?</h3>
+    <div class="faq-answer">
+      <p>macOS may be supported in the future, but at the moment Voquill is developed and tested on Windows and Linux.</p>
+      <p>The main reason is fairly simple: I don't currently have a Mac to properly build, test and support it on. I would rather support the platforms I can test properly than publish a macOS build and hope it works.</p>
+      <p>If that changes in the future, macOS support is certainly something I would consider.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="who-is-it-for">
+    <h3 class="faq-question">Who is Voquill for?</h3>
+    <div class="faq-answer">
+      <p>Voquill is for anyone who finds speaking faster or more convenient than typing.</p>
+      <p>That can include writing emails, taking notes, creating documentation, drafting longer pieces of text, entering prompts, writing code-related notes or transcribing recorded audio.</p>
+      <p>It can be used as a simple replacement for keyboard dictation or as a more advanced local speech-processing tool, depending on how much functionality you want to configure.</p>
+    </div>
+  </article>
+
+  <article class="faq-item" id="history-storage">
+    <h3 class="faq-question">Where is my transcription history stored?</h3>
+    <div class="faq-answer">
+      <p>Voquill stores its transcription history locally on your own computer.</p>
+      <p>There is no Voquill account and there is no Voquill server for that history to be synchronised or uploaded to. Your transcription history remains part of the local application data unless you choose to copy, export or send that information somewhere else yourself.</p>
+    </div>
+  </article>
+
+</div>
+
+<div class="faq-back-action">
+  <a href="{{ '/' | relative_url }}" class="btn btn-secondary">Back to Home</a>
+</div>

@@ -95,6 +95,27 @@ body {
   width: 100%;
 }
 
+.site-footer-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.25rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.site-footer-links a {
+  color: var(--colors-text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.site-footer-links a:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
 .site-footer-license {
   margin-top: 0.75rem;
   padding-top: 1rem;
