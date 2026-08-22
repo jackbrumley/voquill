@@ -10,6 +10,8 @@ body.centered-page {
 
 header {
   margin-bottom: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 h1 {
@@ -43,6 +45,7 @@ h1 {
 .platform-row {
   display: flex;
   align-items: center;
+  width: 100%;
   max-width: 680px;
   margin: 0.75rem auto 0;
 }
@@ -290,16 +293,18 @@ h1 {
 .install-code-wrapper {
   position: relative;
   margin-top: 0.15rem;
+  width: 100%;
   max-width: 680px;
   margin-left: auto;
   margin-right: auto;
+  min-width: 0;
 }
 
 .install-code-block {
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
-  padding: 0.7rem 3rem 0.7rem 0.9rem;
+  padding: 0.7rem 3.25rem 0.7rem 0.9rem;
   font-family: var(--typography-font-mono);
   font-size: 0.82rem;
   line-height: 1.6;
@@ -307,9 +312,31 @@ h1 {
   overflow-x: auto;
   white-space: pre;
   min-height: 2.4rem;
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
   display: flex;
   align-items: center;
   margin: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.install-code-block::-webkit-scrollbar {
+  height: 4px;
+}
+
+.install-code-block::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.install-code-block::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 2px;
+}
+
+.install-code-block::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .install-code-block.placeholder {
@@ -319,25 +346,27 @@ h1 {
 
 .install-copy-btn {
   position: absolute;
-  top: 0;
-  right: 0;
-  width: 32px;
-  bottom: 0;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  width: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
+  background: #161822;
   border: none;
-  color: rgba(255, 255, 255, 0.25);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  border-radius: 0 10px 10px 0;
+  border-radius: 0 9px 9px 0;
   transition: all 0.2s ease;
   padding: 0;
+  z-index: 2;
 }
 
 .install-copy-btn:hover {
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  background: #202436;
 }
 
 .install-copy-btn.copied {
@@ -393,5 +422,10 @@ h1 {
   .install-code-block {
     font-size: 0.72rem;
     padding: 0.6rem 2.8rem 0.6rem 0.8rem;
+  }
+
+  .install-copy-btn {
+    width: 38px;
+    padding: 0;
   }
 }

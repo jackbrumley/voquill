@@ -13,11 +13,9 @@ import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
 import { NumberField } from '../components/NumberField.tsx';
 import { SelectField } from '../components/SelectField.tsx';
 import { SliderField } from '../components/SliderField.tsx';
-import StatusIcon from '../StatusIcon.tsx';
-import { StatusPage } from './StatusPage.tsx';
+import { StatusIndicator } from '../components/StatusIndicator.tsx';
 import { SurfaceCard } from '../components/SurfaceCard.tsx';
 import { Switch } from '../components/Switch.tsx';
-import { CollapsibleSection } from '../components/CollapsibleSection.tsx';
 import { tabPanelContentStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 import type { ModelInfo } from '../types.ts';
@@ -28,18 +26,16 @@ const sampleModels: ModelInfo[] = [
 ];
 
 interface UiLabPageProps {
-  appVersion: string;
+  appVersion?: string;
   onBackToSettings: () => void;
-  onOpenUpdateModal: () => void;
+  onOpenUpdateModal?: () => void;
 }
 
-export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: UiLabPageProps) {
+export function UiLabPage({ onBackToSettings }: UiLabPageProps) {
   const showUpdateBadge = useSignal(true);
-  const updateAvailableCopy = useSignal(true);
   const isModalOpen = useSignal(false);
-  const isCollapsibleOpen = useSignal(true);
   const isDemoSwitchOn = useSignal(true);
-  const outputMethod = useSignal<'Typewriter' | 'Clipboard'>('Typewriter');
+  const outputMethod = useSignal<'Typewriter' | 'Clipboard'>('Clipboard');
   const numberValue = useSignal(12);
   const sliderValue = useSignal(1.0);
   const selectValue = useSignal('default');
@@ -71,9 +67,9 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
                 100% { width: 12px; left: 0; }
               }
             `}</style>
-        <ConfigField label="StatusIcon" description="Live status indicator with animations.">
+        <ConfigField label="Status Indicator" description="Live status indicator with animations.">
           <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center' }}>
-            <StatusIcon status={activeStatus.value} />
+            <StatusIndicator status={activeStatus.value} />
             <SelectField
               value={activeStatus.value}
               options={[
@@ -101,26 +97,6 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
 
         <ConfigField label="Update Badge" description="Show update-available indicator on Status tab.">
           <Switch name="Update Badge" checked={showUpdateBadge.value} onChange={(v) => { showUpdateBadge.value = v; }} />
-        </ConfigField>
-
-        <ConfigField label="Status Page" description="Live preview of the Status page inside a SurfaceCard.">
-          <SurfaceCard>
-            <StatusPage
-              appVersion={appVersion}
-              modelStatus={modelStatus.value}
-              config={{
-                hotkey: 'ctrl+shift+space',
-                hotkey_mode: 'Toggle',
-                output_method: outputMethod.value,
-                transcription_mode: 'Local',
-                local_model_size: modelSize.value,
-              }}
-              isSystemManagedShortcut={false}
-              onToggleOutputMethod={(method) => { outputMethod.value = method; }}
-              hasUpdateAvailable={updateAvailableCopy.value}
-              onOpenUpdateModal={onOpenUpdateModal}
-            />
-          </SurfaceCard>
         </ConfigField>
 
         <ConfigField label="Model Selection Panel" description="Model picker, description, and download action.">
@@ -237,20 +213,6 @@ export function UiLabPage({ appVersion, onBackToSettings, onOpenUpdateModal }: U
 
         <ConfigField label="Switch" description="Toggle switch.">
           <Switch name="Demo Switch" checked={isDemoSwitchOn.value} onChange={(v) => { isDemoSwitchOn.value = v; }} />
-        </ConfigField>
-
-        <ConfigField label="CollapsibleSection" description="Expandable/collapsible panel.">
-          <CollapsibleSection
-            title="Expandable section"
-            isOpen={isCollapsibleOpen.value}
-            onToggle={() => { isCollapsibleOpen.value = !isCollapsibleOpen.value; }}
-          >
-            <div style={{ padding: tokens.spacing.sm }}>
-              <p style={{ color: tokens.colors.textSecondary, fontSize: tokens.typography.sizeSm }}>
-                This content can be shown or hidden.
-              </p>
-            </div>
-          </CollapsibleSection>
         </ConfigField>
 
         <ConfigField label="Toast" description="Toast notification demo.">

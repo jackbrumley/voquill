@@ -167,9 +167,11 @@ export function GeneralSection({
         </>
       )}
 
-      <ConfigField label="Always Copy to Clipboard" description="Also copy transcriptions to clipboard even while using Typewriter output.">
-        <Switch name="Always Copy to Clipboard" checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} />
-      </ConfigField>
+      {config.output_method === 'Typewriter' && (
+        <ConfigField label="Always Copy to Clipboard" description="Also copy transcriptions to clipboard while typing directly into your active cursor.">
+          <Switch name="Always Copy to Clipboard" checked={config.copy_on_typewriter} onChange={(checked) => updateConfig('copy_on_typewriter', checked)} />
+        </ConfigField>
+      )}
 
       <ConfigField label="Updates" description="Check for newer Voquill releases.">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: tokens.spacing.sm, flexWrap: 'wrap', width: '100%' }}>

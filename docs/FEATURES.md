@@ -9,7 +9,8 @@ Voquill is a **private, offline-first, system-wide dictation app** for Linux and
 ### Dictation
 
 - **Push-to-talk** — Hold-to-Talk and Toggle modes. Press the hotkey during transcription to cancel.
-- **Two output methods** — Typewriter (simulates keystrokes via Wayland Portal / X11 XTest / Windows SendInput) or Clipboard (copy to clipboard).
+- **Two output methods** — Typewriter (simulates keystrokes via Wayland Portal / X11 XTest / Windows SendInput) or Clipboard with auto-paste (Shift+Insert, Ctrl+V, Ctrl+Shift+V) and automatic clipboard save/restore.
+- **Configurable paste shortcut & delays** — Universal Shift+Insert default, Ctrl+V, or Ctrl+Shift+V with configurable pre- and post-paste delays.
 - **Append trailing space** — Keep your cursor positioned for the next word.
 - **Auto-submit Enter** — Automatically press Enter after dictation finishes.
 
@@ -72,6 +73,7 @@ Voquill is a **private, offline-first, system-wide dictation app** for Linux and
 ### Diagnostics
 
 - **Diagnostics page** — System health, GPU status, portal capabilities, session logs.
+- **Log level configuration** — Adjust verbosity (error, warn, info, debug, trace) directly from settings.
 - **Session logging** — Rotating session logs with timestamps.
 - **Recording logs** — Save raw audio for debugging.
 - **Factory reset** — Clear models, logs, history, and settings.
@@ -87,13 +89,11 @@ Voquill is a **private, offline-first, system-wide dictation app** for Linux and
 
 - **Cancel (Escape) shortcut** — Dedicated cancel hotkey, dynamically registered during recording.
 - **Recording retention** — Auto-cleanup of old debug WAV files.
-- **Paste delays** — Configurable delay before and after text insertion.
 - **Model unload timeout** — Auto-unload transcription model after inactivity.
 - **Language identification** — Auto-detect audio language via Python runner.
 - **Multi-state tray icons** — Different icons for Idle, Recording, Transcribing.
 - **Model submenu** — Switch models from the system tray.
 - **Portable mode** — Store all data alongside the executable.
-- **Log level configuration** — Adjust verbosity from settings.
 - **Audio feedback** — Recording start/stop sounds.
 - **Streaming transcription** — Live preview in overlay (requires streaming-compatible models).
 - **Multi-engine architectures** — Additional engine backends (SenseVoice, Moonshine, etc.).
