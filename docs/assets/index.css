@@ -438,8 +438,21 @@ h1 {
   flex-wrap: wrap;
 }
 
+.download-primary-row .btn {
+  box-shadow: 0 4px 22px rgba(16, 185, 129, 0.38);
+  padding: 0.82rem 2.25rem;
+}
+
+.download-primary-row .btn:hover {
+  box-shadow: 0 6px 28px rgba(16, 185, 129, 0.58);
+}
+
 .download-secondary-row {
   margin-top: 0.1rem;
+}
+
+.download-secondary-row .btn {
+  min-width: 195px;
 }
 
 .how-it-works {
