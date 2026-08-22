@@ -89,10 +89,10 @@ In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and fr
 
 ## Screenshots
 
-![Voquill status overlay during transcription](docs/screenshots/screenshot-status.png)
-![Voquill engine configuration and model selection](docs/screenshots/screenshot-config1.png)
-![Voquill settings for shortcuts and behavior](docs/screenshots/screenshot-config2.png)
-![Voquill local dictation history view](docs/screenshots/screenshot-history.png)
+![Voquill Home and Dictation Interface](docs/screenshots/screenshot-1.png)
+![Voquill History and Transcription Playback](docs/screenshots/screenshot-2.png)
+![Voquill Settings and Configuration](docs/screenshots/screenshot-3.png)
+![Voquill Help and Usage Guide](docs/screenshots/screenshot-4.png)
 
 ---
 

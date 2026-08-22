@@ -37,20 +37,20 @@
   <content_rating type="oars-1.1"/>
   <screenshots>
     <screenshot type="default">
-      <caption>Status view while dictating</caption>
-      <image type="source">https://voquill.org/screenshots/screenshot-status.png</image>
+      <caption>Main dictation interface and audio file transcription</caption>
+      <image type="source">https://voquill.org/screenshots/screenshot-1.png</image>
     </screenshot>
     <screenshot>
-      <caption>Engine and model configuration</caption>
-      <image type="source">https://voquill.org/screenshots/screenshot-config1.png</image>
+      <caption>Local history with audio playback and transcription review</caption>
+      <image type="source">https://voquill.org/screenshots/screenshot-2.png</image>
     </screenshot>
     <screenshot>
-      <caption>Hotkey and behavior settings</caption>
-      <image type="source">https://voquill.org/screenshots/screenshot-config2.png</image>
+      <caption>Comprehensive settings and local AI engine configuration</caption>
+      <image type="source">https://voquill.org/screenshots/screenshot-3.png</image>
     </screenshot>
     <screenshot>
-      <caption>Dictation history view</caption>
-      <image type="source">https://voquill.org/screenshots/screenshot-history.png</image>
+      <caption>Integrated user guide and usage tips</caption>
+      <image type="source">https://voquill.org/screenshots/screenshot-4.png</image>
     </screenshot>
   </screenshots>
 </component>
