@@ -33,8 +33,12 @@ impl InputSimulation for WaylandBackend {
         .await
     }
 
-    async fn send_ctrl_v(&self, app_handle: &tauri::AppHandle) -> Result<(), String> {
-        input::send_ctrl_v(app_handle).await
+    async fn send_paste_shortcut(
+        &self,
+        app_handle: &tauri::AppHandle,
+        shortcut: crate::config::PasteShortcut,
+    ) -> Result<(), String> {
+        input::send_paste_shortcut(app_handle, shortcut).await
     }
 }
 

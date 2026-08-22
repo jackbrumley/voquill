@@ -96,17 +96,39 @@ pub fn type_text_hardware(
     Ok(())
 }
 
-pub fn send_ctrl_v() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub fn send_paste_shortcut(
+    shortcut: crate::config::PasteShortcut,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use windows::Win32::UI::Input::KeyboardAndMouse::*;
-    crate::log_info!("[Windows] Sending Ctrl+V...");
+    crate::log_info!("[Windows] Sending paste shortcut: {:?}", shortcut);
     unsafe {
-        emit_vk(VK_CONTROL, true);
-        emit_vk(VIRTUAL_KEY('V' as u16), true);
-        std::thread::sleep(std::time::Duration::from_millis(10));
-        emit_vk(VIRTUAL_KEY('V' as u16), false);
-        emit_vk(VK_CONTROL, false);
+        match shortcut {
+            crate::config::PasteShortcut::ShiftInsert => {
+                emit_vk(VK_SHIFT, true);
+                emit_vk(VK_INSERT, true);
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                emit_vk(VK_INSERT, false);
+                emit_vk(VK_SHIFT, false);
+            }
+            crate::config::PasteShortcut::CtrlV => {
+                emit_vk(VK_CONTROL, true);
+                emit_vk(VIRTUAL_KEY('V' as u16), true);
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                emit_vk(VIRTUAL_KEY('V' as u16), false);
+                emit_vk(VK_CONTROL, false);
+            }
+            crate::config::PasteShortcut::CtrlShiftV => {
+                emit_vk(VK_CONTROL, true);
+                emit_vk(VK_SHIFT, true);
+                emit_vk(VIRTUAL_KEY('V' as u16), true);
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                emit_vk(VIRTUAL_KEY('V' as u16), false);
+                emit_vk(VK_SHIFT, false);
+                emit_vk(VK_CONTROL, false);
+            }
+        }
     }
-    crate::log_info!("[Windows] Ctrl+V complete");
+    crate::log_info!("[Windows] Paste shortcut complete");
     Ok(())
 }
 

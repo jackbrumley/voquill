@@ -1,59 +1,12 @@
+pub mod audio_processing;
+pub mod output;
+
 use crate::app::state::SessionState;
-use crate::config::{Config, OutputMethod};
-use crate::diarization::DiarizationResult;
-use crate::{audio, engine_factory, history, typing};
+use crate::config::Config;
+use crate::{audio, engine_factory, typing};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter, Manager};
-
-fn validate_audio_duration(
-    audio_data: &[u8],
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    if audio_data.len() < 44 {
-        return Err("Audio file too small".into());
-    }
-    let sample_rate = u32::from_le_bytes([
-        audio_data[24],
-        audio_data[25],
-        audio_data[26],
-        audio_data[27],
-    ]);
-    let channels = u16::from_le_bytes([audio_data[22], audio_data[23]]);
-    let bits_per_sample = u16::from_le_bytes([audio_data[34], audio_data[35]]);
-
-    let mut data_size = 0u32;
-    let mut pos = 36;
-    while pos + 8 <= audio_data.len() {
-        let chunk_id = &audio_data[pos..pos + 4];
-        let chunk_size = u32::from_le_bytes([
-            audio_data[pos + 4],
-            audio_data[pos + 5],
-            audio_data[pos + 6],
-            audio_data[pos + 7],
-        ]);
-        if chunk_id == b"data" {
-            data_size = chunk_size;
-            break;
-        }
-        pos += 8 + chunk_size as usize;
-        if chunk_size % 2 == 1 {
-            pos += 1;
-        }
-    }
-
-    if data_size == 0 {
-        return Err("No data chunk".into());
-    }
-    let bytes_per_sample = (bits_per_sample / 8) as u32;
-    let bytes_per_second = sample_rate * channels as u32 * bytes_per_sample;
-    let duration_seconds = data_size as f64 / bytes_per_second as f64;
-
-    crate::log_info!("Audio duration: {:.3}s", duration_seconds);
-    if duration_seconds < 0.1 {
-        return Err("Audio too short".into());
-    }
-    Ok(())
-}
+use tauri::{AppHandle, Manager};
 
 pub async fn record_and_transcribe(
     config: Arc<Mutex<Config>>,
@@ -147,61 +100,39 @@ async fn record_and_transcribe_inner(
     if audio_data.is_empty() {
         return Ok(());
     }
-    if let Err(error) = validate_audio_duration(&audio_data) {
+    if let Err(error) = audio_processing::validate_audio_duration(&audio_data) {
         crate::log_info!("Audio validation failed: {}", error);
         return Ok(());
     }
 
-    let (enable_recording_logs, language_choice, prompt_hint) = {
+    let (lang_code_str, prompt_hint, current_config) = {
         let config_guard = config.lock().unwrap();
         (
-            config_guard.enable_recording_logs,
             config_guard.language.clone(),
             config_guard.resolve_prompt_hint(),
+            config_guard.clone(),
         )
     };
 
-    let lang_code = match language_choice.as_str() {
-        "auto" => None,
-        "en-AU" => Some("en"),
-        "en-GB" => Some("en"),
-        "en-US" => Some("en"),
-        code => Some(code),
-    };
-
-    if enable_recording_logs {
-        match crate::paths::debug_dir() {
-            Ok(dir) => {
-                let debug_path = dir.join("recordings").join(format!(
-                    "recording_{}.wav",
-                    ::chrono::Local::now().format("%Y%m%d_%H%M%S")
-                ));
-
-                if let Err(error) = std::fs::create_dir_all(debug_path.parent().unwrap()) {
-                    crate::log_info!("Failed to create debug directory: {}", error);
-                } else if let Err(error) = std::fs::write(&debug_path, &audio_data) {
-                    crate::log_info!("Failed to save debug recording: {}", error);
-                } else {
-                    crate::log_info!("Debug recording saved to: {:?}", debug_path);
-                }
-            }
-            Err(error) => {
-                crate::log_info!("Failed to resolve debug directory: {}", error);
-            }
-        }
+    if session_token.load(Ordering::SeqCst) {
+        crate::log_info!("Session cancelled before transcription; discarding audio");
+        return Ok(());
     }
 
-    crate::log_info!("Language: {:?}, Hint: {:?}", lang_code, prompt_hint);
-
-    let current_config = {
-        let guard = config.lock().unwrap();
-        guard.clone()
+    let lang_code = if lang_code_str == "auto" {
+        None
+    } else {
+        Some(lang_code_str.as_str())
     };
+
+    if let Some(ref hint) = prompt_hint {
+        crate::log_info!("Transcription prompt hint: \"{}\"", hint);
+    }
 
     // Apply audio noise reduction if enabled (before transcription)
     let audio_data = if current_config.noise_reduction_enabled {
         crate::app::status::emit_status_to_frontend("Processing").await;
-        match run_noise_reduction(
+        match audio_processing::run_noise_reduction(
             app_handle,
             &audio_data,
             current_config.noise_reduction_strength,
@@ -271,7 +202,7 @@ async fn record_and_transcribe_inner(
             );
             text
         } else {
-            let diar_result = run_diarization_for_recording(
+            let diar_result = audio_processing::run_diarization_for_recording(
                 app_handle,
                 &temp_path,
                 current_config.diarization_cluster_threshold,
@@ -492,13 +423,9 @@ async fn record_and_transcribe_inner(
     let text = typing::normalize_for_typing(&text);
 
     // Apply trailing space if configured
-    let (append_trailing_space, auto_submit, history_limit) = {
+    let (append_trailing_space, auto_submit) = {
         let config_guard = config.lock().unwrap();
-        (
-            config_guard.append_trailing_space,
-            config_guard.auto_submit,
-            config_guard.history_limit,
-        )
+        (config_guard.append_trailing_space, config_guard.auto_submit)
     };
     let output_text = if append_trailing_space && !text.is_empty() {
         format!("{} ", text)
@@ -511,228 +438,17 @@ async fn record_and_transcribe_inner(
         return Ok(());
     }
 
-    if !output_text.trim().is_empty() {
-        let segments_json = if diar_segments.is_empty() {
-            None
-        } else {
-            serde_json::to_string(&diar_segments).ok()
-        };
-        let _ = history::add_history_item(
-            &output_text,
-            segments_json.as_deref(),
-            Some(history_limit),
-            raw_text.as_deref(),
-        );
-        if let Some(window) = app_handle.get_webview_window("main") {
-            let _ = window.emit("history-updated", ());
-        }
-
-        {
-            let mut session = session_state.lock().unwrap();
-            *session = SessionState::Typing;
-        }
-        crate::app::status::emit_status_to_frontend("Typing").await;
-        let (
-            typing_speed,
-            hold_duration,
-            output_method,
-            copy_on_typewriter,
-            paste_delay_before_ms,
-            paste_delay_after_ms,
-            paste_after_copy,
-        ) = {
-            let config_guard = config.lock().unwrap();
-            (
-                config_guard.typing_speed_interval,
-                config_guard.key_press_duration_ms,
-                config_guard.output_method.clone(),
-                config_guard.copy_on_typewriter,
-                config_guard.paste_delay_before_ms,
-                config_guard.paste_delay_after_ms,
-                config_guard.paste_after_copy,
-            )
-        };
-
-        tokio::time::sleep(tokio::time::Duration::from_millis(paste_delay_before_ms)).await;
-
-        if session_token.load(Ordering::SeqCst) {
-            crate::log_info!("Session cancelled before typing; discarding output");
-            return Ok(());
-        }
-
-        match output_method {
-            OutputMethod::Typewriter => {
-                if copy_on_typewriter {
-                    if let Err(error) = typing::copy_to_clipboard(&output_text) {
-                        crate::log_info!("CLIPBOARD ERROR: {}", error);
-                    }
-                }
-                crate::log_info!("Forwarding text to hardware typing engine...");
-                let state = app_handle.state::<crate::AppState>();
-                if let Err(error) = state
-                    .display_backend
-                    .type_text_hardware(app_handle, &output_text, typing_speed, hold_duration)
-                    .await
-                {
-                    crate::log_info!("TYPING ENGINE ERROR: {}", error);
-                }
-                if auto_submit {
-                    crate::log_info!("Auto-submitting with Enter...");
-                    if let Err(error) = state
-                        .display_backend
-                        .type_text_hardware(app_handle, "\n", typing_speed, hold_duration)
-                        .await
-                    {
-                        crate::log_info!("AUTO-SUBMIT ERROR: {}", error);
-                    }
-                }
-            }
-            OutputMethod::Clipboard => {
-                crate::log_info!("Copying text to clipboard (Clipboard Mode)...");
-                let saved_clipboard = if paste_after_copy {
-                    typing::save_clipboard()
-                } else {
-                    None
-                };
-                if let Err(error) = typing::copy_to_clipboard(&output_text) {
-                    crate::log_info!("CLIPBOARD ERROR: {}", error);
-                }
-                if paste_after_copy {
-                    crate::log_info!(
-                        "Paste after copy: waiting {}ms before Ctrl+V...",
-                        paste_delay_before_ms
-                    );
-                    tokio::time::sleep(tokio::time::Duration::from_millis(paste_delay_before_ms))
-                        .await;
-                    crate::log_info!("Calling display_backend.send_ctrl_v()...");
-                    let state = app_handle.state::<crate::AppState>();
-                    match state.display_backend.send_ctrl_v(app_handle).await {
-                        Ok(()) => crate::log_info!("PASTE: send_ctrl_v returned Ok"),
-                        Err(error) => {
-                            crate::log_warn!("PASTE ERROR: send_ctrl_v failed: {}", error)
-                        }
-                    }
-                    crate::log_info!(
-                        "Paste after copy: waiting {}ms after Ctrl+V...",
-                        paste_delay_after_ms
-                    );
-                    tokio::time::sleep(tokio::time::Duration::from_millis(paste_delay_after_ms))
-                        .await;
-                    crate::log_info!("Paste after copy: restoring clipboard...");
-                    typing::restore_clipboard(saved_clipboard);
-                    crate::log_info!("Paste after copy: complete");
-                }
-            }
-        }
-
-        tokio::time::sleep(tokio::time::Duration::from_millis(paste_delay_after_ms)).await;
-    } else {
-        crate::log_info!("Transcription was empty, skipping typing.");
-    }
-
-    Ok(())
-}
-
-/// Run diarization on a recorded audio file via the Python runner.
-/// Mirrors the logic in file_import.rs but accepts a temp file path.
-async fn run_diarization_for_recording(
-    app_handle: &tauri::AppHandle,
-    audio_path: &std::path::Path,
-    cluster_threshold: f32,
-) -> Result<DiarizationResult, String> {
-    let app_state = app_handle.state::<crate::AppState>();
-
-    let needs_start = {
-        let guard = app_state.python_runner.lock().unwrap();
-        guard.is_none()
-    };
-
-    if needs_start {
-        crate::log_info!("Lazily starting Python runner for diarization...");
-        match crate::python_runner::PythonRunner::start(app_handle).await {
-            Ok(runner) => {
-                let mut guard = app_state.python_runner.lock().unwrap();
-                if guard.is_none() {
-                    *guard = Some(runner);
-                }
-            }
-            Err(e) => {
-                crate::log_warn!("Failed to start Python runner: {}", e);
-                return Err(e);
-            }
-        }
-    }
-
-    let runner = {
-        let guard = app_state.python_runner.lock().unwrap();
-        guard.clone()
-    }
-    .ok_or("Python runner not available")?;
-
-    let path_str = audio_path.to_string_lossy().to_string();
-    runner.diarize(&path_str, cluster_threshold).await
-}
-
-/// Run noise reduction on captured audio via the Python runner.
-async fn run_noise_reduction(
-    app_handle: &tauri::AppHandle,
-    audio_data: &[u8],
-    noise_reduction_strength: f32,
-) -> Result<Vec<u8>, String> {
-    let app_state = app_handle.state::<crate::AppState>();
-
-    let needs_start = {
-        let guard = app_state.python_runner.lock().unwrap();
-        guard.is_none()
-    };
-
-    if needs_start {
-        crate::log_info!("Lazily starting Python runner for noise reduction...");
-        match crate::python_runner::PythonRunner::start(app_handle).await {
-            Ok(runner) => {
-                let mut guard = app_state.python_runner.lock().unwrap();
-                if guard.is_none() {
-                    *guard = Some(runner);
-                }
-            }
-            Err(e) => {
-                crate::log_warn!("Failed to start Python runner: {}", e);
-                return Err(e);
-            }
-        }
-    }
-
-    let runner = {
-        let guard = app_state.python_runner.lock().unwrap();
-        guard.clone()
-    }
-    .ok_or("Python runner not available")?;
-
-    let temp_dir = crate::paths::temp_dir();
-    let _ = std::fs::create_dir_all(&temp_dir);
-    let input_path = temp_dir.join(format!(
-        "noise_input_{}.wav",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos()
-    ));
-
-    std::fs::write(&input_path, audio_data)
-        .map_err(|e| format!("Failed to write temp audio for noise reduction: {}", e))?;
-
-    let path_str = input_path.to_string_lossy().to_string();
-    let result = runner.enhance(&path_str, noise_reduction_strength).await;
-
-    // Clean up input file regardless of outcome
-    let _ = std::fs::remove_file(&input_path);
-
-    let enhanced_path = result?;
-    let enhanced_data = std::fs::read(&enhanced_path)
-        .map_err(|e| format!("Failed to read enhanced audio: {}", e))?;
-
-    // Clean up enhanced file
-    let _ = std::fs::remove_file(&enhanced_path);
-
-    Ok(enhanced_data)
+    output::deliver_output(
+        app_handle,
+        session_state,
+        session_token,
+        config,
+        output::OutputPayload {
+            output_text,
+            diar_segments,
+            raw_text,
+            auto_submit,
+        },
+    )
+    .await
 }

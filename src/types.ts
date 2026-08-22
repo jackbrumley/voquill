@@ -6,6 +6,8 @@ export interface PostProcessPrompt {
   max_output_tokens?: number | null;
 }
 
+export type PasteShortcut = 'ShiftInsert' | 'CtrlV' | 'CtrlShiftV';
+
 export interface Config {
   openai_api_key: string;
   api_url: string;
@@ -45,6 +47,7 @@ export interface Config {
   append_trailing_space: boolean;
   auto_submit: boolean;
   paste_after_copy: boolean;
+  paste_shortcut: PasteShortcut;
   noise_reduction_enabled: boolean;
   noise_reduction_strength: number;
   history_limit: number;

@@ -1,6 +1,6 @@
 import { IconAlertCircle, IconBrandGithub, IconHeart } from '@tabler/icons-preact';
 import { open } from '@tauri-apps/plugin-shell';
-import { useState } from 'preact/hooks';
+import { useSignal } from '@preact/signals';
 import { Card } from '../components/Card.tsx';
 import { ModeSwitcher } from '../components/ModeSwitcher.tsx';
 import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
@@ -31,7 +31,7 @@ export function StatusPage({
   hasUpdateAvailable,
   onOpenUpdateModal,
 }: StatusPageProps) {
-  const [hoveredFooterIcon, setHoveredFooterIcon] = useState<'github' | 'heart' | null>(null);
+  const hoveredFooterIcon = useSignal<'github' | 'heart' | null>(null);
   const isToggleMode = config.hotkey_mode === 'Toggle';
 
   const howToSteps = [
@@ -104,20 +104,20 @@ export function StatusPage({
             <button
               type="button"
               onClick={() => open('https://github.com/jackbrumley/voquill')}
-              onMouseEnter={() => setHoveredFooterIcon('github')}
-              onMouseLeave={() => setHoveredFooterIcon(null)}
+              onMouseEnter={() => { hoveredFooterIcon.value = 'github'; }}
+              onMouseLeave={() => { hoveredFooterIcon.value = null; }}
               title="GitHub Repository"
               style={{
-                background: hoveredFooterIcon === 'github' ? 'rgba(255, 255, 255, 0.05)' : 'none',
+                background: hoveredFooterIcon.value === 'github' ? 'rgba(255, 255, 255, 0.05)' : 'none',
                 border: 'none',
                 padding: '10px',
                 cursor: 'pointer',
-                color: hoveredFooterIcon === 'github' ? tokens.colors.textPrimary : tokens.colors.textMuted,
+                color: hoveredFooterIcon.value === 'github' ? tokens.colors.textPrimary : tokens.colors.textMuted,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: '50%',
-                transform: hoveredFooterIcon === 'github' ? 'translateY(-2px)' : 'translateY(0)',
+                transform: hoveredFooterIcon.value === 'github' ? 'translateY(-2px)' : 'translateY(0)',
                 transition: tokens.transitions.fast,
               }}
             >
@@ -126,11 +126,11 @@ export function StatusPage({
             <button
               type="button"
               onClick={() => open('https://voquill.org/donate')}
-              onMouseEnter={() => setHoveredFooterIcon('heart')}
-              onMouseLeave={() => setHoveredFooterIcon(null)}
+              onMouseEnter={() => { hoveredFooterIcon.value = 'heart'; }}
+              onMouseLeave={() => { hoveredFooterIcon.value = null; }}
               title="Support the project"
               style={{
-                background: hoveredFooterIcon === 'heart' ? 'rgba(255, 255, 255, 0.05)' : 'none',
+                background: hoveredFooterIcon.value === 'heart' ? 'rgba(255, 255, 255, 0.05)' : 'none',
                 border: 'none',
                 padding: '10px',
                 cursor: 'pointer',
@@ -139,15 +139,15 @@ export function StatusPage({
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: '50%',
-                transform: hoveredFooterIcon === 'heart' ? 'translateY(-2px)' : 'translateY(0)',
+                transform: hoveredFooterIcon.value === 'heart' ? 'translateY(-2px)' : 'translateY(0)',
                 transition: tokens.transitions.fast,
               }}
             >
               <IconHeart
                 size={20}
-                color={hoveredFooterIcon === 'heart' ? '#ff4d5e' : '#ff6b6b'}
-                fill={hoveredFooterIcon === 'heart' ? '#ff4d5e' : '#ff6b6b'}
-                fillOpacity={hoveredFooterIcon === 'heart' ? 0.38 : 0.2}
+                color={hoveredFooterIcon.value === 'heart' ? '#ff4d5e' : '#ff6b6b'}
+                fill={hoveredFooterIcon.value === 'heart' ? '#ff4d5e' : '#ff6b6b'}
+                fillOpacity={hoveredFooterIcon.value === 'heart' ? 0.38 : 0.2}
               />
             </button>
           </div>

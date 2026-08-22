@@ -9,6 +9,7 @@ const XK_SHIFT_L: u32 = 0xFFE1;
 const XK_SHIFT_R: u32 = 0xFFE2;
 const XK_CONTROL_L: u32 = 0xFFE3;
 const XK_CONTROL_R: u32 = 0xFFE4;
+const XK_INSERT: u32 = 0xFF63;
 const XK_RETURN: u32 = 0xFF0D;
 const XK_TAB: u32 = 0xFF09;
 
@@ -152,45 +153,87 @@ fn send_key_event(
 fn paste_via_clipboard_shortcut(
     connection: &RustConnection,
     keyboard_map: &KeyboardMap,
+    shortcut: crate::config::PasteShortcut,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let v_key = resolve_keysym_keycode(keyboard_map, 'v' as u32)
-        .ok_or_else(|| "Failed to resolve keycode for 'v'".to_string())?;
-
-    // Safety clear: release Ctrl first to clear any latent modifier state
+    // Safety clear: release modifiers first to clear any latent modifier state
     send_key_event(connection, keyboard_map.ctrl_keycode, false)?;
+    send_key_event(connection, keyboard_map.shift_keycode, false)?;
     connection.flush()?;
     thread::sleep(Duration::from_millis(10));
 
-    // Press Ctrl and wait for X server to register modifier
-    send_key_event(connection, keyboard_map.ctrl_keycode, true)?;
-    connection.flush()?;
-    thread::sleep(Duration::from_millis(50));
+    match shortcut {
+        crate::config::PasteShortcut::ShiftInsert => {
+            let insert_key = resolve_keysym_keycode(keyboard_map, XK_INSERT)
+                .ok_or_else(|| "Failed to resolve keycode for Insert".to_string())?;
 
-    // Press and release V
-    send_key_event(connection, v_key.keycode, true)?;
-    send_key_event(connection, v_key.keycode, false)?;
-    connection.flush()?;
-    thread::sleep(Duration::from_millis(50));
+            send_key_event(connection, keyboard_map.shift_keycode, true)?;
+            connection.flush()?;
+            thread::sleep(Duration::from_millis(50));
 
-    // Release Ctrl (twice for safety to prevent stuck modifier)
-    send_key_event(connection, keyboard_map.ctrl_keycode, false)?;
-    send_key_event(connection, keyboard_map.ctrl_keycode, false)?;
-    connection.flush()?;
+            send_key_event(connection, insert_key.keycode, true)?;
+            send_key_event(connection, insert_key.keycode, false)?;
+            connection.flush()?;
+            thread::sleep(Duration::from_millis(50));
+
+            send_key_event(connection, keyboard_map.shift_keycode, false)?;
+            send_key_event(connection, keyboard_map.shift_keycode, false)?;
+            connection.flush()?;
+        }
+        crate::config::PasteShortcut::CtrlV => {
+            let v_key = resolve_keysym_keycode(keyboard_map, 'v' as u32)
+                .ok_or_else(|| "Failed to resolve keycode for 'v'".to_string())?;
+
+            send_key_event(connection, keyboard_map.ctrl_keycode, true)?;
+            connection.flush()?;
+            thread::sleep(Duration::from_millis(50));
+
+            send_key_event(connection, v_key.keycode, true)?;
+            send_key_event(connection, v_key.keycode, false)?;
+            connection.flush()?;
+            thread::sleep(Duration::from_millis(50));
+
+            send_key_event(connection, keyboard_map.ctrl_keycode, false)?;
+            send_key_event(connection, keyboard_map.ctrl_keycode, false)?;
+            connection.flush()?;
+        }
+        crate::config::PasteShortcut::CtrlShiftV => {
+            let v_key = resolve_keysym_keycode(keyboard_map, 'v' as u32)
+                .ok_or_else(|| "Failed to resolve keycode for 'v'".to_string())?;
+
+            send_key_event(connection, keyboard_map.ctrl_keycode, true)?;
+            send_key_event(connection, keyboard_map.shift_keycode, true)?;
+            connection.flush()?;
+            thread::sleep(Duration::from_millis(50));
+
+            send_key_event(connection, v_key.keycode, true)?;
+            send_key_event(connection, v_key.keycode, false)?;
+            connection.flush()?;
+            thread::sleep(Duration::from_millis(50));
+
+            send_key_event(connection, keyboard_map.shift_keycode, false)?;
+            send_key_event(connection, keyboard_map.shift_keycode, false)?;
+            send_key_event(connection, keyboard_map.ctrl_keycode, false)?;
+            send_key_event(connection, keyboard_map.ctrl_keycode, false)?;
+            connection.flush()?;
+        }
+    }
     Ok(())
 }
 
-pub fn send_ctrl_v() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    crate::log_info!("[X11] send_ctrl_v: connecting to X11 display...");
+pub fn send_paste_shortcut(
+    shortcut: crate::config::PasteShortcut,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    crate::log_info!("[X11] send_paste_shortcut: connecting to X11 display...");
     let (connection, _screen_num) = RustConnection::connect(None)?;
     let keyboard_map = load_keyboard_map(&connection)?;
     crate::log_info!(
-        "[X11] send_ctrl_v: loaded keyboard map, sending Ctrl+V via XTest (ctrl_keycode={})",
-        keyboard_map.ctrl_keycode
+        "[X11] send_paste_shortcut: loaded keyboard map, sending {:?} via XTest",
+        shortcut
     );
-    let result = paste_via_clipboard_shortcut(&connection, &keyboard_map);
+    let result = paste_via_clipboard_shortcut(&connection, &keyboard_map, shortcut);
     match &result {
-        Ok(()) => crate::log_info!("[X11] send_ctrl_v: Ctrl+V sent successfully"),
-        Err(e) => crate::log_warn!("[X11] send_ctrl_v: failed: {}", e),
+        Ok(()) => crate::log_info!("[X11] send_paste_shortcut: completed successfully"),
+        Err(e) => crate::log_warn!("[X11] send_paste_shortcut: failed: {}", e),
     }
     result
 }
@@ -227,7 +270,11 @@ pub fn type_text_hardware(
                 unsupported
             );
             crate::typing::copy_to_clipboard(text)?;
-            paste_via_clipboard_shortcut(&connection, &keyboard_map)?;
+            paste_via_clipboard_shortcut(
+                &connection,
+                &keyboard_map,
+                crate::config::PasteShortcut::ShiftInsert,
+            )?;
             crate::log_info!("X11 Clipboard fallback paste complete");
             return Ok(());
         }

@@ -67,10 +67,57 @@ pub fn remove_filler_words(text: &str, custom_filler_words: &[String]) -> String
     result
 }
 
+pub fn has_alphanumeric_content(text: &str) -> bool {
+    text.chars().any(|c| c.is_alphanumeric())
+}
+
+fn sanitize_leading_punctuation(text: &str) -> String {
+    let trimmed = text.trim_start();
+    let mut chars = trimmed.chars().peekable();
+    let mut stripped_any = false;
+
+    while let Some(&c) = chars.peek() {
+        if matches!(c, ',' | ';' | ':' | '.' | '-' | '–' | '—' | '…' | '!' | '?') {
+            stripped_any = true;
+            chars.next();
+        } else if c.is_whitespace() {
+            chars.next();
+        } else {
+            break;
+        }
+    }
+
+    let remaining: String = chars.collect();
+    let remaining_trimmed = remaining.trim_start();
+
+    if stripped_any && !remaining_trimmed.is_empty() {
+        let mut result = String::with_capacity(remaining_trimmed.len());
+        let mut capitalized = false;
+        for ch in remaining_trimmed.chars() {
+            if !capitalized && ch.is_alphabetic() {
+                for upper in ch.to_uppercase() {
+                    result.push(upper);
+                }
+                capitalized = true;
+            } else {
+                result.push(ch);
+            }
+        }
+        result
+    } else {
+        remaining_trimmed.to_string()
+    }
+}
+
 pub fn normalize_transcription_output(text: &str) -> String {
-    let collapsed = collapse_stutters(text);
+    let trimmed = text.trim();
+    if !has_alphanumeric_content(trimmed) {
+        return String::new();
+    }
+    let collapsed = collapse_stutters(trimmed);
     let single_spaced = MULTI_SPACE_PATTERN.replace_all(&collapsed, " ");
-    single_spaced.trim().to_string()
+    let sanitized = sanitize_leading_punctuation(&single_spaced);
+    sanitized.trim().to_string()
 }
 
 pub fn clean_transcription(
@@ -78,16 +125,17 @@ pub fn clean_transcription(
     filler_word_removal_enabled: bool,
     custom_filler_words: &[String],
 ) -> String {
-    if !filler_word_removal_enabled {
-        return text.to_string();
-    }
+    let candidate = if filler_word_removal_enabled {
+        remove_filler_words(text, custom_filler_words)
+    } else {
+        text.to_string()
+    };
 
-    let without_fillers = remove_filler_words(text, custom_filler_words);
-    let result = normalize_transcription_output(&without_fillers);
+    let result = normalize_transcription_output(&candidate);
 
     if result != text {
         crate::log_info!(
-            "Filler word removal: original=\"{}\" cleaned=\"{}\"",
+            "Transcription cleaned: original=\"{}\" cleaned=\"{}\"",
             text,
             result
         );
@@ -172,5 +220,66 @@ mod tests {
         let custom = vec!["basically".to_string()];
         let result = clean_transcription("uh basically I was umm there", true, &custom);
         assert_eq!(result, "I was there");
+    }
+
+    #[test]
+    fn test_strip_leading_comma_with_uppercase() {
+        let result = normalize_transcription_output(
+            ", I agree with almost all of those defaults. The only one I'd probably disagree with is the pixels from the bottom.",
+        );
+        assert_eq!(
+            result,
+            "I agree with almost all of those defaults. The only one I'd probably disagree with is the pixels from the bottom."
+        );
+    }
+
+    #[test]
+    fn test_strip_leading_comma_with_lowercase_auto_capitalizes() {
+        let result = normalize_transcription_output(
+            ", the difference between front-end and back-end defaults, that shouldn't even exist.",
+        );
+        assert_eq!(
+            result,
+            "The difference between front-end and back-end defaults, that shouldn't even exist."
+        );
+    }
+
+    #[test]
+    fn test_strip_leading_dash_and_ellipsis() {
+        assert_eq!(
+            normalize_transcription_output("- this should be cleaned"),
+            "This should be cleaned"
+        );
+        assert_eq!(
+            normalize_transcription_output("... wait a minute"),
+            "Wait a minute"
+        );
+        assert_eq!(
+            normalize_transcription_output("; next item on the list"),
+            "Next item on the list"
+        );
+        assert_eq!(
+            normalize_transcription_output(": here is another one"),
+            "Here is another one"
+        );
+    }
+
+    #[test]
+    fn test_pure_punctuation_returns_empty_string() {
+        assert_eq!(normalize_transcription_output("."), "");
+        assert_eq!(normalize_transcription_output(","), "");
+        assert_eq!(normalize_transcription_output("..."), "");
+        assert_eq!(normalize_transcription_output("-"), "");
+        assert_eq!(normalize_transcription_output("—"), "");
+        assert_eq!(normalize_transcription_output("!?"), "");
+        assert_eq!(normalize_transcription_output(" . , ; - "), "");
+        assert_eq!(clean_transcription(".", true, &[]), "");
+        assert_eq!(clean_transcription(".", false, &[]), "");
+    }
+
+    #[test]
+    fn test_internal_punctuation_preserved() {
+        let input = "Hello, world! This is a test: 123 items.";
+        assert_eq!(normalize_transcription_output(input), input);
     }
 }

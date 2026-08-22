@@ -15,6 +15,13 @@ pub enum OutputMethod {
     Clipboard,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PasteShortcut {
+    ShiftInsert,
+    CtrlV,
+    CtrlShiftV,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum TranscriptionMode {
     #[serde(rename = "API")]
@@ -97,7 +104,7 @@ pub struct Config {
     pub max_recording_duration_minutes: u64,
     #[serde(default)]
     pub engine_config: Option<serde_json::Value>,
-    #[serde(default)]
+    #[serde(default = "default_dictionary")]
     pub dictionary: Vec<String>,
     #[serde(default)]
     pub post_process_enabled: bool,
@@ -135,8 +142,10 @@ pub struct Config {
     pub append_trailing_space: bool,
     #[serde(default)]
     pub auto_submit: bool,
-    #[serde(default)]
+    #[serde(default = "default_paste_after_copy")]
     pub paste_after_copy: bool,
+    #[serde(default = "default_paste_shortcut")]
+    pub paste_shortcut: PasteShortcut,
     #[serde(default = "default_history_limit")]
     pub history_limit: usize,
     #[serde(default = "default_log_level")]
@@ -274,7 +283,7 @@ fn default_local_model_size() -> String {
     "base".to_string()
 }
 fn default_local_engine() -> String {
-    "Whisper.cpp".to_string()
+    "Whisper.cpp (GPU)".to_string()
 }
 fn default_hotkey() -> String {
     "ctrl+shift+space".to_string()
@@ -292,7 +301,7 @@ fn default_paste_delay_after_ms() -> u64 {
     60
 }
 fn default_pixels_from_bottom() -> i32 {
-    150
+    50
 }
 fn default_audio_device() -> Option<String> {
     Some("default".to_string())
@@ -304,7 +313,13 @@ fn default_input_sensitivity() -> f32 {
     1.0
 }
 fn default_output_method() -> OutputMethod {
-    OutputMethod::Typewriter
+    OutputMethod::Clipboard
+}
+fn default_paste_after_copy() -> bool {
+    true
+}
+fn default_paste_shortcut() -> PasteShortcut {
+    PasteShortcut::ShiftInsert
 }
 fn default_copy_on_typewriter() -> bool {
     false
@@ -316,13 +331,16 @@ fn default_post_roll_ms() -> u64 {
     0
 }
 fn default_hotkey_mode() -> HotkeyMode {
-    HotkeyMode::HoldToTalk
+    HotkeyMode::Toggle
+}
+fn default_dictionary() -> Vec<String> {
+    vec!["Voquill".to_string()]
 }
 fn default_post_process_provider() -> PostProcessProvider {
     PostProcessProvider::Local
 }
 fn default_post_process_engine() -> String {
-    "Post-Process (Local)".to_string()
+    "Post-Process (GPU)".to_string()
 }
 fn default_post_process_model() -> String {
     "qwen2.5-1.5b-instruct".to_string()
@@ -436,7 +454,7 @@ impl Default for Config {
             hotkey_mode: default_hotkey_mode(),
             max_recording_duration_minutes: default_max_recording_duration_minutes(),
             engine_config: None,
-            dictionary: Vec::new(),
+            dictionary: default_dictionary(),
             post_process_enabled: false,
             post_process_provider: default_post_process_provider(),
             post_process_engine: default_post_process_engine(),
@@ -455,7 +473,8 @@ impl Default for Config {
             noise_reduction_strength: default_noise_reduction_strength(),
             append_trailing_space: false,
             auto_submit: false,
-            paste_after_copy: false,
+            paste_after_copy: default_paste_after_copy(),
+            paste_shortcut: default_paste_shortcut(),
             history_limit: default_history_limit(),
             log_level: default_log_level(),
             diarization_enabled_files: false,
@@ -599,5 +618,36 @@ mod tests {
             config.resolve_prompt_hint(),
             Some("British spelling.".to_string())
         );
+    }
+
+    #[test]
+    fn paste_shortcut_defaults_to_shift_insert() {
+        let config: Config = serde_json::from_str("{}").expect("deserialization should succeed");
+        assert_eq!(config.paste_shortcut, PasteShortcut::ShiftInsert);
+    }
+
+    #[test]
+    fn paste_shortcut_deserializes_variants() {
+        let json = r#"{"paste_shortcut": "CtrlV"}"#;
+        let config: Config = serde_json::from_str(json).expect("deserialization should succeed");
+        assert_eq!(config.paste_shortcut, PasteShortcut::CtrlV);
+
+        let json_shift = r#"{"paste_shortcut": "CtrlShiftV"}"#;
+        let config_shift: Config =
+            serde_json::from_str(json_shift).expect("deserialization should succeed");
+        assert_eq!(config_shift.paste_shortcut, PasteShortcut::CtrlShiftV);
+    }
+
+    #[test]
+    fn default_config_matches_expected_out_of_the_box_values() {
+        let config = Config::default();
+        assert_eq!(config.local_engine, "Whisper.cpp (GPU)");
+        assert_eq!(config.post_process_engine, "Post-Process (GPU)");
+        assert_eq!(config.output_method, OutputMethod::Clipboard);
+        assert!(config.paste_after_copy);
+        assert_eq!(config.paste_shortcut, PasteShortcut::ShiftInsert);
+        assert_eq!(config.hotkey_mode, HotkeyMode::Toggle);
+        assert_eq!(config.pixels_from_bottom, 50);
+        assert_eq!(config.dictionary, vec!["Voquill".to_string()]);
     }
 }

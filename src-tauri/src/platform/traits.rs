@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{Config, PasteShortcut};
 use crate::platform::permissions::LinuxPermissions;
 use async_trait::async_trait;
 use tauri::{AppHandle, WebviewWindow};
@@ -13,7 +13,11 @@ pub trait InputSimulation: Send + Sync {
         key_press_duration_ms: u64,
     ) -> Result<(), String>;
 
-    async fn send_ctrl_v(&self, app_handle: &AppHandle) -> Result<(), String>;
+    async fn send_paste_shortcut(
+        &self,
+        app_handle: &AppHandle,
+        shortcut: PasteShortcut,
+    ) -> Result<(), String>;
 }
 
 #[async_trait]

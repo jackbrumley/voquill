@@ -43,8 +43,12 @@ impl InputSimulation for WindowsBackend {
         .map_err(|error| error.to_string())
     }
 
-    async fn send_ctrl_v(&self, _app_handle: &tauri::AppHandle) -> Result<(), String> {
-        input::send_ctrl_v().map_err(|error| error.to_string())
+    async fn send_paste_shortcut(
+        &self,
+        _app_handle: &tauri::AppHandle,
+        shortcut: crate::config::PasteShortcut,
+    ) -> Result<(), String> {
+        input::send_paste_shortcut(shortcut).map_err(|error| error.to_string())
     }
 }
 

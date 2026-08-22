@@ -59,7 +59,7 @@ Setup EXE installs per-user (no admin). MSI is a system-wide install intended fo
 
 - **Private by Default** — Offline transcription via Whisper.cpp with Vulkan GPU acceleration. Your voice never leaves your device. No accounts, no cloud, no subscriptions.
 - **Push-to-Talk** — Hold-to-Talk and Toggle modes. Customizable hotkey with capture UI. Press the hotkey during transcription to cancel.
-- **Two Output Methods** — Typewriter (direct keystroke simulation via Wayland Portal / X11 XTest / Windows SendInput) or Clipboard with optional auto-paste via Ctrl+V.
+- **Two Output Methods** — Typewriter (direct keystroke simulation via Wayland Portal / X11 XTest / Windows SendInput) or Clipboard with optional auto-paste (Shift+Insert, Ctrl+V, or Ctrl+Shift+V).
 - **Custom Dictionary** — Add names, jargon, or technical terms to improve transcription accuracy.
 - **Regex Filler Word Removal** — Strips "uh", "umm", "hmm" instantly. No LLM needed. Customizable word list.
 - **LLM Post-Processing** — Local (llama-server GGUF models) or cloud API (OpenAI-compatible). Multiple saved prompts. GPU acceleration with graceful fallback.

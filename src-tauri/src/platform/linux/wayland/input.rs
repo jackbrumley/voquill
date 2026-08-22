@@ -10,6 +10,7 @@ use crate::AppState;
 
 const XK_SHIFT_L: i32 = 0xFFE1;
 const XK_CONTROL_L: i32 = 0xFFE3;
+const XK_INSERT: i32 = 0xFF63;
 const XK_V: i32 = 0x76;
 
 pub struct WaylandTypeRequest {
@@ -22,7 +23,8 @@ pub struct WaylandTypeRequest {
 
 pub enum WaylandInputRequest {
     TypeText(WaylandTypeRequest),
-    SendCtrlV {
+    SendPasteShortcut {
+        shortcut: crate::config::PasteShortcut,
         response: tokio::sync::oneshot::Sender<Result<(), String>>,
     },
 }
@@ -245,15 +247,16 @@ pub async fn establish_input_session(
 
                             let _ = response.send(result);
                         }
-                        WaylandInputRequest::SendCtrlV { response } => {
-                            crate::log_info!("[Event Loop] Received SendCtrlV request, sending through portal...");
-                            let res = send_ctrl_v_over_portal(
+                        WaylandInputRequest::SendPasteShortcut { shortcut, response } => {
+                            crate::log_info!("[Event Loop] Received SendPasteShortcut request ({:?}), sending through portal...", shortcut);
+                            let res = send_paste_shortcut_over_portal(
                                 &current_remote_desktop,
                                 &current_session,
+                                shortcut,
                             ).await;
                             match &res {
-                                Ok(()) => crate::log_info!("[Event Loop] SendCtrlV portal call succeeded"),
-                                Err(e) => crate::log_warn!("[Event Loop] SendCtrlV portal call failed: {}", e),
+                                Ok(()) => crate::log_info!("[Event Loop] SendPasteShortcut portal call succeeded"),
+                                Err(e) => crate::log_warn!("[Event Loop] SendPasteShortcut portal call failed: {}", e),
                             }
                             let _ = response.send(res);
                         }
@@ -341,8 +344,11 @@ pub async fn type_text_hardware(
         .map_err(|_| "Wayland input emulation response channel closed unexpectedly.".to_string())?
 }
 
-pub async fn send_ctrl_v(app_handle: &tauri::AppHandle) -> Result<(), String> {
-    crate::log_info!("send_ctrl_v: checking for active Wayland input session...");
+pub async fn send_paste_shortcut(
+    app_handle: &tauri::AppHandle,
+    shortcut: crate::config::PasteShortcut,
+) -> Result<(), String> {
+    crate::log_info!("send_paste_shortcut: checking for active Wayland input session...");
     let sender = {
         let state = app_handle.state::<AppState>();
         let sender_lock = state.wayland_input_sender.lock().unwrap();
@@ -351,39 +357,40 @@ pub async fn send_ctrl_v(app_handle: &tauri::AppHandle) -> Result<(), String> {
 
     let sender = match sender {
         Some(s) => {
-            crate::log_info!("send_ctrl_v: Wayland input session found, sending request");
+            crate::log_info!("send_paste_shortcut: Wayland input session found, sending request");
             s
         }
         None => {
             let msg =
                 "Wayland input emulation is not active. Complete input setup to enable paste."
                     .to_string();
-            crate::log_warn!("send_ctrl_v: FAILED - {}", msg);
+            crate::log_warn!("send_paste_shortcut: FAILED - {}", msg);
             return Err(msg);
         }
     };
 
     let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
-    if let Err(e) = sender.send(WaylandInputRequest::SendCtrlV {
+    if let Err(e) = sender.send(WaylandInputRequest::SendPasteShortcut {
+        shortcut,
         response: response_sender,
     }) {
         let msg = "Wayland input emulation session is unavailable.".to_string();
-        crate::log_warn!("send_ctrl_v: channel send failed: {}", e);
+        crate::log_warn!("send_paste_shortcut: channel send failed: {}", e);
         return Err(msg);
     }
 
-    crate::log_info!("send_ctrl_v: waiting for portal response...");
+    crate::log_info!("send_paste_shortcut: waiting for portal response...");
     match response_receiver.await {
         Ok(Ok(())) => {
-            crate::log_info!("send_ctrl_v: portal Ctrl+V completed successfully");
+            crate::log_info!("send_paste_shortcut: portal paste shortcut completed successfully");
             Ok(())
         }
         Ok(Err(e)) => {
-            crate::log_warn!("send_ctrl_v: portal Ctrl+V failed: {}", e);
+            crate::log_warn!("send_paste_shortcut: portal paste shortcut failed: {}", e);
             Err(e)
         }
         Err(e) => {
-            let msg = format!("send_ctrl_v: response channel closed: {}", e);
+            let msg = format!("send_paste_shortcut: response channel closed: {}", e);
             crate::log_warn!("{}", msg);
             Err(msg)
         }
@@ -528,35 +535,56 @@ fn keysym_for_char(ch: char) -> u32 {
     }
 }
 
-async fn send_ctrl_v_over_portal(
+async fn send_paste_shortcut_over_portal(
     remote_desktop: &RemoteDesktop<'_>,
     session: &ashpd::desktop::Session<'_, RemoteDesktop<'_>>,
+    shortcut: crate::config::PasteShortcut,
 ) -> Result<(), String> {
-    crate::log_info!("[Wayland Portal] send_ctrl_v_over_portal: starting Ctrl+V sequence");
-
     let hold = Duration::from_millis(50);
+    match shortcut {
+        crate::config::PasteShortcut::ShiftInsert => {
+            crate::log_info!(
+                "[Wayland Portal] send_paste_shortcut_over_portal: starting Shift+Insert sequence"
+            );
+            send_key(remote_desktop, session, XK_SHIFT_L, KeyState::Pressed).await?;
+            tokio::time::sleep(hold).await;
+            send_key(remote_desktop, session, XK_INSERT, KeyState::Pressed).await?;
+            tokio::time::sleep(hold).await;
+            send_key(remote_desktop, session, XK_INSERT, KeyState::Released).await?;
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            send_key(remote_desktop, session, XK_SHIFT_L, KeyState::Released).await?;
+        }
+        crate::config::PasteShortcut::CtrlV => {
+            crate::log_info!(
+                "[Wayland Portal] send_paste_shortcut_over_portal: starting Ctrl+V sequence"
+            );
+            send_key(remote_desktop, session, XK_CONTROL_L, KeyState::Pressed).await?;
+            tokio::time::sleep(hold).await;
+            send_key(remote_desktop, session, XK_V, KeyState::Pressed).await?;
+            tokio::time::sleep(hold).await;
+            send_key(remote_desktop, session, XK_V, KeyState::Released).await?;
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            send_key(remote_desktop, session, XK_CONTROL_L, KeyState::Released).await?;
+        }
+        crate::config::PasteShortcut::CtrlShiftV => {
+            crate::log_info!(
+                "[Wayland Portal] send_paste_shortcut_over_portal: starting Ctrl+Shift+V sequence"
+            );
+            send_key(remote_desktop, session, XK_CONTROL_L, KeyState::Pressed).await?;
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            send_key(remote_desktop, session, XK_SHIFT_L, KeyState::Pressed).await?;
+            tokio::time::sleep(hold).await;
+            send_key(remote_desktop, session, XK_V, KeyState::Pressed).await?;
+            tokio::time::sleep(hold).await;
+            send_key(remote_desktop, session, XK_V, KeyState::Released).await?;
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            send_key(remote_desktop, session, XK_SHIFT_L, KeyState::Released).await?;
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            send_key(remote_desktop, session, XK_CONTROL_L, KeyState::Released).await?;
+        }
+    }
 
-    crate::log_info!(
-        "[Wayland Portal] send_ctrl_v_over_portal: pressing Control_L (keysym 0xFFE3)"
-    );
-    send_key(remote_desktop, session, XK_CONTROL_L, KeyState::Pressed).await?;
-    tokio::time::sleep(hold).await;
-
-    crate::log_info!(
-        "[Wayland Portal] send_ctrl_v_over_portal: pressing V (keysym 0x{:.2X})",
-        XK_V
-    );
-    send_key(remote_desktop, session, XK_V, KeyState::Pressed).await?;
-    tokio::time::sleep(hold).await;
-
-    crate::log_info!("[Wayland Portal] send_ctrl_v_over_portal: releasing V");
-    send_key(remote_desktop, session, XK_V, KeyState::Released).await?;
-    tokio::time::sleep(Duration::from_millis(10)).await;
-
-    crate::log_info!("[Wayland Portal] send_ctrl_v_over_portal: releasing Control_L");
-    send_key(remote_desktop, session, XK_CONTROL_L, KeyState::Released).await?;
-
-    crate::log_info!("[Wayland Portal] send_ctrl_v_over_portal: Ctrl+V sequence complete");
+    crate::log_info!("[Wayland Portal] send_paste_shortcut_over_portal: sequence complete");
     Ok(())
 }
 
