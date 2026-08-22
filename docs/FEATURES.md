@@ -8,7 +8,7 @@ Voquill is a **private, offline-first, system-wide dictation app** for Linux and
 
 ### Dictation
 
-- **Push-to-talk** — Hold-to-Talk and Toggle modes. Press the hotkey during transcription to cancel.
+- **Push-to-talk & Toggle** — Hold-to-Talk and Toggle modes. Press the hotkey during transcription to cancel.
 - **Two output methods** — Typewriter (simulates keystrokes via Wayland Portal / X11 XTest / Windows SendInput) or Clipboard with auto-paste (Shift+Insert, Ctrl+V, Ctrl+Shift+V) and automatic clipboard save/restore.
 - **Configurable paste shortcut & delays** — Universal Shift+Insert default, Ctrl+V, or Ctrl+Shift+V with configurable pre- and post-paste delays.
 - **Append trailing space** — Keep your cursor positioned for the next word.
@@ -17,66 +17,58 @@ Voquill is a **private, offline-first, system-wide dictation app** for Linux and
 ### Transcription
 
 - **Local Whisper** — whisper.cpp with Vulkan GPU acceleration. Graceful fallback to CPU with UI feedback.
-- **Cloud API** — OpenAI-compatible endpoints (any provider, any model).
-- **Parakeet / sherpa-onnx** — NVIDIA Parakeet models for CPU-optimized transcription.
-- **GPU status** — Tested/available/detail surfaced in the UI.
+- **NVIDIA Parakeet** — CPU-optimized 25-language transcription with background model warm-up.
+- **Cloud API** — OpenAI-compatible endpoints (any provider, any model: OpenRouter, Groq, Ollama, vLLM).
+- **GPU status** — Tested/available/detail surfaced directly in settings.
 - **Engine-specific settings** — Per-engine configuration panel.
 
-### Accuracy
+### Accuracy & Post-Processing
 
-- **Custom dictionary** — Add names, jargon, or technical terms as a Whisper prompt hint.
+- **Custom dictionary** — Add names, jargon, or technical terms as vocabulary prompt hints.
 - **Regex filler word removal** — Built-in, deterministic, no LLM needed. Strips "uh", "umm", "hmm", etc. instantly. Configurable custom filler words.
-- **LLM post-processing** — Local (llama-server GGUF models) or cloud API (OpenAI-compatible). Customizable system prompt. GPU acceleration with fallback.
-- **Multiple prompts** — Create, name, select, and delete post-processing prompts. Switch between them in settings.
+- **LLM post-processing** — Local (llama-server GGUF models: Qwen 2.5 1.5B, Llama 3.2 1B) or cloud API (OpenAI-compatible). Customizable system prompt. GPU acceleration with fallback.
+- **Multiple prompts** — Create, name, select, and delete post-processing presets. Switch between them in settings.
+- **Original vs Cleaned comparison** — Retains both raw and post-processed transcripts for side-by-side review.
 
-### Audio
+### Audio & Devices
 
+- **Audio file transcription** — Drag-and-drop or file picker. Supports WAV, MP3, M4A, OGG, FLAC via symphonia (pure Rust decoding). Full diarization and post-processing pipeline.
 - **Noise reduction** — Spectral gating via Python runner (noisereduce). Configurable strength. Runs before transcription.
-- **File import** — Drag-and-drop or file picker. Supports WAV, MP3, M4A, OGG, FLAC via symphonia (pure Rust decoding).
-- **Mic test** — Record, playback, and adjust input sensitivity with live metering.
-- **Device selection** — Choose your microphone. Post-roll (ms) to avoid cut-off.
-- **Recording logs** — Save raw WAVs for debugging.
+- **Microphone & Playback device selection** — Choose your input microphone and output playback device independently.
+- **Mic test & live metering** — Record, playback, and adjust input sensitivity with live volume metering.
+- **Extended recordings** — Configurable maximum duration up to 180 minutes (3 hours). Post-roll (ms) to avoid cut-off.
+- **Debug recordings** — Optional capture of raw WAV audio for troubleshooting with automated FIFO retention.
 
 ### Speaker Diarization
 
-- **Multi-speaker detection** — sherpa-onnx via Python runner. Detects and labels different voices.
+- **Multi-speaker detection** — sherpa-onnx via Python runner. Detects and labels different voices (`Speaker 1`, `Speaker 2`).
 - **Separate toggles** — Independent enable for live recordings and file imports.
 - **Configurable cluster threshold** — Adjust how aggressively voices are merged.
 - **Per-segment transcription** — Each speaker segment transcribed independently, labeled in output and history.
 
-### Platform
+### Platform & Integration
 
 - **Wayland-native (XDG Portals)** — GlobalShortcuts, RemoteDesktop input emulation, Camera microphone, Layer Shell overlay. No external tools needed.
 - **X11** — XTest keyboard simulation, native global shortcuts via tauri-plugin.
-- **Windows** — SendInput keyboard simulation, native global shortcuts.
-
-### Customization
-
-- **Global hotkey** — Configurable modifier+key combo. Capture UI (press your combination).
-- **Hotkey modes** — Hold to Talk or Toggle.
-- **Typing speed** — Configurable character delay and key hold duration.
-- **Overlay position** — Vertical offset from screen bottom (Wayland Layer Shell: compositor-managed).
+- **Windows** — SendInput keyboard simulation, native global shortcuts, CoreAudio endpoints.
+- **Minimalist overlay** — Transparent status overlay during recording and transcription. Platform-native positioning (Layer Shell on Wayland).
+- **System tray & Startup** — Minimize-to-tray, launch on login, and `--start-hidden` CLI flag.
 
 ### History
 
-- **SQLite with FTS5** — Full-text search across all transcriptions.
+- **SQLite with FTS5** — Full-text search across all transcriptions and error diagnostics.
+- **In-app audio playback** — Listen to recorded audio directly from history cards.
+- **Original / Cleaned toggle** — View and copy either raw transcription or AI-cleaned text.
+- **Status diagnostics** — Visual badges for `Failed`, `Empty`, and `Cancelled` attempts with detailed error reasons.
+- **Individual item deletion** — Delete specific records or clear all.
 - **Segment storage** — Speaker-labeled segments saved with diarized recordings.
-- **Configurable limit** — Auto-prune oldest entries when limit is exceeded (default 500).
+- **Configurable limit & pruning** — Auto-prune oldest database entries and associated audio files when limit is reached.
 
-### System Integration
+### Diagnostics & Settings
 
-- **System tray** — Left-click shows window, right-click menu (Open / Quit). Minimize-to-tray.
-- **Autostart** — Launch on login via tauri-plugin-autostart.
-- **Update checking** — GitHub API release check.
-- **CLI** — `--start-hidden` to launch to tray without showing the main window.
-
-### Diagnostics
-
-- **Diagnostics page** — System health, GPU status, portal capabilities, session logs.
+- **Diagnostics page** — System health, GPU status, portal capabilities, and rotating session logs.
 - **Log level configuration** — Adjust verbosity (error, warn, info, debug, trace) directly from settings.
-- **Session logging** — Rotating session logs with timestamps.
-- **Recording logs** — Save raw audio for debugging.
-- **Factory reset** — Clear models, logs, history, and settings.
+- **Factory reset** — Clear models, logs, history, and settings back to defaults.
 
 ### Language
 
@@ -88,7 +80,6 @@ Voquill is a **private, offline-first, system-wide dictation app** for Linux and
 ## Planned
 
 - **Cancel (Escape) shortcut** — Dedicated cancel hotkey, dynamically registered during recording.
-- **Recording retention** — Auto-cleanup of old debug WAV files.
 - **Model unload timeout** — Auto-unload transcription model after inactivity.
 - **Language identification** — Auto-detect audio language via Python runner.
 - **Multi-state tray icons** — Different icons for Idle, Recording, Transcribing.

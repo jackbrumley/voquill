@@ -57,21 +57,20 @@ Setup EXE installs per-user (no admin). MSI is a system-wide install intended fo
 
 ## Features
 
-- **Private by Default** — Offline transcription via Whisper.cpp with Vulkan GPU acceleration. Your voice never leaves your device. No accounts, no cloud, no subscriptions.
-- **Push-to-Talk** — Hold-to-Talk and Toggle modes. Customizable hotkey with capture UI. Press the hotkey during transcription to cancel.
-- **Two Output Methods** — Typewriter (direct keystroke simulation via Wayland Portal / X11 XTest / Windows SendInput) or Clipboard with optional auto-paste (Shift+Insert, Ctrl+V, or Ctrl+Shift+V).
-- **Custom Dictionary** — Add names, jargon, or technical terms to improve transcription accuracy.
-- **Regex Filler Word Removal** — Strips "uh", "umm", "hmm" instantly. No LLM needed. Customizable word list.
-- **LLM Post-Processing** — Local (llama-server GGUF models) or cloud API (OpenAI-compatible). Multiple saved prompts. GPU acceleration with graceful fallback.
-- **Speaker Diarization** — Detect and label different speakers in recordings and live dictation. Configurable clustering threshold.
-- **Audio Noise Reduction** — Reduce background noise via spectral gating before transcription. Configurable strength slider.
-- **Audio File Import** — Drag-and-drop or file picker. Supports WAV, MP3, M4A, OGG, FLAC. Full diarization and post-processing pipeline.
-- **History with Full-Text Search** — SQLite-backed with FTS5 search. Configurable limit with auto-prune.
-- **Full Wayland Support** — Uses XDG Portals for global shortcuts, input emulation, microphone access, and overlay. Works on GNOME, KDE, and other Wayland compositors. No external tools needed.
-- **Windows and Linux Support** — Native on both platforms with display server auto-detection.
+- **Private & Offline by Default** — On-device speech recognition powered by Whisper.cpp (Vulkan GPU / CPU) and NVIDIA Parakeet. Your voice never leaves your machine—no accounts, no cloud dependencies, no subscriptions.
+- **Push-to-Talk & Toggle Modes** — Choose between Hold-to-Talk or Toggle mode. Customizable global hotkey with instant capture UI and press-to-cancel support during transcription.
+- **Transcript Post-Processing (Local & Cloud AI)** — Clean up transcripts, fix grammar, punctuation, and speech artefacts using local LLMs (Qwen 2.5 1.5B, Llama 3.2 1B) or OpenAI-compatible cloud APIs (OpenRouter, Groq, Ollama, vLLM). Create custom presets and compare original vs. cleaned text.
+- **Audio File Transcription** — Drag-and-drop or browse audio files (WAV, MP3, M4A, FLAC, OGG). Fully integrated with speaker differentiation and post-processing.
+- **Differentiate Voices (Speaker Diarization)** — Detect and label distinct speakers (`Speaker 1`, `Speaker 2`) in both imported audio files and live dictations with configurable cluster sensitivity.
+- **NVIDIA Parakeet Engine** — Fast, CPU-optimized transcription supporting 25 languages with automatic background model warm-up.
+- **Audio Noise Reduction** — Optional spectral gating to eliminate background noise (fans, room hum, electrical noise) before transcription. Configurable strength slider and recording up to 180 minutes (3 hours).
+- **Custom Dictionary & Vocabulary Hints** — Add names, acronyms, and technical jargon that are supplied directly to transcription models as vocabulary hints.
+- **Instant Filler Word Removal** — Strips "uh", "um", "you know", "kind of" instantly via regex without needing an AI model. Supports custom filler phrases.
+- **Reliable Pasting & Terminal Support** — Typewriter mode (direct hardware simulation) or Clipboard mode with configurable paste shortcuts (`Shift+Insert`, `Ctrl+V`, `Ctrl+Shift+V`) and automatic clipboard restoration. Defaults to `Shift+Insert` for full Linux terminal compatibility.
+- **Searchable History & Native Audio Playback** — SQLite-backed with FTS5 search. Listen back to recordings directly within the app, toggle between original and cleaned text, delete individual entries, or clear all. Configurable history retention with automatic disk pruning.
+- **Audio Device & Playback Selection** — Select independent input microphones and output playback devices with built-in mic testing and live sensitivity metering.
+- **Full Wayland & Windows Integration** — Native XDG Desktop Portals on Wayland (GNOME, KDE, Hyprland), native X11, and Windows CoreAudio/SendInput. Supports launch at startup and `--start-hidden` to launch minimized to tray.
 - **Minimalist Overlay** — Transparent status overlay during recording and transcription. Platform-native positioning (Layer Shell on Wayland).
-- **CLI** — `--start-hidden` to launch to system tray. More flags coming.
-- **Engine Flexibility** — Local Whisper (CPU/GPU), Parakeet/sherpa-onnx, or any OpenAI-compatible API.
 
 > See the full feature breakdown with planned items at [docs/FEATURES.md](docs/FEATURES.md).
 
