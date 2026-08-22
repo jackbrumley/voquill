@@ -343,7 +343,8 @@ h1 {
 }
 
 .gallery-action {
-  margin-top: 1rem;
+  margin: -0.5rem auto 2.5rem;
+  text-align: center;
 }
 
 .home-provenance {
