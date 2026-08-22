@@ -8,6 +8,7 @@ interface UseHistoryReturn {
   searchResults: HistoryItem[];
   loadHistory: () => Promise<void>;
   clearHistory: () => Promise<void>;
+  deleteHistoryItem: (id: number) => Promise<void>;
   copyToClipboard: (text: string) => Promise<void>;
   setSearchQuery: (query: string) => void;
 }
@@ -61,6 +62,17 @@ export function useHistory(showToast: (message: string, type: 'success' | 'error
     }
   };
 
+  const deleteHistoryItem = async (id: number) => {
+    try {
+      await invoke('delete_history_item', { id });
+      history.value = history.value.filter((item) => item.id !== id);
+      searchResults.value = searchResults.value.filter((item) => item.id !== id);
+      showToast('Item deleted', 'success');
+    } catch {
+      showToast('Failed to delete item', 'error');
+    }
+  };
+
   const copyToClipboard = async (text: string) => {
     try {
       await invoke('plugin:clipboard-manager|write_text', { text });
@@ -76,6 +88,7 @@ export function useHistory(showToast: (message: string, type: 'success' | 'error
     searchResults: searchResults.value,
     loadHistory,
     clearHistory,
+    deleteHistoryItem,
     copyToClipboard,
     setSearchQuery,
   };

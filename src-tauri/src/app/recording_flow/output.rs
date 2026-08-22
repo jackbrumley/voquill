@@ -6,10 +6,14 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
 
 pub struct OutputPayload {
+    pub session_uuid: String,
     pub output_text: String,
     pub diar_segments: Vec<crate::diarization::Segment>,
     pub raw_text: Option<String>,
     pub auto_submit: bool,
+    pub audio_file: Option<String>,
+    pub duration_secs: Option<f64>,
+    pub engine: Option<String>,
 }
 
 pub async fn deliver_output(
@@ -20,10 +24,14 @@ pub async fn deliver_output(
     payload: OutputPayload,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let OutputPayload {
+        session_uuid,
         output_text,
         diar_segments,
         raw_text,
         auto_submit,
+        audio_file,
+        duration_secs,
+        engine,
     } = payload;
     let (
         typing_speed,
@@ -35,6 +43,8 @@ pub async fn deliver_output(
         paste_after_copy,
         paste_shortcut,
         history_limit,
+        language,
+        prompt_name,
     ) = {
         let config_guard = config.lock().unwrap();
         (
@@ -47,11 +57,31 @@ pub async fn deliver_output(
             config_guard.paste_after_copy,
             config_guard.paste_shortcut,
             config_guard.history_limit,
+            config_guard.language.clone(),
+            config_guard.resolve_post_process_prompt_name(),
         )
     };
 
     if output_text.trim().is_empty() {
         crate::log_info!("Transcription was empty, skipping output delivery.");
+        let _ = history::add_history_item(&history::NewHistoryItem {
+            session_uuid: &session_uuid,
+            status: "empty",
+            text: "",
+            raw_text: raw_text.as_deref(),
+            error_message: Some("Transcription was empty or contained no speech"),
+            segments: None,
+            audio_file: audio_file.as_deref(),
+            duration_secs,
+            engine: engine.as_deref(),
+            source: Some("mic"),
+            language: Some(&language),
+            prompt_name: prompt_name.as_deref(),
+            limit: Some(history_limit),
+        });
+        if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.emit("history-updated", ());
+        }
         return Ok(());
     }
 
@@ -61,12 +91,21 @@ pub async fn deliver_output(
         serde_json::to_string(&diar_segments).ok()
     };
 
-    let _ = history::add_history_item(
-        &output_text,
-        segments_json.as_deref(),
-        Some(history_limit),
-        raw_text.as_deref(),
-    );
+    let _ = history::add_history_item(&history::NewHistoryItem {
+        session_uuid: &session_uuid,
+        status: "success",
+        text: &output_text,
+        raw_text: raw_text.as_deref(),
+        error_message: None,
+        segments: segments_json.as_deref(),
+        audio_file: audio_file.as_deref(),
+        duration_secs,
+        engine: engine.as_deref(),
+        source: Some("mic"),
+        language: Some(&language),
+        prompt_name: prompt_name.as_deref(),
+        limit: Some(history_limit),
+    });
     if let Some(window) = app_handle.get_webview_window("main") {
         let _ = window.emit("history-updated", ());
     }

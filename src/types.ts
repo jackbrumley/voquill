@@ -68,10 +68,19 @@ export interface Toast {
 
 export interface HistoryItem {
   id: number;
+  session_uuid?: string;
   text: string;
   timestamp: string;
-  segments?: Segment[] | null;
+  status?: 'success' | 'empty' | 'failed' | 'cancelled' | string;
   raw_text?: string | null;
+  error_message?: string | null;
+  segments?: Segment[] | null;
+  audio_file?: string | null;
+  duration_secs?: number | null;
+  engine?: string | null;
+  source?: 'mic' | 'file' | string | null;
+  language?: string | null;
+  prompt_name?: string | null;
 }
 
 export interface Segment {

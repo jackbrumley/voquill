@@ -6099,6 +6099,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tokio-util",
+ "uuid",
  "whisper-rs",
  "windows 0.62.2",
  "x11rb",

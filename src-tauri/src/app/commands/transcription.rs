@@ -118,6 +118,26 @@ pub async fn clear_history() -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn delete_history_item(id: u64) -> Result<(), String> {
+    history::delete_history_item(id).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn get_history_audio(file_name: String) -> Result<Vec<u8>, String> {
+    let recordings_dir = crate::paths::debug_recordings_dir()?;
+    let path = recordings_dir.join(&file_name);
+    if path.exists() {
+        return std::fs::read(&path).map_err(|e| e.to_string());
+    }
+    let debug_dir = crate::paths::debug_dir()?;
+    let alt_path = debug_dir.join(&file_name);
+    if alt_path.exists() {
+        return std::fs::read(&alt_path).map_err(|e| e.to_string());
+    }
+    Err("Audio file not found".to_string())
+}
+
+#[tauri::command]
 pub async fn unload_model(state: tauri::State<'_, AppState>) -> Result<(), String> {
     state.engine_factory.unload_all();
     crate::log_info!("Transcription model unloaded");

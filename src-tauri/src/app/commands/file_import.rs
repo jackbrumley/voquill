@@ -18,27 +18,74 @@ pub async fn transcribe_audio_file(
     path: String,
     app_handle: tauri::AppHandle,
 ) -> Result<DiarizationResult, String> {
-    crate::log_info!("transcribe_audio_file: {}", path);
-
-    let audio_data = std::fs::read(&path).map_err(|e| format!("Failed to read file: {}", e))?;
-    crate::log_info!("File size: {} bytes", audio_data.len());
-
-    let wav_data = audio::convert_audio_file_for_whisper(&audio_data)
-        .map_err(|e| format!("Failed to convert audio: {}", e))?;
+    let session_uuid = uuid::Uuid::new_v4().to_string();
+    crate::log_info!(
+        "[session:{}] transcribe_audio_file: {}",
+        &session_uuid[..8],
+        path
+    );
 
     let app_state = app_handle.state::<crate::AppState>();
     let current_config = {
         let guard = app_state.config.lock().unwrap();
         guard.clone()
     };
+
+    match transcribe_audio_file_inner(&path, &session_uuid, &app_handle, &current_config).await {
+        Ok(result) => Ok(result),
+        Err(error) => {
+            crate::log_info!(
+                "[session:{}] File transcription failed: {}",
+                &session_uuid[..8],
+                error
+            );
+            let _ = history::add_history_item(&history::NewHistoryItem {
+                session_uuid: &session_uuid,
+                status: "failed",
+                text: "",
+                raw_text: None,
+                error_message: Some(&error),
+                segments: None,
+                audio_file: None,
+                duration_secs: None,
+                engine: Some(&current_config.local_engine),
+                source: Some("file"),
+                language: Some(&current_config.language),
+                prompt_name: current_config.resolve_post_process_prompt_name().as_deref(),
+                limit: Some(current_config.history_limit),
+            });
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.emit("history-updated", ());
+            }
+            Err(error)
+        }
+    }
+}
+
+async fn transcribe_audio_file_inner(
+    path: &str,
+    session_uuid: &str,
+    app_handle: &tauri::AppHandle,
+    current_config: &crate::config::Config,
+) -> Result<DiarizationResult, String> {
+    let audio_data = std::fs::read(path).map_err(|e| format!("Failed to read file: {}", e))?;
+    crate::log_info!("File size: {} bytes", audio_data.len());
+
+    let wav_data = audio::convert_audio_file_for_whisper(&audio_data)
+        .map_err(|e| format!("Failed to convert audio: {}", e))?;
+    let duration_secs = wav_duration_secs(&wav_data).ok();
+
+    let app_state = app_handle.state::<crate::AppState>();
     let engine_factory_state = app_state.engine_factory.clone();
     let service = engine_factory_state
-        .create_service(&current_config)
+        .create_service(current_config)
         .await
         .map_err(|e| format!("Failed to create transcription service: {}", e))?;
+    let service_name = service.service_name().to_string();
 
     let language = current_config.language.clone();
     let prompt_hint = current_config.resolve_prompt_hint();
+    let prompt_name = current_config.resolve_post_process_prompt_name();
     let lang_code = match language.as_str() {
         "auto" => None,
         "en-AU" => Some("en"),
@@ -54,6 +101,29 @@ pub async fn transcribe_audio_file(
         current_config.dictionary,
         prompt_hint,
     );
+
+    let saved_audio_file = if current_config.enable_recording_logs {
+        match crate::paths::debug_recordings_dir() {
+            Ok(dir) => {
+                let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+                let file_name = format!("import_{}_{}.wav", timestamp, &session_uuid[..8]);
+                let file_path = dir.join(&file_name);
+                if let Err(e) = std::fs::write(&file_path, &wav_data) {
+                    crate::log_warn!("Failed to save debug import audio: {}", e);
+                    None
+                } else {
+                    crate::log_info!("Debug import audio saved: {:?}", file_path);
+                    Some(file_name)
+                }
+            }
+            Err(e) => {
+                crate::log_warn!("Failed to get debug recordings directory: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     // ── Diarization temp file ──
     // The Python runner reads audio via soundfile/libsnfile, which cannot decode
@@ -100,7 +170,7 @@ pub async fn transcribe_audio_file(
             }
         }
         Some(diar_path) => match run_diarization(
-            &app_handle,
+            app_handle,
             &diar_path.to_string_lossy(),
             diarization_cluster_threshold,
         )
@@ -223,7 +293,7 @@ pub async fn transcribe_audio_file(
     let result_text = if !cleaned_text.trim().is_empty() && current_config.post_process_enabled {
         crate::log_info!("Post-processing file transcription...");
         let post_process_factory = app_state.post_process_factory.clone();
-        match post_process_factory.get_service(&current_config).await {
+        match post_process_factory.get_service(current_config).await {
             Ok(processor) => match processor
                 .post_process(
                     &cleaned_text,
@@ -262,6 +332,25 @@ pub async fn transcribe_audio_file(
     };
 
     if result_text.trim().is_empty() {
+        let _ = history::add_history_item(&history::NewHistoryItem {
+            session_uuid,
+            status: "empty",
+            text: "",
+            raw_text: file_raw_text.as_deref(),
+            error_message: Some("Transcription was empty or contained no speech"),
+            segments: None,
+            audio_file: saved_audio_file.as_deref(),
+            duration_secs,
+            engine: Some(&service_name),
+            source: Some("file"),
+            language: Some(&language),
+            prompt_name: prompt_name.as_deref(),
+            limit: Some(current_config.history_limit),
+        });
+        if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.emit("history-updated", ());
+        }
+
         return Ok(DiarizationResult {
             text: String::new(),
             segments: vec![],
@@ -280,12 +369,21 @@ pub async fn transcribe_audio_file(
     } else {
         serde_json::to_string(&result.segments).ok()
     };
-    if let Err(e) = history::add_history_item(
-        &result.text,
-        segments_json.as_deref(),
-        Some(current_config.history_limit),
-        file_raw_text.as_deref(),
-    ) {
+    if let Err(e) = history::add_history_item(&history::NewHistoryItem {
+        session_uuid,
+        status: "success",
+        text: &result.text,
+        raw_text: file_raw_text.as_deref(),
+        error_message: None,
+        segments: segments_json.as_deref(),
+        audio_file: saved_audio_file.as_deref(),
+        duration_secs,
+        engine: Some(&service_name),
+        source: Some("file"),
+        language: Some(&language),
+        prompt_name: prompt_name.as_deref(),
+        limit: Some(current_config.history_limit),
+    }) {
         crate::log_warn!("Failed to save history: {}", e);
     }
     if let Some(window) = app_handle.get_webview_window("main") {

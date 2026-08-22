@@ -56,6 +56,12 @@ pub fn debug_dir() -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+pub fn debug_recordings_dir() -> Result<PathBuf, String> {
+    let dir = debug_dir()?.join("recordings");
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    Ok(dir)
+}
+
 /// Temporary directory for runtime artifacts (diarization temp WAV files, etc.).
 /// Cleaned up by the OS across reboots.
 pub fn temp_dir() -> PathBuf {

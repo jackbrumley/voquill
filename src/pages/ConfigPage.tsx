@@ -53,6 +53,7 @@ interface ConfigPageProps {
   gpuStatus: GpuStatus | null;
   postProcessGpuStatus: GpuStatus | null;
   engineCapabilities: EngineCapabilities | null;
+  showToast?: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void;
 }
 
 const languageOptions = [
@@ -300,6 +301,7 @@ export function ConfigPage(props: ConfigPageProps) {
                 onReopenInitialSetup={onReopenInitialSetup}
                 onFactoryReset={onFactoryReset}
                 onOpenUiLab={onOpenUiLab}
+                showToast={props.showToast}
               />
             )}
           </div>

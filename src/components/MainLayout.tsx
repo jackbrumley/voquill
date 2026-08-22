@@ -62,9 +62,11 @@ interface MainLayoutProps {
   onTestCleanupApi: () => void;
   onCopyToClipboard: (text: string) => void;
   onClearHistory: () => void;
+  onDeleteHistoryItem: (id: number) => void;
   onSearchHistory: (query: string) => void;
   onToggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
   onOpenUpdateModal: () => void;
+  onShowToast?: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void;
   tabContentRef: { current: HTMLDivElement | null };
 }
 
@@ -148,6 +150,7 @@ export function MainLayout(props: MainLayoutProps) {
             autostartEnabled={props.autostartEnabled}
             onToggleAutostart={props.onToggleAutostart}
             testCleanupApi={props.onTestCleanupApi}
+            showToast={props.onShowToast}
           />
         )}
 
@@ -158,6 +161,7 @@ export function MainLayout(props: MainLayoutProps) {
             searchResults={props.searchResults}
             onCopyToClipboard={props.onCopyToClipboard}
             onSearch={props.onSearchHistory}
+            onDelete={props.onDeleteHistoryItem}
           />
         )}
 

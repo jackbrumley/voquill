@@ -23,6 +23,7 @@ interface DebugSectionProps {
   onReopenInitialSetup: () => void;
   onFactoryReset: () => void;
   onOpenUiLab: () => void;
+  showToast?: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void;
 }
 
 export function DebugSection({
@@ -32,6 +33,7 @@ export function DebugSection({
   onReopenInitialSetup,
   onFactoryReset,
   onOpenUiLab,
+  showToast,
 }: DebugSectionProps) {
   return (
     <>
@@ -64,9 +66,11 @@ export function DebugSection({
               onClick={async () => {
                 if (await confirm('Delete all recorded WAV files?')) {
                   try {
-                    await invoke('clear_recording_logs');
+                    const count = await invoke<number>('clear_recording_logs');
+                    showToast?.(`Deleted ${count} recording file(s)`, 'success');
                   } catch (e) {
                     console.error('Failed to delete recordings:', e);
+                    showToast?.('Failed to delete recordings', 'error');
                   }
                 }
               }}

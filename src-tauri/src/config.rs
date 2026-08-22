@@ -206,6 +206,22 @@ impl Config {
         self.post_process_max_output_tokens
     }
 
+    pub fn resolve_post_process_prompt_name(&self) -> Option<String> {
+        if !self.post_process_enabled {
+            return None;
+        }
+        if let Some(ref selected_id) = self.post_process_selected_prompt_id {
+            if let Some(p) = self
+                .post_process_prompts
+                .iter()
+                .find(|p| &p.id == selected_id)
+            {
+                return Some(p.name.clone());
+            }
+        }
+        Some("Default".to_string())
+    }
+
     /// Builds a cleanly framed prompt hint for transcription models.
     /// Prefixes dictionary hotwords with "Vocabulary:" and ensures terminal
     /// punctuation so Whisper treats preceding text as expository context

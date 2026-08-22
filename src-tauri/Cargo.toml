@@ -41,6 +41,7 @@ clap = { version = "4", features = ["derive"] }
 regex = "1"
 rubato = "0.4"
 once_cell = "1"
+uuid = { version = "1.10", features = ["v4"] }
 x11rb = { version = "0.13.2", features = ["xtest"] }
 tauri-plugin-clipboard-manager = "^2.3"
 bzip2 = "0.6.1"

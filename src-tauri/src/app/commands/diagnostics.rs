@@ -123,8 +123,8 @@ pub async fn copy_session_log_to_clipboard() -> Result<(), String> {
 #[tauri::command]
 pub async fn clear_recording_logs() -> Result<u32, String> {
     crate::log_info!("Tauri Command: clear_recording_logs invoked");
-    let debug_dir = crate::paths::app_root()?.join("debug");
-    let recordings_dir = debug_dir.join("recordings");
+    let debug_dir = crate::paths::debug_dir()?;
+    let recordings_dir = crate::paths::debug_recordings_dir()?;
 
     let mut total = 0u32;
 
@@ -138,7 +138,7 @@ pub async fn clear_recording_logs() -> Result<u32, String> {
                 && path
                     .file_stem()
                     .and_then(|s| s.to_str())
-                    .is_some_and(|s| s.starts_with("recording_"))
+                    .is_some_and(|s| s.starts_with("recording_") || s.starts_with("import_"))
                 && std::fs::remove_file(&path).is_ok()
             {
                 total += 1;
@@ -159,6 +159,8 @@ pub async fn clear_recording_logs() -> Result<u32, String> {
             }
         }
     }
+
+    let _ = crate::history::clear_audio_file_references();
 
     crate::log_info!("Deleted {} recording file(s)", total);
     Ok(total)

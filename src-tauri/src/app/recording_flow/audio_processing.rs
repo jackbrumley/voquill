@@ -3,7 +3,7 @@ use tauri::Manager;
 
 pub fn validate_audio_duration(
     audio_data: &[u8],
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<f64, Box<dyn std::error::Error + Send + Sync>> {
     if audio_data.len() < 44 {
         return Err("Audio file too small".into());
     }
@@ -47,7 +47,7 @@ pub fn validate_audio_duration(
     if duration_seconds < 0.1 {
         return Err("Audio too short".into());
     }
-    Ok(())
+    Ok(duration_seconds)
 }
 
 /// Run diarization on a recorded audio file via the Python runner.

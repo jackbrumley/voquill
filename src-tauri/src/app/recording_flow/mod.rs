@@ -6,7 +6,7 @@ use crate::config::Config;
 use crate::{audio, engine_factory, typing};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 pub async fn record_and_transcribe(
     config: Arc<Mutex<Config>>,
@@ -53,6 +53,63 @@ async fn finish_session(
     crate::app::status::emit_status_to_frontend("Ready").await;
 }
 
+struct SessionContext<'a> {
+    session_uuid: &'a str,
+    saved_audio_file: Option<&'a str>,
+    duration_secs: f64,
+    lang_code_str: &'a str,
+    prompt_name: Option<&'a str>,
+    history_limit: usize,
+}
+
+async fn transcribe_full_audio(
+    service: &(dyn crate::transcription::TranscriptionService + Send + Sync),
+    audio_data: &[u8],
+    lang_code: Option<&str>,
+    prompt_hint: Option<&str>,
+    ctx: &SessionContext<'_>,
+    app_handle: &AppHandle,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    match service.transcribe(audio_data, lang_code, prompt_hint).await {
+        Ok(text) => {
+            crate::log_info!(
+                "[session:{}] Transcription received ({}): \"{}\"",
+                &ctx.session_uuid[..8],
+                service.service_name(),
+                text
+            );
+            Ok(text)
+        }
+        Err(error) => {
+            crate::log_info!(
+                "[session:{}] Transcription failed ({}): {}",
+                &ctx.session_uuid[..8],
+                service.service_name(),
+                error
+            );
+            let _ = crate::history::add_history_item(&crate::history::NewHistoryItem {
+                session_uuid: ctx.session_uuid,
+                status: "failed",
+                text: "",
+                raw_text: None,
+                error_message: Some(&format!("Transcription failed: {}", error)),
+                segments: None,
+                audio_file: ctx.saved_audio_file,
+                duration_secs: Some(ctx.duration_secs),
+                engine: Some(service.service_name()),
+                source: Some("mic"),
+                language: Some(ctx.lang_code_str),
+                prompt_name: ctx.prompt_name,
+                limit: Some(ctx.history_limit),
+            });
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.emit("history-updated", ());
+            }
+            Err(error.into())
+        }
+    }
+}
+
 async fn record_and_transcribe_inner(
     config: &Arc<Mutex<Config>>,
     session_state: &Arc<Mutex<SessionState>>,
@@ -61,7 +118,10 @@ async fn record_and_transcribe_inner(
     audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
     engine_factory: &Arc<engine_factory::EngineFactory>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let (post_roll_ms, max_recording_duration) = {
+    let session_uuid = uuid::Uuid::new_v4().to_string();
+    crate::log_info!("[session:{}] Recording flow started", &session_uuid[..8]);
+
+    let (post_roll_ms, max_recording_duration, current_config, history_limit) = {
         let config_guard = config.lock().unwrap();
         (
             config_guard.post_roll_ms,
@@ -70,8 +130,13 @@ async fn record_and_transcribe_inner(
                     .max_recording_duration_minutes
                     .saturating_mul(60),
             ),
+            config_guard.clone(),
+            config_guard.history_limit,
         )
     };
+    let lang_code_str = current_config.language.clone();
+    let prompt_hint = current_config.resolve_prompt_hint();
+    let prompt_name = current_config.resolve_post_process_prompt_name();
 
     let audio_data = audio::record_audio_while_flag(
         session_state,
@@ -91,7 +156,28 @@ async fn record_and_transcribe_inner(
     }
 
     if session_token.load(Ordering::SeqCst) {
-        crate::log_info!("Session cancelled during capture; discarding audio");
+        crate::log_info!(
+            "[session:{}] Session cancelled during capture; discarding audio",
+            &session_uuid[..8]
+        );
+        let _ = crate::history::add_history_item(&crate::history::NewHistoryItem {
+            session_uuid: &session_uuid,
+            status: "cancelled",
+            text: "",
+            raw_text: None,
+            error_message: Some("Session cancelled during capture"),
+            segments: None,
+            audio_file: None,
+            duration_secs: None,
+            engine: None,
+            source: Some("mic"),
+            language: Some(&lang_code_str),
+            prompt_name: prompt_name.as_deref(),
+            limit: Some(history_limit),
+        });
+        if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.emit("history-updated", ());
+        }
         return Ok(());
     }
 
@@ -100,22 +186,95 @@ async fn record_and_transcribe_inner(
     if audio_data.is_empty() {
         return Ok(());
     }
-    if let Err(error) = audio_processing::validate_audio_duration(&audio_data) {
-        crate::log_info!("Audio validation failed: {}", error);
-        return Ok(());
-    }
 
-    let (lang_code_str, prompt_hint, current_config) = {
-        let config_guard = config.lock().unwrap();
-        (
-            config_guard.language.clone(),
-            config_guard.resolve_prompt_hint(),
-            config_guard.clone(),
-        )
+    let duration_secs = match audio_processing::validate_audio_duration(&audio_data) {
+        Ok(d) => d,
+        Err(error) => {
+            crate::log_info!(
+                "[session:{}] Audio validation failed: {}",
+                &session_uuid[..8],
+                error
+            );
+            let _ = crate::history::add_history_item(&crate::history::NewHistoryItem {
+                session_uuid: &session_uuid,
+                status: "failed",
+                text: "",
+                raw_text: None,
+                error_message: Some(&format!("Audio validation failed: {}", error)),
+                segments: None,
+                audio_file: None,
+                duration_secs: None,
+                engine: None,
+                source: Some("mic"),
+                language: Some(&lang_code_str),
+                prompt_name: prompt_name.as_deref(),
+                limit: Some(history_limit),
+            });
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.emit("history-updated", ());
+            }
+            return Ok(());
+        }
+    };
+
+    let saved_audio_file = if current_config.enable_recording_logs {
+        match crate::paths::debug_recordings_dir() {
+            Ok(dir) => {
+                let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+                let file_name = format!("recording_{}_{}.wav", timestamp, &session_uuid[..8]);
+                let file_path = dir.join(&file_name);
+                if let Err(e) = std::fs::write(&file_path, &audio_data) {
+                    crate::log_warn!(
+                        "[session:{}] Failed to save debug recording: {}",
+                        &session_uuid[..8],
+                        e
+                    );
+                    None
+                } else {
+                    crate::log_info!(
+                        "[session:{}] Debug recording saved: {:?}",
+                        &session_uuid[..8],
+                        file_path
+                    );
+                    Some(file_name)
+                }
+            }
+            Err(e) => {
+                crate::log_warn!(
+                    "[session:{}] Failed to get debug recordings directory: {}",
+                    &session_uuid[..8],
+                    e
+                );
+                None
+            }
+        }
+    } else {
+        None
     };
 
     if session_token.load(Ordering::SeqCst) {
-        crate::log_info!("Session cancelled before transcription; discarding audio");
+        crate::log_info!(
+            "[session:{}] Session cancelled before transcription; discarding audio",
+            &session_uuid[..8]
+        );
+        let _ = crate::history::add_history_item(&crate::history::NewHistoryItem {
+            session_uuid: &session_uuid,
+            status: "cancelled",
+            text: "",
+            raw_text: None,
+            error_message: Some("Session cancelled before transcription"),
+            segments: None,
+            audio_file: saved_audio_file.as_deref(),
+            duration_secs: Some(duration_secs),
+            engine: None,
+            source: Some("mic"),
+            language: Some(&lang_code_str),
+            prompt_name: prompt_name.as_deref(),
+            limit: Some(history_limit),
+        });
+        if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.emit("history-updated", ());
+        }
         return Ok(());
     }
 
@@ -126,7 +285,11 @@ async fn record_and_transcribe_inner(
     };
 
     if let Some(ref hint) = prompt_hint {
-        crate::log_info!("Transcription prompt hint: \"{}\"", hint);
+        crate::log_info!(
+            "[session:{}] Transcription prompt hint: \"{}\"",
+            &session_uuid[..8],
+            hint
+        );
     }
 
     // Apply audio noise reduction if enabled (before transcription)
@@ -141,14 +304,19 @@ async fn record_and_transcribe_inner(
         {
             Ok(enhanced) => {
                 crate::log_info!(
-                    "Noise reduction applied ({} bytes -> {} bytes)",
+                    "[session:{}] Noise reduction applied ({} bytes -> {} bytes)",
+                    &session_uuid[..8],
                     audio_data.len(),
                     enhanced.len()
                 );
                 enhanced
             }
             Err(e) => {
-                crate::log_warn!("Noise reduction failed, using raw audio: {}", e);
+                crate::log_warn!(
+                    "[session:{}] Noise reduction failed, using raw audio: {}",
+                    &session_uuid[..8],
+                    e
+                );
                 audio_data
             }
         }
@@ -160,9 +328,40 @@ async fn record_and_transcribe_inner(
     let service = match service {
         Ok(s) => s,
         Err(error) => {
-            crate::log_info!("Failed to create transcription service: {}", error);
+            crate::log_info!(
+                "[session:{}] Failed to create transcription service: {}",
+                &session_uuid[..8],
+                error
+            );
+            let _ = crate::history::add_history_item(&crate::history::NewHistoryItem {
+                session_uuid: &session_uuid,
+                status: "failed",
+                text: "",
+                raw_text: None,
+                error_message: Some(&format!("Failed to create service: {}", error)),
+                segments: None,
+                audio_file: saved_audio_file.as_deref(),
+                duration_secs: Some(duration_secs),
+                engine: Some(&current_config.local_engine),
+                source: Some("mic"),
+                language: Some(&lang_code_str),
+                prompt_name: prompt_name.as_deref(),
+                limit: Some(history_limit),
+            });
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.emit("history-updated", ());
+            }
             return Err(error.into());
         }
+    };
+
+    let session_ctx = SessionContext {
+        session_uuid: &session_uuid,
+        saved_audio_file: saved_audio_file.as_deref(),
+        duration_secs,
+        lang_code_str: &lang_code_str,
+        prompt_name: prompt_name.as_deref(),
+        history_limit,
     };
 
     // ── Transcription: per-segment or full-file ──
@@ -181,26 +380,15 @@ async fn record_and_transcribe_inner(
         if let Err(e) = std::fs::write(&temp_path, &audio_data) {
             crate::log_warn!("Failed to save temp audio for diarization: {}", e);
             // Fall back to full-file transcription
-            let text = match service
-                .transcribe(&audio_data, lang_code, prompt_hint.as_deref())
-                .await
-            {
-                Ok(t) => t,
-                Err(error) => {
-                    crate::log_info!(
-                        "Transcription failed ({}): {}",
-                        service.service_name(),
-                        error
-                    );
-                    return Err(error.into());
-                }
-            };
-            crate::log_info!(
-                "Transcription received ({}): \"{}\"",
-                service.service_name(),
-                text
-            );
-            text
+            transcribe_full_audio(
+                service.as_ref(),
+                &audio_data,
+                lang_code,
+                prompt_hint.as_deref(),
+                &session_ctx,
+                app_handle,
+            )
+            .await?
         } else {
             let diar_result = audio_processing::run_diarization_for_recording(
                 app_handle,
@@ -287,73 +475,40 @@ async fn record_and_transcribe_inner(
                     crate::log_warn!(
                         "Diarization returned 0 segments — transcribing full recording"
                     );
-                    let text = match service
-                        .transcribe(&audio_data, lang_code, prompt_hint.as_deref())
-                        .await
-                    {
-                        Ok(t) => t,
-                        Err(error) => {
-                            crate::log_info!(
-                                "Transcription failed ({}): {}",
-                                service.service_name(),
-                                error
-                            );
-                            return Err(error.into());
-                        }
-                    };
-                    crate::log_info!(
-                        "Transcription received ({}): \"{}\"",
-                        service.service_name(),
-                        text
-                    );
-                    text
+                    transcribe_full_audio(
+                        service.as_ref(),
+                        &audio_data,
+                        lang_code,
+                        prompt_hint.as_deref(),
+                        &session_ctx,
+                        app_handle,
+                    )
+                    .await?
                 }
                 Err(e) => {
                     crate::log_warn!("Diarization failed, transcribing full recording: {}", e);
-                    let text = match service
-                        .transcribe(&audio_data, lang_code, prompt_hint.as_deref())
-                        .await
-                    {
-                        Ok(t) => t,
-                        Err(error) => {
-                            crate::log_info!(
-                                "Transcription failed ({}): {}",
-                                service.service_name(),
-                                error
-                            );
-                            return Err(error.into());
-                        }
-                    };
-                    crate::log_info!(
-                        "Transcription received ({}): \"{}\"",
-                        service.service_name(),
-                        text
-                    );
-                    text
+                    transcribe_full_audio(
+                        service.as_ref(),
+                        &audio_data,
+                        lang_code,
+                        prompt_hint.as_deref(),
+                        &session_ctx,
+                        app_handle,
+                    )
+                    .await?
                 }
             }
         }
     } else {
-        let text = match service
-            .transcribe(&audio_data, lang_code, prompt_hint.as_deref())
-            .await
-        {
-            Ok(t) => t,
-            Err(error) => {
-                crate::log_info!(
-                    "Transcription failed ({}): {}",
-                    service.service_name(),
-                    error
-                );
-                return Err(error.into());
-            }
-        };
-        crate::log_info!(
-            "Transcription received ({}): \"{}\"",
-            service.service_name(),
-            text
-        );
-        text
+        transcribe_full_audio(
+            service.as_ref(),
+            &audio_data,
+            lang_code,
+            prompt_hint.as_deref(),
+            &session_ctx,
+            app_handle,
+        )
+        .await?
     };
 
     // Apply regex-based filler word removal, works without LLM post-processing
@@ -434,7 +589,28 @@ async fn record_and_transcribe_inner(
     };
 
     if session_token.load(Ordering::SeqCst) {
-        crate::log_info!("Session cancelled during transcription; discarding result");
+        crate::log_info!(
+            "[session:{}] Session cancelled during transcription; discarding result",
+            &session_uuid[..8]
+        );
+        let _ = crate::history::add_history_item(&crate::history::NewHistoryItem {
+            session_uuid: &session_uuid,
+            status: "cancelled",
+            text: "",
+            raw_text: raw_text.as_deref(),
+            error_message: Some("Session cancelled during transcription/post-processing"),
+            segments: None,
+            audio_file: saved_audio_file.as_deref(),
+            duration_secs: Some(duration_secs),
+            engine: Some(service.service_name()),
+            source: Some("mic"),
+            language: Some(&lang_code_str),
+            prompt_name: prompt_name.as_deref(),
+            limit: Some(history_limit),
+        });
+        if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.emit("history-updated", ());
+        }
         return Ok(());
     }
 
@@ -444,10 +620,14 @@ async fn record_and_transcribe_inner(
         session_token,
         config,
         output::OutputPayload {
+            session_uuid,
             output_text,
             diar_segments,
             raw_text,
             auto_submit,
+            audio_file: saved_audio_file,
+            duration_secs: Some(duration_secs),
+            engine: Some(service.service_name().to_string()),
         },
     )
     .await

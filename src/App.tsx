@@ -327,6 +327,7 @@ function App() {
           onToggleAutostart={autostartHook.toggleAutostart}
           onCopyToClipboard={historyHook.copyToClipboard}
           onClearHistory={historyHook.clearHistory}
+          onDeleteHistoryItem={historyHook.deleteHistoryItem}
           onSearchHistory={historyHook.setSearchQuery}
           onTestCleanupApi={() => {
             const cfg = configHook.config;
@@ -341,6 +342,7 @@ function App() {
           }}
           onToggleOutputMethod={configHook.toggleOutputMethod}
           onOpenUpdateModal={() => updatesHook.setShowUpdateModal(true)}
+          onShowToast={showToast}
         />
       )}
 
