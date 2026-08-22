@@ -138,15 +138,211 @@ h1 {
   margin: 2rem 0 1.25rem;
 }
 
+/* WIRED Press Quote Card */
+.press-quote-card {
+  background: var(--colors-glass-bg);
+  backdrop-filter: blur(var(--colors-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colors-glass-blur));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 3px solid var(--colors-accent-primary);
+  border-radius: 10px;
+  padding: 0.55rem 1.1rem;
+  max-width: 820px;
+  margin: 1.1rem auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.press-source {
+  font-family: var(--typography-font-main);
+  font-size: 0.85rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: #ffffff;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.press-quote-text {
+  margin: 0;
+  font-size: 0.92rem;
+  font-style: italic;
+  color: #e2e8f0;
+  line-height: 1.4;
+}
+
+.press-quote-link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--colors-accent-primary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.press-quote-link:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+/* 3 Core Workflows Section */
+.workflows-section {
+  margin: 2.5rem auto 1.5rem;
+  max-width: 980px;
+}
+
+.section-heading {
+  margin: 0 0 1.25rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--colors-text-secondary);
+  text-align: center;
+}
+
+.workflows-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.workflow-card {
+  background: var(--colors-glass-bg);
+  backdrop-filter: blur(var(--colors-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colors-glass-blur));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.25rem 1.1rem;
+  text-align: left;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+.workflow-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--colors-accent-primary);
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.workflow-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.workflow-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: #cbd5e1;
+}
+
+.capabilities-section {
+  margin: 2.25rem auto 1.5rem;
+  max-width: 880px;
+}
+
+.capability-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.capability-pill {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(var(--colors-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colors-glass-blur));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 0.4rem 0.85rem;
+  font-family: var(--typography-font-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  letter-spacing: 0.01em;
+  transition: all 0.2s ease;
+  user-select: none;
+  cursor: default;
+}
+
+.capability-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.capability-pill-pink {
+  background: linear-gradient(135deg, rgba(196, 57, 145, 0.25) 0%, rgba(156, 90, 136, 0.25) 100%);
+  border-color: rgba(196, 57, 145, 0.55);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(196, 57, 145, 0.35);
+}
+
+.capability-pill-pink:hover {
+  background: linear-gradient(135deg, rgba(196, 57, 145, 0.35) 0%, rgba(156, 90, 136, 0.35) 100%);
+  border-color: rgba(196, 57, 145, 0.8);
+  box-shadow: 0 0 18px rgba(196, 57, 145, 0.5);
+}
+
+.capability-pill-primary {
+  background: linear-gradient(135deg, rgba(90, 183, 214, 0.22) 0%, rgba(88, 101, 242, 0.22) 100%);
+  border-color: rgba(90, 183, 214, 0.5);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(90, 183, 214, 0.3);
+}
+
+.capability-pill-primary:hover {
+  background: linear-gradient(135deg, rgba(90, 183, 214, 0.32) 0%, rgba(88, 101, 242, 0.32) 100%);
+  border-color: rgba(90, 183, 214, 0.75);
+  box-shadow: 0 0 18px rgba(90, 183, 214, 0.45);
+}
+
+.capability-pill-highlight {
+  background: linear-gradient(135deg, rgba(196, 57, 145, 0.22) 0%, rgba(123, 120, 163, 0.22) 100%);
+  border-color: rgba(196, 57, 145, 0.5);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(196, 57, 145, 0.3);
+}
+
+.capability-pill-highlight:hover {
+  background: linear-gradient(135deg, rgba(196, 57, 145, 0.32) 0%, rgba(123, 120, 163, 0.32) 100%);
+  border-color: rgba(196, 57, 145, 0.75);
+  box-shadow: 0 0 18px rgba(196, 57, 145, 0.45);
+}
+
+.capability-pill-secondary {
+  background: linear-gradient(135deg, rgba(123, 120, 163, 0.22) 0%, rgba(90, 183, 214, 0.22) 100%);
+  border-color: rgba(123, 120, 163, 0.5);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(123, 120, 163, 0.3);
+}
+
+.capability-pill-secondary:hover {
+  background: linear-gradient(135deg, rgba(123, 120, 163, 0.32) 0%, rgba(90, 183, 214, 0.32) 100%);
+  border-color: rgba(123, 120, 163, 0.75);
+  box-shadow: 0 0 18px rgba(123, 120, 163, 0.45);
+}
+
 .feature-list {
-  margin: 2rem auto 1.25rem;
-  max-width: 720px;
+  margin: 2.25rem auto 1.25rem;
+  max-width: 760px;
   text-align: left;
 }
 
 .feature-list-heading {
-  margin: 0 0 1rem;
-  font-size: 1.1rem;
+  margin: 0 0 1.25rem;
+  font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--colors-text-secondary);
@@ -159,7 +355,7 @@ h1 {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.85rem;
 }
 
 .feature-list li {
@@ -369,8 +565,9 @@ h1 {
 .section-divider {
   border: 0;
   height: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 1.5rem 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+  margin: 1.5rem auto;
+  max-width: 500px;
 }
 
 .install-code-wrapper {
@@ -484,6 +681,12 @@ h1 {
 
 .install-variant-btn.active {
   color: var(--colors-accent-primary);
+}
+
+@media (max-width: 768px) {
+  .workflows-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 680px) {
