@@ -28,6 +28,7 @@ h1 {
   max-width: 100%;
   display: flex;
   flex-direction: column;
+  align-items: center;
   cursor: pointer;
 }
 
@@ -39,9 +40,9 @@ h1 {
   height: auto;
   border-radius: 12px;
   display: block;
-  object-fit: contain;
   background: rgba(0, 0, 0, 0.2);
   pointer-events: none;
+  image-rendering: -webkit-optimize-contrast;
 }
 
 .screenshot-card p {

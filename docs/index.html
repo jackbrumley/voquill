@@ -14,9 +14,32 @@ body_class: centered-page
 container_class: home-container
 ---
 <header>
-  <img src="{{ '/logo.png' | relative_url }}" alt="Voquill Logo" class="logo">
-  <h1>Voquill</h1>
-  <p class="tagline">Truly free &amp; open-source offline dictation that types into any app. Voice-to-text runs locally so your data never leaves your device.</p>
+  <div class="hero-brand-row">
+    <div class="hero-orb-wrapper" aria-label="Voquill Animated Logo">
+      <div class="hero-orb-aura"></div>
+      <div class="hero-orb-ring">
+        <div class="hero-orb-inner">
+          <div class="hero-orb-pulse"></div>
+          <div class="hero-orb-vignette"></div>
+          <div class="hero-orb-content">
+            <div class="hero-audio-wave">
+              <div class="hero-audio-bar"></div>
+              <div class="hero-audio-bar"></div>
+              <div class="hero-audio-bar"></div>
+              <div class="hero-audio-bar"></div>
+              <div class="hero-audio-bar"></div>
+              <div class="hero-audio-bar"></div>
+              <div class="hero-audio-bar"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="hero-title-block">
+      <h1>Voquill</h1>
+      <p class="tagline">Truly free &amp; open-source offline dictation that types into any app. Voice-to-text runs locally so your data never leaves your device.</p>
+    </div>
+  </div>
   <div class="platform-row">
     <span class="install-heading">Install</span>
     <div class="platform-labels" id="platform-labels">
@@ -38,8 +61,6 @@ container_class: home-container
   </div>
   <div class="install-variants" id="install-variants"></div>
 </header>
-
-<hr class="section-divider">
 
 <p class="how-it-works">
   Voquill turns your voice into text right where your cursor is. Use hold-to-talk or toggle mode to dictate, and it types into any app — emails, docs, browsers, editors. Free and open source with Windows and Linux support, it runs entirely on your device so your voice stays private.
