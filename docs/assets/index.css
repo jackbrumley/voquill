@@ -307,21 +307,8 @@ h1 {
 
 .hero-screenshot-card img {
   display: block;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 13px;
   image-rendering: -webkit-optimize-contrast;
-}
-
-.hero-screenshot-caption {
-  padding: 0.65rem 0.9rem;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--colors-text-secondary);
-  text-align: center;
-  letter-spacing: 0.01em;
-}
-
-.hero-screenshot-card:hover .hero-screenshot-caption {
-  color: var(--colors-text-primary);
 }
 
 .hero-container {
