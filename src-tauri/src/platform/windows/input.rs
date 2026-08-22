@@ -102,27 +102,39 @@ pub fn send_paste_shortcut(
     use windows::Win32::UI::Input::KeyboardAndMouse::*;
     crate::log_info!("[Windows] Sending paste shortcut: {:?}", shortcut);
     unsafe {
+        // Safety clear: release modifiers first to clear any latent modifier state
+        emit_vk(VK_CONTROL, false);
+        emit_vk(VK_SHIFT, false);
+        emit_vk(VK_MENU, false);
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
         match shortcut {
             crate::config::PasteShortcut::ShiftInsert => {
                 emit_vk(VK_SHIFT, true);
+                std::thread::sleep(std::time::Duration::from_millis(15));
                 emit_vk(VK_INSERT, true);
-                std::thread::sleep(std::time::Duration::from_millis(10));
+                std::thread::sleep(std::time::Duration::from_millis(25));
                 emit_vk(VK_INSERT, false);
+                std::thread::sleep(std::time::Duration::from_millis(15));
                 emit_vk(VK_SHIFT, false);
             }
             crate::config::PasteShortcut::CtrlV => {
                 emit_vk(VK_CONTROL, true);
+                std::thread::sleep(std::time::Duration::from_millis(15));
                 emit_vk(VIRTUAL_KEY('V' as u16), true);
-                std::thread::sleep(std::time::Duration::from_millis(10));
+                std::thread::sleep(std::time::Duration::from_millis(25));
                 emit_vk(VIRTUAL_KEY('V' as u16), false);
+                std::thread::sleep(std::time::Duration::from_millis(15));
                 emit_vk(VK_CONTROL, false);
             }
             crate::config::PasteShortcut::CtrlShiftV => {
                 emit_vk(VK_CONTROL, true);
                 emit_vk(VK_SHIFT, true);
+                std::thread::sleep(std::time::Duration::from_millis(15));
                 emit_vk(VIRTUAL_KEY('V' as u16), true);
-                std::thread::sleep(std::time::Duration::from_millis(10));
+                std::thread::sleep(std::time::Duration::from_millis(25));
                 emit_vk(VIRTUAL_KEY('V' as u16), false);
+                std::thread::sleep(std::time::Duration::from_millis(15));
                 emit_vk(VK_SHIFT, false);
                 emit_vk(VK_CONTROL, false);
             }
@@ -132,7 +144,36 @@ pub fn send_paste_shortcut(
     Ok(())
 }
 
+fn is_extended_key(vk: VIRTUAL_KEY) -> bool {
+    matches!(
+        vk,
+        VK_INSERT
+            | VK_DELETE
+            | VK_HOME
+            | VK_END
+            | VK_PRIOR
+            | VK_NEXT
+            | VK_UP
+            | VK_DOWN
+            | VK_LEFT
+            | VK_RIGHT
+            | VK_RCONTROL
+            | VK_RMENU
+            | VK_DIVIDE
+            | VK_NUMLOCK
+    )
+}
+
 unsafe fn emit_vk(vk: VIRTUAL_KEY, is_down: bool) {
+    let mut dw_flags = if is_down {
+        KEYBD_EVENT_FLAGS(0)
+    } else {
+        KEYEVENTF_KEYUP
+    };
+    if is_extended_key(vk) {
+        dw_flags |= KEYEVENTF_EXTENDEDKEY;
+    }
+
     let mut input = INPUT {
         r#type: INPUT_KEYBOARD,
         ..Default::default()
@@ -140,13 +181,33 @@ unsafe fn emit_vk(vk: VIRTUAL_KEY, is_down: bool) {
     input.Anonymous.ki = KEYBDINPUT {
         wVk: vk,
         wScan: 0,
-        dwFlags: if is_down {
-            KEYBD_EVENT_FLAGS(0)
-        } else {
-            KEYEVENTF_KEYUP
-        },
+        dwFlags: dw_flags,
         time: 0,
         dwExtraInfo: 0,
     };
     SendInput(&[input], std::mem::size_of::<INPUT>() as i32);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_extended_key() {
+        assert!(is_extended_key(VK_INSERT));
+        assert!(is_extended_key(VK_DELETE));
+        assert!(is_extended_key(VK_HOME));
+        assert!(is_extended_key(VK_END));
+        assert!(is_extended_key(VK_PRIOR));
+        assert!(is_extended_key(VK_NEXT));
+        assert!(is_extended_key(VK_UP));
+        assert!(is_extended_key(VK_DOWN));
+        assert!(is_extended_key(VK_LEFT));
+        assert!(is_extended_key(VK_RIGHT));
+
+        assert!(!is_extended_key(VK_SHIFT));
+        assert!(!is_extended_key(VK_CONTROL));
+        assert!(!is_extended_key(VIRTUAL_KEY('V' as u16)));
+        assert!(!is_extended_key(VK_SPACE));
+    }
 }

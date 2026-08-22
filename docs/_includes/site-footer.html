@@ -2,6 +2,13 @@
   {% if page.provenance %}
   <p class="provenance">{{ page.provenance }}</p>
   {% endif %}
+  <nav class="site-footer-links" aria-label="Footer Navigation">
+    <a href="{{ '/' | relative_url }}">Home</a>
+    <a href="{{ '/faq.html' | relative_url }}">FAQ</a>
+    <a href="{{ '/screenshots.html' | relative_url }}">Screenshots</a>
+    <a href="{{ '/donate.html' | relative_url }}">Support</a>
+    <a href="https://github.com/jackbrumley/voquill" target="_blank" rel="noopener noreferrer">GitHub</a>
+  </nav>
   <div class="site-footer-license">
     <p>&copy; {{ site.copyright_year }} {{ site.project_name }}. {{ site.license_label }} Licensed.</p>
   </div>

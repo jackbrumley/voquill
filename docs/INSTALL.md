@@ -11,35 +11,44 @@ container_class: home-container
 
 Voquill supports a one-command install flow from the website, matching the uninstall UX.
 
-## Quick Install (System Package)
+## User Install (Recommended — No Admin/Sudo Required)
 
-Detects your package manager (`dnf` on Fedora/RHEL, `apt` on Debian/Ubuntu), downloads the matching
-package from the latest GitHub release, and installs it system-wide.
+Installs Voquill in the current user context. Zero administrator privileges or `sudo` required.
 
-```bash
-curl -sf https://voquill.org/install.sh | sudo bash -s -- --system --yes
+**Windows (PowerShell):**
+```powershell
+irm https://voquill.org/install.ps1 | iex
 ```
 
-## User Install (AppImage)
-
-Installs the AppImage to `~/.local/bin/voquill` and creates a desktop launcher. No `sudo` needed.
-
+**Linux (AppImage):**
 ```bash
 curl -sf https://voquill.org/install.sh | bash
 ```
 
-If `~/.local/bin` is not in your PATH, the script will print instructions to add it.
+## System Install (IT / Multi-User Deployment)
+
+Installs Voquill system-wide for all users on the machine. Requires administrator or `sudo` privileges.
+
+**Windows (MSI):**
+```powershell
+irm https://voquill.org/install-system.ps1 | iex
+```
+
+**Linux (Package Manager — dnf/apt):**
+```bash
+curl -sf https://voquill.org/install.sh | sudo bash -s -- --system --yes
+```
 
 ## Script Options
 
-| Option | Description |
-|--------|-------------|
-| `--system` | Install system-wide via package manager (requires sudo) |
-| `--version <tag>` | Install a specific release tag (e.g. `v1.5.0`) |
-| `--channel <name>` | Release channel: `latest` or `stable` (default: `latest`) |
-| `--yes` | Run non-interactively (skip confirmation prompts) |
-| `--insecure-skip-verify` | Skip checksum verification (not recommended) |
-| `--help` | Show script usage |
+| Option (Linux) | Option (Windows) | Description |
+|----------------|------------------|-------------|
+| `--system` | `-System` | Install system-wide (requires admin / sudo) |
+| `--version <tag>` | `-Version <tag>` | Install a specific release tag (e.g. `v1.5.0`) |
+| `--channel <name>` | — | Release channel: `latest` or `stable` (default: `latest`) |
+| `--yes` | — | Run non-interactively (skip confirmation prompts) |
+| `--insecure-skip-verify` | `-InsecureSkipVerify` | Skip checksum verification (not recommended) |
+| `--help` | `-Help` | Show script usage |
 
 ## Environment Overrides
 

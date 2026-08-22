@@ -21,11 +21,16 @@ FOSS Voquill is offline dictation that works in any app on your system. Your voi
 
 It exists because dictation should be a basic utility, not a locked service. If you want private, system-wide push-to-talk transcription on Linux or Windows, this is built for that workflow.
 
-## Watch the Promo
+## Screenshots
 
-[![Watch the Voquill promo video](https://img.youtube.com/vi/yKKyPUwEpDg/maxresdefault.jpg)](https://youtu.be/yKKyPUwEpDg)
-
-Prefer direct link: https://youtu.be/yKKyPUwEpDg
+<p align="center">
+  <img src="docs/screenshots/screenshot-1.png" alt="Voquill Home and Dictation Interface" width="400" />
+  <img src="docs/screenshots/screenshot-2.png" alt="Voquill History and Transcription Playback" width="400" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/screenshot-3.png" alt="Voquill Settings and Configuration" width="400" />
+  <img src="docs/screenshots/screenshot-4.png" alt="Voquill Help and Usage Guide" width="400" />
+</p>
 
 ## Install
 
@@ -59,7 +64,7 @@ Setup EXE installs per-user (no admin). MSI is a system-wide install intended fo
 
 - **Private & Offline by Default** — On-device speech recognition powered by Whisper.cpp (Vulkan GPU / CPU) and NVIDIA Parakeet. Your voice never leaves your machine—no accounts, no cloud dependencies, no subscriptions.
 - **Push-to-Talk & Toggle Modes** — Choose between Hold-to-Talk or Toggle mode. Customizable global hotkey with instant capture UI and press-to-cancel support during transcription.
-- **Transcript Post-Processing (Local & Cloud AI)** — Clean up transcripts, fix grammar, punctuation, and speech artefacts using local LLMs (Qwen 2.5 1.5B, Llama 3.2 1B) or OpenAI-compatible cloud APIs (OpenRouter, Groq, Ollama, vLLM). Create custom presets and compare original vs. cleaned text.
+- **Transcript Post-Processing (Local & Cloud AI)** — Clean up transcripts, fix grammar, punctuation, and speech artefacts using local LLMs (Qwen 2.5 1.5B, Llama 3.2 1B) or OpenAI-compatible cloud APIs (OpenRouter, Groq, Ollama, vLLM). Create custom prompt presets (or use built-in presets for grammar, email polish, and concise notes) and compare original vs. cleaned text side-by-side.
 - **Audio File Transcription** — Drag-and-drop or browse audio files (WAV, MP3, M4A, FLAC, OGG). Fully integrated with speaker differentiation and post-processing.
 - **Differentiate Voices (Speaker Diarization)** — Detect and label distinct speakers (`Speaker 1`, `Speaker 2`) in both imported audio files and live dictations with configurable cluster sensitivity.
 - **NVIDIA Parakeet Engine** — Fast, CPU-optimized transcription supporting 25 languages with automatic background model warm-up.
@@ -69,7 +74,7 @@ Setup EXE installs per-user (no admin). MSI is a system-wide install intended fo
 - **Reliable Pasting & Terminal Support** — Typewriter mode (direct hardware simulation) or Clipboard mode with configurable paste shortcuts (`Shift+Insert`, `Ctrl+V`, `Ctrl+Shift+V`) and automatic clipboard restoration. Defaults to `Shift+Insert` for full Linux terminal compatibility.
 - **Searchable History & Native Audio Playback** — SQLite-backed with FTS5 search. Listen back to recordings directly within the app, toggle between original and cleaned text, delete individual entries, or clear all. Configurable history retention with automatic disk pruning.
 - **Audio Device & Playback Selection** — Select independent input microphones and output playback devices with built-in mic testing and live sensitivity metering.
-- **Full Wayland & Windows Integration** — Native XDG Desktop Portals on Wayland (GNOME, KDE, Hyprland), native X11, and Windows CoreAudio/SendInput. Supports launch at startup and `--start-hidden` to launch minimized to tray.
+- **Full Wayland & Windows Integration** — Native XDG Desktop Portals on Wayland (GNOME, KDE, Hyprland), native X11, and Windows WASAPI/SendInput. Supports launch at startup and `--start-hidden` to launch minimized to tray.
 - **Minimalist Overlay** — Transparent status overlay during recording and transcription. Platform-native positioning (Layer Shell on Wayland).
 
 > See the full feature breakdown with planned items at [docs/FEATURES.md](docs/FEATURES.md).
@@ -86,12 +91,11 @@ In an era of cloud-first AI, FOSS Voquill stands apart by putting privacy and fr
 - **Truly Free**: No subscriptions, no paid tiers. Free to use and build on.
 - **Privacy First**: Your voice stays on your device. Transcription runs locally.
 
-## Screenshots
+## Watch the Promo
 
-![Voquill Home and Dictation Interface](docs/screenshots/screenshot-1.png)
-![Voquill History and Transcription Playback](docs/screenshots/screenshot-2.png)
-![Voquill Settings and Configuration](docs/screenshots/screenshot-3.png)
-![Voquill Help and Usage Guide](docs/screenshots/screenshot-4.png)
+[![Watch the Voquill promo video](https://img.youtube.com/vi/yKKyPUwEpDg/maxresdefault.jpg)](https://youtu.be/yKKyPUwEpDg)
+
+Prefer direct link: https://youtu.be/yKKyPUwEpDg
 
 ---
 

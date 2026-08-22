@@ -25,11 +25,42 @@ h1 {
 .tagline {
   font-size: 1.25rem;
   color: #d9dfe7;
-  margin-top: 0.75rem;
+  margin-top: 0.4rem;
   max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
   font-weight: 400;
+}
+
+.hero-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.75rem;
+  max-width: 840px;
+  margin: 0.5rem auto 1.25rem;
+}
+
+.hero-brand-row .hero-orb-wrapper {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.hero-title-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.hero-title-block h1 {
+  text-align: left;
+  margin: 0;
+  font-weight: 300;
+}
+
+.hero-title-block .tagline {
+  text-align: left;
+  margin-top: 0.4rem;
+  max-width: 100%;
 }
 
 .install-heading {
@@ -107,15 +138,213 @@ h1 {
   margin: 2rem 0 1.25rem;
 }
 
+/* WIRED Press Quote Card */
+.press-quote-card {
+  background: var(--colors-glass-bg);
+  backdrop-filter: blur(var(--colors-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colors-glass-blur));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 3px solid var(--colors-accent-primary);
+  border-radius: 12px;
+  padding: 0.9rem 1.4rem;
+  max-width: 780px;
+  margin: 1.5rem auto 1.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.35rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+}
+
+.press-source {
+  font-family: var(--typography-font-main);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #ffffff;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.press-quote-text {
+  margin: 0.15rem 0;
+  padding: 0;
+  font-size: 0.98rem;
+  font-style: italic;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+
+.press-quote-link {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--colors-accent-primary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.press-quote-link:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+/* 3 Core Workflows Section */
+.workflows-section {
+  margin: 2.5rem auto 1.5rem;
+  max-width: 980px;
+}
+
+.section-heading {
+  margin: 0 0 1.25rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--colors-text-secondary);
+  text-align: center;
+}
+
+.workflows-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.workflow-card {
+  background: var(--colors-glass-bg);
+  backdrop-filter: blur(var(--colors-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colors-glass-blur));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.25rem 1.1rem;
+  text-align: left;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+.workflow-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--colors-accent-primary);
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.workflow-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.workflow-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: #cbd5e1;
+}
+
+.capabilities-section {
+  margin: 2.25rem auto 1.5rem;
+  max-width: 880px;
+}
+
+.capability-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.capability-pill {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(var(--colors-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colors-glass-blur));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 0.4rem 0.85rem;
+  font-family: var(--typography-font-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  letter-spacing: 0.01em;
+  transition: all 0.2s ease;
+  user-select: none;
+  cursor: default;
+}
+
+.capability-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.capability-pill-pink {
+  background: linear-gradient(135deg, rgba(196, 57, 145, 0.25) 0%, rgba(156, 90, 136, 0.25) 100%);
+  border-color: rgba(196, 57, 145, 0.55);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(196, 57, 145, 0.35);
+}
+
+.capability-pill-pink:hover {
+  background: linear-gradient(135deg, rgba(196, 57, 145, 0.35) 0%, rgba(156, 90, 136, 0.35) 100%);
+  border-color: rgba(196, 57, 145, 0.8);
+  box-shadow: 0 0 18px rgba(196, 57, 145, 0.5);
+}
+
+.capability-pill-primary {
+  background: linear-gradient(135deg, rgba(90, 183, 214, 0.22) 0%, rgba(88, 101, 242, 0.22) 100%);
+  border-color: rgba(90, 183, 214, 0.5);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(90, 183, 214, 0.3);
+}
+
+.capability-pill-primary:hover {
+  background: linear-gradient(135deg, rgba(90, 183, 214, 0.32) 0%, rgba(88, 101, 242, 0.32) 100%);
+  border-color: rgba(90, 183, 214, 0.75);
+  box-shadow: 0 0 18px rgba(90, 183, 214, 0.45);
+}
+
+.capability-pill-highlight {
+  background: linear-gradient(135deg, rgba(196, 57, 145, 0.22) 0%, rgba(123, 120, 163, 0.22) 100%);
+  border-color: rgba(196, 57, 145, 0.5);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(196, 57, 145, 0.3);
+}
+
+.capability-pill-highlight:hover {
+  background: linear-gradient(135deg, rgba(196, 57, 145, 0.32) 0%, rgba(123, 120, 163, 0.32) 100%);
+  border-color: rgba(196, 57, 145, 0.75);
+  box-shadow: 0 0 18px rgba(196, 57, 145, 0.45);
+}
+
+.capability-pill-secondary {
+  background: linear-gradient(135deg, rgba(123, 120, 163, 0.22) 0%, rgba(90, 183, 214, 0.22) 100%);
+  border-color: rgba(123, 120, 163, 0.5);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(123, 120, 163, 0.3);
+}
+
+.capability-pill-secondary:hover {
+  background: linear-gradient(135deg, rgba(123, 120, 163, 0.32) 0%, rgba(90, 183, 214, 0.32) 100%);
+  border-color: rgba(123, 120, 163, 0.75);
+  box-shadow: 0 0 18px rgba(123, 120, 163, 0.45);
+}
+
 .feature-list {
-  margin: 2rem auto 1.25rem;
-  max-width: 720px;
+  margin: 2.25rem auto 1.25rem;
+  max-width: 760px;
   text-align: left;
 }
 
 .feature-list-heading {
-  margin: 0 0 1rem;
-  font-size: 1.1rem;
+  margin: 0 0 1.25rem;
+  font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--colors-text-secondary);
@@ -128,12 +357,12 @@ h1 {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.85rem;
 }
 
 .feature-list li {
   position: relative;
-  padding-left: 1rem;
+  padding-left: 1.1rem;
   font-size: 0.92rem;
   line-height: 1.55;
   color: #e3e8f0;
@@ -209,8 +438,21 @@ h1 {
   flex-wrap: wrap;
 }
 
+.download-primary-row .btn {
+  box-shadow: 0 4px 22px rgba(16, 185, 129, 0.38);
+  padding: 0.82rem 2.25rem;
+}
+
+.download-primary-row .btn:hover {
+  box-shadow: 0 6px 28px rgba(16, 185, 129, 0.58);
+}
+
 .download-secondary-row {
   margin-top: 0.1rem;
+}
+
+.download-secondary-row .btn {
+  min-width: 195px;
 }
 
 .how-it-works {
@@ -223,8 +465,8 @@ h1 {
 }
 
 .btn-icon {
-  width: 1em;
-  height: 1em;
+  width: 1.65em;
+  height: 1.65em;
   display: block;
   flex-shrink: 0;
   align-self: center;
@@ -252,10 +494,61 @@ h1 {
   letter-spacing: 0.02em;
 }
 
+.hero-screenshots-grid {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 1.75rem auto 2rem;
+  width: 100%;
+}
+
+.hero-screenshot-card {
+  display: flex;
+  flex-direction: column;
+  width: fit-content;
+  max-width: 100%;
+  background: var(--colors-glass-bg);
+  backdrop-filter: blur(var(--colors-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colors-glass-blur));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hero-screenshot-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+.hero-screenshot-card img {
+  display: block;
+  border-radius: 13px;
+  image-rendering: -webkit-optimize-contrast;
+}
+
 .hero-container {
   margin: 2rem auto;
   max-width: 800px;
   width: 100%;
+}
+
+.video-section {
+  margin: 2.5rem auto 1.5rem;
+}
+
+.video-heading {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--colors-text-secondary);
+  text-align: center;
+  margin-bottom: 1rem;
 }
 
 .hero-media {
@@ -276,7 +569,36 @@ h1 {
 }
 
 .gallery-action {
-  margin-top: 1rem;
+  margin: -0.5rem auto 2.5rem;
+  text-align: center;
+}
+
+.faq-teaser-card {
+  background: var(--colors-glass-bg);
+  backdrop-filter: blur(var(--colors-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colors-glass-blur));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 3px solid var(--colors-accent-primary);
+  border-radius: 14px;
+  padding: 1.5rem 1.75rem;
+  max-width: 820px;
+  margin: 2.25rem auto 1.5rem;
+  text-align: center;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+}
+
+.faq-teaser-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.faq-teaser-card p {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  color: #cbd5e1;
+  line-height: 1.55;
 }
 
 .home-provenance {
@@ -286,8 +608,9 @@ h1 {
 .section-divider {
   border: 0;
   height: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 1.5rem 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+  margin: 1.5rem auto;
+  max-width: 500px;
 }
 
 .install-code-wrapper {
@@ -403,9 +726,43 @@ h1 {
   color: var(--colors-accent-primary);
 }
 
+@media (max-width: 768px) {
+  .workflows-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .hero-brand-row {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+
+  .hero-brand-row .hero-orb-wrapper {
+    margin: 0 auto;
+  }
+
+  .hero-title-block {
+    align-items: center;
+    text-align: center;
+  }
+
+  .hero-title-block h1,
+  .hero-title-block .tagline {
+    text-align: center;
+  }
+}
+
 @media (max-width: 600px) {
   h1 {
     font-size: 2.25rem;
+  }
+
+  .hero-screenshots-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin: 1.25rem auto 1.5rem;
   }
 
   .philosophy-grid {

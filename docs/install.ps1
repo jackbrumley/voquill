@@ -2,8 +2,11 @@
 .SYNOPSIS
   Voquill bootstrap installer for Windows.
 .DESCRIPTION
-  Detects architecture, downloads the matching MSI or setup.exe from the latest
-  GitHub release, and runs the installer. Supports override URLs for testing.
+  Detects architecture, downloads the matching setup.exe (default user install,
+  no admin needed) or MSI (system-wide IT install) from the latest GitHub release,
+  and runs the installer. Supports override URLs for testing.
+.PARAMETER System
+  Install system-wide via MSI (requires administrator privileges).
 .PARAMETER Version
   Install a specific release tag (e.g. "v1.5.0").
 .PARAMETER InsecureSkipVerify
@@ -13,11 +16,14 @@
 .EXAMPLE
   irm https://voquill.org/install.ps1 | iex
 .EXAMPLE
-  irm https://voquill.org/install.ps1 | iex -args "--version v1.5.0"
+  irm https://voquill.org/install.ps1 | iex -args "-System"
+.EXAMPLE
+  irm https://voquill.org/install.ps1 | iex -args "-Version v1.5.0"
 #>
 
 param(
   [string]$Version = "",
+  [switch]$System,
   [switch]$InsecureSkipVerify,
   [switch]$Help
 )
@@ -77,8 +83,12 @@ function Get-Checksum($Path) {
   return $hash.Hash.ToLower()
 }
 
-# Determine install type: MSI (default) or setup.exe
-$InstallType = "msi"
+# Determine install type: setup.exe (default user-level, no admin needed) or MSI (system-wide)
+if ($System -or $env:VOQUILL_SYSTEM -eq "1" -or $env:VOQUILL_SYSTEM -eq "true") {
+  $InstallType = "msi"
+} else {
+  $InstallType = "exe"
+}
 
 # Resolve version
 if ([string]::IsNullOrEmpty($Version)) {
