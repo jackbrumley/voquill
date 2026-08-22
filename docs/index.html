@@ -91,17 +91,10 @@ container_class: home-container
   </div>
   <div class="download-secondary-row">
     <a href="{{ '/faq.html' | relative_url }}" class="btn btn-secondary">
-      <img src="{{ '/question-mark.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
+      <img src="{{ '/message-question.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
       <span class="btn-text">
         <span class="btn-title">FAQ</span>
         <span class="btn-subtitle">Questions answered</span>
-      </span>
-    </a>
-    <a href="{{ '/donate.html' | relative_url }}" class="btn btn-secondary">
-      <img src="{{ '/heart.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
-      <span class="btn-text">
-        <span class="btn-title">Support</span>
-        <span class="btn-subtitle">Donate optional</span>
       </span>
     </a>
     <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">
@@ -109,6 +102,13 @@ container_class: home-container
       <span class="btn-text">
         <span class="btn-title">GitHub</span>
         <span class="btn-subtitle">Forever FOSS</span>
+      </span>
+    </a>
+    <a href="{{ '/donate.html' | relative_url }}" class="btn btn-secondary btn-support">
+      <img src="{{ '/heart.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
+      <span class="btn-text">
+        <span class="btn-title">Support</span>
+        <span class="btn-subtitle">Donate optional</span>
       </span>
     </a>
   </div>

@@ -439,7 +439,7 @@ h1 {
 }
 
 .download-primary-row .btn {
-  box-shadow: 0 4px 22px rgba(16, 185, 129, 0.38);
+  box-shadow: 0 4px 22px rgba(14, 163, 113, 0.38);
   padding: 0.82rem 2.25rem;
 }
 
@@ -453,6 +453,16 @@ h1 {
 
 .download-secondary-row .btn {
   min-width: 195px;
+}
+
+.btn-support {
+  background-color: #e05a5a;
+  box-shadow: 0 1px 6px rgba(224, 90, 90, 0.3);
+}
+
+.btn-support:hover {
+  background-color: #ff6b6b;
+  box-shadow: 0 1px 8px rgba(255, 107, 107, 0.45);
 }
 
 .how-it-works {

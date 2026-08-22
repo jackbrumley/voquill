@@ -58,7 +58,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.68rem;
-  background-color: var(--colors-success);
+  background-color: #0ea371;
   color: #ffffff;
   padding: 0.74rem 1.7rem;
   border-radius: 40px;
@@ -72,18 +72,18 @@ body {
 
 .btn:hover {
   transform: translateY(-2px);
-  background-color: #0ea371;
+  background-color: #10b981;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 .btn-secondary {
-  background-color: var(--colors-accent-primary);
+  background-color: var(--colors-accent-hover);
   color: var(--colors-text-primary);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
 }
 
 .btn-secondary:hover {
-  background-color: var(--colors-accent-hover);
+  background-color: var(--colors-accent-primary);
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
 }
 
