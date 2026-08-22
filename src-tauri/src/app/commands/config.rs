@@ -188,7 +188,8 @@ fn reconcile_engine_warmup(
         != merged_config.post_process_enabled
         || previous_config.post_process_provider != merged_config.post_process_provider
         || previous_config.post_process_engine != merged_config.post_process_engine
-        || previous_config.post_process_model != merged_config.post_process_model;
+        || previous_config.post_process_model != merged_config.post_process_model
+        || previous_config.post_process_threads != merged_config.post_process_threads;
 
     if post_process_changed && is_local_post_process {
         crate::app::bootstrap::spawn_post_process_warmup(

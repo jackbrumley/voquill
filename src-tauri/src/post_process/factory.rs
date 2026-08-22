@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex};
 struct LocalFingerprint {
     engine: String,
     model: String,
+    threads: String,
 }
 
 /// The cached local sidecar service paired with its configuration fingerprint.
@@ -79,6 +80,7 @@ impl PostProcessFactory {
                 let fingerprint = LocalFingerprint {
                     engine: config.post_process_engine.clone(),
                     model: config.post_process_model.clone(),
+                    threads: config.post_process_threads.clone(),
                 };
 
                 {
@@ -119,6 +121,7 @@ impl PostProcessFactory {
                     SidecarPostProcess::new(
                         &config.post_process_engine,
                         &config.post_process_model,
+                        &config.post_process_threads,
                         self.last_gpu_error.clone(),
                     )
                     .await

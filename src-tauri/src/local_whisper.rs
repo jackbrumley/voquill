@@ -216,6 +216,7 @@ pub struct LocalWhisperService {
     model_path: PathBuf,
     use_gpu: bool,
     last_gpu_error: Option<Arc<Mutex<Option<String>>>>,
+    num_threads: usize,
 }
 
 impl LocalWhisperService {
@@ -224,6 +225,7 @@ impl LocalWhisperService {
         model_size: &str,
         use_gpu: bool,
         last_gpu_error: Option<Arc<Mutex<Option<String>>>>,
+        num_threads: usize,
     ) -> Result<Self, TranscriptionError> {
         let model_manager = ModelManager::new().map_err(TranscriptionError::Model)?;
         let engine = if use_gpu {
@@ -250,6 +252,7 @@ impl LocalWhisperService {
             model_path,
             use_gpu,
             last_gpu_error,
+            num_threads,
         })
     }
 }
@@ -323,10 +326,12 @@ impl TranscriptionService for LocalWhisperService {
         let owned_prompt = prompt.map(|p| p.to_string());
 
         let load_elapsed = start_total.elapsed();
+        let threads = self.num_threads;
 
         let transcribe_start = Instant::now();
         let inference_handle = tokio::task::spawn_blocking(move || {
             let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+            params.set_n_threads(threads as i32);
             if let Some(ref lang) = owned_language {
                 params.set_language(Some(lang.as_str()));
             }

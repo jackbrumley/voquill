@@ -81,9 +81,15 @@ fn extract_zip(
         if layout == ExtractLayout::Flat && entry.is_dir() {
             continue;
         }
-        let Some(out_path) =
-            output_path(target_dir, &relative, layout, &mut roots, &mut all_wrapped)
-        else {
+        let is_dir = entry.is_dir();
+        let Some(out_path) = output_path(
+            target_dir,
+            &relative,
+            is_dir,
+            layout,
+            &mut roots,
+            &mut all_wrapped,
+        ) else {
             continue;
         };
 
@@ -123,9 +129,15 @@ fn extract_tar<R: std::io::Read>(
         if layout == ExtractLayout::Flat && entry.header().entry_type().is_dir() {
             continue;
         }
-        let Some(out_path) =
-            output_path(target_dir, &relative, layout, &mut roots, &mut all_wrapped)
-        else {
+        let is_dir = entry.header().entry_type().is_dir();
+        let Some(out_path) = output_path(
+            target_dir,
+            &relative,
+            is_dir,
+            layout,
+            &mut roots,
+            &mut all_wrapped,
+        ) else {
             continue;
         };
 
@@ -184,6 +196,7 @@ fn sanitize_relative_path(path: &Path) -> Option<PathBuf> {
 fn output_path(
     target_dir: &Path,
     relative: &Path,
+    is_dir: bool,
     layout: ExtractLayout,
     roots: &mut BTreeSet<OsString>,
     all_wrapped: &mut bool,
@@ -196,6 +209,9 @@ fn output_path(
             let mut components = relative.components();
             match (components.next(), components.next()) {
                 (Some(Component::Normal(root)), Some(_)) => {
+                    roots.insert(root.to_os_string());
+                }
+                (Some(Component::Normal(root)), None) if is_dir => {
                     roots.insert(root.to_os_string());
                 }
                 _ => *all_wrapped = false,
@@ -363,6 +379,54 @@ mod tests {
             b"binary",
         );
         assert!(!target_dir.join("llama-b10331").exists());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Real GNU tarballs (e.g. sherpa-onnx model archives) include explicit
+    /// directory entries before files. The single root must still be stripped.
+    #[test]
+    fn wrapped_tar_with_explicit_dir_header_strips_single_root() {
+        let dir = temp_test_dir("wrapped-tar-with-dir");
+        let archive_path = dir.join("wrapped_with_dir.tar");
+        let target_dir = dir.join("out");
+        std::fs::create_dir_all(&target_dir).unwrap();
+
+        {
+            let file = std::fs::File::create(&archive_path).unwrap();
+            let mut builder = tar::Builder::new(file);
+
+            // Directory entry for root
+            let mut dir_header = tar::Header::new_gnu();
+            dir_header.set_entry_type(tar::EntryType::Directory);
+            dir_header.set_size(0);
+            dir_header.set_cksum();
+            builder
+                .append_data(&mut dir_header, "model-root/", [].as_slice())
+                .unwrap();
+
+            // File entry inside root
+            let mut file_header = tar::Header::new_gnu();
+            file_header.set_size(5);
+            file_header.set_cksum();
+            builder
+                .append_data(
+                    &mut file_header,
+                    "model-root/tokens.txt",
+                    b"token".as_slice(),
+                )
+                .unwrap();
+
+            builder.finish().unwrap();
+        }
+
+        let reader = std::fs::File::open(&archive_path).unwrap();
+        extract_tar(reader, &target_dir, ExtractLayout::PreservePaths).unwrap();
+        assert_eq!(
+            std::fs::read(target_dir.join("tokens.txt")).unwrap(),
+            b"token",
+        );
+        assert!(!target_dir.join("model-root").exists());
 
         let _ = std::fs::remove_dir_all(&dir);
     }

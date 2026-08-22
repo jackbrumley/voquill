@@ -4,7 +4,8 @@ use regex::Regex;
 static MULTI_SPACE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s{2,}").unwrap());
 
 const UNIVERSAL_FILLER_WORDS: &[&str] = &[
-    "uh", "uhm", "umm", "uhh", "uhhh", "ehh", "ehm", "ahm", "hmm", "hm", "mmm",
+    "um", "umm", "ummm", "uh", "uhm", "uhh", "uhhh", "ah", "ahh", "ahhh", "ahm", "eh", "ehh",
+    "ehm", "er", "err", "errr", "hmm", "hm", "mmm", "mm",
 ];
 
 fn collapse_stutters(text: &str) -> String {
@@ -152,6 +153,13 @@ mod tests {
     fn test_remove_universal_fillers() {
         let result = remove_filler_words("uh hello world umm testing", &[]);
         assert_eq!(result, " hello world  testing");
+    }
+
+    #[test]
+    fn test_remove_ums_and_ahs_and_ers() {
+        let input = "um I think that ah this is er definitely working";
+        let cleaned = clean_transcription(input, true, &[]);
+        assert_eq!(cleaned, "I think that this is definitely working");
     }
 
     #[test]

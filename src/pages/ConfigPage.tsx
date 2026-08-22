@@ -73,9 +73,9 @@ const languageOptions = [
 const sectionTitleMap: Record<string, string> = {
   'general': 'General',
   'audio': 'Audio',
+  'transcription': 'Transcription',
   'dictionary': 'Dictionary',
   'filler-words': 'Filler Words',
-  'transcription': 'Transcription',
   'post-process': 'Post-Processing',
   'typing': 'Typing',
   'debug': 'Debug',
@@ -169,9 +169,9 @@ export function ConfigPage(props: ConfigPageProps) {
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingTop: '12px' }}>
           <SectionNavItem title="General" section="general" />
           <SectionNavItem title="Audio" section="audio" />
+          <SectionNavItem title="Transcription" section="transcription" />
           <SectionNavItem title="Dictionary" section="dictionary" />
           <SectionNavItem title="Filler Words" section="filler-words" />
-          <SectionNavItem title="Transcription" section="transcription" />
           <SectionNavItem title="Post-Processing" section="post-process" />
           <SectionNavItem title="Typing" section="typing" />
           <SectionNavItem title="Debug" section="debug" />
@@ -234,20 +234,6 @@ export function ConfigPage(props: ConfigPageProps) {
               />
             )}
 
-            {activeConfigSection === 'dictionary' && (
-              <DictionarySection
-                config={config}
-                updateConfig={updateConfig}
-              />
-            )}
-
-            {activeConfigSection === 'filler-words' && (
-              <FillerWordsSection
-                config={config}
-                updateConfig={updateConfig}
-              />
-            )}
-
             {activeConfigSection === 'transcription' && (
               <TranscriptionSection
                 config={config}
@@ -265,6 +251,20 @@ export function ConfigPage(props: ConfigPageProps) {
                 downloadModel={downloadModel}
                 loadModels={loadModels}
                 setShowModelGuide={setShowModelGuide}
+              />
+            )}
+
+            {activeConfigSection === 'dictionary' && (
+              <DictionarySection
+                config={config}
+                updateConfig={updateConfig}
+              />
+            )}
+
+            {activeConfigSection === 'filler-words' && (
+              <FillerWordsSection
+                config={config}
+                updateConfig={updateConfig}
               />
             )}
 

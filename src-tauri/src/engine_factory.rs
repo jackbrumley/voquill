@@ -20,6 +20,57 @@ pub struct EngineFactory {
     preload_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
+/// Generates dropdown options for CPU thread allocation, placing Auto at the top
+/// and populating all hardware cores down to 1.
+fn build_thread_options(max_cpus: usize) -> Vec<SettingOption> {
+    let mut options = Vec::with_capacity(max_cpus + 1);
+    options.push(SettingOption {
+        value: "auto".to_string(),
+        label: format!("Auto ({} Cores - Recommended)", max_cpus),
+    });
+    for i in (1..=max_cpus).rev() {
+        let label = if i == 1 {
+            "1 Core (Minimal CPU)".to_string()
+        } else if i == max_cpus {
+            format!("{} Cores (All Cores)", i)
+        } else {
+            format!("{} Cores", i)
+        };
+        options.push(SettingOption {
+            value: i.to_string(),
+            label,
+        });
+    }
+    options
+}
+
+/// Resolves the configured thread count for an engine, falling back to all
+/// available logical CPU cores for maximum speed when unspecified.
+fn resolve_thread_count(config: &Config, key: &str) -> usize {
+    let max_cpus = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4);
+    if let Some(ref ec) = config.engine_config {
+        if let Some(val) = ec.get(key) {
+            if let Some(s) = val.as_str() {
+                if s == "auto" || s == "0" {
+                    return max_cpus;
+                }
+                if let Ok(num) = s.parse::<usize>() {
+                    if num > 0 {
+                        return num.clamp(1, 64);
+                    }
+                }
+            } else if let Some(num) = val.as_u64() {
+                if num > 0 {
+                    return (num as usize).clamp(1, 64);
+                }
+            }
+        }
+    }
+    max_cpus
+}
+
 /// Returns true if the engine name indicates GPU acceleration should be used.
 /// Single owner of the "(GPU)" naming convention across all engines
 /// (transcription and post-processing).
@@ -82,16 +133,20 @@ impl EngineFactory {
     /// Returns the capabilities and settings for a given engine name, so the
     /// frontend can render per-engine configuration controls.
     pub fn engine_capabilities(engine_name: &str) -> EngineCapabilities {
+        let max_cpus = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4);
+
         match engine_name {
             "Whisper.cpp" => EngineCapabilities {
                 gpu_supported: false,
                 settings: vec![EngineSetting {
                     key: "whisper.num_threads".to_string(),
-                    label: "Thread Count".to_string(),
-                    description: "CPU threads for whisper.cpp inference. More threads = faster, but uses more CPU.".to_string(),
-                    setting_type: "number".to_string(),
-                    default: serde_json::json!(4),
-                    options: None,
+                    label: "CPU Cores".to_string(),
+                    description: "Number of CPU cores allocated for transcription. Auto uses all available hardware cores for maximum speed.".to_string(),
+                    setting_type: "select".to_string(),
+                    default: serde_json::json!("auto"),
+                    options: Some(build_thread_options(max_cpus)),
                 }],
             },
             "Whisper.cpp (GPU)" => EngineCapabilities {
@@ -102,11 +157,11 @@ impl EngineFactory {
                 gpu_supported: false,
                 settings: vec![EngineSetting {
                     key: "parakeet.num_threads".to_string(),
-                    label: "Thread Count".to_string(),
-                    description: "CPU threads for sherpa-onnx inference. More threads = faster, but uses more CPU.".to_string(),
-                    setting_type: "number".to_string(),
-                    default: serde_json::json!(2),
-                    options: None,
+                    label: "CPU Cores".to_string(),
+                    description: "Number of CPU cores allocated for sherpa-onnx inference. Auto uses all available hardware cores for maximum speed.".to_string(),
+                    setting_type: "select".to_string(),
+                    default: serde_json::json!("auto"),
+                    options: Some(build_thread_options(max_cpus)),
                 }],
             },
             _ => EngineCapabilities {
@@ -135,15 +190,18 @@ impl EngineFactory {
                 }
                 match config.local_engine.as_str() {
                     "Whisper.cpp" | "Whisper.cpp (GPU)" => {
+                        let num_threads = resolve_thread_count(config, "whisper.num_threads");
                         let service = local_whisper::LocalWhisperService::new_full(
                             self.whisper_cache.clone(),
                             &config.local_model_size,
                             use_gpu,
                             Some(self.whisper_last_gpu_error.clone()),
+                            num_threads,
                         )?;
                         Ok(Box::new(service))
                     }
                     "Parakeet" => {
+                        let num_threads = resolve_thread_count(config, "parakeet.num_threads");
                         let model_info =
                             crate::model_manager::ModelManager::find_model(
                                 "Parakeet",
@@ -165,7 +223,7 @@ impl EngineFactory {
                             )));
                         }
                         let service =
-                            parakeet::ParakeetService::new(model_dir, &config.local_model_size)
+                            parakeet::ParakeetService::new(model_dir, &config.local_model_size, num_threads)
                                 .await?;
                         Ok(Box::new(service))
                     }
@@ -225,40 +283,51 @@ impl EngineFactory {
             use_gpu
         );
 
-        let result = local_whisper::ensure_model_loaded_with_fallback(
-            &self.whisper_cache,
-            model_path,
-            config.local_model_size.clone(),
-            use_gpu,
-            None,
-        )
-        .await;
+        match config.local_engine.as_str() {
+            "Whisper.cpp" | "Whisper.cpp (GPU)" => {
+                let result = local_whisper::ensure_model_loaded_with_fallback(
+                    &self.whisper_cache,
+                    model_path,
+                    config.local_model_size.clone(),
+                    use_gpu,
+                    None,
+                )
+                .await;
 
-        match result {
-            Ok(outcome) => {
-                if let Some(ref reason) = outcome.fell_back_from_gpu {
-                    crate::log_warn!(
-                        "Engine preload: model {} loaded on CPU; GPU error: {}",
-                        config.local_model_size,
-                        reason
-                    );
-                    *self.whisper_last_gpu_error.lock().unwrap() = Some(reason.clone());
-                } else {
-                    crate::log_info!(
-                        "Engine preload: model {} loaded (gpu={})",
-                        config.local_model_size,
-                        outcome.use_gpu
-                    );
+                match result {
+                    Ok(outcome) => {
+                        if let Some(ref reason) = outcome.fell_back_from_gpu {
+                            crate::log_warn!(
+                                "Engine preload: model {} loaded on CPU; GPU error: {}",
+                                config.local_model_size,
+                                reason
+                            );
+                            *self.whisper_last_gpu_error.lock().unwrap() = Some(reason.clone());
+                        } else {
+                            crate::log_info!(
+                                "Engine preload: model {} loaded (gpu={})",
+                                config.local_model_size,
+                                outcome.use_gpu
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        crate::log_warn!(
+                            "Engine preload: failed to load {} ({}): {}",
+                            config.local_engine,
+                            config.local_model_size,
+                            e
+                        );
+                    }
                 }
             }
-            Err(e) => {
-                crate::log_warn!(
-                    "Engine preload: failed to load {} ({}): {}",
-                    config.local_engine,
-                    config.local_model_size,
-                    e
+            "Parakeet" => {
+                crate::log_info!(
+                    "Engine preload: Parakeet model {} verified on disk",
+                    config.local_model_size
                 );
             }
+            _ => {}
         }
     }
 
@@ -323,6 +392,53 @@ mod tests {
             assert!(!setting.label.is_empty());
             assert!(!setting.description.is_empty());
             assert!(["number", "bool", "select"].contains(&setting.setting_type.as_str()));
+            if setting.setting_type == "select" {
+                assert!(setting.options.is_some());
+                let options = setting.options.as_ref().unwrap();
+                assert!(!options.is_empty());
+                assert_eq!(options[0].value, "auto");
+            }
         }
+    }
+
+    #[test]
+    fn thread_options_builds_auto_and_core_list() {
+        let options = build_thread_options(8);
+        assert_eq!(options.len(), 9);
+        assert_eq!(options[0].value, "auto");
+        assert_eq!(options[1].value, "8");
+        assert_eq!(options[8].value, "1");
+    }
+
+    #[test]
+    fn resolve_thread_count_handles_auto_and_numbers() {
+        let max_cpus = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4);
+
+        let mut config = Config::default();
+        config.engine_config = None;
+        assert_eq!(
+            resolve_thread_count(&config, "whisper.num_threads"),
+            max_cpus
+        );
+
+        config.engine_config = Some(serde_json::json!({
+            "whisper.num_threads": "auto"
+        }));
+        assert_eq!(
+            resolve_thread_count(&config, "whisper.num_threads"),
+            max_cpus
+        );
+
+        config.engine_config = Some(serde_json::json!({
+            "whisper.num_threads": "4"
+        }));
+        assert_eq!(resolve_thread_count(&config, "whisper.num_threads"), 4);
+
+        config.engine_config = Some(serde_json::json!({
+            "whisper.num_threads": 6
+        }));
+        assert_eq!(resolve_thread_count(&config, "whisper.num_threads"), 6);
     }
 }

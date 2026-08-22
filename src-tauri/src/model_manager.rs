@@ -22,6 +22,149 @@ const PARAKEET_REQUIRED_FILES: &[&str] = &[
     "tokens.txt",
 ];
 
+/// Moves model files from a nested wrapper directory up into the model root if
+/// a prior extraction left them wrapped.
+fn ensure_parakeet_model_flattened(dir: &std::path::Path) {
+    if !dir.is_dir() {
+        return;
+    }
+    if PARAKEET_REQUIRED_FILES.iter().all(|f| dir.join(f).exists()) {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let subdirs: Vec<PathBuf> = entries
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .collect();
+    if subdirs.len() == 1 {
+        let sub = &subdirs[0];
+        if PARAKEET_REQUIRED_FILES.iter().all(|f| sub.join(f).exists()) {
+            crate::log_info!(
+                "Self-healing: flattening nested Parakeet model dir from {} into {}",
+                sub.display(),
+                dir.display()
+            );
+            if let Ok(children) = std::fs::read_dir(sub) {
+                for child in children.flatten() {
+                    let dest = dir.join(child.file_name());
+                    let _ = std::fs::rename(child.path(), &dest);
+                }
+            }
+            let _ = std::fs::remove_dir(sub);
+        }
+    }
+}
+
+/// Migrates legacy model storage structures to the unified purpose -> engine hierarchy:
+/// - models/ggml-*.bin & models/transcription/ggml-*.bin -> models/transcription/whisper/
+/// - models/parakeet/ -> models/transcription/parakeet/
+/// - models/post-process/*.gguf & models/post-process/bin/ -> models/post-process/llama/
+pub fn migrate_legacy_model_paths(models_dir: &std::path::Path) {
+    if !models_dir.exists() {
+        return;
+    }
+
+    let whisper_dir = models_dir.join("transcription").join("whisper");
+
+    // 1. Move root ggml-*.bin -> transcription/whisper/
+    if let Ok(entries) = std::fs::read_dir(models_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                    if file_name.starts_with("ggml-") && file_name.ends_with(".bin") {
+                        let _ = std::fs::create_dir_all(&whisper_dir);
+                        let dest = whisper_dir.join(file_name);
+                        if !dest.exists() {
+                            let _ = std::fs::rename(&path, &dest);
+                            crate::log_info!(
+                                "Migrated model: {} -> {}",
+                                path.display(),
+                                dest.display()
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Move transcription/ggml-*.bin (legacy flat transcription folder) -> transcription/whisper/
+    let transcription_dir = models_dir.join("transcription");
+    if transcription_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&transcription_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                        if file_name.starts_with("ggml-") && file_name.ends_with(".bin") {
+                            let _ = std::fs::create_dir_all(&whisper_dir);
+                            let dest = whisper_dir.join(file_name);
+                            if !dest.exists() {
+                                let _ = std::fs::rename(&path, &dest);
+                                crate::log_info!(
+                                    "Migrated model: {} -> {}",
+                                    path.display(),
+                                    dest.display()
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Move models/parakeet/ -> models/transcription/parakeet/
+    let old_parakeet_dir = models_dir.join("parakeet");
+    let new_parakeet_dir = models_dir.join("transcription").join("parakeet");
+    if old_parakeet_dir.is_dir() {
+        let _ = std::fs::create_dir_all(&new_parakeet_dir);
+        if let Ok(entries) = std::fs::read_dir(&old_parakeet_dir) {
+            for entry in entries.flatten() {
+                let dest = new_parakeet_dir.join(entry.file_name());
+                if !dest.exists() {
+                    let _ = std::fs::rename(entry.path(), &dest);
+                    crate::log_info!(
+                        "Migrated parakeet item: {} -> {}",
+                        entry.path().display(),
+                        dest.display()
+                    );
+                }
+            }
+        }
+        let _ = std::fs::remove_dir_all(&old_parakeet_dir);
+    }
+
+    // 4. Move models/post-process/*.gguf and models/post-process/bin/ -> models/post-process/llama/
+    let post_process_dir = models_dir.join("post-process");
+    let llama_dir = post_process_dir.join("llama");
+    if post_process_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&post_process_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let file_name = entry.file_name();
+                if file_name == "llama" {
+                    continue;
+                }
+                let _ = std::fs::create_dir_all(&llama_dir);
+                let dest = llama_dir.join(&file_name);
+                if !dest.exists() {
+                    let _ = std::fs::rename(&path, &dest);
+                    crate::log_info!(
+                        "Migrated post-process item: {} -> {}",
+                        path.display(),
+                        dest.display()
+                    );
+                }
+            }
+        }
+    }
+}
+
 /// Progress of a model download, reported to the frontend through the
 /// `model-download-progress` event.
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -71,6 +214,7 @@ pub struct ModelManager {
 impl ModelManager {
     pub fn new() -> Result<Self, String> {
         let models_dir = crate::paths::models_dir()?;
+        migrate_legacy_model_paths(&models_dir);
         Ok(Self { models_dir })
     }
 
@@ -93,19 +237,30 @@ impl ModelManager {
     }
 
     /// The on-disk path for a model, taking its engine into account.
-    /// whisper.cpp models are flat files:  models/ggml-{size}.bin
-    /// Parakeet models are directories:    models/parakeet/{size}/
+    /// whisper.cpp models are flat files:  models/transcription/whisper/ggml-{size}.bin
+    /// Parakeet models are directories:    models/transcription/parakeet/{size}/
+    /// Post-process models are flat files: models/post-process/llama/{size}.gguf
     pub fn get_model_path(&self, model: &ModelInfo) -> PathBuf {
         match model.engine.as_str() {
             e if e.contains("Whisper.cpp") => self
                 .models_dir
                 .join("transcription")
+                .join("whisper")
                 .join(format!("ggml-{}.bin", model.size)),
             e if e.starts_with("Post-Process") => self
                 .models_dir
                 .join("post-process")
+                .join("llama")
                 .join(format!("{}.gguf", model.size)),
-            _ => self.models_dir.join("parakeet").join(&model.size),
+            _ => {
+                let dir = self
+                    .models_dir
+                    .join("transcription")
+                    .join("parakeet")
+                    .join(&model.size);
+                ensure_parakeet_model_flattened(&dir);
+                dir
+            }
         }
     }
 
@@ -114,7 +269,8 @@ impl ModelManager {
     pub fn is_model_downloaded(&self, model: &ModelInfo) -> bool {
         match model.engine.as_str() {
             e if e.starts_with("Parakeet") => {
-                let dir = self.models_dir.join("parakeet").join(&model.size);
+                let dir = self.get_model_path(model);
+                ensure_parakeet_model_flattened(&dir);
                 PARAKEET_REQUIRED_FILES.iter().all(|f| dir.join(f).exists())
             }
             _ => self.get_model_path(model).exists(),
@@ -171,7 +327,11 @@ impl ModelManager {
                 // UI to an explicit extracting phase so it doesn't sit at 100%.
                 report(DownloadPhase::Extracting, 100.0);
 
-                let target_dir = self.models_dir.join("parakeet").join(&model.size);
+                let target_dir = self
+                    .models_dir
+                    .join("transcription")
+                    .join("parakeet")
+                    .join(&model.size);
                 crate::archive::extract_archive(
                     &archive_path,
                     &target_dir,
@@ -443,7 +603,11 @@ mod tests {
         let manager = ModelManager::new().unwrap();
         let model = ModelManager::find_model("Whisper.cpp", "tiny.en").unwrap();
         let path = manager.get_model_path(&model);
-        assert!(path.to_string_lossy().ends_with("ggml-tiny.en.bin"));
+        assert!(path.ends_with(
+            std::path::Path::new("transcription")
+                .join("whisper")
+                .join("ggml-tiny.en.bin")
+        ));
     }
 
     #[test]
@@ -451,7 +615,11 @@ mod tests {
         let manager = ModelManager::new().unwrap();
         let model = ModelManager::find_model("Parakeet", "parakeet-tdt-0.6b-v3").unwrap();
         let path = manager.get_model_path(&model);
-        assert!(path.ends_with(std::path::Path::new("parakeet").join("parakeet-tdt-0.6b-v3")));
+        assert!(path.ends_with(
+            std::path::Path::new("transcription")
+                .join("parakeet")
+                .join("parakeet-tdt-0.6b-v3")
+        ));
     }
 
     #[test]

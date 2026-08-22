@@ -38,6 +38,7 @@ export interface Config {
   post_process_api_key: string;
   post_process_api_model: string;
   post_process_prompt: string;
+  post_process_threads: string;
   post_process_user_prompt_template: string;
   post_process_max_output_tokens: number;
   post_process_prompts: PostProcessPrompt[];

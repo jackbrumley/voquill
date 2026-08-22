@@ -21,6 +21,21 @@ pub struct SidecarPostProcess {
     use_gpu: bool,
 }
 
+fn resolve_post_process_threads(threads_setting: &str) -> usize {
+    let max_cpus = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4);
+    if threads_setting.is_empty() || threads_setting == "auto" || threads_setting == "0" {
+        return max_cpus;
+    }
+    if let Ok(num) = threads_setting.parse::<usize>() {
+        if num > 0 {
+            return num.clamp(1, 64);
+        }
+    }
+    max_cpus
+}
+
 impl SidecarPostProcess {
     /// Starts the llama-server sidecar for the given post-process engine. GPU
     /// engines try the Vulkan build first and fall back to the CPU build,
@@ -29,10 +44,11 @@ impl SidecarPostProcess {
     pub async fn new(
         engine_name: &str,
         model_size: &str,
+        threads_setting: &str,
         last_gpu_error: Arc<std::sync::Mutex<Option<String>>>,
     ) -> Result<Self, PostProcessError> {
         if crate::engine_factory::engine_uses_gpu(engine_name) {
-            match Self::start(engine_name, model_size, true).await {
+            match Self::start(engine_name, model_size, threads_setting, true).await {
                 Ok(service) => {
                     *last_gpu_error.lock().unwrap() = None;
                     return Ok(service);
@@ -46,12 +62,13 @@ impl SidecarPostProcess {
                 }
             }
         }
-        Self::start(engine_name, model_size, false).await
+        Self::start(engine_name, model_size, threads_setting, false).await
     }
 
     async fn start(
         engine_name: &str,
         model_size: &str,
+        threads_setting: &str,
         use_gpu: bool,
     ) -> Result<Self, PostProcessError> {
         let binary_path = crate::sidecar::ensure_binary(
@@ -83,10 +100,12 @@ impl SidecarPostProcess {
             )));
         }
 
+        let num_threads = resolve_post_process_threads(threads_setting);
         crate::log_info!(
-            "Starting llama-server with model: {} (gpu={})",
+            "Starting llama-server with model: {} (gpu={}, threads={})",
             model_path.display(),
-            use_gpu
+            use_gpu,
+            num_threads
         );
 
         let args = vec![
@@ -98,6 +117,8 @@ impl SidecarPostProcess {
             port.to_string(),
             "-ngl".to_string(),
             if use_gpu { "99" } else { "0" }.to_string(),
+            "-t".to_string(),
+            num_threads.to_string(),
             // Cleanup must reproduce the full transcript, so the context has
             // to hold input + output for a max-length dictation (see
             // prompt::max_output_tokens).
@@ -224,6 +245,7 @@ fn binary_dir(use_gpu: bool) -> Result<PathBuf, PostProcessError> {
     let bin_dir = crate::paths::models_dir()
         .map_err(PostProcessError::Api)?
         .join("post-process")
+        .join("llama")
         .join("bin")
         .join(variant);
     std::fs::create_dir_all(&bin_dir)

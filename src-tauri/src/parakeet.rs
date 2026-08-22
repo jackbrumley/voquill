@@ -25,15 +25,15 @@ pub struct ParakeetService {
 }
 
 impl ParakeetService {
-    pub async fn new(model_dir: PathBuf, model_size: &str) -> Result<Self, TranscriptionError> {
+    pub async fn new(
+        model_dir: PathBuf,
+        model_size: &str,
+        num_threads: usize,
+    ) -> Result<Self, TranscriptionError> {
         let binary_path = resolve_or_download_binary().await?;
         let port = crate::sidecar::find_free_port(PORT_START, PORT_END)
             .await
             .map_err(|e| TranscriptionError::Model(e.to_string()))?;
-
-        let num_threads = std::thread::available_parallelism()
-            .map(|n| n.get().saturating_sub(1).clamp(1, 4))
-            .unwrap_or(2);
 
         let args = vec![
             format!("--tokens={}", model_dir.join("tokens.txt").display()),
@@ -48,6 +48,8 @@ impl ParakeetService {
             format!("--joiner={}", model_dir.join("joiner.int8.onnx").display()),
             format!("--port={}", port),
             format!("--num-threads={}", num_threads),
+            format!("--num-work-threads={}", num_threads),
+            "--log-file=".to_string(),
         ];
         let mut child = crate::sidecar::spawn_sidecar(&binary_path, &args).map_err(|e| {
             TranscriptionError::Model(format!("Failed to spawn sherpa-onnx: {}", e))
@@ -93,9 +95,11 @@ impl TranscriptionService for ParakeetService {
         _language: Option<&str>,
         _prompt: Option<&str>,
     ) -> Result<String, TranscriptionError> {
+        let start_time = std::time::Instant::now();
         let samples = wav_to_float32(audio_data)?;
 
         if is_silent(&samples) {
+            crate::log_info!("Parakeet: audio is silent, skipping transcription");
             return Ok(String::new());
         }
 
@@ -140,6 +144,13 @@ impl TranscriptionService for ParakeetService {
         .map_err(|_| TranscriptionError::Model("Transcription timed out".into()))??;
 
         let trimmed = parse_offline_result(&result);
+        let elapsed = start_time.elapsed();
+        crate::log_info!(
+            "Transcription ({}, engine=Parakeet): inference={:?}, chars={}",
+            self.model_size,
+            elapsed,
+            trimmed.len()
+        );
         Ok(trimmed)
     }
 
@@ -173,6 +184,7 @@ fn download_spec() -> crate::sidecar::SidecarDownload {
 fn binary_dir() -> Result<PathBuf, TranscriptionError> {
     let bin_dir = crate::paths::models_dir()
         .map_err(TranscriptionError::Model)?
+        .join("transcription")
         .join("parakeet")
         .join("bin");
     std::fs::create_dir_all(&bin_dir)
@@ -203,17 +215,27 @@ async fn wait_for_ready(
 ) -> Result<(), String> {
     use tokio::io::AsyncBufReadExt;
     let mut lines = reader.lines();
+    let mut captured_lines = Vec::new();
 
     let start = std::time::Instant::now();
     while start.elapsed() < timeout {
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        tokio::time::sleep(Duration::from_millis(50)).await;
         match tokio::time::timeout(Duration::from_millis(200), lines.next_line()).await {
             Ok(Ok(Some(line))) => {
+                crate::log_info!("sherpa-onnx: {}", line);
                 if line.contains("Listening on:") {
                     return Ok(());
                 }
+                captured_lines.push(line);
             }
-            Ok(Ok(None)) => return Err("Process exited before ready".into()),
+            Ok(Ok(None)) => {
+                let error_detail = if captured_lines.is_empty() {
+                    "Process exited before ready".to_string()
+                } else {
+                    captured_lines.join(" | ")
+                };
+                return Err(format!("Process exited before ready: {}", error_detail));
+            }
             Ok(Err(e)) => return Err(format!("Error reading stderr: {}", e)),
             Err(_) => {}
         }
