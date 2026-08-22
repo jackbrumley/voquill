@@ -23,10 +23,14 @@ It exists because dictation should be a basic utility, not a locked service. If 
 
 ## Screenshots
 
-![Voquill Home and Dictation Interface](docs/screenshots/screenshot-1.png)
-![Voquill History and Transcription Playback](docs/screenshots/screenshot-2.png)
-![Voquill Settings and Configuration](docs/screenshots/screenshot-3.png)
-![Voquill Help and Usage Guide](docs/screenshots/screenshot-4.png)
+<p align="center">
+  <img src="docs/screenshots/screenshot-1.png" alt="Voquill Home and Dictation Interface" width="400" />
+  <img src="docs/screenshots/screenshot-2.png" alt="Voquill History and Transcription Playback" width="400" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/screenshot-3.png" alt="Voquill Settings and Configuration" width="400" />
+  <img src="docs/screenshots/screenshot-4.png" alt="Voquill Help and Usage Guide" width="400" />
+</p>
 
 ## Install
 

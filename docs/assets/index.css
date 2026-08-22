@@ -253,17 +253,20 @@ h1 {
 }
 
 .hero-screenshots-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.25rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1.5rem;
   margin: 1.75rem auto 2rem;
-  max-width: 960px;
   width: 100%;
 }
 
 .hero-screenshot-card {
   display: flex;
   flex-direction: column;
+  width: 400px;
+  max-width: 100%;
   background: var(--colors-glass-bg);
   backdrop-filter: blur(var(--colors-glass-blur));
   -webkit-backdrop-filter: blur(var(--colors-glass-blur));
@@ -282,7 +285,9 @@ h1 {
 }
 
 .hero-screenshot-card img {
-  width: 100%;
+  width: 400px;
+  height: 600px;
+  max-width: 100%;
   height: auto;
   display: block;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
