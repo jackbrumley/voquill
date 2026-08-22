@@ -5,13 +5,13 @@
 
   var COMMANDS = {
     linux: {
+      user: {
+        label: 'User Install',
+        command: 'curl -sf https://voquill.org/install.sh | bash',
+      },
       system: {
         label: 'System Package',
         command: 'curl -sf https://voquill.org/install.sh | sudo bash -s -- --system --yes',
-      },
-      appimage: {
-        label: 'AppImage',
-        command: 'curl -sf https://voquill.org/install.sh | bash',
       },
       uninstall: {
         label: 'Uninstall',
@@ -19,9 +19,13 @@
       },
     },
     windows: {
-      powershell: {
-        label: 'PowerShell',
+      user: {
+        label: 'User Install',
         command: 'irm https://voquill.org/install.ps1 | iex',
+      },
+      system: {
+        label: 'System (MSI)',
+        command: 'irm https://voquill.org/install.ps1 | iex -args "-System"',
       },
       uninstall: {
         label: 'Uninstall',
