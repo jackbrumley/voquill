@@ -64,7 +64,7 @@ Setup EXE installs per-user (no admin). MSI is a system-wide install intended fo
 
 - **Private & Offline by Default** — On-device speech recognition powered by Whisper.cpp (Vulkan GPU / CPU) and NVIDIA Parakeet. Your voice never leaves your machine—no accounts, no cloud dependencies, no subscriptions.
 - **Push-to-Talk & Toggle Modes** — Choose between Hold-to-Talk or Toggle mode. Customizable global hotkey with instant capture UI and press-to-cancel support during transcription.
-- **Transcript Post-Processing (Local & Cloud AI)** — Clean up transcripts, fix grammar, punctuation, and speech artefacts using local LLMs (Qwen 2.5 1.5B, Llama 3.2 1B) or OpenAI-compatible cloud APIs (OpenRouter, Groq, Ollama, vLLM). Create custom prompt presets (or use built-in presets like Pirate Mode) and compare original vs. cleaned text side-by-side.
+- **Transcript Post-Processing (Local & Cloud AI)** — Clean up transcripts, fix grammar, punctuation, and speech artefacts using local LLMs (Qwen 2.5 1.5B, Llama 3.2 1B) or OpenAI-compatible cloud APIs (OpenRouter, Groq, Ollama, vLLM). Create custom prompt presets (or use built-in presets for grammar, email polish, and concise notes) and compare original vs. cleaned text side-by-side.
 - **Audio File Transcription** — Drag-and-drop or browse audio files (WAV, MP3, M4A, FLAC, OGG). Fully integrated with speaker differentiation and post-processing.
 - **Differentiate Voices (Speaker Diarization)** — Detect and label distinct speakers (`Speaker 1`, `Speaker 2`) in both imported audio files and live dictations with configurable cluster sensitivity.
 - **NVIDIA Parakeet Engine** — Fast, CPU-optimized transcription supporting 25 languages with automatic background model warm-up.
@@ -74,7 +74,7 @@ Setup EXE installs per-user (no admin). MSI is a system-wide install intended fo
 - **Reliable Pasting & Terminal Support** — Typewriter mode (direct hardware simulation) or Clipboard mode with configurable paste shortcuts (`Shift+Insert`, `Ctrl+V`, `Ctrl+Shift+V`) and automatic clipboard restoration. Defaults to `Shift+Insert` for full Linux terminal compatibility.
 - **Searchable History & Native Audio Playback** — SQLite-backed with FTS5 search. Listen back to recordings directly within the app, toggle between original and cleaned text, delete individual entries, or clear all. Configurable history retention with automatic disk pruning.
 - **Audio Device & Playback Selection** — Select independent input microphones and output playback devices with built-in mic testing and live sensitivity metering.
-- **Full Wayland & Windows Integration** — Native XDG Desktop Portals on Wayland (GNOME, KDE, Hyprland), native X11, and Windows CoreAudio/SendInput. Supports launch at startup and `--start-hidden` to launch minimized to tray.
+- **Full Wayland & Windows Integration** — Native XDG Desktop Portals on Wayland (GNOME, KDE, Hyprland), native X11, and Windows WASAPI/SendInput. Supports launch at startup and `--start-hidden` to launch minimized to tray.
 - **Minimalist Overlay** — Transparent status overlay during recording and transcription. Platform-native positioning (Layer Shell on Wayland).
 
 > See the full feature breakdown with planned items at [docs/FEATURES.md](docs/FEATURES.md).
