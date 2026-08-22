@@ -9,10 +9,14 @@ usage() {
 Voquill bootstrap installer
 
 Usage:
-  install.sh [--system] [--version <tag>] [--channel latest|stable] [--yes] [--insecure-skip-verify]
+  install.sh [--appimage] [--system] [--version <tag>] [--channel latest|stable] [--yes] [--insecure-skip-verify]
+
+Default: system-wide install via apt/dnf (requires sudo). Falls back to AppImage
+if no supported package manager or sudo is unavailable.
 
 Options:
-  --system                Install system-wide via package manager (requires sudo)
+  --appimage              Install AppImage to ~/.local/bin (user-local, no sudo)
+  --system                Force system-wide install via package manager (requires sudo)
   --clean                 Remove old packages and purge cached data (models, python-runner, debug)
                           before installing. Keeps config.json and history.db.
   --version <tag>         Install specific release tag (e.g. v1.5.0)
@@ -23,12 +27,11 @@ Options:
 
 Environment overrides:
   VOQUILL_INSTALL_URL     Full package URL override
-  VOQUILL_CHECKSUM_URL    Full checksum URL override
 
 Examples:
   curl -sf https://voquill.org/install.sh | bash
-  curl -sf https://voquill.org/install.sh | bash -s -- --system --yes
-  curl -sf https://voquill.org/install.sh | sudo bash -s -- --system --yes --clean
+  curl -sf https://voquill.org/install.sh | bash -s -- --appimage
+  curl -sf https://voquill.org/install.sh | sudo bash -s -- --yes --clean
 EOF
 }
 
@@ -75,16 +78,6 @@ resolve_package_ext() {
     dnf) printf "rpm" ;;
     apt) printf "deb" ;;
     *) printf "AppImage" ;;
-  esac
-}
-
-resolve_package_install_cmd() {
-  local pm="$1"
-  local path="$2"
-  case "$pm" in
-    dnf) printf "dnf install -y %s" "$path" ;;
-    apt) printf "apt install -y %s" "$path" ;;
-    *) fail "no package manager support for: $pm" ;;
   esac
 }
 
@@ -142,6 +135,7 @@ clean_user_data() {
 }
 
 install_system=false
+install_appimage=false
 non_interactive=false
 skip_verify=false
 clean=false
@@ -152,6 +146,9 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --system)
       install_system=true
+      ;;
+    --appimage)
+      install_appimage=true
       ;;
     --clean)
       clean=true
@@ -200,10 +197,20 @@ if [[ -z "$version" ]]; then
   fi
 fi
 
-if [[ "$install_system" == true ]]; then
+# Resolve install mode: default to system if package manager + sudo available
+if [[ "$install_appimage" == true ]]; then
+  install_system=false
+elif [[ "$install_system" == true ]]; then
   pm="$(detect_package_manager)"
   if [[ "$pm" == "none" ]]; then
-    log "No supported package manager found (dnf/apt). Falling back to AppImage."
+    fail "No supported package manager found (dnf/apt). Use --appimage for user-local install."
+  fi
+else
+  pm="$(detect_package_manager)"
+  if [[ "$pm" != "none" ]] && sudo -n true 2>/dev/null; then
+    install_system=true
+  else
+    log "No package manager or sudo available. Falling back to AppImage."
     install_system=false
   fi
 fi
@@ -211,9 +218,6 @@ fi
 if [[ -n "${VOQUILL_INSTALL_URL:-}" ]]; then
   asset_url="$VOQUILL_INSTALL_URL"
   package_ext="${asset_url##*.}"
-  if [[ -n "${VOQUILL_CHECKSUM_URL:-}" ]]; then
-    checksum_url="$VOQUILL_CHECKSUM_URL"
-  fi
 else
   if [[ "$version" == "latest" ]]; then
     release_tag="$(fetch_latest_release_tag)"
@@ -223,16 +227,13 @@ else
 
   if [[ "$install_system" == true ]]; then
     package_ext="$(resolve_package_ext "$pm")"
-    gh_asset_name="${BIN_NAME}-${release_tag#v}-${os}-${arch}.${package_ext}"
-    log "Resolving asset: ${gh_asset_name}"
-    asset_url="https://github.com/${REPO}/releases/download/${release_tag}/${gh_asset_name}"
-    checksum_url="${asset_url}.sha256"
   else
-    gh_asset_name="${BIN_NAME}-${release_tag#v}-${os}-${arch}.AppImage"
-    log "Resolving asset: ${gh_asset_name}"
-    asset_url="https://github.com/${REPO}/releases/download/${release_tag}/${gh_asset_name}"
-    checksum_url="${asset_url}.sha256"
+    package_ext="AppImage"
   fi
+
+  gh_asset_name="${BIN_NAME}-${release_tag#v}-${os}-${arch}.${package_ext}"
+  log "Resolving asset: ${gh_asset_name}"
+  asset_url="https://github.com/${REPO}/releases/download/${release_tag}/${gh_asset_name}"
 fi
 
 log "Preparing Voquill install"
@@ -269,7 +270,6 @@ tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
 package_path="${tmp_dir}/${BIN_NAME}.${package_ext:-AppImage}"
-checksum_path="${tmp_dir}/${BIN_NAME}.sha256"
 
 log "Downloading release artifact"
 log "  ${asset_url}"
@@ -277,23 +277,42 @@ if ! curl -fL --retry 3 --connect-timeout 15 -o "$package_path" "$asset_url"; th
   fail "download failed. No release artifact was found for this target yet.\nTry local development run:\n  git clone https://github.com/${REPO}\n  cd voquill\n  npm install\n  npm run tauri dev"
 fi
 
-if [[ "$skip_verify" == false ]] && [[ -n "${checksum_url:-}" ]]; then
-  need_cmd sha256sum
-  log "Downloading checksum"
-  curl -fL --retry 3 --connect-timeout 15 -o "$checksum_path" "$checksum_url" || log "WARNING: checksum download failed, skipping verification"
-  if [[ -s "$checksum_path" ]]; then
-    expected="$(awk '{print $1}' "$checksum_path" | head -n1)"
-    actual="$(sha256sum "$package_path" | awk '{print $1}')"
-    if [[ -z "$expected" ]]; then
-      log "WARNING: checksum file was empty, skipping verification"
-    elif [[ "$expected" != "$actual" ]]; then
-      fail "checksum mismatch"
-    else
-      log "Checksum verified"
-    fi
+verify_checksum() {
+  local file="$1"
+  local asset_name="$2"
+  local api_url="https://api.github.com/repos/${REPO}/releases/tags/${release_tag}"
+
+  if ! optional_cmd python3; then
+    log "WARNING: python3 not found, skipping checksum verification"
+    return
   fi
-elif [[ "$skip_verify" == true ]]; then
+
+  local digest
+  digest="$(curl -sfL --retry 3 --connect-timeout 10 -H "Accept: application/vnd.github+json" "$api_url" | python3 -c "
+import json,sys
+data=json.load(sys.stdin)
+for asset in data.get('assets', []):
+    if asset['name'] == '$asset_name':
+        print(asset.get('digest', ''))
+" 2>/dev/null)" || digest=""
+  if [[ -z "$digest" ]]; then
+    log "WARNING: could not fetch checksum from GitHub API, skipping verification"
+    return
+  fi
+  local expected="${digest#sha256:}"
+  local actual
+  actual="$(sha256sum "$file" | awk '{print $1}')"
+  if [[ "$expected" != "$actual" ]]; then
+    fail "checksum mismatch (expected $expected, got $actual)"
+  fi
+  log "Checksum verified"
+}
+
+if [[ "$skip_verify" == true ]]; then
   log "WARNING: checksum verification disabled"
+elif [[ -n "${release_tag:-}" ]]; then
+  need_cmd sha256sum
+  verify_checksum "$package_path" "$gh_asset_name"
 fi
 
 if [[ "$install_system" == true ]]; then
@@ -303,7 +322,8 @@ if [[ "$install_system" == true ]]; then
   if [[ "$pm" == "dnf" ]]; then
     sudo dnf install -y "$package_path"
   elif [[ "$pm" == "apt" ]]; then
-    sudo apt install -y "$package_path"
+    sudo cp "$package_path" /var/cache/apt/archives/
+    sudo apt install -y "/var/cache/apt/archives/${BIN_NAME}.${package_ext}"
   fi
 
   log "System installation complete via ${pm}"
