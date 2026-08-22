@@ -169,7 +169,8 @@ h1 {
 }
 
 .press-quote-text {
-  margin: 0.15rem 0 0.15rem;
+  margin: 0.15rem 0;
+  padding: 0;
   font-size: 0.98rem;
   font-style: italic;
   color: #e2e8f0;
