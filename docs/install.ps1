@@ -84,7 +84,7 @@ function Get-Checksum($Path) {
 }
 
 # Determine install type: setup.exe (default user-level, no admin needed) or MSI (system-wide)
-if ($System) {
+if ($System -or $env:VOQUILL_SYSTEM -eq "1" -or $env:VOQUILL_SYSTEM -eq "true") {
   $InstallType = "msi"
 } else {
   $InstallType = "exe"

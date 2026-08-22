@@ -164,10 +164,20 @@ h1 {
 
 .feature-list li {
   position: relative;
-  padding-left: 0;
+  padding-left: 1.1rem;
   font-size: 0.92rem;
   line-height: 1.55;
   color: #e3e8f0;
+}
+
+.feature-list li::before {
+  content: "›";
+  position: absolute;
+  left: 0;
+  color: var(--colors-accent-primary);
+  font-weight: 700;
+  font-size: 1.1rem;
+  line-height: 1.4;
 }
 
 .feature-list li strong {

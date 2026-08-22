@@ -31,7 +31,7 @@ Installs Voquill system-wide for all users on the machine. Requires administrato
 
 **Windows (MSI):**
 ```powershell
-irm https://voquill.org/install.ps1 | iex -args "-System"
+irm https://voquill.org/install-system.ps1 | iex
 ```
 
 **Linux (Package Manager — dnf/apt):**

@@ -38,7 +38,7 @@ curl -sf https://voquill.org/uninstall.sh | bash -s -- --purge-data --yes
 
 **Windows (PowerShell):**
 ```powershell
-irm https://voquill.org/uninstall.ps1 | iex -args "-PurgeData -Yes"
+irm https://voquill.org/uninstall-purge.ps1 | iex
 ```
 
 ## Script Options

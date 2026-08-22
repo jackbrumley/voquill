@@ -25,7 +25,7 @@
       },
       system: {
         label: 'System (MSI)',
-        command: 'irm https://voquill.org/install.ps1 | iex -args "-System"',
+        command: 'irm https://voquill.org/install-system.ps1 | iex',
       },
       uninstall: {
         label: 'Uninstall',

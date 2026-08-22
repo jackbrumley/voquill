@@ -36,6 +36,14 @@ function Fail($Message) {
   exit 1
 }
 
+# Check environment variable overrides
+if (-not $PurgeData -and ($env:VOQUILL_PURGE_DATA -eq "1" -or $env:VOQUILL_PURGE_DATA -eq "true")) {
+  $PurgeData = $true
+}
+if (-not $Yes -and ($env:VOQUILL_YES -eq "1" -or $env:VOQUILL_YES -eq "true")) {
+  $Yes = $true
+}
+
 # Determine interactive mode
 $NonInteractive = $Yes
 if (-not $NonInteractive) {
