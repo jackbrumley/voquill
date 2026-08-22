@@ -323,3 +323,9 @@ pub async fn get_audio_devices() -> Result<Vec<audio::AudioDevice>, String> {
     crate::log_info!("Tauri Command: get_audio_devices invoked");
     audio::get_input_devices()
 }
+
+#[tauri::command]
+pub async fn get_output_devices() -> Result<Vec<audio::AudioDevice>, String> {
+    crate::log_info!("Tauri Command: get_output_devices invoked");
+    audio::get_output_devices()
+}

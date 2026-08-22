@@ -20,6 +20,7 @@ export interface Config {
   key_press_duration_ms: number;
   pixels_from_bottom: number;
   audio_device: string | null;
+  playback_device?: string | null;
   enable_recording_logs: boolean;
   input_sensitivity: number;
   output_method: 'Typewriter' | 'Clipboard';

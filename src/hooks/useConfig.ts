@@ -36,6 +36,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     key_press_duration_ms: 2,
     pixels_from_bottom: 50,
     audio_device: 'default',
+    playback_device: 'default',
     enable_recording_logs: false,
     input_sensitivity: 1.0,
     output_method: 'Clipboard',

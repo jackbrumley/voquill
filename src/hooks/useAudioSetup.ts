@@ -5,13 +5,16 @@ import type { AudioDevice, LinuxPermissions, HotkeyBindingState } from '../types
 interface UseAudioSetupReturn {
   permissions: LinuxPermissions | null;
   availableMics: AudioDevice[];
+  availableSpeakers: AudioDevice[];
   hotkeyError: string | null;
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   micTestPassed: boolean;
   hasLoadedSetupStatus: boolean;
   hasLoadedMics: boolean;
+  hasLoadedSpeakers: boolean;
   loadMics: () => Promise<void>;
+  loadSpeakers: () => Promise<void>;
   startMicTest: () => Promise<void>;
   stopMicTest: () => Promise<void>;
   stopMicPlayback: () => Promise<void>;
@@ -26,12 +29,14 @@ interface UseAudioSetupReturn {
 export function useAudioSetup(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseAudioSetupReturn {
   const permissions = useSignal<LinuxPermissions | null>(null);
   const availableMics = useSignal<AudioDevice[]>([]);
+  const availableSpeakers = useSignal<AudioDevice[]>([]);
   const hotkeyError = useSignal<string | null>(null);
   const micTestStatus = useSignal<'idle' | 'recording' | 'playing' | 'processing'>('idle');
   const micVolume = useSignal<number>(0);
   const micTestPassed = useSignal(false);
   const hasLoadedSetupStatus = useSignal(false);
   const hasLoadedMics = useSignal(false);
+  const hasLoadedSpeakers = useSignal(false);
 
   const checkSetupStatus = async () => {
     try {
@@ -55,6 +60,17 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
       showToast(`Failed to load microphones: ${error}`, 'error');
     } finally {
       hasLoadedMics.value = true;
+    }
+  };
+
+  const loadSpeakers = async () => {
+    try {
+      const devices = await invoke<AudioDevice[]>('get_output_devices');
+      availableSpeakers.value = devices;
+    } catch (error) {
+      showToast(`Failed to load playback devices: ${error}`, 'error');
+    } finally {
+      hasLoadedSpeakers.value = true;
     }
   };
 
@@ -110,13 +126,16 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
   return {
     permissions: permissions.value,
     availableMics: availableMics.value,
+    availableSpeakers: availableSpeakers.value,
     hotkeyError: hotkeyError.value,
     micTestStatus: micTestStatus.value,
     micVolume: micVolume.value,
     micTestPassed: micTestPassed.value,
     hasLoadedSetupStatus: hasLoadedSetupStatus.value,
     hasLoadedMics: hasLoadedMics.value,
+    hasLoadedSpeakers: hasLoadedSpeakers.value,
     loadMics,
+    loadSpeakers,
     startMicTest,
     stopMicTest,
     stopMicPlayback,

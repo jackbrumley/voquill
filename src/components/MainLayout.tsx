@@ -27,6 +27,7 @@ interface MainLayoutProps {
   hotkeyBindingState: HotkeyBindingState | null;
   isApplyingHotkey: boolean;
   availableMics: AudioDevice[];
+  availableSpeakers?: AudioDevice[];
   micTestStatus: 'playing' | 'idle' | 'recording' | 'processing';
   micVolume: number;
   overlayPositioningCapabilities: OverlayPositioningCapabilities;
@@ -47,6 +48,7 @@ interface MainLayoutProps {
   onDownloadModel: (size: string, engine?: string) => void;
   onLoadModels: () => void;
   onLoadMics: () => void;
+  onLoadSpeakers?: () => void;
   onHandleConfigureHotkey: () => void;
   onSetShowModelGuide: (v: boolean) => void;
   onSetShowPostProcessGuide: (v: boolean) => void;
@@ -135,6 +137,8 @@ export function MainLayout(props: MainLayoutProps) {
             downloadModel={props.onDownloadModel}
             loadModels={props.onLoadModels}
             loadMics={props.onLoadMics}
+            availableSpeakers={props.availableSpeakers}
+            loadSpeakers={props.onLoadSpeakers}
             handleConfigureHotkey={props.onHandleConfigureHotkey}
             setShowModelGuide={props.onSetShowModelGuide}
             setShowPostProcessGuide={props.onSetShowPostProcessGuide}

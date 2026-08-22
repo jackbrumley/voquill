@@ -294,6 +294,8 @@ pub async fn start_mic_test(
         }
     }
 
+    let playback_device = { state.config.lock().unwrap().playback_device.clone() };
+
     tokio::spawn(async move {
         crate::log_info!("Mic test thread started");
 
@@ -324,10 +326,15 @@ pub async fn start_mic_test(
 
                 crate::log_info!("Initializing playback at {}Hz...", sample_rate);
                 let app = app_handle_clone.clone();
-                match audio::play_audio(captured_samples.clone(), sample_rate, move || {
-                    crate::log_info!("Mic test playback finished");
-                    let _ = app.emit("mic-test-playback-finished", ());
-                }) {
+                match audio::play_audio(
+                    captured_samples.clone(),
+                    sample_rate,
+                    playback_device,
+                    move || {
+                        crate::log_info!("Mic test playback finished");
+                        let _ = app.emit("mic-test-playback-finished", ());
+                    },
+                ) {
                     Ok(stream) => {
                         let mut stream_guard = playback_stream_state.lock().unwrap();
                         *stream_guard = Some(stream);
@@ -374,5 +381,55 @@ pub async fn stop_mic_playback(state: tauri::State<'_, AppState>) -> Result<(), 
     let mut stream_guard = state.playback_stream.lock().unwrap();
     *stream_guard = None;
     crate::log_info!("Playback stopped by user");
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn play_history_recording(
+    file_name: String,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    crate::log_info!(
+        "Tauri Command: play_history_recording invoked ({})",
+        file_name
+    );
+    let playback_device = { state.config.lock().unwrap().playback_device.clone() };
+    let recordings_dir = crate::paths::debug_recordings_dir()?;
+    let path = recordings_dir.join(&file_name);
+    let wav_bytes = if path.exists() {
+        std::fs::read(&path).map_err(|e| e.to_string())?
+    } else {
+        let debug_dir = crate::paths::debug_dir()?;
+        let alt = debug_dir.join(&file_name);
+        if alt.exists() {
+            std::fs::read(&alt).map_err(|e| e.to_string())?
+        } else {
+            return Err("Recording audio file not found".to_string());
+        }
+    };
+
+    let app_handle_clone = app_handle.clone();
+    let stream = audio::play_wav_file(&wav_bytes, playback_device, move || {
+        crate::log_info!("History audio playback finished");
+        let _ = app_handle_clone.emit("history-playback-finished", ());
+    })
+    .map_err(|e| format!("Playback failed: {}", e))?;
+
+    let mut stream_guard = state.playback_stream.lock().unwrap();
+    *stream_guard = Some(stream);
+    let _ = app_handle.emit("history-playback-started", file_name);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn stop_history_recording(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    crate::log_info!("Tauri Command: stop_history_recording invoked");
+    let mut stream_guard = state.playback_stream.lock().unwrap();
+    *stream_guard = None;
+    let _ = app_handle.emit("history-playback-finished", ());
     Ok(())
 }

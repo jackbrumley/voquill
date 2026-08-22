@@ -1,3 +1,4 @@
+import { useEffect } from 'preact/hooks';
 import { IconCopy, IconPlayerPause, IconPlayerPlay, IconSearch, IconTrash, IconX } from '@tabler/icons-preact';
 import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
@@ -161,7 +162,16 @@ function renderItemText(item: HistoryItem, searchQuery: string, isRaw: boolean) 
 export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipboard, onSearch, onDelete }: HistoryPageProps) {
   const showRaw = useSignal<Set<number>>(new Set());
   const playingAudioId = useSignal<number | null>(null);
-  const audioInstance = useSignal<HTMLAudioElement | null>(null);
+  const currentAudio = useSignal<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (currentAudio.value) {
+        currentAudio.value.pause();
+        currentAudio.value = null;
+      }
+    };
+  }, []);
 
   const toggleRaw = (id: number) => {
     const next = new Set(showRaw.value);
@@ -177,34 +187,44 @@ export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipb
     if (!item.audio_file) return;
 
     if (playingAudioId.value === item.id) {
-      if (audioInstance.value) {
-        audioInstance.value.pause();
+      if (currentAudio.value) {
+        currentAudio.value.pause();
+        currentAudio.value = null;
       }
       playingAudioId.value = null;
       return;
     }
 
     try {
-      if (audioInstance.value) {
-        audioInstance.value.pause();
+      if (currentAudio.value) {
+        currentAudio.value.pause();
+        currentAudio.value = null;
       }
+
       const rawBytes = await invoke<number[]>('get_history_audio', { fileName: item.audio_file });
       const u8 = new Uint8Array(rawBytes);
       const blob = new Blob([u8], { type: 'audio/wav' });
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
+
       audio.onended = () => {
         playingAudioId.value = null;
+        currentAudio.value = null;
+        URL.revokeObjectURL(url);
       };
       audio.onerror = () => {
         playingAudioId.value = null;
+        currentAudio.value = null;
+        URL.revokeObjectURL(url);
       };
+
       await audio.play();
       playingAudioId.value = item.id;
-      audioInstance.value = audio;
+      currentAudio.value = audio;
     } catch (err) {
       console.error('Failed to play history audio:', err);
       playingAudioId.value = null;
+      currentAudio.value = null;
     }
   };
 

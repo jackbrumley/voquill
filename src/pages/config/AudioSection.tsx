@@ -13,7 +13,9 @@ interface AudioSectionProps {
   config: Config;
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
   availableMics: AudioDevice[];
+  availableSpeakers?: AudioDevice[];
   loadMics: () => void;
+  loadSpeakers?: () => void;
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   startMicTest: () => void;
@@ -25,7 +27,9 @@ export function AudioSection({
   config,
   updateConfig,
   availableMics,
+  availableSpeakers = [],
   loadMics,
+  loadSpeakers,
   micTestStatus,
   micVolume,
   startMicTest,
@@ -43,6 +47,20 @@ export function AudioSection({
             ariaLabel="Microphone"
           />
           <Button variant="icon" onClick={loadMics} title="Refresh Devices">
+            <IconRefresh size={16} />
+          </Button>
+        </div>
+      </ConfigField>
+
+      <ConfigField label="Playback Device" description="Choose the output device for mic test playback and history audio listening.">
+        <div style={selectWrapperStyle}>
+          <SelectField
+            value={config.playback_device || 'default'}
+            options={availableSpeakers.map((spk) => ({ value: spk.id, label: spk.label }))}
+            onChange={(nextSpeakerId) => updateConfig('playback_device', nextSpeakerId)}
+            ariaLabel="Playback Device"
+          />
+          <Button variant="icon" onClick={loadSpeakers || loadMics} title="Refresh Playback Devices">
             <IconRefresh size={16} />
           </Button>
         </div>

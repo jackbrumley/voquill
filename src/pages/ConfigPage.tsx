@@ -27,6 +27,7 @@ interface ConfigPageProps {
   hotkeyBindingState: { bound: boolean; active_trigger?: string } | null;
   isApplyingHotkey: boolean;
   availableMics: AudioDevice[];
+  availableSpeakers?: AudioDevice[];
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   overlayPositioningCapabilities: { manual_offset_supported: boolean; detail?: string };
@@ -35,6 +36,7 @@ interface ConfigPageProps {
   downloadModel: (size: string, engine?: string) => void;
   loadModels: () => void;
   loadMics: () => void;
+  loadSpeakers?: () => void;
   handleConfigureHotkey: () => void;
   setShowModelGuide: (show: boolean) => void;
   setShowPostProcessGuide: (show: boolean) => void;
@@ -225,7 +227,9 @@ export function ConfigPage(props: ConfigPageProps) {
                 config={config}
                 updateConfig={updateConfig}
                 availableMics={availableMics}
+                availableSpeakers={props.availableSpeakers}
                 loadMics={loadMics}
+                loadSpeakers={props.loadSpeakers}
                 micTestStatus={micTestStatus}
                 micVolume={micVolume}
                 startMicTest={startMicTest}

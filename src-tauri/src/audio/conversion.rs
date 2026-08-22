@@ -253,6 +253,26 @@ pub fn resample_audio_f32(samples: &[f32], from: u32, to: u32) -> Vec<f32> {
     output
 }
 
+/// Continuous linear interpolation resampler for audio playback.
+/// Eliminates block FFT boundary artifacts during sample rate conversion.
+pub fn resample_linear(samples: &[f32], from: u32, to: u32) -> Vec<f32> {
+    if from == to || samples.is_empty() {
+        return samples.to_vec();
+    }
+    let ratio = from as f64 / to as f64;
+    let target_len = ((samples.len() as f64) / ratio).round() as usize;
+    let mut output = Vec::with_capacity(target_len);
+    for i in 0..target_len {
+        let src_pos = i as f64 * ratio;
+        let idx = src_pos.floor() as usize;
+        let frac = (src_pos - idx as f64) as f32;
+        let s0 = samples.get(idx).copied().unwrap_or(0.0);
+        let s1 = samples.get(idx + 1).copied().unwrap_or(s0);
+        output.push(s0 + frac * (s1 - s0));
+    }
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -322,5 +342,14 @@ mod tests {
         assert_eq!(reader.spec().sample_rate, 16000);
         assert_eq!(reader.spec().channels, 1);
         assert_eq!(reader.duration(), 16000);
+    }
+
+    #[test]
+    fn resample_linear_basic_interpolation() {
+        let input = vec![0.0, 1.0];
+        let output = resample_linear(&input, 16000, 32000);
+        assert_eq!(output.len(), 4);
+        assert!((output[0] - 0.0).abs() < 1e-5);
+        assert!((output[1] - 0.5).abs() < 1e-5);
     }
 }

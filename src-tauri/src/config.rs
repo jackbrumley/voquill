@@ -82,6 +82,8 @@ pub struct Config {
     pub pixels_from_bottom: i32,
     #[serde(default = "default_audio_device")]
     pub audio_device: Option<String>,
+    #[serde(default = "default_playback_device")]
+    pub playback_device: Option<String>,
     #[serde(default = "default_enable_recording_logs")]
     pub enable_recording_logs: bool,
     #[serde(default = "default_input_sensitivity")]
@@ -324,6 +326,9 @@ fn default_pixels_from_bottom() -> i32 {
 fn default_audio_device() -> Option<String> {
     Some("default".to_string())
 }
+fn default_playback_device() -> Option<String> {
+    Some("default".to_string())
+}
 fn default_enable_recording_logs() -> bool {
     false
 }
@@ -464,6 +469,7 @@ impl Default for Config {
             paste_delay_after_ms: default_paste_delay_after_ms(),
             pixels_from_bottom: default_pixels_from_bottom(),
             audio_device: default_audio_device(),
+            playback_device: default_playback_device(),
             enable_recording_logs: default_enable_recording_logs(),
             input_sensitivity: default_input_sensitivity(),
             output_method: default_output_method(),

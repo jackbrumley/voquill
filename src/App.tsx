@@ -114,6 +114,7 @@ function App() {
     void Promise.allSettled([
       configHook.loadConfig(),
       audioSetup.loadMics(),
+      audioSetup.loadSpeakers(),
       historyHook.loadHistory(),
       configHook.loadModels(),
       audioSetup.checkSetupStatus(),
@@ -183,6 +184,7 @@ function App() {
       logUI(`[Focus] Window focused — re-probing permissions, hotkey status, audio devices, and model statuses. ${explainReadiness(readinessInputs, readiness)}`);
       void audioSetup.checkSetupStatus();
       void audioSetup.loadMics();
+      void audioSetup.loadSpeakers();
       void configHook.loadModels();
     },
     onHashChange: () => {
@@ -313,6 +315,8 @@ function App() {
           onDownloadModel={configHook.downloadModel}
           onLoadModels={configHook.loadModels}
           onLoadMics={audioSetup.loadMics}
+          availableSpeakers={audioSetup.availableSpeakers}
+          onLoadSpeakers={audioSetup.loadSpeakers}
           onHandleConfigureHotkey={hotkeySetup.handleConfigureHotkey}
           onSetShowModelGuide={(v) => { showModelGuide.value = v; }}
           onSetShowPostProcessGuide={(v) => { showPostProcessGuide.value = v; }}

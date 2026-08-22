@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{SampleFormat, StreamConfig};
 
-use super::conversion::resample_audio_f32;
+use super::conversion::resample_linear;
 
-pub fn play_audio<F>(
+pub fn play_audio_on_device<F>(
+    device: &cpal::Device,
     samples: Vec<f32>,
     sample_rate: u32,
     on_done: F,
@@ -13,32 +14,9 @@ pub fn play_audio<F>(
 where
     F: FnOnce() + Send + 'static,
 {
-    let host = cpal::default_host();
-    let device = {
-        let mut selected = None;
-        if let Ok(devices) = host.output_devices() {
-            for dev in devices {
-                if let Ok(id) = dev.id() {
-                    #[cfg(target_os = "linux")]
-                    if id.1 == "pulse" || id.1.starts_with("default") {
-                        selected = Some(dev);
-                        break;
-                    }
-                    #[cfg(not(target_os = "linux"))]
-                    if id.1.starts_with("default") {
-                        selected = Some(dev);
-                        break;
-                    }
-                }
-            }
-        }
-        selected.or_else(|| host.default_output_device())
-    }
-    .ok_or("No output device available")?;
-
     let config = device.default_output_config()?;
     let stream_config: StreamConfig = config.clone().into();
-    let resampled = Arc::new(resample_audio_f32(
+    let resampled = Arc::new(resample_linear(
         &samples,
         sample_rate,
         stream_config.sample_rate,
@@ -107,4 +85,41 @@ where
     };
     stream.play()?;
     Ok(stream)
+}
+
+pub fn play_audio<F>(
+    samples: Vec<f32>,
+    sample_rate: u32,
+    device_id: Option<String>,
+    on_done: F,
+) -> Result<cpal::Stream, Box<dyn std::error::Error + Send + Sync>>
+where
+    F: FnOnce() + Send + 'static,
+{
+    let device = super::device::lookup_output_device(device_id)?;
+    play_audio_on_device(&device, samples, sample_rate, on_done)
+}
+
+pub fn play_wav_file<F>(
+    wav_bytes: &[u8],
+    device_id: Option<String>,
+    on_done: F,
+) -> Result<cpal::Stream, Box<dyn std::error::Error + Send + Sync>>
+where
+    F: FnOnce() + Send + 'static,
+{
+    let mut reader = hound::WavReader::new(std::io::Cursor::new(wav_bytes))?;
+    let spec = reader.spec();
+    let samples: Vec<f32> = match spec.sample_format {
+        hound::SampleFormat::Int => {
+            let max_val = (1 << (spec.bits_per_sample - 1)) as f32;
+            reader
+                .samples::<i32>()
+                .filter_map(|s| s.ok())
+                .map(|s| (s as f32 / max_val).clamp(-1.0, 1.0))
+                .collect()
+        }
+        hound::SampleFormat::Float => reader.samples::<f32>().filter_map(|s| s.ok()).collect(),
+    };
+    play_audio(samples, spec.sample_rate, device_id, on_done)
 }
