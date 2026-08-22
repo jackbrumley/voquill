@@ -27,7 +27,7 @@ Voquill is a **private, offline-first, system-wide dictation app** for Linux and
 - **Custom dictionary** — Add names, jargon, or technical terms as vocabulary prompt hints.
 - **Regex filler word removal** — Built-in, deterministic, no LLM needed. Strips "uh", "umm", "hmm", etc. instantly. Configurable custom filler words.
 - **LLM post-processing** — Local (llama-server GGUF models: Qwen 2.5 1.5B, Llama 3.2 1B) or cloud API (OpenAI-compatible). Customizable system prompt. GPU acceleration with fallback.
-- **Multiple prompts** — Create, name, select, and delete post-processing presets. Switch between them in settings.
+- **Multiple prompts & style presets** — Create, name, select, and delete post-processing presets (includes built-in presets for grammar cleanup, concise notes, email polish, and Pirate Mode). Switch between them in settings.
 - **Original vs Cleaned comparison** — Retains both raw and post-processed transcripts for side-by-side review.
 
 ### Audio & Devices
