@@ -9,7 +9,7 @@ container_class: home-container
 
 # Voquill Install Guide
 
-Voquill supports a one-command install flow from the website, matching the uninstall UX.
+Voquill supports a one-command install flow from the website, matching the uninstall UX. Every installation automatically stops running instances and cleanly replaces previous versions or legacy shortcuts before deploying the latest build, while preserving your settings and models.
 
 ## Linux Installation
 
@@ -45,7 +45,7 @@ irm https://voquill.org/install-system.ps1 | iex
 |----------------|------------------|-------------|
 | `--appimage` | — | Install AppImage to ~/.local/bin (no sudo) |
 | `--system` | `-System` | Force system-wide install (requires admin / sudo) |
-| `--clean` | `-Clean` | Remove old packages & clean cached models/data before installing |
+| `--clean` | `-Clean` | Clean cached models/data before installing (keeps config and history) |
 | `--version <tag>` | `-Version <tag>` | Install a specific release tag (e.g. `v1.5.0`) |
 | `--channel <name>` | — | Release channel: `latest` or `stable` (default: `latest`) |
 | `--yes` | — | Run non-interactively (skip confirmation prompts) |

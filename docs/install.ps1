@@ -4,9 +4,11 @@
 .DESCRIPTION
   Detects architecture, downloads the matching setup.exe (default user install,
   no admin needed) or MSI (system-wide IT install) from the latest GitHub release,
-  and runs the installer. Supports override URLs for testing.
+  stops running instances, cleanly replaces previous installations, and runs the installer.
 .PARAMETER System
   Install system-wide via MSI (requires administrator privileges).
+.PARAMETER Clean
+  Remove cached data (models, python-runner, debug) before installing. Keeps config.json and history.db.
 .PARAMETER Version
   Install a specific release tag (e.g. "v1.5.0").
 .PARAMETER InsecureSkipVerify
@@ -24,6 +26,7 @@
 param(
   [string]$Version = "",
   [switch]$System,
+  [switch]$Clean,
   [switch]$InsecureSkipVerify,
   [switch]$Help
 )
@@ -81,6 +84,112 @@ function Get-AssetDownloadUrl($Tag, $AssetName) {
 function Get-Checksum($Path) {
   $hash = Get-FileHash -Path $Path -Algorithm SHA256
   return $hash.Hash.ToLower()
+}
+
+function Stop-RunningProcess {
+  $runningProcesses = Get-Process -Name "voquill" -ErrorAction SilentlyContinue
+  if ($runningProcesses) {
+    Log "Stopping running Voquill process"
+    Stop-Process -Name "voquill" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+  }
+}
+
+function Uninstall-ExistingVoquill {
+  Log "Checking for previous Voquill installation"
+  $RegistryPaths = @(
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+  )
+
+  foreach ($path in $RegistryPaths) {
+    $entries = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | Where-Object {
+      $_.DisplayName -and ($_.DisplayName -like "*Voquill*" -or $_.Publisher -like "*Voquill*" -or $_.Publisher -like "*Jack Brumley*")
+    }
+
+    foreach ($entry in $entries) {
+      Log "Uninstalling previous version: $($entry.DisplayName)"
+
+      $uninstallString = $entry.UninstallString
+      $quietUninstallString = $entry.QuietUninstallString
+
+      if ($entry.PSChildName -match "^\{[0-9A-Fa-f\-]+\}$") {
+        # MSI Product Code
+        $guid = $entry.PSChildName
+        Log "Running MSI uninstaller for product code $guid"
+        try {
+          $process = Start-Process -FilePath "msiexec.exe" -ArgumentList "/x `"$guid`" /qb /norestart" -Wait -PassThru
+          if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 3010) {
+            Log "WARNING: MSI uninstaller returned exit code $($process.ExitCode)"
+          }
+        } catch {
+          Log "WARNING: Failed to run msiexec for $guid`: $_"
+        }
+      } elseif ($quietUninstallString) {
+        Log "Running quiet uninstaller: $quietUninstallString"
+        try {
+          $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$quietUninstallString`"" -Wait -PassThru
+        } catch {
+          Log "WARNING: Failed to run quiet uninstaller: $_"
+        }
+      } elseif ($uninstallString) {
+        if ($uninstallString -match "msiexec" -and $uninstallString -match "(\{[0-9A-Fa-f\-]+\})") {
+          $guid = $Matches[1]
+          Log "Running MSI uninstaller for product code $guid"
+          try {
+            $process = Start-Process -FilePath "msiexec.exe" -ArgumentList "/x `"$guid`" /qb /norestart" -Wait -PassThru
+          } catch {
+            Log "WARNING: Failed to run msiexec: $_"
+          }
+        } else {
+          Log "Running uninstaller command: $uninstallString"
+          try {
+            $exe = $uninstallString.Trim('"')
+            if (Test-Path $exe) {
+              $process = Start-Process -FilePath $exe -ArgumentList "/S" -Wait -PassThru
+            } else {
+              $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$uninstallString /S`"" -Wait -PassThru
+            }
+          } catch {
+            Log "WARNING: Failed to run uninstaller string: $_"
+          }
+        }
+      }
+    }
+  }
+
+  # Clean up Start Menu and Desktop shortcuts
+  $ShortcutPaths = @(
+    (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Voquill.lnk"),
+    (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\voquill.lnk"),
+    (Join-Path $env:USERPROFILE "Desktop\Voquill.lnk"),
+    (Join-Path $env:USERPROFILE "Desktop\voquill.lnk"),
+    (Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs\Voquill.lnk"),
+    (Join-Path $env:Public "Desktop\Voquill.lnk")
+  )
+
+  foreach ($shortcut in $ShortcutPaths) {
+    if (Test-Path $shortcut) {
+      Remove-Item -Path $shortcut -Force -ErrorAction SilentlyContinue
+    }
+  }
+}
+
+function Clean-UserData {
+  $UserDataDir = Join-Path $env:USERPROFILE ".config\voquill-app"
+  if (-not (Test-Path $UserDataDir)) {
+    return
+  }
+  Log "Cleaning cached user data (keeping config.json and history.db)"
+  foreach ($dir in @("models", "python-runner", "debug")) {
+    $target = Join-Path $UserDataDir $dir
+    if (Test-Path $target) {
+      Log "  Removing ${dir}/"
+      Remove-Item -Path $target -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  }
+  Log "User data cleaned"
 }
 
 # Determine install type: setup.exe (default user-level, no admin needed) or MSI (system-wide)
@@ -151,6 +260,15 @@ if (-not $InsecureSkipVerify) {
   }
 } else {
   Log "WARNING: checksum verification disabled"
+}
+
+# Stop running process and remove previous installation before deploying new version
+Stop-RunningProcess
+Uninstall-ExistingVoquill
+
+if ($Clean -or $env:VOQUILL_CLEAN -eq "1" -or $env:VOQUILL_CLEAN -eq "true") {
+  Log "Clean mode enabled"
+  Clean-UserData
 }
 
 Log "Running installer"

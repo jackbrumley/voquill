@@ -52,6 +52,12 @@ optional_cmd() {
   command -v "$1" >/dev/null 2>&1
 }
 
+require_safe_path() {
+  local path="$1"
+  [[ -n "$path" ]] || fail "refusing empty path"
+  [[ "$path" != "/" ]] || fail "refusing root path"
+}
+
 run_as_root() {
   if [[ "$EUID" -eq 0 ]]; then
     "$@"
@@ -64,6 +70,17 @@ acquire_root() {
   if [[ "$EUID" -ne 0 ]]; then
     optional_cmd sudo || return 1
     sudo -v
+  fi
+}
+
+stop_running_process() {
+  if optional_cmd pgrep && pgrep -x voquill >/dev/null 2>&1; then
+    log "Stopping running Voquill process"
+    if optional_cmd pkill; then
+      pkill -TERM -x voquill >/dev/null 2>&1 || true
+      sleep 1
+      pkill -KILL -x voquill >/dev/null 2>&1 || true
+    fi
   fi
 }
 
@@ -104,29 +121,113 @@ fetch_latest_release_tag() {
   printf "%s" "$tag"
 }
 
-clean_old_packages() {
-  local pm="$1"
-  local removed=false
-  for pkg in "voquill" "org.voquill.desktop" "org.voquill.app" "org.voquill.foss"; do
-    if [[ "$pm" == "dnf" ]]; then
+uninstall_existing() {
+  log "Removing previous Voquill installation"
+  local has_root=false
+  if [[ "$EUID" -eq 0 ]] || optional_cmd sudo; then
+    has_root=true
+  fi
+
+  # 1. Remove packages via package manager
+  local package_names=("voquill" "org.voquill.desktop" "org.voquill.app" "org.voquill.foss")
+  for pkg in "${package_names[@]}"; do
+    if optional_cmd rpm && [[ "$has_root" == true ]]; then
       # Tauri converts dots to dashes in RPM package names, try both
       for rpm_name in "$pkg" "${pkg//./-}"; do
         if rpm -q "$rpm_name" >/dev/null 2>&1; then
           log "Removing old package: ${rpm_name}"
-          run_as_root dnf remove -y "$rpm_name" 2>/dev/null || true
-          removed=true
+          run_as_root dnf remove -y "$rpm_name" 2>/dev/null || run_as_root rpm -e "$rpm_name" 2>/dev/null || true
           break
         fi
       done
-    elif [[ "$pm" == "apt" ]] && dpkg -l "$pkg" >/dev/null 2>&1; then
+    fi
+    if optional_cmd dpkg && [[ "$has_root" == true ]] && dpkg -l "$pkg" >/dev/null 2>&1; then
       log "Removing old package: ${pkg}"
-      run_as_root apt remove -y "$pkg" 2>/dev/null || true
-      removed=true
+      run_as_root apt remove -y "$pkg" 2>/dev/null || run_as_root dpkg -r "$pkg" 2>/dev/null || true
     fi
   done
-  if [[ "$removed" == true ]]; then
-    log "Old packages removed"
-  fi
+
+  # 2. Clean leftover binaries across system and user locations
+  local binary_paths=(
+    "/usr/bin/voquill"
+    "/usr/local/bin/voquill"
+    "${HOME}/.local/bin/voquill"
+  )
+  for bpath in "${binary_paths[@]}"; do
+    require_safe_path "$bpath"
+    if [[ -e "$bpath" || -L "$bpath" ]]; then
+      log "Removing binary: ${bpath}"
+      if [[ "$bpath" == /usr/* ]]; then
+        if [[ "$has_root" == true ]]; then
+          run_as_root rm -f "$bpath" 2>/dev/null || true
+        fi
+      else
+        rm -f "$bpath" 2>/dev/null || true
+      fi
+    fi
+  done
+
+  # 3. Clean desktop integration files
+  local desktop_files=(
+    "/usr/share/applications/voquill.desktop"
+    "/usr/share/applications/org.voquill.desktop.desktop"
+    "/usr/share/applications/org.voquill.app.desktop"
+    "${HOME}/.local/share/applications/voquill.desktop"
+    "${HOME}/.local/share/applications/org.voquill.desktop.desktop"
+    "${HOME}/.local/share/applications/org.voquill.app.desktop"
+  )
+  for dfile in "${desktop_files[@]}"; do
+    require_safe_path "$dfile"
+    if [[ -e "$dfile" || -L "$dfile" ]]; then
+      log "Removing desktop entry: ${dfile}"
+      if [[ "$dfile" == /usr/share/* ]]; then
+        if [[ "$has_root" == true ]]; then
+          run_as_root rm -f "$dfile" 2>/dev/null || true
+        fi
+      else
+        rm -f "$dfile" 2>/dev/null || true
+      fi
+    fi
+  done
+
+  # 4. Clean icons
+  local icon_dirs=(
+    "/usr/share/icons/hicolor/scalable/apps"
+    "${HOME}/.local/share/icons/hicolor/scalable/apps"
+  )
+  for idir in "${icon_dirs[@]}"; do
+    require_safe_path "$idir"
+    for iname in "voquill.svg" "org.voquill.desktop.svg" "org.voquill.app.svg"; do
+      local ipath="${idir}/${iname}"
+      if [[ -e "$ipath" || -L "$ipath" ]]; then
+        log "Removing icon: ${ipath}"
+        if [[ "$ipath" == /usr/share/* ]]; then
+          if [[ "$has_root" == true ]]; then
+            run_as_root rm -f "$ipath" 2>/dev/null || true
+          fi
+        else
+          rm -f "$ipath" 2>/dev/null || true
+        fi
+      fi
+    done
+  done
+
+  # 5. Clean metainfo
+  local metainfo_files=(
+    "/usr/share/metainfo/org.voquill.desktop.metainfo.xml"
+    "/usr/share/appdata/org.voquill.desktop.metainfo.xml"
+    "/usr/share/metainfo/org.voquill.app.metainfo.xml"
+    "/usr/share/appdata/org.voquill.app.metainfo.xml"
+  )
+  for mfile in "${metainfo_files[@]}"; do
+    require_safe_path "$mfile"
+    if [[ -e "$mfile" || -L "$mfile" ]]; then
+      log "Removing metainfo: ${mfile}"
+      if [[ "$has_root" == true ]]; then
+        run_as_root rm -f "$mfile" 2>/dev/null || true
+      fi
+    fi
+  done
 }
 
 clean_user_data() {
@@ -285,15 +386,6 @@ else
   log "Non-interactive mode detected, continuing automatically"
 fi
 
-if [[ "$clean" == true ]]; then
-  log "Clean mode enabled"
-  if [[ "$install_system" == true ]]; then
-    acquire_root || fail "root/sudo permission required for --clean with --system"
-    clean_old_packages "$pm"
-  fi
-  clean_user_data
-fi
-
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -343,6 +435,15 @@ elif [[ -n "${release_tag:-}" ]]; then
   verify_checksum "$package_path" "$gh_asset_name"
 fi
 
+# Stop any running process and remove previous installation before deploying new version
+stop_running_process
+uninstall_existing
+
+if [[ "$clean" == true ]]; then
+  log "Clean mode enabled"
+  clean_user_data
+fi
+
 if [[ "$install_system" == true ]]; then
   log "Installing with ${pm} (system privileges required)"
 
@@ -369,9 +470,8 @@ else
     log "AppImage installed at ${appimage_path}"
 
     desktop_file="${desktop_dir}/voquill.desktop"
-    if [[ ! -f "$desktop_file" ]]; then
-      log "Creating desktop launcher"
-      cat > "$desktop_file" <<EOF
+    log "Creating desktop launcher"
+    cat > "$desktop_file" <<EOF
 [Desktop Entry]
 Name=Voquill
 Comment=Push-to-talk dictation app with local transcription
@@ -383,19 +483,16 @@ StartupWMClass=voquill
 Categories=Utility;Office;AudioVideo;
 StartupNotify=true
 EOF
-    fi
 
     icon_file="${icon_dir}/voquill.svg"
-    if [[ ! -f "$icon_file" ]]; then
-      log "Embedding icon from AppImage"
-      extraction_dir="${tmp_dir}/appimage-extract"
-      mkdir -p "$extraction_dir"
-      if "${appimage_path}" --appimage-extract >/dev/null 2>&1; then
-        find "$extraction_dir" -name "*.png" -o -name "*.svg" 2>/dev/null | head -n1 | while read -r ico; do
-          cp "$ico" "$icon_file" 2>/dev/null || true
-        done
-        rm -rf "$extraction_dir"
-      fi
+    log "Embedding icon from AppImage"
+    extraction_dir="${tmp_dir}/appimage-extract"
+    mkdir -p "$extraction_dir"
+    if (cd "$tmp_dir" && "${appimage_path}" --appimage-extract >/dev/null 2>&1); then
+      find "$extraction_dir" -name "*.png" -o -name "*.svg" 2>/dev/null | head -n1 | while read -r ico; do
+        cp "$ico" "$icon_file" 2>/dev/null || true
+      done
+      rm -rf "$extraction_dir"
     fi
   fi
 fi
@@ -414,6 +511,14 @@ if optional_cmd update-desktop-database; then
   else
     update-desktop-database "${HOME}/.local/share/applications" >/dev/null 2>&1 || true
   fi
+fi
+
+if optional_cmd kbuildsycoca6; then
+  log "Rebuilding KDE menu cache"
+  kbuildsycoca6 --noincremental >/dev/null 2>&1 || true
+elif optional_cmd kbuildsycoca5; then
+  log "Rebuilding KDE menu cache"
+  kbuildsycoca5 --noincremental >/dev/null 2>&1 || true
 fi
 
 if [[ "$install_system" == false ]] && [[ ":$PATH:" != *":${install_dir}:"* ]]; then
