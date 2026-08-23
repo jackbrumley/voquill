@@ -52,6 +52,21 @@ optional_cmd() {
   command -v "$1" >/dev/null 2>&1
 }
 
+run_as_root() {
+  if [[ "$EUID" -eq 0 ]]; then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
+
+acquire_root() {
+  if [[ "$EUID" -ne 0 ]]; then
+    optional_cmd sudo || return 1
+    sudo -v
+  fi
+}
+
 resolve_arch() {
   local arch
   arch="$(uname -m)"
@@ -98,14 +113,14 @@ clean_old_packages() {
       for rpm_name in "$pkg" "${pkg//./-}"; do
         if rpm -q "$rpm_name" >/dev/null 2>&1; then
           log "Removing old package: ${rpm_name}"
-          sudo dnf remove -y "$rpm_name" 2>/dev/null || true
+          run_as_root dnf remove -y "$rpm_name" 2>/dev/null || true
           removed=true
           break
         fi
       done
     elif [[ "$pm" == "apt" ]] && dpkg -l "$pkg" >/dev/null 2>&1; then
       log "Removing old package: ${pkg}"
-      sudo apt remove -y "$pkg" 2>/dev/null || true
+      run_as_root apt remove -y "$pkg" 2>/dev/null || true
       removed=true
     fi
   done
@@ -197,7 +212,7 @@ if [[ -z "$version" ]]; then
   fi
 fi
 
-# Resolve install mode: default to system if package manager + sudo available
+# Resolve install mode: default to system if package manager + root/sudo available
 if [[ "$install_appimage" == true ]]; then
   install_system=false
 elif [[ "$install_system" == true ]]; then
@@ -205,12 +220,26 @@ elif [[ "$install_system" == true ]]; then
   if [[ "$pm" == "none" ]]; then
     fail "No supported package manager found (dnf/apt). Use --appimage for user-local install."
   fi
+  if [[ "$EUID" -ne 0 ]]; then
+    log "System install requested; sudo may prompt for your password"
+    acquire_root || fail "failed to acquire sudo permission for system install"
+  fi
 else
   pm="$(detect_package_manager)"
-  if [[ "$pm" != "none" ]] && sudo -n true 2>/dev/null; then
-    install_system=true
+  if [[ "$pm" != "none" ]]; then
+    if [[ "$EUID" -eq 0 ]]; then
+      install_system=true
+    else
+      log "Package manager '${pm}' detected. Sudo may prompt for your password:"
+      if acquire_root; then
+        install_system=true
+      else
+        log "Sudo authentication unavailable. Falling back to AppImage."
+        install_system=false
+      fi
+    fi
   else
-    log "No package manager or sudo available. Falling back to AppImage."
+    log "No supported package manager found. Falling back to AppImage."
     install_system=false
   fi
 fi
@@ -259,8 +288,7 @@ fi
 if [[ "$clean" == true ]]; then
   log "Clean mode enabled"
   if [[ "$install_system" == true ]]; then
-    need_cmd sudo
-    sudo -v || fail "sudo permission required for --clean with --system"
+    acquire_root || fail "root/sudo permission required for --clean with --system"
     clean_old_packages "$pm"
   fi
   clean_user_data
@@ -316,14 +344,13 @@ elif [[ -n "${release_tag:-}" ]]; then
 fi
 
 if [[ "$install_system" == true ]]; then
-  need_cmd sudo
-  log "Installing with ${pm} (sudo required)"
+  log "Installing with ${pm} (system privileges required)"
 
   if [[ "$pm" == "dnf" ]]; then
-    sudo dnf install -y "$package_path"
+    run_as_root dnf install -y "$package_path"
   elif [[ "$pm" == "apt" ]]; then
-    sudo cp "$package_path" /var/cache/apt/archives/
-    sudo apt install -y "/var/cache/apt/archives/${BIN_NAME}.${package_ext}"
+    run_as_root cp "$package_path" /var/cache/apt/archives/
+    run_as_root apt install -y "/var/cache/apt/archives/${BIN_NAME}.${package_ext}"
   fi
 
   log "System installation complete via ${pm}"
@@ -375,7 +402,7 @@ fi
 
 if optional_cmd gtk-update-icon-cache; then
   if [[ "$install_system" == true ]]; then
-    sudo gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
+    run_as_root gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
   else
     gtk-update-icon-cache -f -t "${HOME}/.local/share/icons/hicolor" >/dev/null 2>&1 || true
   fi
@@ -383,7 +410,7 @@ fi
 
 if optional_cmd update-desktop-database; then
   if [[ "$install_system" == true ]]; then
-    sudo update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+    run_as_root update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
   else
     update-desktop-database "${HOME}/.local/share/applications" >/dev/null 2>&1 || true
   fi

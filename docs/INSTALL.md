@@ -11,39 +11,41 @@ container_class: home-container
 
 Voquill supports a one-command install flow from the website, matching the uninstall UX.
 
-## User Install (Recommended — No Admin/Sudo Required)
+## Linux Installation
 
-Installs Voquill in the current user context. Zero administrator privileges or `sudo` required.
-
-**Windows (PowerShell):**
-```powershell
-irm https://voquill.org/install.ps1 | iex
-```
-
-**Linux (AppImage):**
+### Native Package (.deb / .rpm) — Recommended
+Auto-detects `apt` or `dnf` and installs system-wide (prompts for sudo if required):
 ```bash
 curl -sf https://voquill.org/install.sh | bash
 ```
 
-## System Install (IT / Multi-User Deployment)
-
-Installs Voquill system-wide for all users on the machine. Requires administrator or `sudo` privileges.
-
-**Windows (MSI):**
-```powershell
-irm https://voquill.org/install-system.ps1 | iex
+### AppImage (User-Local / Standalone)
+Installs AppImage to `~/.local/bin` without requiring sudo or admin privileges:
+```bash
+curl -sf https://voquill.org/install.sh | bash -s -- --appimage
 ```
 
-**Linux (Package Manager — dnf/apt):**
-```bash
-curl -sf https://voquill.org/install.sh | sudo bash -s -- --system --yes
+## Windows Installation
+
+### User Install (Recommended — No Admin Required)
+Installs Voquill in the current user context:
+```powershell
+irm https://voquill.org/install.ps1 | iex
+```
+
+### System Install (MSI — All Users)
+Installs Voquill system-wide for all users on the machine (requires administrator privileges):
+```powershell
+irm https://voquill.org/install-system.ps1 | iex
 ```
 
 ## Script Options
 
 | Option (Linux) | Option (Windows) | Description |
 |----------------|------------------|-------------|
-| `--system` | `-System` | Install system-wide (requires admin / sudo) |
+| `--appimage` | — | Install AppImage to ~/.local/bin (no sudo) |
+| `--system` | `-System` | Force system-wide install (requires admin / sudo) |
+| `--clean` | `-Clean` | Remove old packages & clean cached models/data before installing |
 | `--version <tag>` | `-Version <tag>` | Install a specific release tag (e.g. `v1.5.0`) |
 | `--channel <name>` | — | Release channel: `latest` or `stable` (default: `latest`) |
 | `--yes` | — | Run non-interactively (skip confirmation prompts) |
@@ -55,7 +57,6 @@ curl -sf https://voquill.org/install.sh | sudo bash -s -- --system --yes
 | Variable | Description |
 |----------|-------------|
 | `VOQUILL_INSTALL_URL` | Full package URL override (skips GitHub API resolution) |
-| `VOQUILL_CHECKSUM_URL` | Full checksum URL override |
 
 ## Manual Installation
 
