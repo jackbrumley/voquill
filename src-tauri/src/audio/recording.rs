@@ -21,6 +21,7 @@ pub async fn record_audio_while_flag(
         let mut guard = engine.lock().unwrap();
         let eng = guard.as_mut().ok_or("Audio engine not initialized")?;
         sample_rate = eng.sample_rate;
+        // Drain pre-roll samples accumulated before recording started
         if let Ok(mut cons) = eng.pre_roll_consumer.lock() {
             while let Some(s) = cons.try_pop() {
                 samples.push(s);
@@ -60,9 +61,12 @@ pub async fn record_audio_while_flag(
         crate::log_info!("record_audio_while_flag: post-roll of {post_roll_ms}ms complete");
     }
 
+    // Close the recording channel — drops the sender in the callback,
+    // which makes rx.recv() return Err, terminating the drain thread.
     if let Some(eng) = engine.lock().unwrap().as_ref() {
         *eng.recording_tx.lock().unwrap() = None;
     }
+
     let raw_samples = data_rx.recv()?;
     crate::log_info!(
         "record_audio_while_flag: captured {} raw float samples at {}Hz",

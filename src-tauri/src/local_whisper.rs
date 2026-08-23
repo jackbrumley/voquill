@@ -1,4 +1,5 @@
 use crate::model_manager::ModelManager;
+use crate::text_cleanup;
 use crate::transcription::{TranscriptionError, TranscriptionService};
 use async_trait::async_trait;
 use std::path::PathBuf;
@@ -284,6 +285,7 @@ impl TranscriptionService for LocalWhisperService {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| TranscriptionError::Audio(e.to_string()))?;
 
+        let duration_secs = samples.len() as f64 / 16000.0;
         let model_path = self.model_path.clone();
 
         let outcome = ensure_model_loaded_with_fallback(
@@ -299,6 +301,23 @@ impl TranscriptionService for LocalWhisperService {
         if let Some(ref reason) = outcome.fell_back_from_gpu {
             crate::log_warn!("GPU transcription unavailable, using CPU: {}", reason);
         }
+
+        // ── Model-aware language pinning ──
+        // English-only models (e.g. small.en) should never run auto-detect:
+        // the multilingual vocabulary isn't available, and auto-detect can
+        // hallucinate early EOT on quiet speech onsets.
+        let resolved_language = if self.model_size.ends_with(".en") {
+            if language != Some("en") {
+                crate::log_info!(
+                    "Pinning language to 'en' for English-only model {} (was {:?})",
+                    self.model_size,
+                    language
+                );
+            }
+            Some("en")
+        } else {
+            language
+        };
 
         // ── Create a WhisperState from the cached context ──
         let mut state = {
@@ -318,11 +337,11 @@ impl TranscriptionService for LocalWhisperService {
             "Transcribe call #{}: state={}, language={:?}, prompt_present={}, no_context=true",
             call_id,
             state_ptr,
-            language,
+            resolved_language,
             prompt.is_some(),
         );
 
-        let owned_language = language.map(|l| l.to_string());
+        let owned_language = resolved_language.map(|l| l.to_string());
         let owned_prompt = prompt.map(|p| p.to_string());
 
         let load_elapsed = start_total.elapsed();
@@ -397,7 +416,26 @@ impl TranscriptionService for LocalWhisperService {
             text.len(),
         );
 
-        Ok(text.trim().to_string())
+        let trimmed = text.trim().to_string();
+
+        // ── Prompt fallback ──
+        // If the audio has meaningful content (>1s) but Whisper returned only
+        // punctuation or silence, and a prompt was provided, retry immediately
+        // without the prompt. The prompt can cause Whisper's cross-attention to
+        // latch onto prompt punctuation and emit an early EOT.
+        if !trimmed.is_empty()
+            && !text_cleanup::has_alphanumeric_content(&trimmed)
+            && duration_secs > 1.0
+            && prompt.is_some()
+        {
+            crate::log_info!(
+                "Prompt-induced silence detected (chars={}), retrying without prompt",
+                trimmed.len()
+            );
+            return self.transcribe(audio_data, Some("en"), None).await;
+        }
+
+        Ok(trimmed)
     }
 
     fn service_name(&self) -> &'static str {

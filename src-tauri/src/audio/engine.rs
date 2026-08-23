@@ -59,15 +59,18 @@ impl PersistentAudioEngine {
         let channels_usize = channels as usize;
 
         let mut audio_callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
+            // Lock recording_tx ONCE per callback buffer (~512 samples / ~11ms)
+            // instead of per-sample, to eliminate lock contention on the audio thread.
+            let guard = recording_tx_clone.try_lock();
+            let recording_tx_ref = guard.as_ref().ok().and_then(|g| g.as_ref());
+
             for frame in data.chunks(channels_usize) {
                 let sample_raw: f32 = frame.iter().sum::<f32>() / channels_usize as f32;
                 let sample = sample_raw * sensitivity;
 
                 let _ = pre_roll_prod.try_push(sample);
-                if let Ok(guard) = recording_tx_clone.try_lock() {
-                    if let Some(tx) = guard.as_ref() {
-                        let _ = tx.try_send(sample);
-                    }
+                if let Some(tx) = recording_tx_ref {
+                    let _ = tx.try_send(sample);
                 }
             }
         };

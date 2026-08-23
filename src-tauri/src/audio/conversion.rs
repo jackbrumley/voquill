@@ -1,5 +1,5 @@
 use hound::{WavSpec, WavWriter};
-use rubato::{FftFixedInOut, Resampler};
+use rubato::{InterpolationParameters, InterpolationType, Resampler, SincFixedOut, WindowFunction};
 
 use super::decode::decode_compressed_audio;
 
@@ -30,17 +30,63 @@ fn is_wav_file(data: &[u8]) -> bool {
     data.len() >= 12 && &data[0..4] == b"RIFF" && &data[8..12] == b"WAVE"
 }
 
-fn normalize_peak(samples: &[f32]) -> Vec<f32> {
+fn normalize_audio(samples: &[f32]) -> Vec<f32> {
+    if samples.is_empty() {
+        return samples.to_vec();
+    }
+
     let peak = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
     if peak < f32::EPSILON {
         return samples.to_vec();
     }
-    let gain = (1.0 / peak).min(10.0);
+
+    let mut sorted_abs: Vec<f32> = samples.iter().map(|s| s.abs()).collect();
+    sorted_abs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let p99_5_idx = (sorted_abs.len() as f64 * 0.995).round() as usize;
+    let p99_5_peak = sorted_abs[p99_5_idx.min(sorted_abs.len() - 1)];
+
+    let active_samples: Vec<&f32> = samples.iter().filter(|&&s| s.abs() > 0.02).collect();
+    let active_rms = if active_samples.is_empty() {
+        return samples.to_vec();
+    } else {
+        let sum_sq: f32 = active_samples.iter().map(|&&s| s * s).sum();
+        (sum_sq / active_samples.len() as f32).sqrt()
+    };
+
+    const TARGET_RMS: f32 = 0.18;
+    const MAX_GAIN: f32 = 10.0;
+
+    let rms_gain = TARGET_RMS / active_rms;
+    let safety_gain = 1.0 / p99_5_peak;
+    let gain = rms_gain.min(safety_gain).min(MAX_GAIN);
+
     if (gain - 1.0).abs() < f32::EPSILON {
         return samples.to_vec();
     }
-    crate::log_info!("Normalizing audio: peak={:.6}, gain={:.2}", peak, gain);
-    samples.iter().map(|s| s * gain).collect()
+
+    crate::log_info!(
+        "Normalizing audio: peak={:.4}, p99.5={:.4}, active_rms={:.4}, gain={:.2}",
+        peak,
+        p99_5_peak,
+        active_rms,
+        gain,
+    );
+
+    let limit_threshold = 0.95f32;
+    samples
+        .iter()
+        .map(|&s| {
+            let scaled = s * gain;
+            let abs = scaled.abs();
+            if abs > limit_threshold {
+                let over = (abs - limit_threshold) / (1.0 - limit_threshold);
+                let limited = limit_threshold + (1.0 - limit_threshold) * (over / (over + 1.0));
+                scaled.signum() * limited
+            } else {
+                scaled
+            }
+        })
+        .collect()
 }
 
 fn downmix_to_mono(samples: &[f32], channels: usize) -> Vec<f32> {
@@ -181,7 +227,7 @@ pub fn convert_audio_for_whisper(
 /// Finalize in-memory float audio samples for whisper:
 /// - Skips resampling if the stream is already 16,000Hz (0ms latency).
 /// - Resamples with band-limited FFT if not 16,000Hz.
-/// - Normalizes peak amplitude up to 1.0 (max 10x gain).
+/// - Normalizes using 99.5th percentile peak and active speech RMS with soft limiting.
 /// - Writes single 16-bit mono 16kHz PCM WAV.
 pub fn finalize_captured_audio_for_whisper(
     samples: &[f32],
@@ -198,7 +244,7 @@ pub fn finalize_captured_audio_for_whisper(
         samples.to_vec()
     };
 
-    let normalized = normalize_peak(&resampled);
+    let normalized = normalize_audio(&resampled);
     let peak = normalized.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
     let rms = if normalized.is_empty() {
         0.0
@@ -218,35 +264,45 @@ pub fn finalize_captured_audio_for_whisper(
         .collect();
     write_whisper_wav(&samples_i16)
 }
-
 pub fn resample_audio_f32(samples: &[f32], from: u32, to: u32) -> Vec<f32> {
     if from == to || samples.is_empty() {
         return samples.to_vec();
     }
-    let mut resampler = FftFixedInOut::<f32>::new(from as usize, to as usize, 1024, 1);
-    let frames_needed = resampler.nbr_frames_needed();
-    let expected_output_len = (samples.len() as f64 * to as f64 / from as f64).round() as usize;
-    let mut output = Vec::with_capacity(expected_output_len + frames_needed);
 
+    let params = InterpolationParameters {
+        sinc_len: 64,
+        f_cutoff: 0.95,
+        interpolation: InterpolationType::Linear,
+        oversampling_factor: 16,
+        window: WindowFunction::BlackmanHarris2,
+    };
+    let ratio = to as f64 / from as f64;
+    let chunk_size = 1024;
+    let mut resampler = SincFixedOut::<f32>::new(ratio, params, chunk_size, 1);
+
+    let expected_output_len = (samples.len() as f64 * ratio).round() as usize;
+    let mut output = Vec::with_capacity(expected_output_len + chunk_size);
     let mut pos = 0;
+
     while pos < samples.len() {
-        let end = (pos + frames_needed).min(samples.len());
-        let chunk = &samples[pos..end];
-        let input_chunk = if chunk.len() < frames_needed {
-            let mut padded = chunk.to_vec();
-            padded.resize(frames_needed, 0.0);
+        let needed = resampler.nbr_frames_needed();
+        let end = (pos + needed).min(samples.len());
+        let chunk = samples[pos..end].to_vec();
+        let input_chunk = if chunk.len() < needed {
+            let mut padded = chunk;
+            padded.resize(needed, 0.0);
             padded
         } else {
-            chunk.to_vec()
+            chunk
         };
 
         let resampled = resampler
             .process(&[input_chunk])
-            .expect("Rubato FFT resampling failed");
+            .expect("SincFixedOut resampling failed");
         if let Some(chan) = resampled.into_iter().next() {
-            output.extend_from_slice(&chan);
+            output.extend(chan);
         }
-        pos += frames_needed;
+        pos += needed;
     }
 
     output.truncate(expected_output_len);
