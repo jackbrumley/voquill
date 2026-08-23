@@ -439,12 +439,15 @@ h1 {
 }
 
 .download-primary-row .btn {
-  box-shadow: 0 4px 22px rgba(14, 163, 113, 0.38);
-  padding: 0.82rem 2.25rem;
+  background-color: var(--colors-accent-hover);
+  padding: 0.45rem 1.25rem;
+  font-size: 0.85rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
 }
 
 .download-primary-row .btn:hover {
-  box-shadow: 0 6px 28px rgba(16, 185, 129, 0.58);
+  background-color: var(--colors-accent-primary);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
 }
 
 .download-secondary-row {
