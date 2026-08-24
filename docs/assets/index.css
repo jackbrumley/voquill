@@ -63,18 +63,9 @@ h1 {
   max-width: 100%;
 }
 
-.install-heading {
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.3em;
-  color: rgba(255, 255, 255, 0.3);
-  text-transform: uppercase;
-  flex: 0 0 60px;
-  text-align: left;
-}
-
 .platform-row {
   display: flex;
+  justify-content: center;
   align-items: center;
   width: 100%;
   max-width: 680px;
@@ -84,15 +75,10 @@ h1 {
 .platform-labels {
   display: flex;
   justify-content: center;
-  flex: 1;
   position: relative;
   gap: 1.25rem;
   align-items: center;
   padding-bottom: 4px;
-}
-
-.platform-spacer {
-  flex: 0 0 60px;
 }
 
 .platform-label {
@@ -737,6 +723,24 @@ h1 {
 
 .install-variant-btn.active {
   color: var(--colors-accent-primary);
+}
+
+.install-hint {
+  margin: 0.65rem auto 0.35rem;
+  font-size: 0.82rem;
+  color: var(--colors-text-muted);
+  text-align: left;
+  line-height: 1.4;
+  width: 100%;
+  max-width: 680px;
+  min-height: 1.2em;
+  padding: 0 0.25rem;
+  box-sizing: border-box;
+}
+
+.install-hint strong {
+  color: #e2e8f0;
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {

@@ -27,6 +27,8 @@ curl -sf https://voquill.org/install.sh | bash -s -- --appimage
 
 ## Windows Installation
 
+Open **PowerShell** or **Windows Terminal**, paste the command, and press <kbd>Enter</kbd>:
+
 ### User Install (Recommended — No Admin Required)
 Installs Voquill in the current user context:
 ```powershell

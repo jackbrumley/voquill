@@ -34,6 +34,11 @@
     },
   };
 
+  var HINTS = {
+    windows: 'Run in <strong>PowerShell</strong> or <strong>Windows Terminal</strong>:',
+    linux: 'Run in <strong>Terminal</strong>:',
+  };
+
   var COPY_ICON =
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
     '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>' +
@@ -49,6 +54,7 @@
   var codeBlock = document.getElementById('install-code');
   var copyBtn = document.getElementById('install-copy-btn');
   var variantContainer = document.getElementById('install-variants');
+  var hintBlock = document.getElementById('install-hint');
   var indicator = document.getElementById('platform-tab-indicator');
   var labelsContainer = document.getElementById('platform-labels');
 
@@ -101,6 +107,10 @@
       codeBlock.textContent = PLACEHOLDER;
       codeBlock.classList.add('placeholder');
       variantContainer.innerHTML = '';
+      if (hintBlock) {
+        hintBlock.innerHTML = '';
+        hintBlock.style.display = 'none';
+      }
       copyBtn.style.display = 'none';
       for (var p0 = 0; p0 < platformLabels.length; p0++) {
         platformLabels[p0].classList.remove('active');
@@ -125,6 +135,15 @@
       variant = platform[keys[0]];
     }
     setCodeText(variant.command);
+    if (hintBlock) {
+      if (HINTS[selectedPlatform]) {
+        hintBlock.innerHTML = HINTS[selectedPlatform];
+        hintBlock.style.display = '';
+      } else {
+        hintBlock.innerHTML = '';
+        hintBlock.style.display = 'none';
+      }
+    }
     updateVariantButtons();
     updateIndicator();
   }
