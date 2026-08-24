@@ -34,11 +34,6 @@
     },
   };
 
-  var HINTS = {
-    windows: 'Run in <strong>PowerShell</strong> or <strong>Windows Terminal</strong>:',
-    linux: 'Run in <strong>Terminal</strong>:',
-  };
-
   var COPY_ICON =
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
     '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>' +
@@ -102,6 +97,29 @@
     codeBlock.textContent = text;
   }
 
+  function getHintText(platform, variant) {
+    var action = variant === 'uninstall' ? 'To uninstall, run in' : 'To install, run in';
+    if (platform === 'windows') {
+      return action + ' <strong>PowerShell</strong> or <strong>Windows Terminal</strong>:';
+    }
+    if (platform === 'linux') {
+      return action + ' <strong>Terminal</strong>:';
+    }
+    return '';
+  }
+
+  function updateHint() {
+    if (!hintBlock) return;
+    var hint = getHintText(selectedPlatform, selectedVariant);
+    if (hint) {
+      hintBlock.innerHTML = hint;
+      hintBlock.style.display = '';
+    } else {
+      hintBlock.innerHTML = '';
+      hintBlock.style.display = 'none';
+    }
+  }
+
   function renderCommand() {
     if (!selectedPlatform) {
       codeBlock.textContent = PLACEHOLDER;
@@ -135,15 +153,7 @@
       variant = platform[keys[0]];
     }
     setCodeText(variant.command);
-    if (hintBlock) {
-      if (HINTS[selectedPlatform]) {
-        hintBlock.innerHTML = HINTS[selectedPlatform];
-        hintBlock.style.display = '';
-      } else {
-        hintBlock.innerHTML = '';
-        hintBlock.style.display = 'none';
-      }
-    }
+    updateHint();
     updateVariantButtons();
     updateIndicator();
   }
@@ -189,6 +199,7 @@
     if (platform && platform[selectedVariant]) {
       setCodeText(platform[selectedVariant].command);
     }
+    updateHint();
   }
 
   function onCopyClick() {
