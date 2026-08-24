@@ -98,12 +98,17 @@
   }
 
   function getHintText(platform, variant) {
-    var action = variant === 'uninstall' ? 'To uninstall, run in' : 'To install, run in';
     if (platform === 'windows') {
-      return action + ' <strong>PowerShell</strong> or <strong>Windows Terminal</strong>:';
+      if (variant === 'system') {
+        return 'Open <strong>PowerShell as Administrator</strong> and run:';
+      }
+      if (variant === 'uninstall') {
+        return 'Open <strong>PowerShell</strong> and run:';
+      }
+      return 'Open <strong>PowerShell</strong> or <strong>Windows Terminal</strong> and run:';
     }
     if (platform === 'linux') {
-      return action + ' <strong>Terminal</strong>:';
+      return 'Open <strong>Terminal</strong> and run:';
     }
     return '';
   }
