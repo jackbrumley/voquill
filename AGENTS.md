@@ -91,6 +91,12 @@ This pattern keeps the codebase clean as new distros, compositor versions, or po
 ### 7. Architecture-First, No Band-Aids
 If implementing a feature or fix requires an architectural change, the architectural change must be made first. Do not implement features in a way that circumvents the current architecture because it is easier or faster. A correct feature on a correct architecture is the only acceptable outcome. If a full-stack refactor is required, do the full-stack refactor. This is non-negotiable. A feature jammed in with a shim or workaround is not a feature -- it is technical debt that will need to be undone later at greater cost.
 
+### 9. Single Source of Truth & Zero UI Domain Drift (Anti-Duplication)
+UI visualizers, indicators, meters, and status badges must NEVER re-implement, simulate, or approximate backend domain algorithms with ad-hoc frontend logic.
+- **Backend Authority:** If the backend owns an acoustic, mathematical, or stateful decision (e.g., Voice Activation Detection, envelope smoothing, hysteresis, hangover timers, key emulation, readiness gating, or text cleanup), the backend is the sole source of truth.
+- **No Parallel Business Logic:** Never compute an independent `is_triggered`, `is_ready`, or `is_valid` state in TypeScript/Preact if that concept is decided by the backend. The backend must compute and emit the authoritative state (e.g., emitting `{ volume: f32, is_triggered: bool }`), and the UI must purely render that payload.
+- **Zero Semantic Drift:** If a visual gauge in Settings represents a background capability (such as Voice Activation Threshold), what the user sees in the UI must be powered by the exact same engine running in production. Any divergence between what the UI displays and how the backend executes is a critical architectural defect.
+
 ---
 
 ## Pre-Submit Verification (Mandatory)

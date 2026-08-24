@@ -79,10 +79,11 @@ pub async fn record_audio_while_flag(
 pub async fn record_mic_test<F>(
     is_mic_test: &Arc<Mutex<bool>>,
     engine: Arc<Mutex<Option<PersistentAudioEngine>>>,
+    threshold: f32,
     on_volume: F,
 ) -> Result<Vec<f32>, Box<dyn std::error::Error + Send + Sync>>
 where
-    F: Fn(f32) + Send + 'static,
+    F: Fn(super::vad::MicVolumePayload) + Send + 'static,
 {
     let (tx, rx) = mpsc::sync_channel::<f32>(65536);
     let sample_rate;
@@ -96,19 +97,19 @@ where
     let (data_tx, data_rx) = mpsc::channel::<Vec<f32>>();
     std::thread::spawn(move || {
         let mut samples = Vec::new();
-        let mut peak = 0.0f32;
-        let mut count = 0;
-        let throttle_window = 800;
+        let mut vad = super::vad::VoiceActivityDetector::new();
+        let frame_size = (sample_rate as f32 * 0.03) as usize; // 30ms frame
+        let mut frame = Vec::with_capacity(frame_size);
+
         while let Ok(s) = rx.recv() {
-            let abs_s = s.abs();
-            if abs_s > peak {
-                peak = abs_s;
-            }
-            count += 1;
-            if count >= throttle_window {
-                on_volume(peak);
-                peak = 0.0;
-                count = 0;
+            frame.push(s);
+            if frame.len() >= frame_size {
+                let vad_res = vad.process_frame(&frame, threshold);
+                on_volume(super::vad::MicVolumePayload {
+                    volume: vad_res.smoothed_rms,
+                    is_triggered: vad_res.is_speaking,
+                });
+                frame.clear();
             }
             samples.push(s);
         }

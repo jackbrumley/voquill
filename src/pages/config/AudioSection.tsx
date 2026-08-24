@@ -18,6 +18,7 @@ interface AudioSectionProps {
   loadSpeakers?: () => void;
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
+  isMicTriggered?: boolean;
   startMicTest: () => void;
   stopMicTest: () => void;
   stopMicPlayback: () => void;
@@ -32,6 +33,7 @@ export function AudioSection({
   loadSpeakers,
   micTestStatus,
   micVolume,
+  isMicTriggered,
   startMicTest,
   stopMicTest,
   stopMicPlayback,
@@ -70,8 +72,11 @@ export function AudioSection({
         <MicSetupPanel
           inputSensitivity={config.input_sensitivity}
           onInputSensitivityChange={(value) => updateConfig('input_sensitivity', value)}
+          voiceMacroActivationThreshold={config.voice_macro_activation_threshold}
+          onVoiceMacroActivationThresholdChange={(value) => updateConfig('voice_macro_activation_threshold', value)}
           micTestStatus={micTestStatus}
           micVolume={micVolume}
+          isMicTriggered={isMicTriggered}
           onStartMicTest={startMicTest}
           onStopMicTest={stopMicTest}
           onStopMicPlayback={stopMicPlayback}

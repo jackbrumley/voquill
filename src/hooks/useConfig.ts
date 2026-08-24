@@ -73,6 +73,12 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     diarization_enabled_files: false,
     diarization_enabled_recording: false,
     diarization_cluster_threshold: 0.7,
+    voice_macros_enabled: false,
+    voice_macro_trigger_word: '',
+    voice_macro_sound_feedback: true,
+    voice_macro_suppress_overlay: true,
+    voice_macro_activation_threshold: 0.035,
+    voice_macros: [],
   });
   const availableEngines = useSignal<string[]>([]);
   const availableModels = useSignal<ModelInfo[]>([]);

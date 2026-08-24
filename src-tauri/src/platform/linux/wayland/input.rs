@@ -10,6 +10,8 @@ use crate::AppState;
 
 const XK_SHIFT_L: i32 = 0xFFE1;
 const XK_CONTROL_L: i32 = 0xFFE3;
+const XK_ALT_L: i32 = 0xFFE9;
+const XK_SUPER_L: i32 = 0xFFEB;
 const XK_INSERT: i32 = 0xFF63;
 const XK_V: i32 = 0x76;
 
@@ -25,6 +27,19 @@ pub enum WaylandInputRequest {
     TypeText(WaylandTypeRequest),
     SendPasteShortcut {
         shortcut: crate::config::PasteShortcut,
+        response: tokio::sync::oneshot::Sender<Result<(), String>>,
+    },
+    SendKeyCombination {
+        combination: String,
+        hold_duration_ms: u64,
+        response: tokio::sync::oneshot::Sender<Result<(), String>>,
+    },
+    SendKeyDown {
+        key: String,
+        response: tokio::sync::oneshot::Sender<Result<(), String>>,
+    },
+    SendKeyUp {
+        key: String,
         response: tokio::sync::oneshot::Sender<Result<(), String>>,
     },
 }
@@ -260,6 +275,36 @@ pub async fn establish_input_session(
                             }
                             let _ = response.send(res);
                         }
+                        WaylandInputRequest::SendKeyCombination { combination, hold_duration_ms, response } => {
+                            crate::log_info!("[Event Loop] Received SendKeyCombination request ('{}'), sending through portal...", combination);
+                            let res = send_key_combination_over_portal(
+                                &current_remote_desktop,
+                                &current_session,
+                                &combination,
+                                hold_duration_ms,
+                            ).await;
+                            match &res {
+                                Ok(()) => crate::log_info!("[Event Loop] SendKeyCombination portal call succeeded"),
+                                Err(e) => crate::log_warn!("[Event Loop] SendKeyCombination portal call failed: {}", e),
+                            }
+                            let _ = response.send(res);
+                        }
+                        WaylandInputRequest::SendKeyDown { key, response } => {
+                            crate::log_info!("[Event Loop] Received SendKeyDown request ('{}')", key);
+                            let res = match parse_wayland_keysym(&key) {
+                                Ok(sym) => send_key(&current_remote_desktop, &current_session, sym, KeyState::Pressed).await,
+                                Err(e) => Err(e),
+                            };
+                            let _ = response.send(res);
+                        }
+                        WaylandInputRequest::SendKeyUp { key, response } => {
+                            crate::log_info!("[Event Loop] Received SendKeyUp request ('{}')", key);
+                            let res = match parse_wayland_keysym(&key) {
+                                Ok(sym) => send_key(&current_remote_desktop, &current_session, sym, KeyState::Released).await,
+                                Err(e) => Err(e),
+                            };
+                            let _ = response.send(res);
+                        }
                     }
                 }
             }
@@ -394,6 +439,118 @@ pub async fn send_paste_shortcut(
             crate::log_warn!("{}", msg);
             Err(msg)
         }
+    }
+}
+
+pub async fn send_key_combination(
+    app_handle: &tauri::AppHandle,
+    combination: &str,
+    hold_duration_ms: u64,
+) -> Result<(), String> {
+    crate::log_info!(
+        "send_key_combination: starting portal call for '{}'",
+        combination
+    );
+    let sender = {
+        let state = app_handle.state::<AppState>();
+        let sender_lock = state.wayland_input_sender.lock().unwrap();
+        sender_lock.clone()
+    };
+
+    let sender = match sender {
+        Some(s) => s,
+        None => {
+            let msg =
+                "Wayland input emulation is not active. Complete input setup to enable macro execution."
+                    .to_string();
+            crate::log_warn!("send_key_combination: FAILED - {}", msg);
+            return Err(msg);
+        }
+    };
+
+    let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
+    if let Err(e) = sender.send(WaylandInputRequest::SendKeyCombination {
+        combination: combination.to_string(),
+        hold_duration_ms,
+        response: response_sender,
+    }) {
+        let msg = "Wayland input emulation session is unavailable.".to_string();
+        crate::log_warn!("send_key_combination: channel send failed: {}", e);
+        return Err(msg);
+    }
+
+    match response_receiver.await {
+        Ok(Ok(())) => {
+            crate::log_info!("send_key_combination: portal key combination completed successfully");
+            Ok(())
+        }
+        Ok(Err(e)) => {
+            crate::log_warn!("send_key_combination: portal key combination failed: {}", e);
+            Err(e)
+        }
+        Err(e) => {
+            let msg = format!("send_key_combination: response channel closed: {}", e);
+            crate::log_warn!("{}", msg);
+            Err(msg)
+        }
+    }
+}
+
+pub async fn send_key_down(app_handle: &tauri::AppHandle, key: &str) -> Result<(), String> {
+    crate::log_info!("send_key_down: starting portal call for '{}'", key);
+    let sender = {
+        let state = app_handle.state::<AppState>();
+        let sender_lock = state.wayland_input_sender.lock().unwrap();
+        sender_lock.clone()
+    }
+    .ok_or_else(|| {
+        "Wayland input emulation is not active. Complete input setup to enable macro execution."
+            .to_string()
+    })?;
+
+    let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
+    if let Err(e) = sender.send(WaylandInputRequest::SendKeyDown {
+        key: key.to_string(),
+        response: response_sender,
+    }) {
+        let msg = "Wayland input emulation session is unavailable.".to_string();
+        crate::log_warn!("send_key_down: channel send failed: {}", e);
+        return Err(msg);
+    }
+
+    match response_receiver.await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(e)) => Err(e),
+        Err(e) => Err(format!("send_key_down: response channel closed: {}", e)),
+    }
+}
+
+pub async fn send_key_up(app_handle: &tauri::AppHandle, key: &str) -> Result<(), String> {
+    crate::log_info!("send_key_up: starting portal call for '{}'", key);
+    let sender = {
+        let state = app_handle.state::<AppState>();
+        let sender_lock = state.wayland_input_sender.lock().unwrap();
+        sender_lock.clone()
+    }
+    .ok_or_else(|| {
+        "Wayland input emulation is not active. Complete input setup to enable macro execution."
+            .to_string()
+    })?;
+
+    let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
+    if let Err(e) = sender.send(WaylandInputRequest::SendKeyUp {
+        key: key.to_string(),
+        response: response_sender,
+    }) {
+        let msg = "Wayland input emulation session is unavailable.".to_string();
+        crate::log_warn!("send_key_up: channel send failed: {}", e);
+        return Err(msg);
+    }
+
+    match response_receiver.await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(e)) => Err(e),
+        Err(e) => Err(format!("send_key_up: response channel closed: {}", e)),
     }
 }
 
@@ -585,6 +742,142 @@ async fn send_paste_shortcut_over_portal(
     }
 
     crate::log_info!("[Wayland Portal] send_paste_shortcut_over_portal: sequence complete");
+    Ok(())
+}
+
+fn parse_wayland_keysym(token: &str) -> Result<i32, String> {
+    let lower = token.trim().to_lowercase();
+    let stripped = lower.strip_prefix("key").unwrap_or(&lower);
+    let stripped_digit = stripped.strip_prefix("digit").unwrap_or(stripped);
+    let stripped_num = stripped_digit.strip_prefix("num").unwrap_or(stripped_digit);
+
+    if stripped_num.len() == 1 {
+        let ch = stripped_num.chars().next().unwrap();
+        if ch.is_ascii_alphabetic() {
+            return Ok(ch.to_ascii_lowercase() as i32);
+        }
+        if ch.is_ascii_digit() {
+            return Ok(ch as i32);
+        }
+        match ch {
+            ' ' => return Ok(0x0020),
+            '.' => return Ok(0x002e),
+            ',' => return Ok(0x002c),
+            ';' => return Ok(0x003b),
+            '/' => return Ok(0x002f),
+            '[' => return Ok(0x005b),
+            ']' => return Ok(0x005d),
+            '\\' => return Ok(0x005c),
+            '-' => return Ok(0x002d),
+            '=' => return Ok(0x003d),
+            '`' => return Ok(0x0060),
+            '\'' => return Ok(0x0027),
+            _ => {}
+        }
+    }
+
+    match lower.as_str() {
+        "ctrl" | "control" | "lctrl" | "rctrl" => Ok(XK_CONTROL_L),
+        "shift" | "lshift" | "rshift" => Ok(XK_SHIFT_L),
+        "alt" | "menu" | "lalt" | "ralt" => Ok(XK_ALT_L),
+        "super" | "win" | "cmd" | "meta" => Ok(XK_SUPER_L),
+        "space" => Ok(0x0020),
+        "enter" | "return" => Ok(0xFF0D),
+        "tab" => Ok(0xFF09),
+        "esc" | "escape" => Ok(0xFF1B),
+        "backspace" => Ok(0xFF08),
+        "delete" | "del" => Ok(0xFFFF),
+        "insert" | "ins" => Ok(0xFF63),
+        "home" => Ok(0xFF50),
+        "end" => Ok(0xFF57),
+        "pageup" | "pgup" => Ok(0xFF55),
+        "pagedown" | "pgdn" => Ok(0xFF56),
+        "up" | "arrowup" => Ok(0xFF52),
+        "down" | "arrowdown" => Ok(0xFF54),
+        "left" | "arrowleft" => Ok(0xFF51),
+        "right" | "arrowright" => Ok(0xFF53),
+        "f1" => Ok(0xFFBE),
+        "f2" => Ok(0xFFBF),
+        "f3" => Ok(0xFFC0),
+        "f4" => Ok(0xFFC1),
+        "f5" => Ok(0xFFC2),
+        "f6" => Ok(0xFFC3),
+        "f7" => Ok(0xFFC4),
+        "f8" => Ok(0xFFC5),
+        "f9" => Ok(0xFFC6),
+        "f10" => Ok(0xFFC7),
+        "f11" => Ok(0xFFC8),
+        "f12" => Ok(0xFFC9),
+        _ => Err(format!(
+            "Unrecognized key token '{token}'. Expected a valid key (e.g. F1-F12, Ctrl, Alt, Shift, Super, A-Z, 0-9, Space, Enter, Tab, Escape, etc.)"
+        )),
+    }
+}
+
+async fn send_key_combination_over_portal(
+    remote_desktop: &RemoteDesktop<'_>,
+    session: &ashpd::desktop::Session<'_, RemoteDesktop<'_>>,
+    combination: &str,
+    hold_duration_ms: u64,
+) -> Result<(), String> {
+    let hold = Duration::from_millis(hold_duration_ms.max(20));
+    let parts: Vec<&str> = combination
+        .split('+')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect();
+    if parts.is_empty() {
+        return Err("Empty key combination".into());
+    }
+
+    let mut modifier_keysyms = Vec::new();
+    let mut main_keysyms = Vec::new();
+
+    for part in parts {
+        let keysym = parse_wayland_keysym(part)?;
+        if keysym == XK_CONTROL_L
+            || keysym == XK_SHIFT_L
+            || keysym == XK_ALT_L
+            || keysym == XK_SUPER_L
+        {
+            if !modifier_keysyms.contains(&keysym) {
+                modifier_keysyms.push(keysym);
+            }
+        } else {
+            main_keysyms.push(keysym);
+        }
+    }
+
+    crate::log_info!(
+        "[Wayland Portal] Sending key combination '{}' (modifiers: {}, keys: {}, hold: {}ms)",
+        combination,
+        modifier_keysyms.len(),
+        main_keysyms.len(),
+        hold_duration_ms
+    );
+
+    for &mod_sym in &modifier_keysyms {
+        send_key(remote_desktop, session, mod_sym, KeyState::Pressed).await?;
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    for &sym in &main_keysyms {
+        send_key(remote_desktop, session, sym, KeyState::Pressed).await?;
+    }
+
+    tokio::time::sleep(hold).await;
+
+    for &sym in main_keysyms.iter().rev() {
+        send_key(remote_desktop, session, sym, KeyState::Released).await?;
+    }
+
+    tokio::time::sleep(Duration::from_millis(10)).await;
+
+    for &mod_sym in modifier_keysyms.iter().rev() {
+        send_key(remote_desktop, session, mod_sym, KeyState::Released).await?;
+    }
+
+    crate::log_info!("[Wayland Portal] Key combination complete");
     Ok(())
 }
 

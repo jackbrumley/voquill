@@ -54,6 +54,70 @@ pub struct PostProcessPrompt {
     pub max_output_tokens: Option<u32>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type")]
+pub enum MacroStep {
+    KeyPress {
+        key: String,
+        #[serde(default = "default_macro_step_hold_ms")]
+        hold_ms: u64,
+    },
+    KeyDown {
+        key: String,
+    },
+    KeyUp {
+        key: String,
+    },
+    Delay {
+        duration_ms: u64,
+    },
+    TypeText {
+        text: String,
+    },
+}
+
+fn default_macro_step_hold_ms() -> u64 {
+    50
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct VoiceMacroCommand {
+    pub id: String,
+    pub phrase: String,
+    #[serde(default)]
+    pub steps: Vec<MacroStep>,
+    #[serde(default)]
+    pub key_combination: Option<String>,
+    #[serde(default)]
+    pub hold_ms: Option<u64>,
+    #[serde(default)]
+    pub delay_after_ms: Option<u64>,
+}
+
+impl VoiceMacroCommand {
+    pub fn resolve_steps(&self) -> Vec<MacroStep> {
+        if !self.steps.is_empty() {
+            return self.steps.clone();
+        }
+        if let Some(ref combo) = self.key_combination {
+            if !combo.trim().is_empty() {
+                let hold = self.hold_ms.unwrap_or(50);
+                let mut steps = vec![MacroStep::KeyPress {
+                    key: combo.clone(),
+                    hold_ms: hold,
+                }];
+                if let Some(delay) = self.delay_after_ms {
+                    if delay > 0 {
+                        steps.push(MacroStep::Delay { duration_ms: delay });
+                    }
+                }
+                return steps;
+            }
+        }
+        Vec::new()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default = "default_api_key")]
@@ -160,6 +224,18 @@ pub struct Config {
     pub diarization_enabled_recording: bool,
     #[serde(default = "default_diarization_cluster_threshold")]
     pub diarization_cluster_threshold: f32,
+    #[serde(default)]
+    pub voice_macros_enabled: bool,
+    #[serde(default = "default_voice_macro_trigger_word")]
+    pub voice_macro_trigger_word: String,
+    #[serde(default = "default_voice_macro_sound_feedback")]
+    pub voice_macro_sound_feedback: bool,
+    #[serde(default = "default_voice_macro_suppress_overlay")]
+    pub voice_macro_suppress_overlay: bool,
+    #[serde(default = "default_voice_macro_activation_threshold")]
+    pub voice_macro_activation_threshold: f32,
+    #[serde(default)]
+    pub voice_macros: Vec<VoiceMacroCommand>,
 }
 
 impl Config {
@@ -276,6 +352,12 @@ impl Config {
             let defaults = default_post_process_prompts();
             if let Some(pirate) = defaults.into_iter().find(|p| p.id == pirate_id) {
                 self.post_process_prompts.push(pirate);
+            }
+        }
+
+        for cmd in &mut self.voice_macros {
+            if cmd.steps.is_empty() {
+                cmd.steps = cmd.resolve_steps();
             }
         }
     }
@@ -415,6 +497,22 @@ fn default_diarization_cluster_threshold() -> f32 {
     0.7
 }
 
+fn default_voice_macro_trigger_word() -> String {
+    String::new()
+}
+
+fn default_voice_macro_sound_feedback() -> bool {
+    true
+}
+
+fn default_voice_macro_suppress_overlay() -> bool {
+    true
+}
+
+fn default_voice_macro_activation_threshold() -> f32 {
+    0.035
+}
+
 fn normalize_legacy_portal_hotkey(hotkey: &str) -> Option<String> {
     let trimmed = hotkey.trim();
     let lower = trimmed.to_lowercase();
@@ -508,6 +606,12 @@ impl Default for Config {
             diarization_enabled_files: false,
             diarization_enabled_recording: false,
             diarization_cluster_threshold: default_diarization_cluster_threshold(),
+            voice_macros_enabled: false,
+            voice_macro_trigger_word: default_voice_macro_trigger_word(),
+            voice_macro_sound_feedback: default_voice_macro_sound_feedback(),
+            voice_macro_suppress_overlay: default_voice_macro_suppress_overlay(),
+            voice_macro_activation_threshold: default_voice_macro_activation_threshold(),
+            voice_macros: Vec::new(),
         }
     }
 }

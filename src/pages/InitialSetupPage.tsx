@@ -71,6 +71,7 @@ interface InitialSetupPageProps {
   availableMics: AudioDevice[];
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
+  isMicTriggered?: boolean;
   micTestPassed: boolean;
   gpuStatus: GpuStatus | null;
   isTestingEngine: boolean;
@@ -117,6 +118,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
     availableMics,
     micTestStatus,
     micVolume,
+    isMicTriggered,
     micTestPassed,
     gpuStatus,
     isTestingEngine,
@@ -399,6 +401,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
                 onInputSensitivityChange={(value) => onChangeConfig('input_sensitivity', value)}
                 micTestStatus={micTestStatus}
                 micVolume={micVolume}
+                isMicTriggered={isMicTriggered}
                 onStartMicTest={onStartMicTest}
                 onStopMicTest={onStopMicTest}
                 onStopMicPlayback={onStopMicPlayback}

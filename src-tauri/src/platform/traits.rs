@@ -18,6 +18,17 @@ pub trait InputSimulation: Send + Sync {
         app_handle: &AppHandle,
         shortcut: PasteShortcut,
     ) -> Result<(), String>;
+
+    async fn send_key_combination(
+        &self,
+        app_handle: &AppHandle,
+        combination: &str,
+        hold_duration_ms: u64,
+    ) -> Result<(), String>;
+
+    async fn send_key_down(&self, app_handle: &AppHandle, key: &str) -> Result<(), String>;
+
+    async fn send_key_up(&self, app_handle: &AppHandle, key: &str) -> Result<(), String>;
 }
 
 #[async_trait]

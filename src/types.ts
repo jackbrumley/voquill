@@ -6,6 +6,23 @@ export interface PostProcessPrompt {
   max_output_tokens?: number | null;
 }
 
+export type MacroStep =
+  | { type: 'KeyPress'; key: string; hold_ms?: number }
+  | { type: 'KeyDown'; key: string }
+  | { type: 'KeyUp'; key: string }
+  | { type: 'Delay'; duration_ms: number }
+  | { type: 'TypeText'; text: string };
+
+export interface VoiceMacroCommand {
+  id: string;
+  phrase: string;
+  steps: MacroStep[];
+  // Legacy optional fields for backwards compatibility:
+  key_combination?: string | null;
+  hold_ms?: number | null;
+  delay_after_ms?: number | null;
+}
+
 export type PasteShortcut = 'ShiftInsert' | 'CtrlV' | 'CtrlShiftV';
 
 export interface Config {
@@ -57,6 +74,12 @@ export interface Config {
   diarization_enabled_files: boolean;
   diarization_enabled_recording: boolean;
   diarization_cluster_threshold: number;
+  voice_macros_enabled: boolean;
+  voice_macro_trigger_word: string;
+  voice_macro_sound_feedback: boolean;
+  voice_macro_suppress_overlay: boolean;
+  voice_macro_activation_threshold: number;
+  voice_macros: VoiceMacroCommand[];
   shortcuts_token?: string;
   input_token?: string;
 }
@@ -95,6 +118,11 @@ export interface AudioDevice {
   id: string;
   label: string;
   is_system_default: boolean;
+}
+
+export interface MicVolumePayload {
+  volume: number;
+  is_triggered: boolean;
 }
 
 export interface LinuxPermissions {

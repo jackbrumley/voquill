@@ -1,7 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { useSignal } from '@preact/signals';
 import { listen } from '@tauri-apps/api/event';
-import { HotkeyBindingState, ModelDownloadProgress, StatusUpdatePayload } from '../types.ts';
+import { HotkeyBindingState, ModelDownloadProgress, StatusUpdatePayload, MicVolumePayload } from '../types.ts';
 
 interface UseTauriEventsOptions {
   onSetupStatus: (payload: string) => void;
@@ -11,7 +11,7 @@ interface UseTauriEventsOptions {
   onHotkeyBindingState: (payload: HotkeyBindingState) => void;
   onMicTestStarted: () => void;
   onMicTestFinished: () => void;
-  onMicVolume: (volume: number) => void;
+  onMicVolume: (payload: MicVolumePayload | number) => void;
   onDownloadProgress: (progress: ModelDownloadProgress) => void;
   onPostProcessGpuStatusChanged: () => void;
   onFocus: () => void;
@@ -44,7 +44,7 @@ export function useTauriEvents(options: UseTauriEventsOptions) {
     const unlistenMicTestFinished = listen('mic-test-playback-finished', () => {
       latest.value.onMicTestFinished();
     });
-    const unlistenMicVolume = listen<number>('mic-test-volume', (event) => {
+    const unlistenMicVolume = listen<MicVolumePayload | number>('mic-test-volume', (event) => {
       latest.value.onMicVolume(event.payload);
     });
     const unlistenDownloadProgress = listen<ModelDownloadProgress>('model-download-progress', (event) => {

@@ -1,6 +1,6 @@
 import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
-import type { AudioDevice, LinuxPermissions, HotkeyBindingState } from '../types.ts';
+import type { AudioDevice, LinuxPermissions, HotkeyBindingState, MicVolumePayload } from '../types.ts';
 
 interface UseAudioSetupReturn {
   permissions: LinuxPermissions | null;
@@ -9,6 +9,7 @@ interface UseAudioSetupReturn {
   hotkeyError: string | null;
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
+  isMicTriggered: boolean;
   micTestPassed: boolean;
   hasLoadedSetupStatus: boolean;
   hasLoadedMics: boolean;
@@ -22,7 +23,7 @@ interface UseAudioSetupReturn {
   handleInputSetup: () => Promise<void>;
   checkSetupStatus: () => Promise<{ perms: LinuxPermissions; bindingState: HotkeyBindingState } | undefined>;
   setMicTestStatus: (status: 'idle' | 'recording' | 'playing' | 'processing') => void;
-  setMicVolume: (volume: number) => void;
+  setMicVolume: (payload: MicVolumePayload | number) => void;
   setMicTestPassed: (passed: boolean) => void;
 }
 
@@ -33,6 +34,7 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
   const hotkeyError = useSignal<string | null>(null);
   const micTestStatus = useSignal<'idle' | 'recording' | 'playing' | 'processing'>('idle');
   const micVolume = useSignal<number>(0);
+  const isMicTriggered = useSignal<boolean>(false);
   const micTestPassed = useSignal(false);
   const hasLoadedSetupStatus = useSignal(false);
   const hasLoadedMics = useSignal(false);
@@ -106,6 +108,8 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
 
   const stopMicTest = async () => {
     micTestStatus.value = 'processing';
+    isMicTriggered.value = false;
+    micVolume.value = 0;
     try {
       await invoke('stop_mic_test');
     } catch (error) {
@@ -118,6 +122,8 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
     try {
       await invoke('stop_mic_playback');
       micTestStatus.value = 'idle';
+      isMicTriggered.value = false;
+      micVolume.value = 0;
     } catch (error) {
       showToast(`Failed to stop playback: ${error}`, 'error');
     }
@@ -130,6 +136,7 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
     hotkeyError: hotkeyError.value,
     micTestStatus: micTestStatus.value,
     micVolume: micVolume.value,
+    isMicTriggered: isMicTriggered.value,
     micTestPassed: micTestPassed.value,
     hasLoadedSetupStatus: hasLoadedSetupStatus.value,
     hasLoadedMics: hasLoadedMics.value,
@@ -142,8 +149,22 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
     handleAudioSetup,
     handleInputSetup,
     checkSetupStatus,
-    setMicTestStatus: (status) => { micTestStatus.value = status; },
-    setMicVolume: (volume) => { micVolume.value = volume; },
+    setMicTestStatus: (status) => {
+      micTestStatus.value = status;
+      if (status !== 'recording') {
+        isMicTriggered.value = false;
+        micVolume.value = 0;
+      }
+    },
+    setMicVolume: (payload) => {
+      if (typeof payload === 'number') {
+        micVolume.value = payload;
+        isMicTriggered.value = false;
+      } else if (payload && typeof payload === 'object') {
+        micVolume.value = payload.volume;
+        isMicTriggered.value = payload.is_triggered;
+      }
+    },
     setMicTestPassed: (passed) => { micTestPassed.value = passed; },
   };
 }

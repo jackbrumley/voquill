@@ -40,6 +40,23 @@ impl InputSimulation for WaylandBackend {
     ) -> Result<(), String> {
         input::send_paste_shortcut(app_handle, shortcut).await
     }
+
+    async fn send_key_combination(
+        &self,
+        app_handle: &tauri::AppHandle,
+        combination: &str,
+        hold_duration_ms: u64,
+    ) -> Result<(), String> {
+        input::send_key_combination(app_handle, combination, hold_duration_ms).await
+    }
+
+    async fn send_key_down(&self, app_handle: &tauri::AppHandle, key: &str) -> Result<(), String> {
+        input::send_key_down(app_handle, key).await
+    }
+
+    async fn send_key_up(&self, app_handle: &tauri::AppHandle, key: &str) -> Result<(), String> {
+        input::send_key_up(app_handle, key).await
+    }
 }
 
 #[async_trait]

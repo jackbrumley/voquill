@@ -7,6 +7,7 @@ pub mod post_process;
 pub mod recording;
 pub mod transcription;
 pub mod update;
+pub mod voice_macro;
 
 pub use config::*;
 pub use diagnostics::*;
@@ -17,3 +18,4 @@ pub use post_process::*;
 pub use recording::*;
 pub use transcription::*;
 pub use update::*;
+pub use voice_macro::*;

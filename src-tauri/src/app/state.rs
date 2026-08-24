@@ -47,6 +47,7 @@ pub struct AppState {
     pub engine_factory: Arc<engine_factory::EngineFactory>,
     pub post_process_factory: Arc<PostProcessFactory>,
     pub python_runner: Arc<Mutex<Option<crate::python_runner::PythonRunner>>>,
+    pub voice_macro_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize)]
@@ -98,7 +99,15 @@ impl AppState {
             *guard = None;
         }
 
-        // 6. Cancel Wayland portal sessions (Linux).
+        // 6. Cancel Voice Macro listener.
+        {
+            let mut guard = self.voice_macro_cancel.lock().unwrap();
+            if let Some(cancel) = guard.take() {
+                let _ = cancel.send(());
+            }
+        }
+
+        // 7. Cancel Wayland portal sessions (Linux).
         #[cfg(target_os = "linux")]
         {
             if let Some(sender) = self.hotkey_engine_cancel.lock().unwrap().take() {
@@ -143,6 +152,7 @@ impl Default for AppState {
             engine_factory: Arc::new(engine_factory::EngineFactory::new()),
             post_process_factory: Arc::new(PostProcessFactory::new()),
             python_runner: Arc::new(Mutex::new(None)),
+            voice_macro_cancel: Arc::new(Mutex::new(None)),
         }
     }
 }

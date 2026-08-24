@@ -50,6 +50,24 @@ impl InputSimulation for WindowsBackend {
     ) -> Result<(), String> {
         input::send_paste_shortcut(shortcut).map_err(|error| error.to_string())
     }
+
+    async fn send_key_combination(
+        &self,
+        _app_handle: &tauri::AppHandle,
+        combination: &str,
+        hold_duration_ms: u64,
+    ) -> Result<(), String> {
+        input::send_key_combination(combination, hold_duration_ms)
+            .map_err(|error| error.to_string())
+    }
+
+    async fn send_key_down(&self, _app_handle: &tauri::AppHandle, key: &str) -> Result<(), String> {
+        input::send_key_down(key).map_err(|error| error.to_string())
+    }
+
+    async fn send_key_up(&self, _app_handle: &tauri::AppHandle, key: &str) -> Result<(), String> {
+        input::send_key_up(key).map_err(|error| error.to_string())
+    }
 }
 
 #[async_trait]

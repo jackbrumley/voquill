@@ -159,6 +159,8 @@ pub async fn save_config(
     // Notify all windows (including the overlay) that config values changed.
     let _ = app_handle.emit("config-updated", ());
 
+    crate::voice_macro::sync_voice_macro_listener(&app_handle);
+
     Ok(())
 }
 

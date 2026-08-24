@@ -63,6 +63,7 @@ mod sidecar;
 mod text_cleanup;
 mod transcription;
 mod typing;
+pub mod voice_macro;
 
 pub use app::commands::hotkey::set_hotkey_binding_state;
 use app::commands::*;
@@ -228,7 +229,9 @@ fn main() {
             get_gpu_status,
             get_post_process_gpu_status,
             get_engine_capabilities,
-            unload_model
+            unload_model,
+            test_voice_macro_sound,
+            test_voice_macro_execution
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

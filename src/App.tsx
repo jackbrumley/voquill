@@ -232,6 +232,7 @@ function App() {
             availableMics={audioSetup.availableMics}
             micTestStatus={audioSetup.micTestStatus}
             micVolume={audioSetup.micVolume}
+            isMicTriggered={audioSetup.isMicTriggered}
             micTestPassed={audioSetup.micTestPassed}
             gpuStatus={gpuHook.gpuStatus}
             isTestingEngine={gpuHook.isTestingEngine}
@@ -296,6 +297,7 @@ function App() {
           availableMics={audioSetup.availableMics}
           micTestStatus={audioSetup.micTestStatus}
           micVolume={audioSetup.micVolume}
+          isMicTriggered={audioSetup.isMicTriggered}
           overlayPositioningCapabilities={hotkeySetup.overlayPositioningCapabilities}
           checkingUpdates={updatesHook.checkingUpdates}
           autostartEnabled={autostartHook.autostartEnabled}

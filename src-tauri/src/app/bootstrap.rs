@@ -246,6 +246,7 @@ pub fn run_setup(
         app.handle(),
     );
     spawn_python_runner_prewarm(app.handle(), initial_config);
+    crate::voice_macro::sync_voice_macro_listener(app.handle());
 
     Ok(())
 }

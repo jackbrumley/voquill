@@ -9,6 +9,7 @@ import { FillerWordsSection } from './config/FillerWordsSection.tsx';
 import { TranscriptionSection } from './config/TranscriptionSection.tsx';
 import { PostProcessSection } from './config/PostProcessSection.tsx';
 import { TypingSection } from './config/TypingSection.tsx';
+import { VoiceMacrosSection } from './config/VoiceMacrosSection.tsx';
 import { DebugSection } from './config/DebugSection.tsx';
 
 interface ConfigPageProps {
@@ -30,6 +31,7 @@ interface ConfigPageProps {
   availableSpeakers?: AudioDevice[];
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
+  isMicTriggered?: boolean;
   overlayPositioningCapabilities: { manual_offset_supported: boolean; detail?: string };
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
   testApiKey: () => void;
@@ -80,6 +82,7 @@ const sectionTitleMap: Record<string, string> = {
   'dictionary': 'Dictionary',
   'filler-words': 'Filler Words',
   'post-process': 'Post-Processing',
+  'voice-macros': 'Voice Macros',
   'typing': 'Typing & Output',
   'debug': 'Debug',
 };
@@ -103,6 +106,7 @@ export function ConfigPage(props: ConfigPageProps) {
     availableMics,
     micTestStatus,
     micVolume,
+    isMicTriggered,
     overlayPositioningCapabilities,
     updateConfig,
     testApiKey,
@@ -176,6 +180,7 @@ export function ConfigPage(props: ConfigPageProps) {
           <SectionNavItem title="Dictionary" section="dictionary" />
           <SectionNavItem title="Filler Words" section="filler-words" />
           <SectionNavItem title="Post-Processing" section="post-process" />
+          <SectionNavItem title="Voice Macros" section="voice-macros" />
           <SectionNavItem title="Typing & Output" section="typing" />
           <SectionNavItem title="Debug" section="debug" />
         </div>
@@ -232,6 +237,7 @@ export function ConfigPage(props: ConfigPageProps) {
                 loadSpeakers={props.loadSpeakers}
                 micTestStatus={micTestStatus}
                 micVolume={micVolume}
+                isMicTriggered={isMicTriggered}
                 startMicTest={startMicTest}
                 stopMicTest={stopMicTest}
                 stopMicPlayback={stopMicPlayback}
@@ -287,6 +293,14 @@ export function ConfigPage(props: ConfigPageProps) {
                 downloadModel={downloadModel}
                 loadModels={loadModels}
                 setShowPostProcessGuide={setShowPostProcessGuide}
+              />
+            )}
+
+            {activeConfigSection === 'voice-macros' && (
+              <VoiceMacrosSection
+                config={config}
+                updateConfig={updateConfig}
+                showToast={props.showToast}
               />
             )}
 

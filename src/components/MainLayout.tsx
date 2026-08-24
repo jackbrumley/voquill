@@ -30,6 +30,7 @@ interface MainLayoutProps {
   availableSpeakers?: AudioDevice[];
   micTestStatus: 'playing' | 'idle' | 'recording' | 'processing';
   micVolume: number;
+  isMicTriggered?: boolean;
   overlayPositioningCapabilities: OverlayPositioningCapabilities;
   checkingUpdates: boolean;
   autostartEnabled: boolean;
@@ -131,6 +132,7 @@ export function MainLayout(props: MainLayoutProps) {
             availableMics={props.availableMics}
             micTestStatus={props.micTestStatus}
             micVolume={props.micVolume}
+            isMicTriggered={props.isMicTriggered}
             overlayPositioningCapabilities={props.overlayPositioningCapabilities}
             updateConfig={props.onUpdateConfig}
             testApiKey={props.onTestApiKey}

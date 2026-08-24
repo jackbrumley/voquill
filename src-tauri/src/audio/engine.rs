@@ -9,6 +9,7 @@ pub struct PersistentAudioEngine {
     pub stream: cpal::Stream,
     pub pre_roll_consumer: Arc<Mutex<CachingCons<Arc<HeapRb<f32>>>>>,
     pub recording_tx: Arc<Mutex<Option<mpsc::SyncSender<f32>>>>,
+    pub macro_tx: Arc<Mutex<Option<mpsc::SyncSender<f32>>>>,
     pub sample_rate: u32,
     pub channels: u16,
 }
@@ -53,16 +54,22 @@ impl PersistentAudioEngine {
         let recording_tx = Arc::new(Mutex::new(None::<mpsc::SyncSender<f32>>));
         let recording_tx_clone = recording_tx.clone();
 
+        let macro_tx = Arc::new(Mutex::new(None::<mpsc::SyncSender<f32>>));
+        let macro_tx_clone = macro_tx.clone();
+
         let err_fn = |err| crate::log_info!("Audio stream error: {}", err);
 
         let stream_config: cpal::StreamConfig = config.clone().into();
         let channels_usize = channels as usize;
 
         let mut audio_callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
-            // Lock recording_tx ONCE per callback buffer (~512 samples / ~11ms)
+            // Lock recording_tx and macro_tx ONCE per callback buffer (~512 samples / ~11ms)
             // instead of per-sample, to eliminate lock contention on the audio thread.
             let guard = recording_tx_clone.try_lock();
             let recording_tx_ref = guard.as_ref().ok().and_then(|g| g.as_ref());
+
+            let macro_guard = macro_tx_clone.try_lock();
+            let macro_tx_ref = macro_guard.as_ref().ok().and_then(|g| g.as_ref());
 
             for frame in data.chunks(channels_usize) {
                 let sample_raw: f32 = frame.iter().sum::<f32>() / channels_usize as f32;
@@ -70,6 +77,9 @@ impl PersistentAudioEngine {
 
                 let _ = pre_roll_prod.try_push(sample);
                 if let Some(tx) = recording_tx_ref {
+                    let _ = tx.try_send(sample);
+                }
+                if let Some(tx) = macro_tx_ref {
                     let _ = tx.try_send(sample);
                 }
             }
@@ -101,6 +111,7 @@ impl PersistentAudioEngine {
             stream,
             pre_roll_consumer: Arc::new(Mutex::new(pre_roll_cons)),
             recording_tx,
+            macro_tx,
             sample_rate,
             channels: 1, // downmixed to mono in callback
         })

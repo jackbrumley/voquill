@@ -294,7 +294,10 @@ pub async fn start_mic_test(
         }
     }
 
-    let playback_device = { state.config.lock().unwrap().playback_device.clone() };
+    let (playback_device, config_arc) = {
+        let config = state.config.lock().unwrap();
+        (config.playback_device.clone(), state.config.clone())
+    };
 
     tokio::spawn(async move {
         crate::log_info!("Mic test thread started");
@@ -307,10 +310,15 @@ pub async fn start_mic_test(
                 .unwrap_or(16000)
         };
 
-        let result = audio::record_mic_test(&is_mic_test_clone, audio_engine, {
+        let threshold = {
+            let config = config_arc.lock().unwrap();
+            config.voice_macro_activation_threshold
+        };
+
+        let result = audio::record_mic_test(&is_mic_test_clone, audio_engine, threshold, {
             let app = app_handle_clone.clone();
-            move |volume| {
-                let _ = app.emit("mic-test-volume", volume);
+            move |payload| {
+                let _ = app.emit("mic-test-volume", payload);
             }
         })
         .await;
@@ -324,11 +332,78 @@ pub async fn start_mic_test(
                     return;
                 }
 
-                crate::log_info!("Initializing playback at {}Hz...", sample_rate);
+                let (noise_reduction_enabled, noise_reduction_strength) = {
+                    let config = config_arc.lock().unwrap();
+                    (
+                        config.noise_reduction_enabled,
+                        config.noise_reduction_strength,
+                    )
+                };
+
+                let (playback_samples, playback_sample_rate) = if noise_reduction_enabled {
+                    crate::log_info!(
+                        "Applying noise reduction (strength={:.2}) to mic test audio...",
+                        noise_reduction_strength
+                    );
+                    match audio::conversion::finalize_captured_audio_for_whisper(
+                        &captured_samples,
+                        sample_rate,
+                    ) {
+                        Ok(wav_data) => {
+                            match crate::app::recording_flow::audio_processing::run_noise_reduction(
+                                &app_handle_clone,
+                                &wav_data,
+                                noise_reduction_strength,
+                            )
+                            .await
+                            {
+                                Ok(enhanced_wav) => {
+                                    match crate::audio::decode::decode_compressed_audio(
+                                        &enhanced_wav,
+                                    ) {
+                                        Ok(decoded) => {
+                                            crate::log_info!(
+                                                "Noise reduction completed for mic test playback ({} samples at {}Hz)",
+                                                decoded.samples.len(),
+                                                decoded.sample_rate
+                                            );
+                                            (decoded.samples, decoded.sample_rate)
+                                        }
+                                        Err(e) => {
+                                            crate::log_warn!(
+                                                "Failed to decode enhanced audio for mic test: {}",
+                                                e
+                                            );
+                                            (captured_samples.clone(), sample_rate)
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    crate::log_warn!(
+                                        "Noise reduction failed during mic test: {}",
+                                        e
+                                    );
+                                    (captured_samples.clone(), sample_rate)
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            crate::log_warn!(
+                                "Failed to finalize audio for noise reduction in mic test: {}",
+                                e
+                            );
+                            (captured_samples.clone(), sample_rate)
+                        }
+                    }
+                } else {
+                    (captured_samples.clone(), sample_rate)
+                };
+
+                crate::log_info!("Initializing playback at {}Hz...", playback_sample_rate);
                 let app = app_handle_clone.clone();
                 match audio::play_audio(
-                    captured_samples.clone(),
-                    sample_rate,
+                    playback_samples.clone(),
+                    playback_sample_rate,
                     playback_device,
                     move || {
                         crate::log_info!("Mic test playback finished");
@@ -348,7 +423,7 @@ pub async fn start_mic_test(
                 }
 
                 let mut samples = mic_test_samples_clone.lock().unwrap();
-                *samples = captured_samples;
+                *samples = playback_samples;
             }
             Err(error) => {
                 crate::log_info!("Mic test recording error: {}", error);
