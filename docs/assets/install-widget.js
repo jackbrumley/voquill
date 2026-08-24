@@ -24,7 +24,7 @@
         command: 'irm https://voquill.org/install.ps1 | iex',
       },
       system: {
-        label: 'System (MSI)',
+        label: 'System Wide',
         command: 'irm https://voquill.org/install-system.ps1 | iex',
       },
       uninstall: {
