@@ -1,6 +1,5 @@
 import { useSignal } from '@preact/signals';
 import {
-  IconTrash,
   IconVolume,
   IconPlayerPlay,
   IconPencil,
@@ -119,6 +118,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
     const updated = currentMacros.filter((m) => m.id !== id);
     updateConfig('voice_macros', updated);
     showToast?.(`Removed macro "${phrase}"`, 'info');
+    handleCloseModal();
   };
 
   const macros = config.voice_macros || [];
@@ -332,23 +332,6 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                       >
                         <IconPencil size={14} />
                       </button>
-                      <button
-                        onClick={() => handleDeleteCommand(cmd.id, cmd.phrase)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: tokens.colors.textMuted,
-                          cursor: 'pointer',
-                          padding: '3px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRadius: '3px',
-                        }}
-                        title={`Remove "${cmd.phrase}"`}
-                      >
-                        <IconTrash size={14} />
-                      </button>
                     </div>
                   </div>
                 );
@@ -384,6 +367,11 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         <MacroEditorModal
           initialCommand={editingCommand.value}
           onSave={handleSaveModal}
+          onDelete={
+            editingCommand.value
+              ? () => handleDeleteCommand(editingCommand.value!.id, editingCommand.value!.phrase)
+              : undefined
+          }
           onClose={handleCloseModal}
         />
       )}

@@ -7,6 +7,7 @@ import {
   IconTrash,
   IconX,
 } from '@tabler/icons-preact';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { Modal } from '../../../components/Modal.tsx';
 import { Button } from '../../../components/Button.tsx';
 import type { MacroStep, VoiceMacroCommand } from '../../../types.ts';
@@ -18,12 +19,14 @@ import { MacroStepRow } from './MacroStepRow.tsx';
 interface MacroEditorModalProps {
   initialCommand: VoiceMacroCommand | null;
   onSave: (phrase: string, phrases: string[], steps: MacroStep[]) => void;
+  onDelete?: () => void;
   onClose: () => void;
 }
 
 export function MacroEditorModal({
   initialCommand,
   onSave,
+  onDelete,
   onClose,
 }: MacroEditorModalProps) {
   // Initialize phrase list: primary phrase + any alias phrases
@@ -213,6 +216,21 @@ export function MacroEditorModal({
   };
 
   const totalPhraseCount = phrases.value.length + (phraseInput.value.trim() ? 1 : 0);
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    const targetPhrase = initialCommand?.phrase || phrases.value[0] || 'this macro';
+    const shouldDelete = await confirm(
+      `Are you sure you want to delete the voice macro "${targetPhrase}"?`,
+      {
+        title: 'Delete Voice Macro',
+        kind: 'warning',
+      }
+    );
+    if (shouldDelete) {
+      onDelete();
+    }
+  };
+
   const isSaveDisabled = totalPhraseCount === 0 || steps.value.length === 0 || isRecording.value;
 
   return (
@@ -221,19 +239,34 @@ export function MacroEditorModal({
       onClose={onClose}
       fullScreen
       footer={
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', width: '100%' }}>
-          <Button variant="ghost" onClick={onClose} style={{ padding: '6px 12px', fontSize: '12px' }}>
-            Cancel
-          </Button>
-          <Button
-            variant="configAction"
-            onClick={handleSave}
-            disabled={isSaveDisabled}
-            style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 14px', fontSize: '12px' }}
-          >
-            <IconCheck size={14} />
-            <span>{initialCommand ? 'Save Macro' : 'Create Macro'}</span>
-          </Button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div>
+            {initialCommand && onDelete && (
+              <Button
+                variant="danger"
+                onClick={handleDelete}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 10px', fontSize: '11.5px' }}
+              >
+                <IconTrash size={13} />
+                <span>Delete</span>
+              </Button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Button variant="ghost" onClick={onClose} style={{ padding: '6px 12px', fontSize: '12px' }}>
+              Cancel
+            </Button>
+            <Button
+              variant="configAction"
+              onClick={handleSave}
+              disabled={isSaveDisabled}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 14px', fontSize: '12px' }}
+            >
+              <IconCheck size={14} />
+              <span>{initialCommand ? 'Save Macro' : 'Create Macro'}</span>
+            </Button>
+          </div>
         </div>
       }
     >
