@@ -121,7 +121,7 @@ pub async fn test_spoken_voice_macro(
         Some(config_snapshot.language.as_str())
     };
 
-    let prompt = crate::voice_macro::resolve_voice_macro_prompt_hint(&config_snapshot);
+    let prompt = config_snapshot.resolve_prompt_hint();
     let transcript = service
         .transcribe(&wav_bytes, lang, prompt.as_deref())
         .await

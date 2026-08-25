@@ -221,28 +221,6 @@ pub fn match_phrase(
     }
 }
 
-pub fn resolve_voice_macro_prompt_hint(config: &crate::config::Config) -> Option<String> {
-    let mut words: Vec<String> = config.dictionary.clone();
-    for cmd in &config.voice_macros {
-        let clean = cmd.phrase.trim();
-        if !clean.is_empty() && !words.iter().any(|w| w.eq_ignore_ascii_case(clean)) {
-            words.push(clean.to_string());
-        }
-    }
-    if !config.voice_macro_trigger_word.trim().is_empty() {
-        let trigger = config.voice_macro_trigger_word.trim();
-        if !words.iter().any(|w| w.eq_ignore_ascii_case(trigger)) {
-            words.push(trigger.to_string());
-        }
-    }
-
-    if words.is_empty() {
-        return None;
-    }
-
-    Some(format!("Vocabulary: {}.", words.join(", ")))
-}
-
 pub async fn execute_macro_command(
     app_handle: &AppHandle,
     command: &VoiceMacroCommand,
@@ -596,7 +574,7 @@ async fn run_voice_macro_listener_loop(
                     Some(config_snapshot.language.as_str())
                 };
 
-                let prompt_hint = resolve_voice_macro_prompt_hint(&config_snapshot);
+                let prompt_hint = config_snapshot.resolve_prompt_hint();
                 let transcribe_start = Instant::now();
                 match service.transcribe(&wav_bytes, lang, prompt_hint.as_deref()).await {
                     Ok(transcript) => {
