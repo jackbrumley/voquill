@@ -69,7 +69,6 @@ export function MacroStepRow({
             {isEditingDuration ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                 <input
-                  ref={(el) => el?.select()}
                   type="text"
                   inputMode="numeric"
                   value={editingDurationValue}
@@ -230,7 +229,6 @@ export function MacroStepRow({
             {isEditingDuration ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                 <input
-                  ref={(el) => el?.select()}
                   type="text"
                   inputMode="numeric"
                   value={editingDurationValue}
