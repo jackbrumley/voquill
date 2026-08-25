@@ -15,7 +15,6 @@ import type { Config, MacroStep, VoiceMacroCommand } from '../../types.ts';
 import { inputBaseStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
 import { resolveMacroSteps } from './voice_macro/keyUtils.ts';
-import { MacroStepChip } from './voice_macro/MacroStepChip.tsx';
 import { MacroEditorModal } from './voice_macro/MacroEditorModal.tsx';
 import { SpokenMacroTester } from './voice_macro/SpokenMacroTester.tsx';
 
@@ -229,7 +228,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
 
           {/* List of Configured Macros */}
           {macros.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {macros.map((cmd) => {
                 const steps = resolveMacroSteps(cmd);
                 return (
@@ -237,116 +236,101 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                     key={cmd.id}
                     style={{
                       display: 'flex',
-                      flexDirection: 'column',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
                       background: 'rgba(255, 255, 255, 0.04)',
                       border: '1px solid rgba(255, 255, 255, 0.08)',
-                      gap: '8px',
+                      gap: '6px',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
+                      <span
+                        style={{
+                          fontSize: '13px',
+                          color: tokens.colors.textPrimary,
+                          fontWeight: 600,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        "{cmd.phrase}"
+                      </span>
+                      {config.voice_macro_trigger_word && (
                         <span
                           style={{
-                            fontSize: tokens.typography.sizeSm,
-                            color: tokens.colors.textPrimary,
-                            fontWeight: 600,
-                          }}
-                        >
-                          "{cmd.phrase}"
-                        </span>
-                        {config.voice_macro_trigger_word && (
-                          <span
-                            style={{
-                              fontSize: '10px',
-                              color: '#93c5fd',
-                              background: 'rgba(59, 130, 246, 0.18)',
-                              border: '1px solid rgba(59, 130, 246, 0.35)',
-                              padding: '1px 6px',
-                              borderRadius: '4px',
-                            }}
-                          >
-                            Prefix: {config.voice_macro_trigger_word}
-                          </span>
-                        )}
-                        <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
-                          ({steps.length} {steps.length === 1 ? 'step' : 'steps'})
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <button
-                          onClick={() => void handleTestMacro(cmd)}
-                          disabled={isTestingExecution.value === cmd.id}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: tokens.colors.textSecondary,
-                            cursor: 'pointer',
-                            padding: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
+                            fontSize: '9.5px',
+                            color: '#93c5fd',
+                            background: 'rgba(59, 130, 246, 0.18)',
+                            border: '1px solid rgba(59, 130, 246, 0.35)',
+                            padding: '1px 5px',
                             borderRadius: '4px',
+                            whiteSpace: 'nowrap',
                           }}
-                          title="Test full macro sequence"
                         >
-                          <IconPlayerPlay size={15} />
-                        </button>
-                        <button
-                          onClick={() => handleOpenEditModal(cmd)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: tokens.colors.textSecondary,
-                            cursor: 'pointer',
-                            padding: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderRadius: '4px',
-                          }}
-                          title={`Edit "${cmd.phrase}" sequence`}
-                        >
-                          <IconPencil size={15} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCommand(cmd.id, cmd.phrase)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: tokens.colors.textMuted,
-                            cursor: 'pointer',
-                            padding: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderRadius: '4px',
-                          }}
-                          title={`Remove "${cmd.phrase}"`}
-                        >
-                          <IconTrash size={15} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Sequence Steps Horizontal Summary Render */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                      {steps.length > 0 ? (
-                        steps.map((step, sIdx) => (
-                          <div key={sIdx} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            <MacroStepChip step={step} />
-                            {sIdx < steps.length - 1 && (
-                              <span style={{ color: tokens.colors.textMuted, fontSize: '9px' }}>➔</span>
-                            )}
-                          </div>
-                        ))
-                      ) : (
-                        <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
-                          No steps defined
+                          Prefix: {config.voice_macro_trigger_word}
                         </span>
                       )}
+                      <span style={{ fontSize: '11px', color: tokens.colors.textMuted, whiteSpace: 'nowrap' }}>
+                        • {steps.length} {steps.length === 1 ? 'step' : 'steps'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                      <button
+                        onClick={() => void handleTestMacro(cmd)}
+                        disabled={isTestingExecution.value === cmd.id}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: tokens.colors.textSecondary,
+                          cursor: 'pointer',
+                          padding: '3px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '3px',
+                        }}
+                        title="Test macro sequence"
+                      >
+                        <IconPlayerPlay size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleOpenEditModal(cmd)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: tokens.colors.textSecondary,
+                          cursor: 'pointer',
+                          padding: '3px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '3px',
+                        }}
+                        title={`Edit "${cmd.phrase}" sequence`}
+                      >
+                        <IconPencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCommand(cmd.id, cmd.phrase)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: tokens.colors.textMuted,
+                          cursor: 'pointer',
+                          padding: '3px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '3px',
+                        }}
+                        title={`Remove "${cmd.phrase}"`}
+                      >
+                        <IconTrash size={14} />
+                      </button>
                     </div>
                   </div>
                 );

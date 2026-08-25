@@ -35,6 +35,9 @@ export function Modal({
         backdropFilter: 'none',
         WebkitBackdropFilter: 'none',
         boxShadow: 'none',
+        borderRadius: '0px',
+        border: 'none',
+        padding: '12px 14px',
         overflowY: 'auto' as const,
         scrollbarGutter: 'stable' as const,
       }

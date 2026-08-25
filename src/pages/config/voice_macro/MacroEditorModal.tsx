@@ -177,28 +177,36 @@ export function MacroEditorModal({
     <Modal
       title={initialCommand ? 'Edit Voice Macro' : 'Create Voice Macro'}
       onClose={onClose}
-      maxWidth="620px"
+      fullScreen
       footer={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', width: '100%' }}>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose} style={{ padding: '6px 12px', fontSize: '12px' }}>
             Cancel
           </Button>
           <Button
             variant="configAction"
             onClick={handleSave}
             disabled={isSaveDisabled}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 14px', fontSize: '12px' }}
           >
             <IconCheck size={14} />
-            <span>{initialCommand ? 'Save Changes' : 'Create Macro'}</span>
+            <span>{initialCommand ? 'Save Macro' : 'Create Macro'}</span>
           </Button>
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.md }}>
-        {/* Spoken Phrase Field */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <label style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textPrimary, fontWeight: 600 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          height: '100%',
+          minHeight: 0,
+        }}
+      >
+        {/* Spoken Phrase Input */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <label style={{ fontSize: '11px', color: tokens.colors.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
             Spoken Voice Command
           </label>
           <input
@@ -207,13 +215,10 @@ export function MacroEditorModal({
             onInput={(e) => {
               phrase.value = (e.target as HTMLInputElement).value;
             }}
-            placeholder="e.g. call airstrike, ultimate ability, open map"
+            placeholder="e.g. call airstrike, ultimate, open map"
             autoFocus={!initialCommand}
-            style={{ ...inputBaseStyle, width: '100%' }}
+            style={{ ...inputBaseStyle, width: '100%', padding: '6px 10px', fontSize: '13px' }}
           />
-          <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
-            The exact words you will speak to trigger this automation sequence.
-          </span>
         </div>
 
         {/* Live Sequence Recorder Controls */}
@@ -222,13 +227,13 @@ export function MacroEditorModal({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '10px 12px',
-            borderRadius: '8px',
+            padding: '6px 10px',
+            borderRadius: '6px',
             background: isRecording.value ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.04)',
             border: isRecording.value ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Button
               variant="configAction"
               onClick={toggleRecording}
@@ -237,22 +242,24 @@ export function MacroEditorModal({
                   ? {
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px',
+                      gap: '4px',
+                      padding: '4px 8px',
+                      fontSize: '11px',
                       borderColor: '#ef4444',
                       color: '#f87171',
                       background: 'rgba(239, 68, 68, 0.2)',
                     }
-                  : { display: 'flex', alignItems: 'center', gap: '6px' }
+                  : { display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px' }
               }
             >
               {isRecording.value ? (
                 <>
-                  <IconCheck size={14} />
+                  <IconCheck size={13} />
                   <span>Done Recording</span>
                 </>
               ) : (
                 <>
-                  <IconCircleDot size={14} color="#ef4444" />
+                  <IconCircleDot size={13} color="#ef4444" />
                   <span>Record Sequence</span>
                 </>
               )}
@@ -264,16 +271,16 @@ export function MacroEditorModal({
                 onClick={() => {
                   steps.value = [];
                 }}
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', color: tokens.colors.textMuted }}
+                style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '4px 6px', fontSize: '11px', color: tokens.colors.textMuted }}
               >
-                <IconTrash size={13} />
-                <span>Clear All</span>
+                <IconTrash size={12} />
+                <span>Clear</span>
               </Button>
             )}
           </div>
 
           <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
-            {steps.value.length} {steps.value.length === 1 ? 'action' : 'actions'}
+            {steps.value.length} {steps.value.length === 1 ? 'step' : 'steps'}
           </span>
         </div>
 
@@ -281,43 +288,47 @@ export function MacroEditorModal({
         {isRecording.value && (
           <div
             style={{
-              padding: '8px 12px',
-              borderRadius: '6px',
+              padding: '6px 10px',
+              borderRadius: '5px',
               background: 'rgba(239, 68, 68, 0.15)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
               fontSize: '11px',
               color: '#fca5a5',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+              lineHeight: 1.3,
             }}
           >
-            <span>
-              🔴 <strong>Recording Active:</strong> Press keys, modifiers, and combos. Delays and hold times are captured in real-time. (Press <strong>Esc</strong> to finish)
-            </span>
+            🔴 <strong>Recording...</strong> Press keys, modifiers, combos. Delays are captured. Press <strong>Esc</strong> to finish.
           </div>
         )}
 
-        {/* Step-by-Step Vertical List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {/* Step-by-Step Vertical Timeline with flex: 1 for available space */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minHeight: '120px',
+            maxHeight: '220px',
+            gap: '4px',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: tokens.colors.textSecondary }}>
-              Execution Steps (Top to Bottom)
+            <span style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+              Execution Sequence
             </span>
           </div>
 
           <div
             style={{
-              maxHeight: '260px',
-              minHeight: '80px',
+              flex: 1,
               overflowY: 'auto',
               scrollbarGutter: 'stable',
               display: 'flex',
               flexDirection: 'column',
-              gap: '6px',
-              padding: '8px',
-              borderRadius: '8px',
-              background: 'rgba(0, 0, 0, 0.25)',
+              gap: '4px',
+              padding: '6px',
+              borderRadius: '6px',
+              background: 'rgba(0, 0, 0, 0.3)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
             }}
           >
@@ -327,13 +338,15 @@ export function MacroEditorModal({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  height: '70px',
-                  fontSize: tokens.typography.sizeXs,
+                  height: '100%',
+                  minHeight: '60px',
+                  fontSize: '11px',
                   color: tokens.colors.textMuted,
                   textAlign: 'center',
+                  padding: '12px',
                 }}
               >
-                No actions added yet. Click 'Record Sequence' or add steps manually below.
+                No actions added yet. Click 'Record Sequence' or use the buttons below.
               </div>
             ) : (
               steps.value.map((step, idx) => (
@@ -363,19 +376,15 @@ export function MacroEditorModal({
             style={{
               display: 'flex',
               flexDirection: 'column',
-              gap: '8px',
-              padding: '10px 12px',
-              borderRadius: '8px',
+              gap: '6px',
+              padding: '8px',
+              borderRadius: '6px',
               background: 'rgba(255, 255, 255, 0.02)',
               border: '1px solid rgba(255, 255, 255, 0.06)',
             }}
           >
-            <span style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted }}>
-              MANUAL STEP BUILDER
-            </span>
-
             {/* Key Action Adders */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
               <input
                 type="text"
                 value={manualKeyInput.value}
@@ -387,41 +396,41 @@ export function MacroEditorModal({
                     addManualKey('KeyPress');
                   }
                 }}
-                placeholder="Key (e.g. F3, W, Ctrl)"
-                style={{ ...inputBaseStyle, width: '130px', padding: '4px 8px', fontSize: '12px' }}
+                placeholder="Key (F3, W, Ctrl)"
+                style={{ ...inputBaseStyle, width: '100px', padding: '3px 6px', fontSize: '11px' }}
               />
               <Button
                 variant="configAction"
                 onClick={() => addManualKey('KeyPress')}
-                style={{ padding: '4px 8px', fontSize: '11px' }}
+                style={{ padding: '3px 6px', fontSize: '10.5px' }}
               >
                 + Tap
               </Button>
               <Button
                 variant="configAction"
                 onClick={() => addManualKey('KeyDown')}
-                style={{ padding: '4px 8px', fontSize: '11px' }}
+                style={{ padding: '3px 6px', fontSize: '10.5px' }}
               >
                 + Hold
               </Button>
               <Button
                 variant="configAction"
                 onClick={() => addManualKey('KeyUp')}
-                style={{ padding: '4px 8px', fontSize: '11px' }}
+                style={{ padding: '3px 6px', fontSize: '10.5px' }}
               >
-                + Release
+                + Rel
               </Button>
               <Button
                 variant="configAction"
                 onClick={addManualDelay}
-                style={{ padding: '4px 8px', fontSize: '11px' }}
+                style={{ padding: '3px 6px', fontSize: '10.5px' }}
               >
-                + 100ms Delay
+                + 100ms
               </Button>
             </div>
 
             {/* Type Text Adder */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <input
                 type="text"
                 value={manualTextInput.value}
@@ -433,16 +442,16 @@ export function MacroEditorModal({
                     addManualText();
                   }
                 }}
-                placeholder="Type text / chat phrase..."
-                style={{ ...inputBaseStyle, flex: 1, padding: '4px 8px', fontSize: '12px' }}
+                placeholder="Type text string..."
+                style={{ ...inputBaseStyle, flex: 1, padding: '3px 6px', fontSize: '11px' }}
               />
               <Button
                 variant="configAction"
                 onClick={addManualText}
-                style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{ padding: '3px 6px', fontSize: '10.5px', display: 'flex', alignItems: 'center', gap: '3px' }}
               >
-                <IconPlus size={12} />
-                <span>Add Text</span>
+                <IconPlus size={11} />
+                <span>+ Text</span>
               </Button>
             </div>
           </div>
