@@ -69,9 +69,11 @@ export function MacroStepRow({
             {isEditingDuration ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                 <input
+                  ref={(el) => el?.select()}
                   type="text"
                   inputMode="numeric"
                   value={editingDurationValue}
+                  onFocus={(e) => (e.target as HTMLInputElement).select()}
                   onInput={(e) => {
                     const clean = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '');
                     onDurationInputChange?.(clean);
@@ -228,9 +230,11 @@ export function MacroStepRow({
             {isEditingDuration ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                 <input
+                  ref={(el) => el?.select()}
                   type="text"
                   inputMode="numeric"
                   value={editingDurationValue}
+                  onFocus={(e) => (e.target as HTMLInputElement).select()}
                   onInput={(e) => {
                     const clean = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '');
                     onDurationInputChange?.(clean);

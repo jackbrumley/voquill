@@ -1,7 +1,7 @@
 import { useSignal } from '@preact/signals';
 import { useEffect } from 'preact/hooks';
 import {
-  IconCircleDot,
+  IconCircleFilled,
   IconCheck,
   IconPlus,
   IconTrash,
@@ -403,7 +403,7 @@ export function MacroEditorModal({
                 </>
               ) : (
                 <>
-                  <IconCircleDot size={13} color="#ef4444" />
+                  <IconCircleFilled size={12} color="#ef4444" />
                   <span>Record Sequence</span>
                 </>
               )}
