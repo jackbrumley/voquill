@@ -85,6 +85,8 @@ pub struct VoiceMacroCommand {
     pub id: String,
     pub phrase: String,
     #[serde(default)]
+    pub phrases: Vec<String>,
+    #[serde(default)]
     pub steps: Vec<MacroStep>,
     #[serde(default)]
     pub key_combination: Option<String>,
@@ -95,6 +97,25 @@ pub struct VoiceMacroCommand {
 }
 
 impl VoiceMacroCommand {
+    pub fn all_phrases(&self) -> Vec<String> {
+        let mut list = Vec::new();
+        let primary = self.phrase.trim();
+        if !primary.is_empty() {
+            list.push(primary.to_string());
+        }
+        for p in &self.phrases {
+            let clean = p.trim();
+            if !clean.is_empty()
+                && !list
+                    .iter()
+                    .any(|existing| existing.eq_ignore_ascii_case(clean))
+            {
+                list.push(clean.to_string());
+            }
+        }
+        list
+    }
+
     pub fn resolve_steps(&self) -> Vec<MacroStep> {
         if !self.steps.is_empty() {
             return self.steps.clone();

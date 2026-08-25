@@ -76,7 +76,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
     editingCommand.value = null;
   };
 
-  const handleSaveModal = (phrase: string, steps: MacroStep[]) => {
+  const handleSaveModal = (phrase: string, phrases: string[], steps: MacroStep[]) => {
     const currentMacros = config.voice_macros || [];
 
     if (editingCommand.value) {
@@ -86,6 +86,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
           return {
             ...cmd,
             phrase,
+            phrases: [...phrases],
             steps: [...steps],
             key_combination: null,
             hold_ms: null,
@@ -100,6 +101,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
       const newCommand: VoiceMacroCommand = {
         id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         phrase,
+        phrases: [...phrases],
         steps: [...steps],
         key_combination: null,
         hold_ms: null,
@@ -153,15 +155,15 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         label="Audio Chime Alert"
         description="Play a subtle confirmation sound whenever a voice macro is recognized and fired."
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.sm }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: tokens.spacing.sm }}>
           <Button
             variant="configAction"
             onClick={handleTestSound}
             disabled={isPlayingTestSound.value}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', flexShrink: 0, padding: '4px 10px', fontSize: '11px' }}
           >
             <IconVolume size={14} />
-            <span>Test Sound</span>
+            <span style={{ whiteSpace: 'nowrap' }}>Test Sound</span>
           </Button>
           <Switch
             name="Audio Chime Alert"
@@ -271,6 +273,22 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                           }}
                         >
                           Prefix: {config.voice_macro_trigger_word}
+                        </span>
+                      )}
+                      {cmd.phrases && cmd.phrases.length > 0 && (
+                        <span
+                          style={{
+                            fontSize: '9.5px',
+                            color: '#cbd5e1',
+                            background: 'rgba(255, 255, 255, 0.06)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={`Aliases: ${cmd.phrases.map((p) => `"${p}"`).join(', ')}`}
+                        >
+                          +{cmd.phrases.length} {cmd.phrases.length === 1 ? 'alias' : 'aliases'}
                         </span>
                       )}
                       <span style={{ fontSize: '11px', color: tokens.colors.textMuted, whiteSpace: 'nowrap' }}>

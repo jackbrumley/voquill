@@ -5,6 +5,7 @@ import {
   IconCheck,
   IconPlus,
   IconTrash,
+  IconX,
 } from '@tabler/icons-preact';
 import { Modal } from '../../../components/Modal.tsx';
 import { Button } from '../../../components/Button.tsx';
@@ -16,7 +17,7 @@ import { MacroStepRow } from './MacroStepRow.tsx';
 
 interface MacroEditorModalProps {
   initialCommand: VoiceMacroCommand | null;
-  onSave: (phrase: string, steps: MacroStep[]) => void;
+  onSave: (phrase: string, phrases: string[], steps: MacroStep[]) => void;
   onClose: () => void;
 }
 
@@ -25,7 +26,24 @@ export function MacroEditorModal({
   onSave,
   onClose,
 }: MacroEditorModalProps) {
-  const phrase = useSignal(initialCommand ? initialCommand.phrase : '');
+  // Initialize phrase list: primary phrase + any alias phrases
+  const initialPhrases: string[] = [];
+  if (initialCommand) {
+    if (initialCommand.phrase.trim()) {
+      initialPhrases.push(initialCommand.phrase.trim().toLowerCase());
+    }
+    if (initialCommand.phrases) {
+      for (const p of initialCommand.phrases) {
+        const clean = p.trim().toLowerCase();
+        if (clean && !initialPhrases.includes(clean)) {
+          initialPhrases.push(clean);
+        }
+      }
+    }
+  }
+
+  const phrases = useSignal<string[]>(initialPhrases);
+  const phraseInput = useSignal('');
   const steps = useSignal<MacroStep[]>(
     initialCommand && initialCommand.steps ? [...initialCommand.steps] : []
   );
@@ -120,6 +138,21 @@ export function MacroEditorModal({
     }
   };
 
+  const addPhrase = () => {
+    const raw = phraseInput.value.replace(/,/g, '').trim().toLowerCase();
+    if (!raw) return;
+    if (!phrases.value.includes(raw)) {
+      phrases.value = [...phrases.value, raw];
+    }
+    phraseInput.value = '';
+  };
+
+  const removePhrase = (index: number) => {
+    const updated = [...phrases.value];
+    updated.splice(index, 1);
+    phrases.value = updated;
+  };
+
   const removeStep = (index: number) => {
     const updated = [...steps.value];
     updated.splice(index, 1);
@@ -166,12 +199,21 @@ export function MacroEditorModal({
   };
 
   const handleSave = () => {
-    const cleanPhrase = phrase.value.trim().toLowerCase();
-    if (!cleanPhrase || steps.value.length === 0) return;
-    onSave(cleanPhrase, steps.value);
+    const all = [...phrases.value];
+    const pending = phraseInput.value.replace(/,/g, '').trim().toLowerCase();
+    if (pending && !all.includes(pending)) {
+      all.push(pending);
+    }
+
+    if (all.length === 0 || steps.value.length === 0) return;
+
+    const primaryPhrase = all[0];
+    const aliasPhrases = all.slice(1);
+    onSave(primaryPhrase, aliasPhrases, steps.value);
   };
 
-  const isSaveDisabled = !phrase.value.trim() || steps.value.length === 0 || isRecording.value;
+  const totalPhraseCount = phrases.value.length + (phraseInput.value.trim() ? 1 : 0);
+  const isSaveDisabled = totalPhraseCount === 0 || steps.value.length === 0 || isRecording.value;
 
   return (
     <Modal
@@ -204,21 +246,85 @@ export function MacroEditorModal({
           minHeight: 0,
         }}
       >
-        {/* Spoken Phrase Input */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <label style={{ fontSize: '11px', color: tokens.colors.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-            Spoken Voice Command
-          </label>
-          <input
-            type="text"
-            value={phrase.value}
-            onInput={(e) => {
-              phrase.value = (e.target as HTMLInputElement).value;
-            }}
-            placeholder="e.g. call airstrike, ultimate, open map"
-            autoFocus={!initialCommand}
-            style={{ ...inputBaseStyle, width: '100%', padding: '6px 10px', fontSize: '13px' }}
-          />
+        {/* Multi-Phrase Tag / Alias Field */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <label style={{ fontSize: '11px', color: tokens.colors.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+              Spoken Trigger Phrases (Aliases)
+            </label>
+            <span style={{ fontSize: '10px', color: tokens.colors.textMuted }}>
+              Press Enter or comma to add
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <input
+              type="text"
+              value={phraseInput.value}
+              onInput={(e) => {
+                phraseInput.value = (e.target as HTMLInputElement).value;
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ',') {
+                  e.preventDefault();
+                  addPhrase();
+                }
+              }}
+              placeholder={phrases.value.length === 0 ? 'e.g. call airstrike (press Enter to add)' : 'Add another alias phrase...'}
+              autoFocus={!initialCommand}
+              style={{ ...inputBaseStyle, flex: 1, padding: '5px 8px', fontSize: '12px' }}
+            />
+            <Button
+              variant="configAction"
+              onClick={addPhrase}
+              disabled={!phraseInput.value.trim()}
+              style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}
+            >
+              <IconPlus size={12} />
+              <span>Add</span>
+            </Button>
+          </div>
+
+          {/* Rendered Phrase Chips */}
+          {phrases.value.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+              {phrases.value.map((p, idx) => (
+                <span
+                  key={idx}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    background: idx === 0 ? 'rgba(88, 101, 242, 0.22)' : 'rgba(255, 255, 255, 0.08)',
+                    border: idx === 0 ? '1px solid rgba(88, 101, 242, 0.45)' : '1px solid rgba(255, 255, 255, 0.12)',
+                    color: idx === 0 ? '#9ba5ff' : tokens.colors.textSecondary,
+                  }}
+                >
+                  <span>"{p}"</span>
+                  {idx === 0 && <span style={{ fontSize: '9px', opacity: 0.7 }}>(primary)</span>}
+                  <button
+                    type="button"
+                    onClick={() => removePhrase(idx)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: tokens.colors.textMuted,
+                      cursor: 'pointer',
+                      padding: '0 1px',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <IconX size={11} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Live Sequence Recorder Controls */}
@@ -301,7 +407,7 @@ export function MacroEditorModal({
           </div>
         )}
 
-        {/* Step-by-Step Vertical Timeline with flex: 1 for available space */}
+        {/* Step-by-Step Vertical Timeline */}
         <div
           style={{
             display: 'flex',

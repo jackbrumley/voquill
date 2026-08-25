@@ -164,34 +164,36 @@ pub fn find_best_match(
     let mut best_sim = 0.0f32;
 
     for command in commands {
-        let clean_macro = normalize_phrase(&command.phrase);
-        if clean_macro.is_empty() {
-            continue;
-        }
+        for phrase in command.all_phrases() {
+            let clean_macro = normalize_phrase(&phrase);
+            if clean_macro.is_empty() {
+                continue;
+            }
 
-        // 1. Direct similarity (including space-insensitive collapse)
-        let sim = string_similarity(clean_candidate, &clean_macro);
-        if sim > best_sim {
-            best_sim = sim;
-            best_cmd = Some(command.clone());
-        }
+            // 1. Direct similarity (including space-insensitive collapse)
+            let sim = string_similarity(clean_candidate, &clean_macro);
+            if sim > best_sim {
+                best_sim = sim;
+                best_cmd = Some(command.clone());
+            }
 
-        // 2. Windowed similarity across words if candidate is longer than macro
-        let candidate_words: Vec<&str> = clean_candidate.split_whitespace().collect();
-        let macro_words: Vec<&str> = clean_macro.split_whitespace().collect();
-        let m_len = macro_words.len();
+            // 2. Windowed similarity across words if candidate is longer than macro
+            let candidate_words: Vec<&str> = clean_candidate.split_whitespace().collect();
+            let macro_words: Vec<&str> = clean_macro.split_whitespace().collect();
+            let m_len = macro_words.len();
 
-        if candidate_words.len() >= m_len && m_len > 0 {
-            let min_w = m_len.saturating_sub(1).max(1);
-            let max_w = (m_len + 1).min(candidate_words.len());
+            if candidate_words.len() >= m_len && m_len > 0 {
+                let min_w = m_len.saturating_sub(1).max(1);
+                let max_w = (m_len + 1).min(candidate_words.len());
 
-            for w_len in min_w..=max_w {
-                for window in candidate_words.windows(w_len) {
-                    let window_str = window.join(" ");
-                    let w_sim = string_similarity(&window_str, &clean_macro);
-                    if w_sim > best_sim {
-                        best_sim = w_sim;
-                        best_cmd = Some(command.clone());
+                for w_len in min_w..=max_w {
+                    for window in candidate_words.windows(w_len) {
+                        let window_str = window.join(" ");
+                        let w_sim = string_similarity(&window_str, &clean_macro);
+                        if w_sim > best_sim {
+                            best_sim = w_sim;
+                            best_cmd = Some(command.clone());
+                        }
                     }
                 }
             }
@@ -663,6 +665,7 @@ mod tests {
             VoiceMacroCommand {
                 id: "1".into(),
                 phrase: "airstrike".into(),
+                phrases: vec![],
                 steps: vec![crate::config::MacroStep::KeyPress {
                     key: "F3".into(),
                     hold_ms: 50,
@@ -674,6 +677,7 @@ mod tests {
             VoiceMacroCommand {
                 id: "2".into(),
                 phrase: "drop smoke".into(),
+                phrases: vec![],
                 steps: vec![crate::config::MacroStep::KeyPress {
                     key: "Ctrl+2".into(),
                     hold_ms: 50,
@@ -715,6 +719,7 @@ mod tests {
         let commands = vec![VoiceMacroCommand {
             id: "1".into(),
             phrase: "airstrike".into(),
+            phrases: vec![],
             steps: vec![crate::config::MacroStep::KeyPress {
                 key: "F3".into(),
                 hold_ms: 50,
@@ -746,6 +751,7 @@ mod tests {
         let commands = vec![VoiceMacroCommand {
             id: "1".into(),
             phrase: "call airstrike".into(),
+            phrases: vec![],
             steps: vec![crate::config::MacroStep::KeyPress {
                 key: "F3".into(),
                 hold_ms: 50,
@@ -769,6 +775,7 @@ mod tests {
         let commands = vec![VoiceMacroCommand {
             id: "1".into(),
             phrase: "call airstrike".into(),
+            phrases: vec![],
             steps: vec![crate::config::MacroStep::KeyPress {
                 key: "F3".into(),
                 hold_ms: 50,
@@ -790,6 +797,7 @@ mod tests {
         let commands = vec![VoiceMacroCommand {
             id: "1".into(),
             phrase: "call airstrike".into(),
+            phrases: vec![],
             steps: vec![crate::config::MacroStep::KeyPress {
                 key: "F3".into(),
                 hold_ms: 50,
@@ -802,5 +810,32 @@ mod tests {
         let res = find_best_match("Can we call an airstrike on that hill?", "", &commands);
         assert!(res.matched);
         assert_eq!(res.matched_command.unwrap().phrase, "call airstrike");
+    }
+
+    #[test]
+    fn test_match_phrase_multiple_aliases() {
+        let commands = vec![VoiceMacroCommand {
+            id: "1".into(),
+            phrase: "call airstrike".into(),
+            phrases: vec!["airstrike".into(), "rain fire".into(), "strike".into()],
+            steps: vec![crate::config::MacroStep::KeyPress {
+                key: "F3".into(),
+                hold_ms: 50,
+            }],
+            key_combination: None,
+            hold_ms: None,
+            delay_after_ms: None,
+        }];
+
+        // Primary phrase
+        assert!(match_phrase("call airstrike", "", &commands).is_some());
+        // Second alias
+        assert!(match_phrase("rain fire", "", &commands).is_some());
+        // Third alias
+        assert!(match_phrase("strike", "", &commands).is_some());
+        // Alias inside conversational sentence
+        let res = find_best_match("Please rain fire on my mark", "", &commands);
+        assert!(res.matched);
+        assert_eq!(res.matched_command.unwrap().id, "1");
     }
 }

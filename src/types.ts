@@ -16,6 +16,7 @@ export type MacroStep =
 export interface VoiceMacroCommand {
   id: string;
   phrase: string;
+  phrases?: string[];
   steps: MacroStep[];
   // Legacy optional fields for backwards compatibility:
   key_combination?: string | null;
