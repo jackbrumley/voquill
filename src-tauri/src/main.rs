@@ -231,7 +231,8 @@ fn main() {
             get_engine_capabilities,
             unload_model,
             test_voice_macro_sound,
-            test_voice_macro_execution
+            test_voice_macro_execution,
+            test_spoken_voice_macro
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

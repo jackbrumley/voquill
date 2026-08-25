@@ -17,6 +17,7 @@ import { tokens } from '../../design-tokens.ts';
 import { normalizeKeyName, resolveMacroSteps } from './voice_macro/keyUtils.ts';
 import { MacroStepChip } from './voice_macro/MacroStepChip.tsx';
 import { MacroSequenceBuilder } from './voice_macro/MacroSequenceBuilder.tsx';
+import { SpokenMacroTester } from './voice_macro/SpokenMacroTester.tsx';
 
 interface VoiceMacrosSectionProps {
   config: Config;
@@ -341,6 +342,8 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         description="Record or build multi-step macro sequences with keypresses, holds, releases, and editable delays."
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.md, width: '100%' }}>
+          <SpokenMacroTester showToast={showToast} />
+
           <MacroSequenceBuilder
             newPhrase={newPhrase}
             newSteps={newSteps}

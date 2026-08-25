@@ -65,46 +65,182 @@ pub fn normalize_phrase(input: &str) -> String {
     normalized.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-pub fn match_phrase(
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct MacroMatchResult {
+    pub matched: bool,
+    pub similarity: f32,
+    pub transcript: String,
+    pub matched_command: Option<VoiceMacroCommand>,
+}
+
+pub fn levenshtein_distance(a: &str, b: &str) -> usize {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let len_a = a_chars.len();
+    let len_b = b_chars.len();
+
+    if len_a == 0 {
+        return len_b;
+    }
+    if len_b == 0 {
+        return len_a;
+    }
+
+    let mut prev_row: Vec<usize> = (0..=len_b).collect();
+    let mut curr_row: Vec<usize> = vec![0; len_b + 1];
+
+    for (i, &char_a) in a_chars.iter().enumerate() {
+        curr_row[0] = i + 1;
+        for (j, &char_b) in b_chars.iter().enumerate() {
+            let cost = if char_a == char_b { 0 } else { 1 };
+            curr_row[j + 1] = std::cmp::min(
+                std::cmp::min(prev_row[j + 1] + 1, curr_row[j] + 1),
+                prev_row[j] + cost,
+            );
+        }
+        prev_row.copy_from_slice(&curr_row);
+    }
+
+    prev_row[len_b]
+}
+
+pub fn string_similarity(a: &str, b: &str) -> f32 {
+    let a_clean = normalize_phrase(a);
+    let b_clean = normalize_phrase(b);
+
+    if a_clean == b_clean {
+        return 1.0;
+    }
+
+    let a_collapsed: String = a_clean.chars().filter(|c| !c.is_whitespace()).collect();
+    let b_collapsed: String = b_clean.chars().filter(|c| !c.is_whitespace()).collect();
+
+    if a_collapsed == b_collapsed {
+        return 1.0;
+    }
+
+    let max_len = a_collapsed.len().max(b_collapsed.len());
+    if max_len == 0 {
+        return 1.0;
+    }
+
+    let dist = levenshtein_distance(&a_collapsed, &b_collapsed);
+    (1.0 - (dist as f32 / max_len as f32)).max(0.0)
+}
+
+pub fn find_best_match(
     transcript: &str,
     trigger_word: &str,
     commands: &[VoiceMacroCommand],
-) -> Option<VoiceMacroCommand> {
+) -> MacroMatchResult {
     let clean_transcript = normalize_phrase(transcript);
     let clean_trigger = normalize_phrase(trigger_word);
 
     let candidate_phrase = if !clean_trigger.is_empty() {
         if !clean_transcript.contains(&clean_trigger) {
-            return None;
+            return MacroMatchResult {
+                matched: false,
+                similarity: 0.0,
+                transcript: clean_transcript,
+                matched_command: None,
+            };
         }
         clean_transcript.replacen(&clean_trigger, "", 1)
     } else {
-        clean_transcript
+        clean_transcript.clone()
     };
 
     let clean_candidate = candidate_phrase.trim();
     if clean_candidate.is_empty() {
-        return None;
+        return MacroMatchResult {
+            matched: false,
+            similarity: 0.0,
+            transcript: clean_transcript,
+            matched_command: None,
+        };
     }
 
+    let mut best_cmd: Option<VoiceMacroCommand> = None;
+    let mut best_sim = 0.0f32;
+
     for command in commands {
-        let clean_macro_phrase = normalize_phrase(&command.phrase);
-        if clean_macro_phrase.is_empty() {
+        let clean_macro = normalize_phrase(&command.phrase);
+        if clean_macro.is_empty() {
             continue;
         }
 
-        if clean_candidate == clean_macro_phrase {
-            return Some(command.clone());
+        // 1. Direct similarity (including space-insensitive collapse)
+        let sim = string_similarity(clean_candidate, &clean_macro);
+        if sim > best_sim {
+            best_sim = sim;
+            best_cmd = Some(command.clone());
         }
 
-        let padded_candidate = format!(" {} ", clean_candidate);
-        let padded_macro = format!(" {} ", clean_macro_phrase);
-        if padded_candidate.contains(&padded_macro) {
-            return Some(command.clone());
+        // 2. Windowed similarity across words if candidate is longer than macro
+        let candidate_words: Vec<&str> = clean_candidate.split_whitespace().collect();
+        let macro_words: Vec<&str> = clean_macro.split_whitespace().collect();
+        let m_len = macro_words.len();
+
+        if candidate_words.len() >= m_len && m_len > 0 {
+            let min_w = m_len.saturating_sub(1).max(1);
+            let max_w = (m_len + 1).min(candidate_words.len());
+
+            for w_len in min_w..=max_w {
+                for window in candidate_words.windows(w_len) {
+                    let window_str = window.join(" ");
+                    let w_sim = string_similarity(&window_str, &clean_macro);
+                    if w_sim > best_sim {
+                        best_sim = w_sim;
+                        best_cmd = Some(command.clone());
+                    }
+                }
+            }
         }
     }
 
-    None
+    let is_matched = best_sim >= 0.78;
+
+    MacroMatchResult {
+        matched: is_matched,
+        similarity: best_sim,
+        transcript: clean_transcript,
+        matched_command: if is_matched { best_cmd } else { None },
+    }
+}
+
+pub fn match_phrase(
+    transcript: &str,
+    trigger_word: &str,
+    commands: &[VoiceMacroCommand],
+) -> Option<VoiceMacroCommand> {
+    let res = find_best_match(transcript, trigger_word, commands);
+    if res.matched {
+        res.matched_command
+    } else {
+        None
+    }
+}
+
+pub fn resolve_voice_macro_prompt_hint(config: &crate::config::Config) -> Option<String> {
+    let mut words: Vec<String> = config.dictionary.clone();
+    for cmd in &config.voice_macros {
+        let clean = cmd.phrase.trim();
+        if !clean.is_empty() && !words.iter().any(|w| w.eq_ignore_ascii_case(clean)) {
+            words.push(clean.to_string());
+        }
+    }
+    if !config.voice_macro_trigger_word.trim().is_empty() {
+        let trigger = config.voice_macro_trigger_word.trim();
+        if !words.iter().any(|w| w.eq_ignore_ascii_case(trigger)) {
+            words.push(trigger.to_string());
+        }
+    }
+
+    if words.is_empty() {
+        return None;
+    }
+
+    Some(format!("Vocabulary: {}.", words.join(", ")))
 }
 
 pub async fn execute_macro_command(
@@ -460,8 +596,9 @@ async fn run_voice_macro_listener_loop(
                     Some(config_snapshot.language.as_str())
                 };
 
+                let prompt_hint = resolve_voice_macro_prompt_hint(&config_snapshot);
                 let transcribe_start = Instant::now();
-                match service.transcribe(&wav_bytes, lang, None).await {
+                match service.transcribe(&wav_bytes, lang, prompt_hint.as_deref()).await {
                     Ok(transcript) => {
                         let transcribe_time = transcribe_start.elapsed();
                         let trimmed = transcript.trim();
@@ -473,34 +610,43 @@ async fn run_voice_macro_listener_loop(
 
                         if !trimmed.is_empty() {
                             let match_start = Instant::now();
-                            if let Some(matched_cmd) = match_phrase(trimmed, &trigger_word, &commands) {
-                                let match_time = match_start.elapsed();
-                                let steps = matched_cmd.resolve_steps();
-                                crate::log_info!(
-                                    "[Voice Macro] MATCHED in {:.2}ms: \"{}\" ({} steps)",
-                                    match_time.as_secs_f64() * 1000.0,
-                                    matched_cmd.phrase,
-                                    steps.len()
-                                );
-
-                                if sound_feedback {
-                                    play_macro_trigger_sound(playback_dev);
-                                }
-
-                                let exec_start = Instant::now();
-                                if let Err(e) = execute_macro_command(&app_handle, &matched_cmd).await {
-                                    crate::log_warn!("Voice Macro execution failed: {}", e);
-                                } else {
-                                    let exec_time = exec_start.elapsed();
-                                    let total_turnaround = chunk.detected_at.elapsed();
+                            let match_res = find_best_match(trimmed, &trigger_word, &commands);
+                            if match_res.matched {
+                                if let Some(matched_cmd) = match_res.matched_command {
+                                    let match_time = match_start.elapsed();
+                                    let steps = matched_cmd.resolve_steps();
                                     crate::log_info!(
-                                        "[Voice Macro] ⚡ Executed in {:.1}ms (Total speech-end to key turnaround: {:.1}ms)",
-                                        exec_time.as_secs_f64() * 1000.0,
-                                        total_turnaround.as_secs_f64() * 1000.0
+                                        "[Voice Macro] MATCHED in {:.2}ms ({:.1}% match): \"{}\" -> \"{}\" ({} steps)",
+                                        match_time.as_secs_f64() * 1000.0,
+                                        match_res.similarity * 100.0,
+                                        trimmed,
+                                        matched_cmd.phrase,
+                                        steps.len()
                                     );
+
+                                    if sound_feedback {
+                                        play_macro_trigger_sound(playback_dev);
+                                    }
+
+                                    let exec_start = Instant::now();
+                                    if let Err(e) = execute_macro_command(&app_handle, &matched_cmd).await {
+                                        crate::log_warn!("Voice Macro execution failed: {}", e);
+                                    } else {
+                                        let exec_time = exec_start.elapsed();
+                                        let total_turnaround = chunk.detected_at.elapsed();
+                                        crate::log_info!(
+                                            "[Voice Macro] ⚡ Executed in {:.1}ms (Total speech-end to key turnaround: {:.1}ms)",
+                                            exec_time.as_secs_f64() * 1000.0,
+                                            total_turnaround.as_secs_f64() * 1000.0
+                                        );
+                                    }
                                 }
                             } else {
-                                crate::log_info!("[Voice Macro] No macro matched for phrase: \"{}\"", trimmed);
+                                crate::log_info!(
+                                    "[Voice Macro] No macro matched for phrase: \"{}\" (best similarity: {:.1}%)",
+                                    trimmed,
+                                    match_res.similarity * 100.0
+                                );
                             }
                         }
                     }
@@ -615,5 +761,68 @@ mod tests {
 
         let matched_punct = match_phrase("Computer, airstrike!", "computer", &commands);
         assert!(matched_punct.is_some());
+    }
+
+    #[test]
+    fn test_match_phrase_space_insensitive_and_compound_words() {
+        let commands = vec![VoiceMacroCommand {
+            id: "1".into(),
+            phrase: "call airstrike".into(),
+            steps: vec![crate::config::MacroStep::KeyPress {
+                key: "F3".into(),
+                hold_ms: 50,
+            }],
+            key_combination: None,
+            hold_ms: None,
+            delay_after_ms: None,
+        }];
+
+        // Transcribed with two words "air strike"
+        let matched = match_phrase("call air strike", "", &commands);
+        assert!(matched.is_some());
+
+        // Transcribed as one compound word "callairstrike"
+        let matched_collapsed = match_phrase("callairstrike", "", &commands);
+        assert!(matched_collapsed.is_some());
+    }
+
+    #[test]
+    fn test_match_phrase_phonetic_fuzzy_tolerance() {
+        let commands = vec![VoiceMacroCommand {
+            id: "1".into(),
+            phrase: "call airstrike".into(),
+            steps: vec![crate::config::MacroStep::KeyPress {
+                key: "F3".into(),
+                hold_ms: 50,
+            }],
+            key_combination: None,
+            hold_ms: None,
+            delay_after_ms: None,
+        }];
+
+        // Whisper homophone "Coal Air Strike." vs "call airstrike"
+        let res = find_best_match("Coal Air Strike.", "", &commands);
+        assert!(res.matched);
+        assert!(res.similarity >= 0.78);
+        assert_eq!(res.matched_command.unwrap().phrase, "call airstrike");
+    }
+
+    #[test]
+    fn test_match_phrase_conversational_subsequence() {
+        let commands = vec![VoiceMacroCommand {
+            id: "1".into(),
+            phrase: "call airstrike".into(),
+            steps: vec![crate::config::MacroStep::KeyPress {
+                key: "F3".into(),
+                hold_ms: 50,
+            }],
+            key_combination: None,
+            hold_ms: None,
+            delay_after_ms: None,
+        }];
+
+        let res = find_best_match("Can we call an airstrike on that hill?", "", &commands);
+        assert!(res.matched);
+        assert_eq!(res.matched_command.unwrap().phrase, "call airstrike");
     }
 }
