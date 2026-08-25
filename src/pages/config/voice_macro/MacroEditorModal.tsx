@@ -53,8 +53,8 @@ export function MacroEditorModal({
   const isRecording = useSignal(false);
   const manualKeyInput = useSignal('');
   const manualTextInput = useSignal('');
-  const editingDelayIndex = useSignal<number | null>(null);
-  const editingDelayValue = useSignal('');
+  const editingDurationIndex = useSignal<number | null>(null);
+  const editingDurationValue = useSignal('');
 
   const lastEventTime = useSignal<number>(0);
   const pressedKeysDownTime = useSignal<Record<string, number>>({});
@@ -186,19 +186,24 @@ export function MacroEditorModal({
     manualTextInput.value = '';
   };
 
-  const startEditDelay = (index: number, currentMs: number) => {
-    editingDelayIndex.value = index;
-    editingDelayValue.value = currentMs.toString();
+  const startEditDuration = (index: number, currentMs: number) => {
+    editingDurationIndex.value = index;
+    editingDurationValue.value = currentMs.toString();
   };
 
-  const saveEditDelay = (index: number) => {
-    const num = parseInt(editingDelayValue.value, 10);
+  const saveEditDuration = (index: number) => {
+    const num = parseInt(editingDurationValue.value, 10);
     if (!isNaN(num) && num >= 0) {
       const updated = [...steps.value];
-      updated[index] = { type: 'Delay', duration_ms: num };
+      const targetStep = updated[index];
+      if (targetStep.type === 'Delay') {
+        updated[index] = { type: 'Delay', duration_ms: num };
+      } else if (targetStep.type === 'KeyPress') {
+        updated[index] = { type: 'KeyPress', key: targetStep.key, hold_ms: num };
+      }
       steps.value = updated;
     }
-    editingDelayIndex.value = null;
+    editingDurationIndex.value = null;
   };
 
   const handleSave = () => {
@@ -488,23 +493,33 @@ export function MacroEditorModal({
                 No actions added yet. Click 'Record Sequence' or use the buttons below.
               </div>
             ) : (
-              steps.value.map((step, idx) => (
-                <MacroStepRow
-                  key={idx}
-                  index={idx}
-                  step={step}
-                  onRemove={() => removeStep(idx)}
-                  isEditingDelay={editingDelayIndex.value === idx}
-                  editingDelayValue={editingDelayValue.value}
-                  onStartEditDelay={
-                    step.type === 'Delay' ? () => startEditDelay(idx, step.duration_ms) : undefined
-                  }
-                  onDelayInputChange={(val) => {
-                    editingDelayValue.value = val;
-                  }}
-                  onSaveDelay={() => saveEditDelay(idx)}
-                />
-              ))
+              steps.value.map((step, idx) => {
+                const currentDuration =
+                  step.type === 'Delay'
+                    ? step.duration_ms
+                    : step.type === 'KeyPress'
+                      ? step.hold_ms || 50
+                      : 0;
+                const isEditable = step.type === 'Delay' || step.type === 'KeyPress';
+
+                return (
+                  <MacroStepRow
+                    key={idx}
+                    index={idx}
+                    step={step}
+                    onRemove={() => removeStep(idx)}
+                    isEditingDuration={editingDurationIndex.value === idx}
+                    editingDurationValue={editingDurationValue.value}
+                    onStartEditDuration={
+                      isEditable ? () => startEditDuration(idx, currentDuration) : undefined
+                    }
+                    onDurationInputChange={(val) => {
+                      editingDurationValue.value = val;
+                    }}
+                    onSaveDuration={() => saveEditDuration(idx)}
+                  />
+                );
+              })
             )}
           </div>
         </div>

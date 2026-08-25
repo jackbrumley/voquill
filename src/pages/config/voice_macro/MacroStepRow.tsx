@@ -7,26 +7,27 @@ interface MacroStepRowProps {
   index: number;
   step: MacroStep;
   onRemove: () => void;
-  isEditingDelay?: boolean;
-  editingDelayValue?: string;
-  onStartEditDelay?: () => void;
-  onDelayInputChange?: (val: string) => void;
-  onSaveDelay?: () => void;
+  isEditingDuration?: boolean;
+  editingDurationValue?: string;
+  onStartEditDuration?: () => void;
+  onDurationInputChange?: (val: string) => void;
+  onSaveDuration?: () => void;
 }
 
 export function MacroStepRow({
   index,
   step,
   onRemove,
-  isEditingDelay = false,
-  editingDelayValue = '',
-  onStartEditDelay,
-  onDelayInputChange,
-  onSaveDelay,
+  isEditingDuration = false,
+  editingDurationValue = '',
+  onStartEditDuration,
+  onDurationInputChange,
+  onSaveDuration,
 }: MacroStepRowProps) {
   const renderBadgeAndContent = () => {
     switch (step.type) {
-      case 'KeyPress':
+      case 'KeyPress': {
+        const holdMs = step.hold_ms || 50;
         return (
           <>
             <span
@@ -65,13 +66,58 @@ export function MacroStepRow({
               {step.key}
             </span>
 
-            {step.hold_ms && step.hold_ms !== 50 && (
-              <span style={{ fontSize: '10px', color: tokens.colors.textMuted }}>
-                ({step.hold_ms}ms)
-              </span>
+            {isEditingDuration ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={editingDurationValue}
+                  onInput={(e) => {
+                    const clean = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '');
+                    onDurationInputChange?.(clean);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === 'Escape') onSaveDuration?.();
+                  }}
+                  onBlur={onSaveDuration}
+                  autoFocus
+                  style={{
+                    ...inputBaseStyle,
+                    width: '50px',
+                    padding: '1px 4px',
+                    fontSize: '11px',
+                    fontFamily: 'monospace',
+                    textAlign: 'center',
+                  }}
+                />
+                <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>ms</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={onStartEditDuration}
+                title="Click to edit key hold duration"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px dashed rgba(255, 255, 255, 0.18)',
+                  borderRadius: '4px',
+                  padding: '1px 5px',
+                  fontSize: '10.5px',
+                  fontFamily: 'monospace',
+                  color: tokens.colors.textSecondary,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '2px',
+                }}
+              >
+                <span>{holdMs}ms</span>
+                <span style={{ fontSize: '9px', color: tokens.colors.textMuted }}>(edit)</span>
+              </button>
             )}
           </>
         );
+      }
 
       case 'KeyDown':
         return (
@@ -179,21 +225,24 @@ export function MacroStepRow({
               <span>Delay</span>
             </span>
 
-            {isEditingDelay ? (
+            {isEditingDuration ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                 <input
-                  type="number"
-                  value={editingDelayValue}
-                  onInput={(e) => onDelayInputChange?.((e.target as HTMLInputElement).value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') onSaveDelay?.();
-                    if (e.key === 'Escape') onSaveDelay?.();
+                  type="text"
+                  inputMode="numeric"
+                  value={editingDurationValue}
+                  onInput={(e) => {
+                    const clean = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '');
+                    onDurationInputChange?.(clean);
                   }}
-                  onBlur={onSaveDelay}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === 'Escape') onSaveDuration?.();
+                  }}
+                  onBlur={onSaveDuration}
                   autoFocus
                   style={{
                     ...inputBaseStyle,
-                    width: '55px',
+                    width: '50px',
                     padding: '1px 4px',
                     fontSize: '11px',
                     fontFamily: 'monospace',
@@ -205,7 +254,7 @@ export function MacroStepRow({
             ) : (
               <button
                 type="button"
-                onClick={onStartEditDelay}
+                onClick={onStartEditDuration}
                 title="Click to edit delay duration"
                 style={{
                   background: 'rgba(255, 255, 255, 0.04)',
