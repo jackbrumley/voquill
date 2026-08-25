@@ -1,10 +1,10 @@
 import { useSignal } from '@preact/signals';
-import { useEffect } from 'preact/hooks';
 import {
   IconTrash,
   IconVolume,
   IconPlayerPlay,
   IconPencil,
+  IconPlus,
 } from '@tabler/icons-preact';
 import { invoke } from '@tauri-apps/api/core';
 import { ConfigField } from '../../components/ConfigField.tsx';
@@ -14,9 +14,9 @@ import { SliderField } from '../../components/SliderField.tsx';
 import type { Config, MacroStep, VoiceMacroCommand } from '../../types.ts';
 import { inputBaseStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
-import { normalizeKeyName, resolveMacroSteps } from './voice_macro/keyUtils.ts';
+import { resolveMacroSteps } from './voice_macro/keyUtils.ts';
 import { MacroStepChip } from './voice_macro/MacroStepChip.tsx';
-import { MacroSequenceBuilder } from './voice_macro/MacroSequenceBuilder.tsx';
+import { MacroEditorModal } from './voice_macro/MacroEditorModal.tsx';
 import { SpokenMacroTester } from './voice_macro/SpokenMacroTester.tsx';
 
 interface VoiceMacrosSectionProps {
@@ -29,18 +29,10 @@ interface VoiceMacrosSectionProps {
 }
 
 export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMacrosSectionProps) {
-  const newPhrase = useSignal('');
-  const newSteps = useSignal<MacroStep[]>([]);
-  const editingMacroId = useSignal<string | null>(null);
-  const isRecordingSequence = useSignal(false);
+  const isEditorModalOpen = useSignal(false);
+  const editingCommand = useSignal<VoiceMacroCommand | null>(null);
   const isPlayingTestSound = useSignal(false);
   const isTestingExecution = useSignal<string | null>(null);
-
-  const lastEventTime = useSignal<number>(0);
-  const pressedKeysDownTime = useSignal<Record<string, number>>({});
-  const manualKeyInput = useSignal('');
-  const editingDelayIndex = useSignal<number | null>(null);
-  const editingDelayValue = useSignal('');
 
   const handleTestSound = async () => {
     isPlayingTestSound.value = true;
@@ -70,40 +62,28 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
     }
   };
 
-  const handleStartEdit = (cmd: VoiceMacroCommand) => {
-    editingMacroId.value = cmd.id;
-    newPhrase.value = cmd.phrase;
-    newSteps.value = [...resolveMacroSteps(cmd)];
-    isRecordingSequence.value = false;
-    showToast?.(`Editing macro "${cmd.phrase}"`, 'info');
+  const handleOpenCreateModal = () => {
+    editingCommand.value = null;
+    isEditorModalOpen.value = true;
   };
 
-  const handleCancelEdit = () => {
-    editingMacroId.value = null;
-    newPhrase.value = '';
-    newSteps.value = [];
-    isRecordingSequence.value = false;
+  const handleOpenEditModal = (cmd: VoiceMacroCommand) => {
+    editingCommand.value = cmd;
+    isEditorModalOpen.value = true;
   };
 
-  const handleAddCommand = () => {
-    const phrase = newPhrase.value.trim().toLowerCase();
-    const steps = newSteps.value;
+  const handleCloseModal = () => {
+    isEditorModalOpen.value = false;
+    editingCommand.value = null;
+  };
 
-    if (!phrase) {
-      showToast?.('Please enter a spoken phrase for this macro.', 'error');
-      return;
-    }
-
-    if (steps.length === 0) {
-      showToast?.('Please add or record at least one macro action step.', 'error');
-      return;
-    }
-
+  const handleSaveModal = (phrase: string, steps: MacroStep[]) => {
     const currentMacros = config.voice_macros || [];
 
-    if (editingMacroId.value) {
+    if (editingCommand.value) {
+      const editId = editingCommand.value.id;
       const updated = currentMacros.map((cmd) => {
-        if (cmd.id === editingMacroId.value) {
+        if (cmd.id === editId) {
           return {
             ...cmd,
             phrase,
@@ -130,126 +110,14 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
       showToast?.(`Added macro command "${phrase}"`, 'success');
     }
 
-    newPhrase.value = '';
-    newSteps.value = [];
-    editingMacroId.value = null;
-    isRecordingSequence.value = false;
+    handleCloseModal();
   };
 
-  const handleDeleteCommand = (id: string) => {
+  const handleDeleteCommand = (id: string, phrase: string) => {
     const currentMacros = config.voice_macros || [];
     const updated = currentMacros.filter((m) => m.id !== id);
     updateConfig('voice_macros', updated);
-  };
-
-  const appendStepWithDelay = (step: MacroStep) => {
-    const now = Date.now();
-    const updated = [...newSteps.value];
-    if (lastEventTime.value > 0) {
-      const delayMs = now - lastEventTime.value;
-      if (delayMs >= 35 && updated.length > 0) {
-        updated.push({ type: 'Delay', duration_ms: Math.min(delayMs, 5000) });
-      }
-    }
-    updated.push(step);
-    newSteps.value = updated;
-    lastEventTime.value = now;
-  };
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (!isRecordingSequence.value) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
-      isRecordingSequence.value = false;
-      return;
-    }
-
-    const keyName = normalizeKeyName(e);
-    const isModifier = ['Ctrl', 'Shift', 'Alt', 'Super'].includes(keyName);
-
-    if (isModifier) {
-      if (!pressedKeysDownTime.value[keyName]) {
-        pressedKeysDownTime.value = { ...pressedKeysDownTime.value, [keyName]: Date.now() };
-        appendStepWithDelay({ type: 'KeyDown', key: keyName });
-      }
-    } else if (!pressedKeysDownTime.value[keyName]) {
-      pressedKeysDownTime.value = { ...pressedKeysDownTime.value, [keyName]: Date.now() };
-    }
-  };
-
-  const handleKeyUp = (e: KeyboardEvent) => {
-    if (!isRecordingSequence.value) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    const keyName = normalizeKeyName(e);
-    const isModifier = ['Ctrl', 'Shift', 'Alt', 'Super'].includes(keyName);
-    const downTime = pressedKeysDownTime.value[keyName] || Date.now();
-
-    const updatedPresses = { ...pressedKeysDownTime.value };
-    delete updatedPresses[keyName];
-    pressedKeysDownTime.value = updatedPresses;
-
-    if (isModifier) {
-      appendStepWithDelay({ type: 'KeyUp', key: keyName });
-    } else {
-      const holdDuration = Math.min(Math.max(Date.now() - downTime, 25), 2000);
-      appendStepWithDelay({ type: 'KeyPress', key: keyName, hold_ms: holdDuration });
-    }
-  };
-
-  useEffect(() => {
-    if (!isRecordingSequence.value) return;
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [isRecordingSequence.value]);
-
-  const removeStep = (index: number) => {
-    const updated = [...newSteps.value];
-    updated.splice(index, 1);
-    newSteps.value = updated;
-  };
-
-  const addManualKey = (type: 'KeyPress' | 'KeyDown' | 'KeyUp') => {
-    const key = manualKeyInput.value.trim();
-    if (!key) return;
-    if (type === 'KeyPress') {
-      newSteps.value = [...newSteps.value, { type: 'KeyPress', key, hold_ms: 50 }];
-    } else if (type === 'KeyDown') {
-      newSteps.value = [...newSteps.value, { type: 'KeyDown', key }];
-    } else if (type === 'KeyUp') {
-      newSteps.value = [...newSteps.value, { type: 'KeyUp', key }];
-    }
-    manualKeyInput.value = '';
-  };
-
-  const addManualDelay = () => {
-    newSteps.value = [...newSteps.value, { type: 'Delay', duration_ms: 100 }];
-  };
-
-  const startEditDelay = (index: number, currentMs: number) => {
-    editingDelayIndex.value = index;
-    editingDelayValue.value = currentMs.toString();
-  };
-
-  const saveEditDelay = (index: number) => {
-    const num = parseInt(editingDelayValue.value, 10);
-    if (!isNaN(num) && num >= 0) {
-      const updated = [...newSteps.value];
-      updated[index] = { type: 'Delay', duration_ms: num };
-      newSteps.value = updated;
-    }
-    editingDelayIndex.value = null;
+    showToast?.(`Removed macro "${phrase}"`, 'info');
   };
 
   const macros = config.voice_macros || [];
@@ -339,40 +207,29 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
 
       <ConfigField
         label="Configured Voice Commands"
-        description="Record or build multi-step macro sequences with keypresses, holds, releases, and editable delays."
+        description="Record and customize multi-step key sequences, holds, releases, and precise delays."
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.md, width: '100%' }}>
           <SpokenMacroTester showToast={showToast} />
 
-          <MacroSequenceBuilder
-            newPhrase={newPhrase}
-            newSteps={newSteps}
-            editingMacroId={editingMacroId}
-            isRecordingSequence={isRecordingSequence}
-            manualKeyInput={manualKeyInput}
-            editingDelayIndex={editingDelayIndex}
-            editingDelayValue={editingDelayValue}
-            onSave={handleAddCommand}
-            onCancelEdit={handleCancelEdit}
-            onToggleRecord={() => {
-              if (isRecordingSequence.value) {
-                isRecordingSequence.value = false;
-              } else {
-                isRecordingSequence.value = true;
-                lastEventTime.value = 0;
-                pressedKeysDownTime.value = {};
-              }
-            }}
-            onRemoveStep={removeStep}
-            onAddManualKey={addManualKey}
-            onAddManualDelay={addManualDelay}
-            onStartEditDelay={startEditDelay}
-            onSaveEditDelay={saveEditDelay}
-          />
+          {/* Action header with Create Macro button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: tokens.colors.textSecondary }}>
+              Custom Macros ({macros.length})
+            </span>
+            <Button
+              variant="configAction"
+              onClick={handleOpenCreateModal}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <IconPlus size={14} />
+              <span>Create Voice Macro</span>
+            </Button>
+          </div>
 
           {/* List of Configured Macros */}
           {macros.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: tokens.spacing.xs }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {macros.map((cmd) => {
                 const steps = resolveMacroSteps(cmd);
                 return (
@@ -383,19 +240,13 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                       flexDirection: 'column',
                       padding: '10px 12px',
                       borderRadius: '8px',
-                      background:
-                        editingMacroId.value === cmd.id
-                          ? 'rgba(88, 101, 242, 0.12)'
-                          : 'rgba(255, 255, 255, 0.05)',
-                      border:
-                        editingMacroId.value === cmd.id
-                          ? '1px solid #5865f2'
-                          : '1px solid rgba(255, 255, 255, 0.08)',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
                       gap: '8px',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <span
                           style={{
                             fontSize: tokens.typography.sizeSm,
@@ -405,23 +256,23 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                         >
                           "{cmd.phrase}"
                         </span>
-                        <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
-                          ({steps.length} {steps.length === 1 ? 'step' : 'steps'})
-                        </span>
-                        {editingMacroId.value === cmd.id && (
+                        {config.voice_macro_trigger_word && (
                           <span
                             style={{
                               fontSize: '10px',
-                              color: '#9ba5ff',
-                              fontWeight: 600,
+                              color: '#93c5fd',
+                              background: 'rgba(59, 130, 246, 0.18)',
+                              border: '1px solid rgba(59, 130, 246, 0.35)',
                               padding: '1px 6px',
                               borderRadius: '4px',
-                              background: 'rgba(88, 101, 242, 0.25)',
                             }}
                           >
-                            Editing
+                            Prefix: {config.voice_macro_trigger_word}
                           </span>
                         )}
+                        <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
+                          ({steps.length} {steps.length === 1 ? 'step' : 'steps'})
+                        </span>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -444,7 +295,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                           <IconPlayerPlay size={15} />
                         </button>
                         <button
-                          onClick={() => handleStartEdit(cmd)}
+                          onClick={() => handleOpenEditModal(cmd)}
                           style={{
                             background: 'none',
                             border: 'none',
@@ -461,7 +312,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                           <IconPencil size={15} />
                         </button>
                         <button
-                          onClick={() => handleDeleteCommand(cmd.id)}
+                          onClick={() => handleDeleteCommand(cmd.id, cmd.phrase)}
                           style={{
                             background: 'none',
                             border: 'none',
@@ -480,7 +331,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                       </div>
                     </div>
 
-                    {/* Sequence Steps Render */}
+                    {/* Sequence Steps Horizontal Summary Render */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                       {steps.length > 0 ? (
                         steps.map((step, sIdx) => (
@@ -502,12 +353,38 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
               })}
             </div>
           ) : (
-            <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, padding: '8px 0' }}>
-              No voice commands configured yet. Record or add a sequence above.
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '24px 16px',
+                borderRadius: '8px',
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px dashed rgba(255, 255, 255, 0.08)',
+                gap: '8px',
+              }}
+            >
+              <span style={{ fontSize: tokens.typography.sizeSm, color: tokens.colors.textMuted }}>
+                No voice macros configured yet.
+              </span>
+              <Button variant="configAction" onClick={handleOpenCreateModal}>
+                + Create Your First Macro
+              </Button>
             </div>
           )}
         </div>
       </ConfigField>
+
+      {/* Dedicated Macro Editor Modal */}
+      {isEditorModalOpen.value && (
+        <MacroEditorModal
+          initialCommand={editingCommand.value}
+          onSave={handleSaveModal}
+          onClose={handleCloseModal}
+        />
+      )}
     </>
   );
 }
