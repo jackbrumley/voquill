@@ -4,6 +4,7 @@ import {
   IconCheck,
   IconAlertTriangle,
   IconFileCode,
+  IconVolume,
 } from '@tabler/icons-preact';
 import { open } from '@tauri-apps/plugin-dialog';
 import { Modal } from '../../../components/Modal.tsx';
@@ -230,6 +231,28 @@ export function MacroImportModal({
               </div>
             )}
 
+            {/* Command step security notice */}
+            {validCount > 0 &&
+              parseResult.value.valid.some((c) => c.steps?.some((s) => s.type === 'RunCommand')) && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    fontSize: '11px',
+                    color: '#fbbf24',
+                    marginTop: '2px',
+                  }}
+                >
+                  <IconAlertTriangle size={13} color="#fbbf24" style={{ flexShrink: 0 }} />
+                  <span>Includes system CLI commands. Review steps below before importing.</span>
+                </div>
+              )}
+
             {/* Preview of valid macros */}
             {validCount > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
@@ -258,6 +281,23 @@ export function MacroImportModal({
                       <span style={{ fontSize: '10.5px', color: tokens.colors.textMuted }}>
                         • {cmd.steps?.length || 0} steps
                       </span>
+                      {cmd.sound_mode === 'tts' && cmd.sound_tts_text && (
+                        <span
+                          style={{
+                            fontSize: '9.5px',
+                            color: '#f472b6',
+                            background: 'rgba(236, 72, 153, 0.15)',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                          }}
+                        >
+                          <IconVolume size={11} />
+                          <span>"{cmd.sound_tts_text}"</span>
+                        </span>
+                      )}
                     </div>
 
                     {cmd.steps && cmd.steps.length > 0 && (

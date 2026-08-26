@@ -50,6 +50,7 @@ export function SelectField({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const listboxId = `voquill-select-listbox-${Math.random().toString(36).slice(2, 11)}`;
   const openUpward = useSignal(false);
+  const maxMenuHeight = useSignal(260);
 
   const selectedOption = options.find((option) => option.value === value) || null;
 
@@ -94,7 +95,13 @@ export function SelectField({
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
-      openUpward.value = spaceBelow < 280;
+      const spaceAbove = rect.top;
+
+      const shouldOpenUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
+      openUpward.value = shouldOpenUpward;
+
+      const availableSpace = shouldOpenUpward ? spaceAbove : spaceBelow;
+      maxMenuHeight.value = Math.min(260, Math.max(120, availableSpace - 24));
     }
     isOpen.value = true;
   };
@@ -358,7 +365,7 @@ export function SelectField({
             </div>
           )}
 
-          <div style={{ maxHeight: '260px', overflow: 'auto', padding: '6px' }}>
+          <div style={{ maxHeight: `${maxMenuHeight.value}px`, overflow: 'auto', padding: '6px' }}>
             {filteredOptions.length === 0 ? (
               <div
                 style={{

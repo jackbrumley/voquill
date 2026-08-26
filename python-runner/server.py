@@ -72,6 +72,11 @@ def _discover_capabilities() -> dict[str, dict[str, Any]]:
             "provider": "noisereduce",
             "description": "Audio noise reduction using spectral gating (noisereduce)",
         },
+        "tts": {
+            "module": "tts.provider_sherpa",
+            "provider": "sherpa-onnx",
+            "description": "Offline text-to-speech synthesis using sherpa-onnx (Piper/VITS)",
+        },
     }
 
 
@@ -201,6 +206,58 @@ async def enhance(body: dict) -> dict:
     except Exception as e:
         logger.exception("Enhancement failed")
         raise HTTPException(status_code=500, detail=f"Enhancement failed: {e}")
+
+
+@app.get("/tts/voices")
+async def get_tts_voices() -> list[dict]:
+    handlers = app.state.handlers
+    if "tts" not in handlers:
+        raise HTTPException(
+            status_code=501,
+            detail="TTS capability not available (sherpa-onnx not installed?)",
+        )
+    mod = handlers["tts"]["module"]
+    try:
+        voices = mod.get_available_voices(RUNNER_BASE_DIR)
+        return [v.model_dump() for v in voices]
+    except Exception as e:
+        logger.exception("Failed to query TTS voices")
+        raise HTTPException(status_code=500, detail=f"Failed to query TTS voices: {e}")
+
+
+@app.post("/tts/synthesize")
+async def synthesize_tts(body: dict) -> dict:
+    handlers = app.state.handlers
+    if "tts" not in handlers:
+        raise HTTPException(
+            status_code=501,
+            detail="TTS capability not available (sherpa-onnx not installed?)",
+        )
+    text = body.get("text")
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required")
+
+    voice_id = body.get("voice_id", "piper-en_US-amy-low")
+    speed = body.get("speed", 1.0)
+    effect = body.get("effect", "clean")
+    pitch = body.get("pitch", 0.0)
+    output_path = body.get("output_path")
+
+    mod = handlers["tts"]["module"]
+    try:
+        result = mod.run(
+            text=text,
+            voice_id=voice_id,
+            speed=speed,
+            effect=effect,
+            pitch=pitch,
+            output_path=output_path,
+            runner_base_dir=RUNNER_BASE_DIR,
+        )
+        return result.model_dump()
+    except Exception as e:
+        logger.exception("TTS synthesis failed")
+        raise HTTPException(status_code=500, detail=f"TTS synthesis failed: {e}")
 
 
 # ── Entry point (used when Rust spawns the server) ─────────────────────────

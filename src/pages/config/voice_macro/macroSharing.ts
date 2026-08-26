@@ -1,4 +1,4 @@
-import type { MacroStep, VoiceMacroCommand } from '../../../types.ts';
+import type { MacroSoundMode, MacroStep, VoiceMacroCommand } from '../../../types.ts';
 
 export function generateMacroId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -17,6 +17,12 @@ export function cloneMacro(cmd: VoiceMacroCommand, customPhrase?: string): Voice
     key_combination: null,
     hold_ms: null,
     delay_after_ms: null,
+    sound_mode: cmd.sound_mode || 'default',
+    sound_tts_text: cmd.sound_tts_text || null,
+    sound_tts_voice: cmd.sound_tts_voice || null,
+    sound_tts_speed: cmd.sound_tts_speed || null,
+    sound_tts_effect: cmd.sound_tts_effect || null,
+    sound_tts_pitch: cmd.sound_tts_pitch || null,
   };
 }
 
@@ -36,6 +42,12 @@ export function serializeSingleMacro(cmd: VoiceMacroCommand): string {
     key_combination: null,
     hold_ms: null,
     delay_after_ms: null,
+    sound_mode: cmd.sound_mode || 'default',
+    sound_tts_text: cmd.sound_tts_text || null,
+    sound_tts_voice: cmd.sound_tts_voice || null,
+    sound_tts_speed: cmd.sound_tts_speed || null,
+    sound_tts_effect: cmd.sound_tts_effect || null,
+    sound_tts_pitch: cmd.sound_tts_pitch || null,
   };
   return JSON.stringify(clean, null, 2);
 }
@@ -53,6 +65,12 @@ export function serializeMacroBundle(macros: VoiceMacroCommand[]): string {
       key_combination: null,
       hold_ms: null,
       delay_after_ms: null,
+      sound_mode: cmd.sound_mode || 'default',
+      sound_tts_text: cmd.sound_tts_text || null,
+      sound_tts_voice: cmd.sound_tts_voice || null,
+      sound_tts_speed: cmd.sound_tts_speed || null,
+      sound_tts_effect: cmd.sound_tts_effect || null,
+      sound_tts_pitch: cmd.sound_tts_pitch || null,
     })),
   };
   return JSON.stringify(bundle, null, 2);
@@ -61,7 +79,7 @@ export function serializeMacroBundle(macros: VoiceMacroCommand[]): string {
 function isValidStep(step: unknown): step is MacroStep {
   if (!step || typeof step !== 'object') return false;
   const s = step as Record<string, unknown>;
-  const validTypes = ['KeyPress', 'KeyDown', 'KeyUp', 'Delay', 'TypeText'];
+  const validTypes = ['KeyPress', 'KeyDown', 'KeyUp', 'Delay', 'TypeText', 'RunCommand'];
   if (!validTypes.includes(String(s.type))) return false;
 
   if (s.type === 'KeyPress' || s.type === 'KeyDown' || s.type === 'KeyUp') {
@@ -72,6 +90,9 @@ function isValidStep(step: unknown): step is MacroStep {
   }
   if (s.type === 'TypeText') {
     return typeof s.text === 'string';
+  }
+  if (s.type === 'RunCommand') {
+    return typeof s.command === 'string' && s.command.trim().length > 0;
   }
   return false;
 }
@@ -175,6 +196,16 @@ export function parseAndValidateMacros(jsonText: string): {
       key_combination: null,
       hold_ms: null,
       delay_after_ms: null,
+      sound_mode:
+        typeof c.sound_mode === 'string' &&
+        ['default', 'none', 'tts', 'custom_file', 'mic_recording'].includes(c.sound_mode)
+          ? (c.sound_mode as MacroSoundMode)
+          : 'default',
+      sound_tts_text: typeof c.sound_tts_text === 'string' ? c.sound_tts_text : null,
+      sound_tts_voice: typeof c.sound_tts_voice === 'string' ? c.sound_tts_voice : null,
+      sound_tts_speed: typeof c.sound_tts_speed === 'number' ? c.sound_tts_speed : null,
+      sound_tts_effect: typeof c.sound_tts_effect === 'string' ? c.sound_tts_effect : null,
+      sound_tts_pitch: typeof c.sound_tts_pitch === 'number' ? c.sound_tts_pitch : null,
     });
   }
 

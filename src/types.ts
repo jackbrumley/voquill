@@ -11,17 +11,35 @@ export type MacroStep =
   | { type: 'KeyDown'; key: string }
   | { type: 'KeyUp'; key: string }
   | { type: 'Delay'; duration_ms: number }
-  | { type: 'TypeText'; text: string };
+  | { type: 'TypeText'; text: string }
+  | { type: 'RunCommand'; command: string };
+
+export type MacroSoundMode = 'default' | 'none' | 'tts' | 'custom_file' | 'mic_recording';
+
+export interface VoicePersonaInfo {
+  id: string;
+  name: string;
+  persona: string;
+  category: string;
+  engine: string;
+  description: string;
+  is_ready: boolean;
+}
 
 export interface VoiceMacroCommand {
   id: string;
   phrase: string;
   phrases?: string[];
   steps: MacroStep[];
-  // Legacy optional fields for backwards compatibility:
   key_combination?: string | null;
   hold_ms?: number | null;
   delay_after_ms?: number | null;
+  sound_mode?: MacroSoundMode;
+  sound_tts_text?: string | null;
+  sound_tts_voice?: string | null;
+  sound_tts_speed?: number | null;
+  sound_tts_effect?: string | null;
+  sound_tts_pitch?: number | null;
 }
 
 export type PasteShortcut = 'ShiftInsert' | 'CtrlV' | 'CtrlShiftV';

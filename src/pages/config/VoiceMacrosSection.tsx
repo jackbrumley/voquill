@@ -1,6 +1,8 @@
 import { useSignal } from '@preact/signals';
 import {
   IconVolume,
+  IconVolumeOff,
+  IconMicrophone,
   IconPlayerPlay,
   IconPencil,
   IconPlus,
@@ -14,7 +16,7 @@ import { ConfigField } from '../../components/ConfigField.tsx';
 import { Switch } from '../../components/Switch.tsx';
 import { Button } from '../../components/Button.tsx';
 import { SliderField } from '../../components/SliderField.tsx';
-import type { Config, MacroStep, VoiceMacroCommand } from '../../types.ts';
+import type { Config, MacroSoundMode, MacroStep, VoiceMacroCommand } from '../../types.ts';
 import { inputBaseStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
 import { resolveMacroSteps } from './voice_macro/keyUtils.ts';
@@ -99,7 +101,17 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
     editingCommand.value = null;
   };
 
-  const handleSaveModal = (phrase: string, phrases: string[], steps: MacroStep[]) => {
+  const handleSaveModal = (
+    phrase: string,
+    phrases: string[],
+    steps: MacroStep[],
+    soundMode?: MacroSoundMode,
+    soundTtsText?: string | null,
+    soundTtsVoice?: string | null,
+    soundTtsSpeed?: number | null,
+    soundTtsEffect?: string | null,
+    soundTtsPitch?: number | null
+  ) => {
     const currentMacros = config.voice_macros || [];
 
     if (editingCommand.value) {
@@ -114,6 +126,12 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
             key_combination: null,
             hold_ms: null,
             delay_after_ms: null,
+            sound_mode: soundMode || 'default',
+            sound_tts_text: soundTtsText || null,
+            sound_tts_voice: soundTtsVoice || null,
+            sound_tts_speed: soundTtsSpeed || null,
+            sound_tts_effect: soundTtsEffect || null,
+            sound_tts_pitch: soundTtsPitch ?? null,
           };
         }
         return cmd;
@@ -129,6 +147,12 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         key_combination: null,
         hold_ms: null,
         delay_after_ms: null,
+        sound_mode: soundMode || 'default',
+        sound_tts_text: soundTtsText || null,
+        sound_tts_voice: soundTtsVoice || null,
+        sound_tts_speed: soundTtsSpeed || null,
+        sound_tts_effect: soundTtsEffect || null,
+        sound_tts_pitch: soundTtsPitch ?? null,
       };
       updateConfig('voice_macros', [...currentMacros, newCommand]);
       showToast?.(`Added macro command "${phrase}"`, 'success');
@@ -137,7 +161,17 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
     handleCloseModal();
   };
 
-  const handleSaveAsCopy = (phrase: string, phrases: string[], steps: MacroStep[]) => {
+  const handleSaveAsCopy = (
+    phrase: string,
+    phrases: string[],
+    steps: MacroStep[],
+    soundMode?: MacroSoundMode,
+    soundTtsText?: string | null,
+    soundTtsVoice?: string | null,
+    soundTtsSpeed?: number | null,
+    soundTtsEffect?: string | null,
+    soundTtsPitch?: number | null
+  ) => {
     const currentMacros = config.voice_macros || [];
     const newCommand: VoiceMacroCommand = {
       id: generateMacroId(),
@@ -147,6 +181,12 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
       key_combination: null,
       hold_ms: null,
       delay_after_ms: null,
+      sound_mode: soundMode || 'default',
+      sound_tts_text: soundTtsText || null,
+      sound_tts_voice: soundTtsVoice || null,
+      sound_tts_speed: soundTtsSpeed || null,
+      sound_tts_effect: soundTtsEffect || null,
+      sound_tts_pitch: soundTtsPitch ?? null,
     };
     updateConfig('voice_macros', [...currentMacros, newCommand]);
     showToast?.(`Created copy "${phrase}"`, 'success');
@@ -506,6 +546,87 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                       >
                         • {steps.length} {steps.length === 1 ? 'step' : 'steps'}
                       </span>
+
+                      {cmd.sound_mode === 'tts' && cmd.sound_tts_text && (
+                        <span
+                          style={{
+                            fontSize: '9.5px',
+                            color: '#f472b6',
+                            background: 'rgba(236, 72, 153, 0.15)',
+                            border: '1px solid rgba(236, 72, 153, 0.3)',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '140px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                          }}
+                          title={`Voice feedback: "${cmd.sound_tts_text}"`}
+                        >
+                          <IconVolume size={11} />
+                          <span>"{cmd.sound_tts_text}"</span>
+                        </span>
+                      )}
+                      {cmd.sound_mode === 'custom_file' && (
+                        <span
+                          style={{
+                            fontSize: '9.5px',
+                            color: '#34d399',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            whiteSpace: 'nowrap',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                          }}
+                        >
+                          <IconUpload size={11} />
+                          <span>Audio</span>
+                        </span>
+                      )}
+                      {cmd.sound_mode === 'mic_recording' && (
+                        <span
+                          style={{
+                            fontSize: '9.5px',
+                            color: '#f87171',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            whiteSpace: 'nowrap',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                          }}
+                        >
+                          <IconMicrophone size={11} />
+                          <span>Voice Clip</span>
+                        </span>
+                      )}
+                      {cmd.sound_mode === 'none' && (
+                        <span
+                          style={{
+                            fontSize: '9.5px',
+                            color: tokens.colors.textMuted,
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            whiteSpace: 'nowrap',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                          }}
+                        >
+                          <IconVolumeOff size={11} />
+                          <span>Mute</span>
+                        </span>
+                      )}
                     </div>
 
                     <div

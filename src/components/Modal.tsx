@@ -5,7 +5,7 @@ import { tokens } from '../design-tokens.ts';
 import { titleBarHeight } from '../theme/ui-primitives.ts';
 
 interface ModalProps {
-  title: string;
+  title?: string;
   onClose: () => void;
   children: ComponentChildren;
   footer?: ComponentChildren;
@@ -89,9 +89,11 @@ export function Modal({
         }}
       >
         <Card className="modal-card" style={modalCardStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '12px' }}>
-            <h2 style={{ fontSize: '18px', margin: 0, color: tokens.colors.textPrimary }}>{title}</h2>
-          </div>
+          {title && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '12px' }}>
+              <h2 style={{ fontSize: '18px', margin: 0, color: tokens.colors.textPrimary }}>{title}</h2>
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: fullScreen ? 1 : undefined, minHeight: fullScreen ? 0 : undefined }}>{children}</div>
 

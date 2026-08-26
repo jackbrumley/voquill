@@ -74,10 +74,24 @@ pub enum MacroStep {
     TypeText {
         text: String,
     },
+    RunCommand {
+        command: String,
+    },
 }
 
 fn default_macro_step_hold_ms() -> u64 {
     50
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MacroSoundMode {
+    #[default]
+    Default,
+    None,
+    Tts,
+    CustomFile,
+    MicRecording,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -94,6 +108,18 @@ pub struct VoiceMacroCommand {
     pub hold_ms: Option<u64>,
     #[serde(default)]
     pub delay_after_ms: Option<u64>,
+    #[serde(default)]
+    pub sound_mode: MacroSoundMode,
+    #[serde(default)]
+    pub sound_tts_text: Option<String>,
+    #[serde(default)]
+    pub sound_tts_voice: Option<String>,
+    #[serde(default)]
+    pub sound_tts_speed: Option<f32>,
+    #[serde(default)]
+    pub sound_tts_effect: Option<String>,
+    #[serde(default)]
+    pub sound_tts_pitch: Option<f32>,
 }
 
 impl VoiceMacroCommand {

@@ -1,62 +1,52 @@
-import { Fragment } from 'preact';
 import { useSignal } from '@preact/signals';
-import { useEffect, useRef } from 'preact/hooks';
-import { IconCheck, IconTrash, IconCopy } from '@tabler/icons-preact';
+import {
+  IconCheck,
+  IconTrash,
+  IconCopy,
+  IconMicrophone,
+  IconKeyboard,
+  IconSparkles,
+} from '@tabler/icons-preact';
 import { confirm } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
 import { Modal } from '../../../components/Modal.tsx';
 import { Button } from '../../../components/Button.tsx';
-import type { MacroStep, VoiceMacroCommand } from '../../../types.ts';
+import type { MacroSoundMode, MacroStep, VoiceMacroCommand } from '../../../types.ts';
 import { tokens } from '../../../design-tokens.ts';
-import { normalizeKeyName } from './keyUtils.ts';
-import { MacroStepRow } from './MacroStepRow.tsx';
-import { MacroPhrasesEditor } from './MacroPhrasesEditor.tsx';
-import { MacroRecorderToolbar } from './MacroRecorderToolbar.tsx';
-import { MacroManualAdders } from './MacroManualAdders.tsx';
+import { MacroTriggerStep } from './MacroTriggerStep.tsx';
+import { MacroSequenceStep } from './MacroSequenceStep.tsx';
+import { MacroSoundStep } from './MacroSoundStep.tsx';
+import { useMacroSequence } from './useMacroSequence.ts';
 
 interface MacroEditorModalProps {
   initialCommand: VoiceMacroCommand | null;
-  onSave: (phrase: string, phrases: string[], steps: MacroStep[]) => void;
-  onSaveAsCopy?: (phrase: string, phrases: string[], steps: MacroStep[]) => void;
+  onSave: (
+    phrase: string,
+    phrases: string[],
+    steps: MacroStep[],
+    soundMode?: MacroSoundMode,
+    soundTtsText?: string | null,
+    soundTtsVoice?: string | null,
+    soundTtsSpeed?: number | null,
+    soundTtsEffect?: string | null,
+    soundTtsPitch?: number | null
+  ) => void;
+  onSaveAsCopy?: (
+    phrase: string,
+    phrases: string[],
+    steps: MacroStep[],
+    soundMode?: MacroSoundMode,
+    soundTtsText?: string | null,
+    soundTtsVoice?: string | null,
+    soundTtsSpeed?: number | null,
+    soundTtsEffect?: string | null,
+    soundTtsPitch?: number | null
+  ) => void;
   onDelete?: () => void;
   onClose: () => void;
 }
 
-function DropInsertionLine() {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        height: '8px',
-        margin: '-2px 0',
-        padding: '0 4px',
-        zIndex: 10,
-        position: 'relative',
-      }}
-    >
-      <div
-        style={{
-          width: '6px',
-          height: '6px',
-          borderRadius: '50%',
-          background: '#818cf8',
-          boxShadow: '0 0 8px rgba(129, 140, 248, 0.9)',
-          flexShrink: 0,
-        }}
-      />
-      <div
-        style={{
-          flex: 1,
-          height: '2px',
-          borderRadius: '2px',
-          background:
-            'linear-gradient(90deg, #818cf8 0%, #6366f1 50%, rgba(99, 102, 241, 0.25) 100%)',
-          boxShadow: '0 0 6px rgba(99, 102, 241, 0.7)',
-        }}
-      />
-    </div>
-  );
-}
+type EditorTab = 'trigger' | 'sequence' | 'sound';
 
 export function MacroEditorModal({
   initialCommand,
@@ -65,6 +55,8 @@ export function MacroEditorModal({
   onDelete,
   onClose,
 }: MacroEditorModalProps) {
+  const activeTab = useSignal<EditorTab>('trigger');
+
   // Initialize phrase list: primary phrase + any alias phrases
   const initialPhrases: string[] = [];
   if (initialCommand) {
@@ -83,104 +75,15 @@ export function MacroEditorModal({
 
   const phrases = useSignal<string[]>(initialPhrases);
   const phraseInput = useSignal('');
-  const steps = useSignal<MacroStep[]>(
-    initialCommand && initialCommand.steps ? [...initialCommand.steps] : []
-  );
-  const isRecording = useSignal(false);
-  const manualKeyInput = useSignal('');
-  const manualTextInput = useSignal('');
-  const editingDurationIndex = useSignal<number | null>(null);
-  const editingDurationValue = useSignal('');
+  const soundMode = useSignal<MacroSoundMode>(initialCommand?.sound_mode || 'default');
+  const soundTtsText = useSignal<string>(initialCommand?.sound_tts_text || '');
+  const soundTtsVoice = useSignal<string>(initialCommand?.sound_tts_voice || 'piper-en_US-amy-low');
+  const soundTtsSpeed = useSignal<number>(initialCommand?.sound_tts_speed || 1.0);
+  const soundTtsEffect = useSignal<string>(initialCommand?.sound_tts_effect || 'clean');
+  const soundTtsPitch = useSignal<number>(initialCommand?.sound_tts_pitch || 0);
+  const macroId = useSignal<string>(initialCommand?.id || `macro-${Date.now()}`);
 
-  const lastEventTime = useSignal<number>(0);
-  const pressedKeysDownTime = useSignal<Record<string, number>>({});
-
-  // Pointer drag and drop state: records slot insertion index between steps (0 to steps.length)
-  const draggingIndex = useSignal<number | null>(null);
-  const targetInsertionIndex = useSignal<number | null>(null);
-  const listScrollRef = useRef<HTMLDivElement>(null);
-
-  const appendStepWithDelay = (step: MacroStep) => {
-    const now = Date.now();
-    const updated = [...steps.value];
-    if (lastEventTime.value > 0) {
-      const delayMs = now - lastEventTime.value;
-      if (delayMs >= 35 && updated.length > 0) {
-        updated.push({ type: 'Delay', duration_ms: Math.min(delayMs, 5000) });
-      }
-    }
-    updated.push(step);
-    steps.value = updated;
-    lastEventTime.value = now;
-  };
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (!isRecording.value) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
-      isRecording.value = false;
-      return;
-    }
-
-    const keyName = normalizeKeyName(e);
-    const isModifier = ['Ctrl', 'Shift', 'Alt', 'Super'].includes(keyName);
-
-    if (isModifier) {
-      if (!pressedKeysDownTime.value[keyName]) {
-        pressedKeysDownTime.value = { ...pressedKeysDownTime.value, [keyName]: Date.now() };
-        appendStepWithDelay({ type: 'KeyDown', key: keyName });
-      }
-    } else if (!pressedKeysDownTime.value[keyName]) {
-      pressedKeysDownTime.value = { ...pressedKeysDownTime.value, [keyName]: Date.now() };
-    }
-  };
-
-  const handleKeyUp = (e: KeyboardEvent) => {
-    if (!isRecording.value) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    const keyName = normalizeKeyName(e);
-    const isModifier = ['Ctrl', 'Shift', 'Alt', 'Super'].includes(keyName);
-    const downTime = pressedKeysDownTime.value[keyName] || Date.now();
-
-    const updatedPresses = { ...pressedKeysDownTime.value };
-    delete updatedPresses[keyName];
-    pressedKeysDownTime.value = updatedPresses;
-
-    if (isModifier) {
-      appendStepWithDelay({ type: 'KeyUp', key: keyName });
-    } else {
-      const holdDuration = Math.min(Math.max(Date.now() - downTime, 25), 2000);
-      appendStepWithDelay({ type: 'KeyPress', key: keyName, hold_ms: holdDuration });
-    }
-  };
-
-  useEffect(() => {
-    if (!isRecording.value) return;
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [isRecording.value]);
-
-  const toggleRecording = () => {
-    if (isRecording.value) {
-      isRecording.value = false;
-    } else {
-      isRecording.value = true;
-      lastEventTime.value = 0;
-      pressedKeysDownTime.value = {};
-    }
-  };
+  const sequence = useMacroSequence(initialCommand?.steps || []);
 
   const addPhrase = () => {
     const raw = phraseInput.value.replace(/,/g, '').trim().toLowerCase();
@@ -197,178 +100,89 @@ export function MacroEditorModal({
     phrases.value = updated;
   };
 
-  const removeStep = (index: number) => {
-    const updated = [...steps.value];
-    updated.splice(index, 1);
-    steps.value = updated;
-  };
-
-  const addManualKey = (type: 'KeyPress' | 'KeyDown' | 'KeyUp') => {
-    const key = manualKeyInput.value.trim();
-    if (!key) return;
-    if (type === 'KeyPress') {
-      steps.value = [...steps.value, { type: 'KeyPress', key, hold_ms: 50 }];
-    } else if (type === 'KeyDown') {
-      steps.value = [...steps.value, { type: 'KeyDown', key }];
-    } else if (type === 'KeyUp') {
-      steps.value = [...steps.value, { type: 'KeyUp', key }];
-    }
-    manualKeyInput.value = '';
-  };
-
-  const addManualDelay = () => {
-    steps.value = [...steps.value, { type: 'Delay', duration_ms: 100 }];
-  };
-
-  const addManualText = () => {
-    const text = manualTextInput.value.trim();
-    if (!text) return;
-    steps.value = [...steps.value, { type: 'TypeText', text }];
-    manualTextInput.value = '';
-  };
-
-  const startEditDuration = (index: number, currentMs: number) => {
-    editingDurationIndex.value = index;
-    editingDurationValue.value = currentMs.toString();
-  };
-
-  const saveEditDuration = (index: number) => {
-    const num = parseInt(editingDurationValue.value, 10);
-    if (!isNaN(num) && num >= 0) {
-      const updated = [...steps.value];
-      const targetStep = updated[index];
-      if (targetStep.type === 'Delay') {
-        updated[index] = { type: 'Delay', duration_ms: num };
-      } else if (targetStep.type === 'KeyPress') {
-        updated[index] = { type: 'KeyPress', key: targetStep.key, hold_ms: num };
-      }
-      steps.value = updated;
-    }
-    editingDurationIndex.value = null;
-  };
-
-  // Pointer drag and drop event handlers
-  const handleGripPointerDown = (e: PointerEvent, index: number) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {
-      // Ignore if setPointerCapture is unsupported
-    }
-    draggingIndex.value = index;
-    targetInsertionIndex.value = null;
-  };
-
-  const handleGripPointerMove = (e: PointerEvent) => {
-    if (draggingIndex.value === null) return;
-    e.preventDefault();
-
-    const elements = document.elementsFromPoint(e.clientX, e.clientY);
-    let targetRow: HTMLElement | null = null;
-    for (const el of elements) {
-      const row = el.closest('[data-step-index]') as HTMLElement | null;
-      if (row) {
-        targetRow = row;
-        break;
-      }
-    }
-
-    if (targetRow) {
-      const targetIndex = parseInt(targetRow.getAttribute('data-step-index') || '-1', 10);
-      if (targetIndex >= 0) {
-        const rect = targetRow.getBoundingClientRect();
-        const isTopHalf = e.clientY < rect.top + rect.height / 2;
-        const slotIndex = isTopHalf ? targetIndex : targetIndex + 1;
-
-        const from = draggingIndex.value;
-        if (slotIndex === from || slotIndex === from + 1) {
-          targetInsertionIndex.value = null;
-        } else {
-          targetInsertionIndex.value = slotIndex;
-        }
-      }
-    }
-
-    // Auto-scroll list when dragging near top or bottom
-    if (listScrollRef.current) {
-      const containerRect = listScrollRef.current.getBoundingClientRect();
-      if (e.clientY < containerRect.top + 35) {
-        listScrollRef.current.scrollTop -= 8;
-      } else if (e.clientY > containerRect.bottom - 35) {
-        listScrollRef.current.scrollTop += 8;
-      }
-    }
-  };
-
-  const handleGripPointerUp = (e: PointerEvent) => {
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // Ignore if releasePointerCapture is unsupported
-    }
-
-    const fromIndex = draggingIndex.value;
-    const insertSlot = targetInsertionIndex.value;
-
-    if (
-      fromIndex !== null &&
-      insertSlot !== null &&
-      insertSlot !== fromIndex &&
-      insertSlot !== fromIndex + 1
-    ) {
-      const updated = [...steps.value];
-      const [item] = updated.splice(fromIndex, 1);
-      const finalIndex = fromIndex < insertSlot ? insertSlot - 1 : insertSlot;
-      const boundedIndex = Math.max(0, Math.min(finalIndex, updated.length));
-      updated.splice(boundedIndex, 0, item);
-      steps.value = updated;
-    }
-
-    draggingIndex.value = null;
-    targetInsertionIndex.value = null;
-  };
-
-  const handleGripPointerCancel = (e: PointerEvent) => {
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // Ignore
-    }
-    draggingIndex.value = null;
-    targetInsertionIndex.value = null;
-  };
-
-  const handleSave = () => {
+  const handleSave = async () => {
     const all = [...phrases.value];
     const pending = phraseInput.value.replace(/,/g, '').trim().toLowerCase();
     if (pending && !all.includes(pending)) {
       all.push(pending);
     }
 
-    if (all.length === 0 || steps.value.length === 0) return;
+    if (all.length === 0 || sequence.steps.value.length === 0) return;
 
     const primaryPhrase = all[0];
     const aliasPhrases = all.slice(1);
-    onSave(primaryPhrase, aliasPhrases, steps.value);
+
+    if (soundMode.value === 'tts' && soundTtsText.value.trim()) {
+      try {
+        await invoke('save_macro_tts_audio', {
+          macroId: macroId.value,
+          text: soundTtsText.value.trim(),
+          voiceId: soundTtsVoice.value || 'piper-en_US-amy-low',
+          speed: soundTtsSpeed.value || 1.0,
+          effect: soundTtsEffect.value || 'clean',
+          pitch: soundTtsPitch.value || 0.0,
+        });
+      } catch (e) {
+        console.warn('Failed to pre-render TTS audio:', e);
+      }
+    }
+
+    onSave(
+      primaryPhrase,
+      aliasPhrases,
+      sequence.steps.value,
+      soundMode.value,
+      soundTtsText.value.trim() || null,
+      soundTtsVoice.value || null,
+      soundTtsSpeed.value || 1.0,
+      soundTtsEffect.value || null,
+      soundTtsPitch.value || null
+    );
   };
 
-  const handleSaveAsCopy = () => {
+  const handleSaveAsCopy = async () => {
     const all = [...phrases.value];
     const pending = phraseInput.value.replace(/,/g, '').trim().toLowerCase();
     if (pending && !all.includes(pending)) {
       all.push(pending);
     }
 
-    if (all.length === 0 || steps.value.length === 0) return;
+    if (all.length === 0 || sequence.steps.value.length === 0) return;
 
     let primaryPhrase = all[0];
     if (initialCommand && primaryPhrase === initialCommand.phrase) {
       primaryPhrase = `copy of ${primaryPhrase}`;
     }
     const aliasPhrases = all.slice(1);
+    const newId = `macro-${Date.now()}`;
+
+    if (soundMode.value === 'tts' && soundTtsText.value.trim()) {
+      try {
+        await invoke('save_macro_tts_audio', {
+          macroId: newId,
+          text: soundTtsText.value.trim(),
+          voiceId: soundTtsVoice.value || 'piper-en_US-amy-low',
+          speed: soundTtsSpeed.value || 1.0,
+          effect: soundTtsEffect.value || 'clean',
+          pitch: soundTtsPitch.value || 0.0,
+        });
+      } catch (e) {
+        console.warn('Failed to pre-render TTS audio for copy:', e);
+      }
+    }
+
     if (onSaveAsCopy) {
-      onSaveAsCopy(primaryPhrase, aliasPhrases, steps.value);
+      onSaveAsCopy(
+        primaryPhrase,
+        aliasPhrases,
+        sequence.steps.value,
+        soundMode.value,
+        soundTtsText.value.trim() || null,
+        soundTtsVoice.value || null,
+        soundTtsSpeed.value || 1.0,
+        soundTtsEffect.value || null,
+        soundTtsPitch.value || null
+      );
     }
   };
 
@@ -388,11 +202,32 @@ export function MacroEditorModal({
     }
   };
 
-  const isSaveDisabled = totalPhraseCount === 0 || steps.value.length === 0 || isRecording.value;
+  const isSaveDisabled =
+    totalPhraseCount === 0 || sequence.steps.value.length === 0 || sequence.isRecording.value;
+
+  const tabs: { id: EditorTab; label: string; subtext: string; icon: typeof IconMicrophone }[] = [
+    {
+      id: 'trigger',
+      label: '1. Trigger',
+      subtext: phrases.value.length > 0 ? `${phrases.value.length} phrase(s)` : 'Spoken Phrase',
+      icon: IconMicrophone,
+    },
+    {
+      id: 'sequence',
+      label: '2. Sequence',
+      subtext: sequence.steps.value.length > 0 ? `${sequence.steps.value.length} action(s)` : 'Key & Actions',
+      icon: IconKeyboard,
+    },
+    {
+      id: 'sound',
+      label: '3. Sound',
+      subtext: soundMode.value === 'tts' ? 'AI Voice' : soundMode.value === 'none' ? 'Mute' : 'Chirp',
+      icon: IconSparkles,
+    },
+  ];
 
   return (
     <Modal
-      title={initialCommand ? 'Edit Voice Macro' : 'Create Voice Macro'}
       onClose={onClose}
       fullScreen
       footer={
@@ -402,6 +237,7 @@ export function MacroEditorModal({
             alignItems: 'center',
             justifyContent: 'space-between',
             width: '100%',
+            gap: '8px',
           }}
         >
           <div>
@@ -413,7 +249,7 @@ export function MacroEditorModal({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '4px',
-                  padding: '6px 10px',
+                  padding: '5px 10px',
                   fontSize: '11.5px',
                 }}
               >
@@ -423,11 +259,11 @@ export function MacroEditorModal({
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Button
               variant="ghost"
               onClick={onClose}
-              style={{ padding: '6px 12px', fontSize: '12px' }}
+              style={{ padding: '5px 10px', fontSize: '11.5px' }}
             >
               Cancel
             </Button>
@@ -440,8 +276,8 @@ export function MacroEditorModal({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '4px',
-                  padding: '6px 12px',
-                  fontSize: '12px',
+                  padding: '5px 10px',
+                  fontSize: '11.5px',
                 }}
                 title="Save these steps as a new duplicate macro"
               >
@@ -457,12 +293,13 @@ export function MacroEditorModal({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
-                padding: '6px 14px',
+                padding: '5px 12px',
                 fontSize: '12px',
+                fontWeight: 600,
               }}
             >
               <IconCheck size={14} />
-              <span>{initialCommand ? 'Save Macro' : 'Create Macro'}</span>
+              <span>{initialCommand ? 'Save' : 'Create'}</span>
             </Button>
           </div>
         </div>
@@ -472,156 +309,126 @@ export function MacroEditorModal({
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px',
+          gap: '10px',
           height: '100%',
           minHeight: 0,
         }}
       >
-        {/* Multi-Phrase Tag / Alias Field */}
-        <MacroPhrasesEditor
-          phrases={phrases.value}
-          phraseInput={phraseInput.value}
-          onPhraseInputChange={(val) => {
-            phraseInput.value = val;
-          }}
-          onAddPhrase={addPhrase}
-          onRemovePhrase={removePhrase}
-          autoFocus={!initialCommand}
-        />
-
-        {/* Live Sequence Recorder Controls */}
-        <MacroRecorderToolbar
-          isRecording={isRecording.value}
-          stepCount={steps.value.length}
-          onToggleRecording={toggleRecording}
-          onClearSteps={() => {
-            steps.value = [];
-          }}
-        />
-
-        {/* Step-by-Step Vertical Timeline - Claims all available vertical space */}
+        {/* Top 3-Step Navigation Bar */}
         <div
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            minHeight: 0,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
             gap: '4px',
+            background: 'rgba(0, 0, 0, 0.25)',
+            padding: '3px',
+            borderRadius: '8px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            flexShrink: 0,
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0 2px',
-              flexShrink: 0,
-            }}
-          >
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                color: tokens.colors.textMuted,
-                textTransform: 'uppercase',
-                letterSpacing: '0.4px',
-              }}
-            >
-              Execution Sequence
-            </span>
-          </div>
-
-          <div
-            ref={listScrollRef}
-            style={{
-              flex: 1,
-              minHeight: 0,
-              overflowY: 'auto',
-              scrollbarGutter: 'stable',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              padding: '6px',
-              borderRadius: '6px',
-              background: 'rgba(0, 0, 0, 0.3)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-            }}
-          >
-            {steps.value.length === 0 ? (
-              <div
+          {tabs.map((tab) => {
+            const isActive = activeTab.value === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  activeTab.value = tab.id;
+                }}
                 style={{
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  height: '100%',
-                  minHeight: '60px',
-                  fontSize: '11px',
-                  color: tokens.colors.textMuted,
-                  textAlign: 'center',
-                  padding: '12px',
+                  gap: '2px',
+                  padding: '5px 4px',
+                  borderRadius: '6px',
+                  background: isActive
+                    ? 'linear-gradient(135deg, rgba(88, 101, 242, 0.3) 0%, rgba(129, 140, 248, 0.2) 100%)'
+                    : 'transparent',
+                  border: isActive
+                    ? '1px solid rgba(99, 102, 241, 0.55)'
+                    : '1px solid transparent',
+                  cursor: 'pointer',
+                  transition: tokens.transitions.fast,
+                  position: 'relative',
                 }}
               >
-                No actions added yet. Click 'Record Sequence' or use the buttons below.
-              </div>
-            ) : (
-              steps.value.map((step, idx) => {
-                const currentDuration =
-                  step.type === 'Delay'
-                    ? step.duration_ms
-                    : step.type === 'KeyPress'
-                      ? step.hold_ms || 50
-                      : 0;
-                const isEditable = step.type === 'Delay' || step.type === 'KeyPress';
-                const isItemDragging = draggingIndex.value === idx;
-                const isLast = idx === steps.value.length - 1;
-
-                return (
-                  <Fragment key={idx}>
-                    {targetInsertionIndex.value === idx && <DropInsertionLine />}
-                    <MacroStepRow
-                      index={idx}
-                      step={step}
-                      onRemove={() => removeStep(idx)}
-                      isEditingDuration={editingDurationIndex.value === idx}
-                      editingDurationValue={editingDurationValue.value}
-                      onStartEditDuration={
-                        isEditable ? () => startEditDuration(idx, currentDuration) : undefined
-                      }
-                      onDurationInputChange={(val) => {
-                        editingDurationValue.value = val;
-                      }}
-                      onSaveDuration={() => saveEditDuration(idx)}
-                      canDrag={!isRecording.value}
-                      isDragging={isItemDragging}
-                      onGripPointerDown={(e) => handleGripPointerDown(e, idx)}
-                      onGripPointerMove={handleGripPointerMove}
-                      onGripPointerUp={handleGripPointerUp}
-                      onGripPointerCancel={handleGripPointerCancel}
-                    />
-                    {isLast && targetInsertionIndex.value === steps.value.length && (
-                      <DropInsertionLine />
-                    )}
-                  </Fragment>
-                );
-              })
-            )}
-          </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '11.5px',
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive ? '#ffffff' : tokens.colors.textSecondary,
+                  }}
+                >
+                  <Icon size={12} color={isActive ? '#818cf8' : tokens.colors.textMuted} />
+                  <span>{tab.label}</span>
+                </div>
+                <span
+                  style={{
+                    fontSize: '9.5px',
+                    color: isActive ? '#c7d2fe' : tokens.colors.textMuted,
+                    fontWeight: 400,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {tab.subtext}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Manual Step Adders */}
-        {!isRecording.value && (
-          <MacroManualAdders
-            manualKeyInput={manualKeyInput.value}
-            onManualKeyInputChange={(val) => {
-              manualKeyInput.value = val;
+        {/* Tab 1: Trigger Step */}
+        {activeTab.value === 'trigger' && (
+          <MacroTriggerStep
+            phrases={phrases.value}
+            phraseInput={phraseInput.value}
+            onPhraseInputChange={(val) => {
+              phraseInput.value = val;
             }}
-            manualTextInput={manualTextInput.value}
-            onManualTextInputChange={(val) => {
-              manualTextInput.value = val;
+            onAddPhrase={addPhrase}
+            onRemovePhrase={removePhrase}
+            autoFocus={!initialCommand}
+          />
+        )}
+
+        {/* Tab 2: Sequence Step */}
+        {activeTab.value === 'sequence' && <MacroSequenceStep sequence={sequence} />}
+
+        {/* Tab 3: Sound Feedback Step */}
+        {activeTab.value === 'sound' && (
+          <MacroSoundStep
+            macroId={macroId.value}
+            soundMode={soundMode.value}
+            onSoundModeChange={(mode) => {
+              soundMode.value = mode;
             }}
-            onAddManualKey={addManualKey}
-            onAddManualDelay={addManualDelay}
-            onAddManualText={addManualText}
+            ttsText={soundTtsText.value}
+            onTtsTextChange={(val) => {
+              soundTtsText.value = val;
+            }}
+            ttsVoice={soundTtsVoice.value}
+            onTtsVoiceChange={(val) => {
+              soundTtsVoice.value = val;
+            }}
+            ttsSpeed={soundTtsSpeed.value}
+            onTtsSpeedChange={(val) => {
+              soundTtsSpeed.value = val;
+            }}
+            ttsEffect={soundTtsEffect.value}
+            onTtsEffectChange={(val) => {
+              soundTtsEffect.value = val;
+            }}
+            ttsPitch={soundTtsPitch.value}
+            onTtsPitchChange={(val) => {
+              soundTtsPitch.value = val;
+            }}
           />
         )}
       </div>

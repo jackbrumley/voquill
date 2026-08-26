@@ -46,6 +46,26 @@ pub fn models_dir() -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+#[allow(dead_code)]
+pub fn tts_models_dir() -> Result<PathBuf, String> {
+    let dir = models_dir()?.join("tts");
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    Ok(dir)
+}
+
+#[allow(dead_code)]
+pub fn sounds_dir() -> Result<PathBuf, String> {
+    let dir = app_root()?.join("sounds");
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    Ok(dir)
+}
+
+pub fn macro_sounds_dir() -> Result<PathBuf, String> {
+    let dir = sounds_dir()?.join("macros");
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    Ok(dir)
+}
+
 pub fn python_runner_dir() -> Result<PathBuf, String> {
     Ok(app_root()?.join("python-runner"))
 }

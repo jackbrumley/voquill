@@ -56,5 +56,12 @@ commands.allow = [
     "unload_model",
     "test_voice_macro_sound",
     "test_voice_macro_execution",
-    "test_spoken_voice_macro"
+    "test_spoken_voice_macro",
+    "get_available_tts_voices",
+    "preview_tts_voice",
+    "save_macro_tts_audio",
+    "import_macro_audio_file",
+    "save_macro_mic_recording",
+    "play_macro_sound_preview",
+    "delete_macro_sound"
 ]

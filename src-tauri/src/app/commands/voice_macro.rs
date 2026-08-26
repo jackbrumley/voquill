@@ -144,3 +144,131 @@ pub async fn test_spoken_voice_macro(
         matched_command: match_res.matched_command,
     })
 }
+
+async fn get_or_start_python_runner(
+    app_handle: &AppHandle,
+    app_state: &AppState,
+) -> Result<crate::python_runner::PythonRunner, String> {
+    let existing = {
+        let guard = app_state.python_runner.lock().unwrap();
+        guard.clone()
+    };
+    if let Some(runner) = existing {
+        return Ok(runner);
+    }
+
+    crate::log_info!("Starting Python runner for TTS synthesis...");
+    let runner = crate::python_runner::PythonRunner::start(app_handle).await?;
+    let mut guard = app_state.python_runner.lock().unwrap();
+    *guard = Some(runner.clone());
+    Ok(runner)
+}
+
+#[command]
+pub async fn get_available_tts_voices(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::python_runner::VoicePersonaInfo>, String> {
+    let runner = get_or_start_python_runner(&app_handle, &state).await?;
+    runner.get_tts_voices().await
+}
+
+#[command]
+#[allow(clippy::too_many_arguments)]
+pub async fn preview_tts_voice(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+    text: String,
+    voice_id: String,
+    speed: f32,
+    effect: Option<String>,
+    pitch: Option<f32>,
+) -> Result<crate::python_runner::TtsSynthesizeResponse, String> {
+    let runner = get_or_start_python_runner(&app_handle, &state).await?;
+    let res = runner
+        .synthesize_tts(&text, &voice_id, speed, effect.as_deref(), pitch, None)
+        .await?;
+
+    let playback_device = {
+        let config = state.config.lock().unwrap();
+        config.playback_device.clone()
+    };
+
+    let path = std::path::PathBuf::from(&res.output_path);
+    if path.exists() {
+        let _ = crate::voice_macro::play_macro_sound_file(&path, playback_device);
+    }
+
+    Ok(res)
+}
+
+#[command]
+#[allow(clippy::too_many_arguments)]
+pub async fn save_macro_tts_audio(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+    macro_id: String,
+    text: String,
+    voice_id: String,
+    speed: f32,
+    effect: Option<String>,
+    pitch: Option<f32>,
+) -> Result<String, String> {
+    let dest_path = crate::voice_macro::macro_sound_path(&macro_id)?;
+    let dest_str = dest_path.to_string_lossy().to_string();
+
+    let runner = get_or_start_python_runner(&app_handle, &state).await?;
+    let res = runner
+        .synthesize_tts(
+            &text,
+            &voice_id,
+            speed,
+            effect.as_deref(),
+            pitch,
+            Some(&dest_str),
+        )
+        .await?;
+
+    Ok(res.output_path)
+}
+
+#[command]
+pub async fn import_macro_audio_file(
+    macro_id: String,
+    source_path: String,
+) -> Result<String, String> {
+    crate::voice_macro::import_macro_audio_file(&macro_id, &source_path)
+}
+
+#[command]
+pub async fn save_macro_mic_recording(
+    macro_id: String,
+    samples: Vec<f32>,
+    sample_rate: u32,
+) -> Result<String, String> {
+    crate::voice_macro::save_macro_mic_recording(&macro_id, &samples, sample_rate)
+}
+
+#[command]
+pub async fn play_macro_sound_preview(
+    state: State<'_, AppState>,
+    macro_id: String,
+) -> Result<(), String> {
+    let playback_device = {
+        let config = state.config.lock().unwrap();
+        config.playback_device.clone()
+    };
+
+    let path = crate::voice_macro::macro_sound_path(&macro_id)?;
+    if path.exists() {
+        crate::voice_macro::play_macro_sound_file(&path, playback_device)
+    } else {
+        crate::voice_macro::play_macro_trigger_sound(playback_device);
+        Ok(())
+    }
+}
+
+#[command]
+pub async fn delete_macro_sound(macro_id: String) -> Result<(), String> {
+    crate::voice_macro::delete_macro_sound(&macro_id)
+}

@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'preact/hooks';
 import {
   IconX,
   IconClock,
@@ -6,11 +5,13 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconWriting,
+  IconTerminal2,
   IconGripVertical,
+  IconEdit,
 } from '@tabler/icons-preact';
 import type { MacroStep } from '../../../types.ts';
 import { tokens } from '../../../design-tokens.ts';
-import { inputBaseStyle } from '../../../theme/ui-primitives.ts';
+import { DurationInput } from './MacroStepInputs.tsx';
 
 interface MacroStepRowProps {
   index: number;
@@ -21,58 +22,14 @@ interface MacroStepRowProps {
   onStartEditDuration?: () => void;
   onDurationInputChange?: (val: string) => void;
   onSaveDuration?: () => void;
+  onCancelDuration?: () => void;
+  onStartEditStep?: () => void;
   canDrag?: boolean;
   isDragging?: boolean;
   onGripPointerDown?: (e: PointerEvent, index: number) => void;
   onGripPointerMove?: (e: PointerEvent) => void;
   onGripPointerUp?: (e: PointerEvent) => void;
   onGripPointerCancel?: (e: PointerEvent) => void;
-}
-
-interface DurationInputProps {
-  value: string;
-  onChange: (val: string) => void;
-  onSave: () => void;
-}
-
-function DurationInput({ value, onChange, onSave }: DurationInputProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const input = inputRef.current;
-    if (input) {
-      input.focus();
-      input.select();
-    }
-  }, []);
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-      <input
-        ref={inputRef}
-        type="text"
-        inputMode="numeric"
-        value={value}
-        onInput={(e) => {
-          const clean = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '');
-          onChange(clean);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === 'Escape') onSave();
-        }}
-        onBlur={onSave}
-        style={{
-          ...inputBaseStyle,
-          width: '50px',
-          padding: '1px 4px',
-          fontSize: '11px',
-          fontFamily: 'monospace',
-          textAlign: 'center',
-        }}
-      />
-      <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>ms</span>
-    </div>
-  );
 }
 
 export function MacroStepRow({
@@ -84,6 +41,8 @@ export function MacroStepRow({
   onStartEditDuration,
   onDurationInputChange,
   onSaveDuration,
+  onCancelDuration,
+  onStartEditStep,
   canDrag = true,
   isDragging = false,
   onGripPointerDown,
@@ -138,6 +97,7 @@ export function MacroStepRow({
                 value={editingDurationValue}
                 onChange={(val) => onDurationInputChange?.(val)}
                 onSave={() => onSaveDuration?.()}
+                onCancel={onCancelDuration}
               />
             ) : (
               <button
@@ -277,6 +237,7 @@ export function MacroStepRow({
                 value={editingDurationValue}
                 onChange={(val) => onDurationInputChange?.(val)}
                 onSave={() => onSaveDuration?.()}
+                onCancel={onCancelDuration}
               />
             ) : (
               <button
@@ -328,22 +289,96 @@ export function MacroStepRow({
               <span>Text</span>
             </span>
 
-            <span
+            <button
+              type="button"
+              onClick={onStartEditStep}
+              title="Click to edit text snippet"
               style={{
-                fontFamily: 'monospace',
-                fontSize: '11px',
-                color: tokens.colors.textPrimary,
-                background: 'rgba(255, 255, 255, 0.08)',
-                padding: '1px 6px',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px dashed rgba(255, 255, 255, 0.22)',
                 borderRadius: '4px',
-                maxWidth: '160px',
+                padding: '2px 7px',
+                fontSize: '11.5px',
+                color: tokens.colors.textPrimary,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                maxWidth: '220px',
                 overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                textAlign: 'left',
               }}
             >
-              "{step.text}"
+              <span
+                style={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                "{step.text}"
+              </span>
+              <IconEdit size={11} style={{ opacity: 0.6, flexShrink: 0 }} />
+            </button>
+          </>
+        );
+
+      case 'RunCommand':
+        return (
+          <>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                padding: '1px 6px',
+                borderRadius: '4px',
+                fontSize: '10.5px',
+                fontWeight: 600,
+                background: 'rgba(236, 72, 153, 0.18)',
+                color: '#f472b6',
+                border: '1px solid rgba(236, 72, 153, 0.35)',
+                minWidth: '54px',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <IconTerminal2 size={11} />
+              <span>Cmd</span>
             </span>
+
+            <button
+              type="button"
+              onClick={onStartEditStep}
+              title="Click to edit command script"
+              style={{
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px dashed rgba(255, 255, 255, 0.22)',
+                borderRadius: '4px',
+                padding: '2px 7px',
+                fontSize: '11px',
+                fontFamily: tokens.typography.fontMono,
+                color: tokens.colors.textPrimary,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                maxWidth: '220px',
+                overflow: 'hidden',
+                textAlign: 'left',
+              }}
+            >
+              <span
+                style={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {step.command}
+              </span>
+              <IconEdit size={11} style={{ opacity: 0.6, flexShrink: 0 }} />
+            </button>
           </>
         );
     }
