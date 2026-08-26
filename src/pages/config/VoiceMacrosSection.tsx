@@ -4,6 +4,10 @@ import {
   IconPlayerPlay,
   IconPencil,
   IconPlus,
+  IconCopy,
+  IconShare,
+  IconDownload,
+  IconUpload,
 } from '@tabler/icons-preact';
 import { invoke } from '@tauri-apps/api/core';
 import { ConfigField } from '../../components/ConfigField.tsx';
@@ -16,6 +20,13 @@ import { tokens } from '../../design-tokens.ts';
 import { resolveMacroSteps } from './voice_macro/keyUtils.ts';
 import { MacroEditorModal } from './voice_macro/MacroEditorModal.tsx';
 import { SpokenMacroTester } from './voice_macro/SpokenMacroTester.tsx';
+import { MacroImportModal } from './voice_macro/MacroImportModal.tsx';
+import {
+  cloneMacro,
+  generateMacroId,
+  serializeSingleMacro,
+  serializeMacroBundle,
+} from './voice_macro/macroSharing.ts';
 
 interface VoiceMacrosSectionProps {
   config: Config;
@@ -26,8 +37,21 @@ interface VoiceMacrosSectionProps {
   showToast?: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void;
 }
 
+const actionButtonStyle = {
+  background: 'none',
+  border: 'none',
+  color: tokens.colors.textSecondary,
+  cursor: 'pointer',
+  padding: '3px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '3px',
+};
+
 export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMacrosSectionProps) {
   const isEditorModalOpen = useSignal(false);
+  const isImportModalOpen = useSignal(false);
   const editingCommand = useSignal<VoiceMacroCommand | null>(null);
   const isPlayingTestSound = useSignal(false);
   const isTestingExecution = useSignal<string | null>(null);
@@ -98,7 +122,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
       showToast?.(`Updated macro "${phrase}"`, 'success');
     } else {
       const newCommand: VoiceMacroCommand = {
-        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        id: generateMacroId(),
         phrase,
         phrases: [...phrases],
         steps: [...steps],
@@ -111,6 +135,81 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
     }
 
     handleCloseModal();
+  };
+
+  const handleSaveAsCopy = (phrase: string, phrases: string[], steps: MacroStep[]) => {
+    const currentMacros = config.voice_macros || [];
+    const newCommand: VoiceMacroCommand = {
+      id: generateMacroId(),
+      phrase,
+      phrases: [...phrases],
+      steps: [...steps],
+      key_combination: null,
+      hold_ms: null,
+      delay_after_ms: null,
+    };
+    updateConfig('voice_macros', [...currentMacros, newCommand]);
+    showToast?.(`Created copy "${phrase}"`, 'success');
+    handleCloseModal();
+  };
+
+  const handleDuplicateMacro = (cmd: VoiceMacroCommand) => {
+    const currentMacros = config.voice_macros || [];
+    const cloned = cloneMacro(cmd);
+    const existingPhrases = new Set(currentMacros.map((m) => m.phrase.trim().toLowerCase()));
+    let phrase = cloned.phrase;
+    let counter = 2;
+    while (existingPhrases.has(phrase)) {
+      phrase = `copy of ${cmd.phrase} (${counter})`;
+      counter++;
+    }
+    cloned.phrase = phrase;
+    updateConfig('voice_macros', [...currentMacros, cloned]);
+    showToast?.(`Duplicated macro "${cmd.phrase}"`, 'success');
+  };
+
+  const handleShareMacro = async (cmd: VoiceMacroCommand) => {
+    const json = serializeSingleMacro(cmd);
+    try {
+      await navigator.clipboard.writeText(json);
+      showToast?.(`Copied macro "${cmd.phrase}" JSON to clipboard`, 'success');
+    } catch {
+      showToast?.('Failed to copy to clipboard', 'error');
+    }
+  };
+
+  const handleExportAllMacros = async () => {
+    const currentMacros = config.voice_macros || [];
+    if (currentMacros.length === 0) {
+      showToast?.('No macros to export', 'info');
+      return;
+    }
+    const json = serializeMacroBundle(currentMacros);
+    try {
+      await navigator.clipboard.writeText(json);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `voquill-macros-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast?.(`Exported ${currentMacros.length} macros to JSON file & clipboard`, 'success');
+    } catch {
+      showToast?.('Failed to export macros', 'error');
+    }
+  };
+
+  const handleImportMacros = (newMacros: VoiceMacroCommand[]) => {
+    const currentMacros = config.voice_macros || [];
+    updateConfig('voice_macros', [...currentMacros, ...newMacros]);
+    isImportModalOpen.value = false;
+    showToast?.(
+      `Successfully imported ${newMacros.length} ${newMacros.length === 1 ? 'macro' : 'macros'}`,
+      'success'
+    );
   };
 
   const handleDeleteCommand = (id: string, phrase: string) => {
@@ -145,7 +244,9 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         <input
           type="text"
           value={config.voice_macro_trigger_word || ''}
-          onInput={(e) => updateConfig('voice_macro_trigger_word', (e.target as HTMLInputElement).value)}
+          onInput={(e) =>
+            updateConfig('voice_macro_trigger_word', (e.target as HTMLInputElement).value)
+          }
           placeholder="e.g. Computer (or leave blank)"
           style={{ ...inputBaseStyle, width: '100%' }}
         />
@@ -155,12 +256,28 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         label="Audio Chime Alert"
         description="Play a subtle confirmation sound whenever a voice macro is recognized and fired."
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: tokens.spacing.sm }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            gap: tokens.spacing.sm,
+          }}
+        >
           <Button
             variant="configAction"
             onClick={handleTestSound}
             disabled={isPlayingTestSound.value}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', flexShrink: 0, padding: '4px 10px', fontSize: '11px' }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              padding: '4px 10px',
+              fontSize: '11px',
+            }}
           >
             <IconVolume size={14} />
             <span style={{ whiteSpace: 'nowrap' }}>Test Sound</span>
@@ -190,9 +307,23 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         label="Voice Activation Threshold"
         description="Adjust the sound level required to trigger speech recognition. Higher values ignore breathing, fan hum, and background noise."
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
-          <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, textAlign: 'left' }}>
-            Threshold Level: {Math.round((config.voice_macro_activation_threshold || 0.035) * 1000)} / 100
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: tokens.spacing.xs,
+            width: '100%',
+          }}
+        >
+          <div
+            style={{
+              fontSize: tokens.typography.sizeXs,
+              color: tokens.colors.textMuted,
+              textAlign: 'left',
+            }}
+          >
+            Threshold Level: {Math.round((config.voice_macro_activation_threshold || 0.035) * 1000)}{' '}
+            / 100
           </div>
           <SliderField
             value={config.voice_macro_activation_threshold || 0.035}
@@ -210,22 +341,88 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         label="Configured Voice Commands"
         description="Record and customize multi-step key sequences, holds, releases, and precise delays."
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.md, width: '100%' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: tokens.spacing.md,
+            width: '100%',
+          }}
+        >
           <SpokenMacroTester showToast={showToast} />
 
-          {/* Action header with Create Macro button */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: tokens.colors.textSecondary }}>
+          {/* Action header with Import, Export All, and Create Macro buttons */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '8px',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '13px',
+                fontWeight: 600,
+                color: tokens.colors.textSecondary,
+              }}
+            >
               Custom Macros ({macros.length})
             </span>
-            <Button
-              variant="configAction"
-              onClick={handleOpenCreateModal}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <IconPlus size={14} />
-              <span>Create Voice Macro</span>
-            </Button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  isImportModalOpen.value = true;
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 8px',
+                  fontSize: '11px',
+                }}
+                title="Import macros from a shared JSON file or text snippet"
+              >
+                <IconUpload size={13} />
+                <span>Import</span>
+              </Button>
+
+              {macros.length > 0 && (
+                <Button
+                  variant="ghost"
+                  onClick={handleExportAllMacros}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 8px',
+                    fontSize: '11px',
+                  }}
+                  title="Export all configured macros to a JSON file"
+                >
+                  <IconDownload size={13} />
+                  <span>Export All</span>
+                </Button>
+              )}
+
+              <Button
+                variant="configAction"
+                onClick={handleOpenCreateModal}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  fontSize: '11.5px',
+                }}
+              >
+                <IconPlus size={14} />
+                <span>Create Voice Macro</span>
+              </Button>
+            </div>
           </div>
 
           {/* List of Configured Macros */}
@@ -247,7 +444,16 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                       gap: '6px',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        flexWrap: 'wrap',
+                        minWidth: 0,
+                        flex: 1,
+                      }}
+                    >
                       <span
                         style={{
                           fontSize: '13px',
@@ -291,43 +497,50 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                           +{cmd.phrases.length} {cmd.phrases.length === 1 ? 'alias' : 'aliases'}
                         </span>
                       )}
-                      <span style={{ fontSize: '11px', color: tokens.colors.textMuted, whiteSpace: 'nowrap' }}>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: tokens.colors.textMuted,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
                         • {steps.length} {steps.length === 1 ? 'step' : 'steps'}
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        flexShrink: 0,
+                      }}
+                    >
                       <button
                         onClick={() => void handleTestMacro(cmd)}
                         disabled={isTestingExecution.value === cmd.id}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: tokens.colors.textSecondary,
-                          cursor: 'pointer',
-                          padding: '3px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRadius: '3px',
-                        }}
+                        style={actionButtonStyle}
                         title="Test macro sequence"
                       >
                         <IconPlayerPlay size={14} />
                       </button>
                       <button
+                        onClick={() => handleDuplicateMacro(cmd)}
+                        style={actionButtonStyle}
+                        title={`Duplicate "${cmd.phrase}"`}
+                      >
+                        <IconCopy size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleShareMacro(cmd)}
+                        style={actionButtonStyle}
+                        title={`Copy "${cmd.phrase}" JSON to clipboard`}
+                      >
+                        <IconShare size={14} />
+                      </button>
+                      <button
                         onClick={() => handleOpenEditModal(cmd)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: tokens.colors.textSecondary,
-                          cursor: 'pointer',
-                          padding: '3px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRadius: '3px',
-                        }}
+                        style={actionButtonStyle}
                         title={`Edit "${cmd.phrase}" sequence`}
                       >
                         <IconPencil size={14} />
@@ -367,12 +580,24 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         <MacroEditorModal
           initialCommand={editingCommand.value}
           onSave={handleSaveModal}
+          onSaveAsCopy={handleSaveAsCopy}
           onDelete={
             editingCommand.value
               ? () => handleDeleteCommand(editingCommand.value!.id, editingCommand.value!.phrase)
               : undefined
           }
           onClose={handleCloseModal}
+        />
+      )}
+
+      {/* Dedicated Macro Import Modal */}
+      {isImportModalOpen.value && (
+        <MacroImportModal
+          existingMacros={macros}
+          onImport={handleImportMacros}
+          onClose={() => {
+            isImportModalOpen.value = false;
+          }}
         />
       )}
     </>

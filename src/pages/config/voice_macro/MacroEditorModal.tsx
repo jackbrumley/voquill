@@ -1,7 +1,7 @@
 import { Fragment } from 'preact';
 import { useSignal } from '@preact/signals';
 import { useEffect, useRef } from 'preact/hooks';
-import { IconCheck, IconTrash } from '@tabler/icons-preact';
+import { IconCheck, IconTrash, IconCopy } from '@tabler/icons-preact';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { Modal } from '../../../components/Modal.tsx';
 import { Button } from '../../../components/Button.tsx';
@@ -16,6 +16,7 @@ import { MacroManualAdders } from './MacroManualAdders.tsx';
 interface MacroEditorModalProps {
   initialCommand: VoiceMacroCommand | null;
   onSave: (phrase: string, phrases: string[], steps: MacroStep[]) => void;
+  onSaveAsCopy?: (phrase: string, phrases: string[], steps: MacroStep[]) => void;
   onDelete?: () => void;
   onClose: () => void;
 }
@@ -60,6 +61,7 @@ function DropInsertionLine() {
 export function MacroEditorModal({
   initialCommand,
   onSave,
+  onSaveAsCopy,
   onDelete,
   onClose,
 }: MacroEditorModalProps) {
@@ -351,6 +353,25 @@ export function MacroEditorModal({
     onSave(primaryPhrase, aliasPhrases, steps.value);
   };
 
+  const handleSaveAsCopy = () => {
+    const all = [...phrases.value];
+    const pending = phraseInput.value.replace(/,/g, '').trim().toLowerCase();
+    if (pending && !all.includes(pending)) {
+      all.push(pending);
+    }
+
+    if (all.length === 0 || steps.value.length === 0) return;
+
+    let primaryPhrase = all[0];
+    if (initialCommand && primaryPhrase === initialCommand.phrase) {
+      primaryPhrase = `copy of ${primaryPhrase}`;
+    }
+    const aliasPhrases = all.slice(1);
+    if (onSaveAsCopy) {
+      onSaveAsCopy(primaryPhrase, aliasPhrases, steps.value);
+    }
+  };
+
   const totalPhraseCount = phrases.value.length + (phraseInput.value.trim() ? 1 : 0);
   const handleDelete = async () => {
     if (!onDelete) return;
@@ -410,6 +431,24 @@ export function MacroEditorModal({
             >
               Cancel
             </Button>
+            {initialCommand && onSaveAsCopy && (
+              <Button
+                variant="ghost"
+                onClick={handleSaveAsCopy}
+                disabled={isSaveDisabled}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                }}
+                title="Save these steps as a new duplicate macro"
+              >
+                <IconCopy size={13} />
+                <span>Save as Copy</span>
+              </Button>
+            )}
             <Button
               variant="configAction"
               onClick={handleSave}
