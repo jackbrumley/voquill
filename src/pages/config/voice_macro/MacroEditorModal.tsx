@@ -1,26 +1,60 @@
+import { Fragment } from 'preact';
 import { useSignal } from '@preact/signals';
-import { useEffect } from 'preact/hooks';
-import {
-  IconCircleFilled,
-  IconCheck,
-  IconPlus,
-  IconTrash,
-  IconX,
-} from '@tabler/icons-preact';
+import { useEffect, useRef } from 'preact/hooks';
+import { IconCheck, IconTrash } from '@tabler/icons-preact';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { Modal } from '../../../components/Modal.tsx';
 import { Button } from '../../../components/Button.tsx';
 import type { MacroStep, VoiceMacroCommand } from '../../../types.ts';
-import { inputBaseStyle } from '../../../theme/ui-primitives.ts';
 import { tokens } from '../../../design-tokens.ts';
 import { normalizeKeyName } from './keyUtils.ts';
 import { MacroStepRow } from './MacroStepRow.tsx';
+import { MacroPhrasesEditor } from './MacroPhrasesEditor.tsx';
+import { MacroRecorderToolbar } from './MacroRecorderToolbar.tsx';
+import { MacroManualAdders } from './MacroManualAdders.tsx';
 
 interface MacroEditorModalProps {
   initialCommand: VoiceMacroCommand | null;
   onSave: (phrase: string, phrases: string[], steps: MacroStep[]) => void;
   onDelete?: () => void;
   onClose: () => void;
+}
+
+function DropInsertionLine() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        height: '8px',
+        margin: '-2px 0',
+        padding: '0 4px',
+        zIndex: 10,
+        position: 'relative',
+      }}
+    >
+      <div
+        style={{
+          width: '6px',
+          height: '6px',
+          borderRadius: '50%',
+          background: '#818cf8',
+          boxShadow: '0 0 8px rgba(129, 140, 248, 0.9)',
+          flexShrink: 0,
+        }}
+      />
+      <div
+        style={{
+          flex: 1,
+          height: '2px',
+          borderRadius: '2px',
+          background:
+            'linear-gradient(90deg, #818cf8 0%, #6366f1 50%, rgba(99, 102, 241, 0.25) 100%)',
+          boxShadow: '0 0 6px rgba(99, 102, 241, 0.7)',
+        }}
+      />
+    </div>
+  );
 }
 
 export function MacroEditorModal({
@@ -58,6 +92,11 @@ export function MacroEditorModal({
 
   const lastEventTime = useSignal<number>(0);
   const pressedKeysDownTime = useSignal<Record<string, number>>({});
+
+  // Pointer drag and drop state: records slot insertion index between steps (0 to steps.length)
+  const draggingIndex = useSignal<number | null>(null);
+  const targetInsertionIndex = useSignal<number | null>(null);
+  const listScrollRef = useRef<HTMLDivElement>(null);
 
   const appendStepWithDelay = (step: MacroStep) => {
     const now = Date.now();
@@ -206,6 +245,98 @@ export function MacroEditorModal({
     editingDurationIndex.value = null;
   };
 
+  // Pointer drag and drop event handlers
+  const handleGripPointerDown = (e: PointerEvent, index: number) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore if setPointerCapture is unsupported
+    }
+    draggingIndex.value = index;
+    targetInsertionIndex.value = null;
+  };
+
+  const handleGripPointerMove = (e: PointerEvent) => {
+    if (draggingIndex.value === null) return;
+    e.preventDefault();
+
+    const elements = document.elementsFromPoint(e.clientX, e.clientY);
+    let targetRow: HTMLElement | null = null;
+    for (const el of elements) {
+      const row = el.closest('[data-step-index]') as HTMLElement | null;
+      if (row) {
+        targetRow = row;
+        break;
+      }
+    }
+
+    if (targetRow) {
+      const targetIndex = parseInt(targetRow.getAttribute('data-step-index') || '-1', 10);
+      if (targetIndex >= 0) {
+        const rect = targetRow.getBoundingClientRect();
+        const isTopHalf = e.clientY < rect.top + rect.height / 2;
+        const slotIndex = isTopHalf ? targetIndex : targetIndex + 1;
+
+        const from = draggingIndex.value;
+        if (slotIndex === from || slotIndex === from + 1) {
+          targetInsertionIndex.value = null;
+        } else {
+          targetInsertionIndex.value = slotIndex;
+        }
+      }
+    }
+
+    // Auto-scroll list when dragging near top or bottom
+    if (listScrollRef.current) {
+      const containerRect = listScrollRef.current.getBoundingClientRect();
+      if (e.clientY < containerRect.top + 35) {
+        listScrollRef.current.scrollTop -= 8;
+      } else if (e.clientY > containerRect.bottom - 35) {
+        listScrollRef.current.scrollTop += 8;
+      }
+    }
+  };
+
+  const handleGripPointerUp = (e: PointerEvent) => {
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // Ignore if releasePointerCapture is unsupported
+    }
+
+    const fromIndex = draggingIndex.value;
+    const insertSlot = targetInsertionIndex.value;
+
+    if (
+      fromIndex !== null &&
+      insertSlot !== null &&
+      insertSlot !== fromIndex &&
+      insertSlot !== fromIndex + 1
+    ) {
+      const updated = [...steps.value];
+      const [item] = updated.splice(fromIndex, 1);
+      const finalIndex = fromIndex < insertSlot ? insertSlot - 1 : insertSlot;
+      const boundedIndex = Math.max(0, Math.min(finalIndex, updated.length));
+      updated.splice(boundedIndex, 0, item);
+      steps.value = updated;
+    }
+
+    draggingIndex.value = null;
+    targetInsertionIndex.value = null;
+  };
+
+  const handleGripPointerCancel = (e: PointerEvent) => {
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // Ignore
+    }
+    draggingIndex.value = null;
+    targetInsertionIndex.value = null;
+  };
+
   const handleSave = () => {
     const all = [...phrases.value];
     const pending = phraseInput.value.replace(/,/g, '').trim().toLowerCase();
@@ -244,13 +375,26 @@ export function MacroEditorModal({
       onClose={onClose}
       fullScreen
       footer={
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+          }}
+        >
           <div>
             {initialCommand && onDelete && (
               <Button
                 variant="danger"
                 onClick={handleDelete}
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 10px', fontSize: '11.5px' }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 10px',
+                  fontSize: '11.5px',
+                }}
               >
                 <IconTrash size={13} />
                 <span>Delete</span>
@@ -259,14 +403,24 @@ export function MacroEditorModal({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Button variant="ghost" onClick={onClose} style={{ padding: '6px 12px', fontSize: '12px' }}>
+            <Button
+              variant="ghost"
+              onClick={onClose}
+              style={{ padding: '6px 12px', fontSize: '12px' }}
+            >
               Cancel
             </Button>
             <Button
               variant="configAction"
               onClick={handleSave}
               disabled={isSaveDisabled}
-              style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 14px', fontSize: '12px' }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 14px',
+                fontSize: '12px',
+              }}
             >
               <IconCheck size={14} />
               <span>{initialCommand ? 'Save Macro' : 'Create Macro'}</span>
@@ -285,186 +439,64 @@ export function MacroEditorModal({
         }}
       >
         {/* Multi-Phrase Tag / Alias Field */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <label style={{ fontSize: '11px', color: tokens.colors.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-              Spoken Trigger Phrases (Aliases)
-            </label>
-            <span style={{ fontSize: '10px', color: tokens.colors.textMuted }}>
-              Press Enter or comma to add
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <input
-              type="text"
-              value={phraseInput.value}
-              onInput={(e) => {
-                phraseInput.value = (e.target as HTMLInputElement).value;
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ',') {
-                  e.preventDefault();
-                  addPhrase();
-                }
-              }}
-              placeholder={phrases.value.length === 0 ? 'e.g. call airstrike (press Enter to add)' : 'Add another alias phrase...'}
-              autoFocus={!initialCommand}
-              style={{ ...inputBaseStyle, flex: 1, padding: '5px 8px', fontSize: '12px' }}
-            />
-            <Button
-              variant="configAction"
-              onClick={addPhrase}
-              disabled={!phraseInput.value.trim()}
-              style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}
-            >
-              <IconPlus size={12} />
-              <span>Add</span>
-            </Button>
-          </div>
-
-          {/* Rendered Phrase Chips */}
-          {phrases.value.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
-              {phrases.value.map((p, idx) => (
-                <span
-                  key={idx}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    background: idx === 0 ? 'rgba(88, 101, 242, 0.22)' : 'rgba(255, 255, 255, 0.08)',
-                    border: idx === 0 ? '1px solid rgba(88, 101, 242, 0.45)' : '1px solid rgba(255, 255, 255, 0.12)',
-                    color: idx === 0 ? '#9ba5ff' : tokens.colors.textSecondary,
-                  }}
-                >
-                  <span>"{p}"</span>
-                  {idx === 0 && <span style={{ fontSize: '9px', opacity: 0.7 }}>(primary)</span>}
-                  <button
-                    type="button"
-                    onClick={() => removePhrase(idx)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: tokens.colors.textMuted,
-                      cursor: 'pointer',
-                      padding: '0 1px',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <IconX size={11} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+        <MacroPhrasesEditor
+          phrases={phrases.value}
+          phraseInput={phraseInput.value}
+          onPhraseInputChange={(val) => {
+            phraseInput.value = val;
+          }}
+          onAddPhrase={addPhrase}
+          onRemovePhrase={removePhrase}
+          autoFocus={!initialCommand}
+        />
 
         {/* Live Sequence Recorder Controls */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '6px 10px',
-            borderRadius: '6px',
-            background: isRecording.value ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.04)',
-            border: isRecording.value ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
+        <MacroRecorderToolbar
+          isRecording={isRecording.value}
+          stepCount={steps.value.length}
+          onToggleRecording={toggleRecording}
+          onClearSteps={() => {
+            steps.value = [];
           }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Button
-              variant="configAction"
-              onClick={toggleRecording}
-              style={
-                isRecording.value
-                  ? {
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '4px 8px',
-                      fontSize: '11px',
-                      borderColor: '#ef4444',
-                      color: '#f87171',
-                      background: 'rgba(239, 68, 68, 0.2)',
-                    }
-                  : { display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px' }
-              }
-            >
-              {isRecording.value ? (
-                <>
-                  <IconCheck size={13} />
-                  <span>Done Recording</span>
-                </>
-              ) : (
-                <>
-                  <IconCircleFilled size={12} color="#ef4444" />
-                  <span>Record Sequence</span>
-                </>
-              )}
-            </Button>
+        />
 
-            {steps.value.length > 0 && !isRecording.value && (
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  steps.value = [];
-                }}
-                style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '4px 6px', fontSize: '11px', color: tokens.colors.textMuted }}
-              >
-                <IconTrash size={12} />
-                <span>Clear</span>
-              </Button>
-            )}
-          </div>
-
-          <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
-            {steps.value.length} {steps.value.length === 1 ? 'step' : 'steps'}
-          </span>
-        </div>
-
-        {/* Live Recording Active Banner */}
-        {isRecording.value && (
-          <div
-            style={{
-              padding: '6px 10px',
-              borderRadius: '5px',
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              fontSize: '11px',
-              color: '#fca5a5',
-              lineHeight: 1.3,
-            }}
-          >
-            🔴 <strong>Recording...</strong> Press keys, modifiers, combos. Delays are captured. Press <strong>Esc</strong> to finish.
-          </div>
-        )}
-
-        {/* Step-by-Step Vertical Timeline */}
+        {/* Step-by-Step Vertical Timeline - Claims all available vertical space */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
             flex: 1,
-            minHeight: '120px',
-            maxHeight: '220px',
+            minHeight: 0,
             gap: '4px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0 2px',
+              flexShrink: 0,
+            }}
+          >
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: tokens.colors.textMuted,
+                textTransform: 'uppercase',
+                letterSpacing: '0.4px',
+              }}
+            >
               Execution Sequence
             </span>
           </div>
 
           <div
+            ref={listScrollRef}
             style={{
               flex: 1,
+              minHeight: 0,
               overflowY: 'auto',
               scrollbarGutter: 'stable',
               display: 'flex',
@@ -501,23 +533,36 @@ export function MacroEditorModal({
                       ? step.hold_ms || 50
                       : 0;
                 const isEditable = step.type === 'Delay' || step.type === 'KeyPress';
+                const isItemDragging = draggingIndex.value === idx;
+                const isLast = idx === steps.value.length - 1;
 
                 return (
-                  <MacroStepRow
-                    key={idx}
-                    index={idx}
-                    step={step}
-                    onRemove={() => removeStep(idx)}
-                    isEditingDuration={editingDurationIndex.value === idx}
-                    editingDurationValue={editingDurationValue.value}
-                    onStartEditDuration={
-                      isEditable ? () => startEditDuration(idx, currentDuration) : undefined
-                    }
-                    onDurationInputChange={(val) => {
-                      editingDurationValue.value = val;
-                    }}
-                    onSaveDuration={() => saveEditDuration(idx)}
-                  />
+                  <Fragment key={idx}>
+                    {targetInsertionIndex.value === idx && <DropInsertionLine />}
+                    <MacroStepRow
+                      index={idx}
+                      step={step}
+                      onRemove={() => removeStep(idx)}
+                      isEditingDuration={editingDurationIndex.value === idx}
+                      editingDurationValue={editingDurationValue.value}
+                      onStartEditDuration={
+                        isEditable ? () => startEditDuration(idx, currentDuration) : undefined
+                      }
+                      onDurationInputChange={(val) => {
+                        editingDurationValue.value = val;
+                      }}
+                      onSaveDuration={() => saveEditDuration(idx)}
+                      canDrag={!isRecording.value}
+                      isDragging={isItemDragging}
+                      onGripPointerDown={(e) => handleGripPointerDown(e, idx)}
+                      onGripPointerMove={handleGripPointerMove}
+                      onGripPointerUp={handleGripPointerUp}
+                      onGripPointerCancel={handleGripPointerCancel}
+                    />
+                    {isLast && targetInsertionIndex.value === steps.value.length && (
+                      <DropInsertionLine />
+                    )}
+                  </Fragment>
                 );
               })
             )}
@@ -526,89 +571,19 @@ export function MacroEditorModal({
 
         {/* Manual Step Adders */}
         {!isRecording.value && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              padding: '8px',
-              borderRadius: '6px',
-              background: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
+          <MacroManualAdders
+            manualKeyInput={manualKeyInput.value}
+            onManualKeyInputChange={(val) => {
+              manualKeyInput.value = val;
             }}
-          >
-            {/* Key Action Adders */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-              <input
-                type="text"
-                value={manualKeyInput.value}
-                onInput={(e) => {
-                  manualKeyInput.value = (e.target as HTMLInputElement).value;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    addManualKey('KeyPress');
-                  }
-                }}
-                placeholder="Key (F3, W, Ctrl)"
-                style={{ ...inputBaseStyle, width: '100px', padding: '3px 6px', fontSize: '11px' }}
-              />
-              <Button
-                variant="configAction"
-                onClick={() => addManualKey('KeyPress')}
-                style={{ padding: '3px 6px', fontSize: '10.5px' }}
-              >
-                + Tap
-              </Button>
-              <Button
-                variant="configAction"
-                onClick={() => addManualKey('KeyDown')}
-                style={{ padding: '3px 6px', fontSize: '10.5px' }}
-              >
-                + Hold
-              </Button>
-              <Button
-                variant="configAction"
-                onClick={() => addManualKey('KeyUp')}
-                style={{ padding: '3px 6px', fontSize: '10.5px' }}
-              >
-                + Rel
-              </Button>
-              <Button
-                variant="configAction"
-                onClick={addManualDelay}
-                style={{ padding: '3px 6px', fontSize: '10.5px' }}
-              >
-                + 100ms
-              </Button>
-            </div>
-
-            {/* Type Text Adder */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <input
-                type="text"
-                value={manualTextInput.value}
-                onInput={(e) => {
-                  manualTextInput.value = (e.target as HTMLInputElement).value;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    addManualText();
-                  }
-                }}
-                placeholder="Type text string..."
-                style={{ ...inputBaseStyle, flex: 1, padding: '3px 6px', fontSize: '11px' }}
-              />
-              <Button
-                variant="configAction"
-                onClick={addManualText}
-                style={{ padding: '3px 6px', fontSize: '10.5px', display: 'flex', alignItems: 'center', gap: '3px' }}
-              >
-                <IconPlus size={11} />
-                <span>+ Text</span>
-              </Button>
-            </div>
-          </div>
+            manualTextInput={manualTextInput.value}
+            onManualTextInputChange={(val) => {
+              manualTextInput.value = val;
+            }}
+            onAddManualKey={addManualKey}
+            onAddManualDelay={addManualDelay}
+            onAddManualText={addManualText}
+          />
         )}
       </div>
     </Modal>

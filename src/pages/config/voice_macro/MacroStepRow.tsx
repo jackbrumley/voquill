@@ -1,4 +1,13 @@
-import { IconX, IconClock, IconKeyboard, IconArrowDown, IconArrowUp, IconWriting } from '@tabler/icons-preact';
+import { useEffect, useRef } from 'preact/hooks';
+import {
+  IconX,
+  IconClock,
+  IconKeyboard,
+  IconArrowDown,
+  IconArrowUp,
+  IconWriting,
+  IconGripVertical,
+} from '@tabler/icons-preact';
 import type { MacroStep } from '../../../types.ts';
 import { tokens } from '../../../design-tokens.ts';
 import { inputBaseStyle } from '../../../theme/ui-primitives.ts';
@@ -12,6 +21,58 @@ interface MacroStepRowProps {
   onStartEditDuration?: () => void;
   onDurationInputChange?: (val: string) => void;
   onSaveDuration?: () => void;
+  canDrag?: boolean;
+  isDragging?: boolean;
+  onGripPointerDown?: (e: PointerEvent, index: number) => void;
+  onGripPointerMove?: (e: PointerEvent) => void;
+  onGripPointerUp?: (e: PointerEvent) => void;
+  onGripPointerCancel?: (e: PointerEvent) => void;
+}
+
+interface DurationInputProps {
+  value: string;
+  onChange: (val: string) => void;
+  onSave: () => void;
+}
+
+function DurationInput({ value, onChange, onSave }: DurationInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }, []);
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="numeric"
+        value={value}
+        onInput={(e) => {
+          const clean = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '');
+          onChange(clean);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === 'Escape') onSave();
+        }}
+        onBlur={onSave}
+        style={{
+          ...inputBaseStyle,
+          width: '50px',
+          padding: '1px 4px',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          textAlign: 'center',
+        }}
+      />
+      <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>ms</span>
+    </div>
+  );
 }
 
 export function MacroStepRow({
@@ -23,6 +84,12 @@ export function MacroStepRow({
   onStartEditDuration,
   onDurationInputChange,
   onSaveDuration,
+  canDrag = true,
+  isDragging = false,
+  onGripPointerDown,
+  onGripPointerMove,
+  onGripPointerUp,
+  onGripPointerCancel,
 }: MacroStepRowProps) {
   const renderBadgeAndContent = () => {
     switch (step.type) {
@@ -67,32 +134,11 @@ export function MacroStepRow({
             </span>
 
             {isEditingDuration ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={editingDurationValue}
-                  onFocus={(e) => (e.target as HTMLInputElement).select()}
-                  onInput={(e) => {
-                    const clean = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '');
-                    onDurationInputChange?.(clean);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === 'Escape') onSaveDuration?.();
-                  }}
-                  onBlur={onSaveDuration}
-                  autoFocus
-                  style={{
-                    ...inputBaseStyle,
-                    width: '50px',
-                    padding: '1px 4px',
-                    fontSize: '11px',
-                    fontFamily: 'monospace',
-                    textAlign: 'center',
-                  }}
-                />
-                <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>ms</span>
-              </div>
+              <DurationInput
+                value={editingDurationValue}
+                onChange={(val) => onDurationInputChange?.(val)}
+                onSave={() => onSaveDuration?.()}
+              />
             ) : (
               <button
                 type="button"
@@ -227,32 +273,11 @@ export function MacroStepRow({
             </span>
 
             {isEditingDuration ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={editingDurationValue}
-                  onFocus={(e) => (e.target as HTMLInputElement).select()}
-                  onInput={(e) => {
-                    const clean = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '');
-                    onDurationInputChange?.(clean);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === 'Escape') onSaveDuration?.();
-                  }}
-                  onBlur={onSaveDuration}
-                  autoFocus
-                  style={{
-                    ...inputBaseStyle,
-                    width: '50px',
-                    padding: '1px 4px',
-                    fontSize: '11px',
-                    fontFamily: 'monospace',
-                    textAlign: 'center',
-                  }}
-                />
-                <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>ms</span>
-              </div>
+              <DurationInput
+                value={editingDurationValue}
+                onChange={(val) => onDurationInputChange?.(val)}
+                onSave={() => onSaveDuration?.()}
+              />
             ) : (
               <button
                 type="button"
@@ -326,30 +351,71 @@ export function MacroStepRow({
 
   return (
     <div
+      data-step-index={index}
       style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '4px 8px',
         borderRadius: '5px',
-        background: 'rgba(255, 255, 255, 0.03)',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
+        background: isDragging ? 'rgba(88, 101, 242, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+        border: isDragging
+          ? '1px dashed rgba(88, 101, 242, 0.45)'
+          : '1px solid rgba(255, 255, 255, 0.06)',
+        opacity: isDragging ? 0.35 : 1,
         gap: '6px',
+        transition: 'opacity 0.1s ease, border-color 0.1s ease',
+        userSelect: isDragging ? 'none' : 'auto',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: 0 }}>
+        {/* Drag handle using Pointer Capture */}
+        <div
+          onPointerDown={(e) => {
+            if (!canDrag || isEditingDuration) return;
+            onGripPointerDown?.(e as unknown as PointerEvent, index);
+          }}
+          onPointerMove={(e) => onGripPointerMove?.(e as unknown as PointerEvent)}
+          onPointerUp={(e) => onGripPointerUp?.(e as unknown as PointerEvent)}
+          onPointerCancel={(e) => onGripPointerCancel?.(e as unknown as PointerEvent)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: canDrag ? (isDragging ? 'grabbing' : 'grab') : 'default',
+            color: isDragging ? '#818cf8' : tokens.colors.textMuted,
+            opacity: canDrag ? 0.7 : 0.2,
+            padding: '0 2px',
+            userSelect: 'none',
+            touchAction: 'none',
+            flexShrink: 0,
+          }}
+          title={canDrag ? 'Drag to reorder' : undefined}
+        >
+          <IconGripVertical size={13} />
+        </div>
+
         <span
           style={{
             fontSize: '10px',
             fontFamily: 'monospace',
             color: tokens.colors.textMuted,
             minWidth: '16px',
+            userSelect: 'none',
           }}
         >
           {index + 1}.
         </span>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', minWidth: 0 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            flexWrap: 'wrap',
+            minWidth: 0,
+          }}
+        >
           {renderBadgeAndContent()}
         </div>
       </div>

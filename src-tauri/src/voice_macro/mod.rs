@@ -245,7 +245,21 @@ pub async fn execute_macro_steps(
         steps.len()
     );
 
+    // Guard: Set session state to Typing for the duration of macro execution
+    {
+        let mut session = state.session_state.lock().unwrap();
+        *session = SessionState::Typing;
+    }
+
     let result = execute_macro_steps_inner(app_handle, steps, &mut held_keys).await;
+
+    // Reset session state to Idle when finished
+    {
+        let mut session = state.session_state.lock().unwrap();
+        if *session == SessionState::Typing {
+            *session = SessionState::Idle;
+        }
+    }
 
     // Safety Guard: Release any keys still held down to prevent stuck keys!
     if !held_keys.is_empty() {
@@ -270,6 +284,11 @@ async fn execute_macro_steps_inner(
     let state = app_handle.state::<AppState>();
 
     for (index, step) in steps.iter().enumerate() {
+        if *state.session_state.lock().unwrap() != SessionState::Typing {
+            crate::log_info!("[Voice Macro] Execution aborted: session cancelled");
+            return Err("Voice macro execution cancelled".to_string());
+        }
+
         match step {
             crate::config::MacroStep::KeyPress { key, hold_ms } => {
                 crate::log_info!(
