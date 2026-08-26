@@ -424,12 +424,6 @@ pub fn send_key_combination(
         hold_duration_ms
     );
 
-    // Release latent modifiers first
-    send_key_event(&connection, keyboard_map.ctrl_keycode, false)?;
-    send_key_event(&connection, keyboard_map.shift_keycode, false)?;
-    connection.flush()?;
-    thread::sleep(Duration::from_millis(10));
-
     for &mod_code in &modifier_keycodes {
         send_key_event(&connection, mod_code, true)?;
     }

@@ -262,13 +262,6 @@ pub fn send_key_combination(
     );
 
     unsafe {
-        // Safety: release modifiers first to clear latent state
-        emit_vk(VK_CONTROL, false);
-        emit_vk(VK_SHIFT, false);
-        emit_vk(VK_MENU, false);
-        emit_vk(VK_LWIN, false);
-        thread::sleep(Duration::from_millis(10));
-
         for mod_vk in &modifier_vks {
             emit_vk(*mod_vk, true);
             thread::sleep(Duration::from_millis(10));
@@ -330,6 +323,9 @@ fn is_extended_key(vk: VIRTUAL_KEY) -> bool {
             | VK_RMENU
             | VK_DIVIDE
             | VK_NUMLOCK
+            | VK_LWIN
+            | VK_RWIN
+            | VK_APPS
     )
 }
 
@@ -373,6 +369,9 @@ mod tests {
         assert!(is_extended_key(VK_DOWN));
         assert!(is_extended_key(VK_LEFT));
         assert!(is_extended_key(VK_RIGHT));
+        assert!(is_extended_key(VK_LWIN));
+        assert!(is_extended_key(VK_RWIN));
+        assert!(is_extended_key(VK_APPS));
 
         assert!(!is_extended_key(VK_SHIFT));
         assert!(!is_extended_key(VK_CONTROL));
