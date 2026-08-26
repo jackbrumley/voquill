@@ -80,6 +80,7 @@ pub async fn start_recording(
                     Ok(new_engine) => {
                         *engine_guard = Some(new_engine);
                         crate::log_info!("Audio engine initialized on demand");
+                        crate::voice_macro::sync_voice_macro_listener(&app_handle);
                         true
                     }
                     Err(error) => {
@@ -273,6 +274,7 @@ pub async fn start_mic_test(
                     Ok(new_engine) => {
                         *engine_guard = Some(new_engine);
                         crate::log_info!("Audio engine initialized on demand");
+                        crate::voice_macro::sync_voice_macro_listener(&app_handle);
                     }
                     Err(error) => {
                         crate::log_warn!(

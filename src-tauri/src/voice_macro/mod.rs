@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
@@ -354,6 +354,8 @@ async fn execute_macro_steps_inner(
     Ok(())
 }
 
+static LISTENER_GENERATION: AtomicU64 = AtomicU64::new(1);
+
 pub fn sync_voice_macro_listener(app_handle: &AppHandle) {
     let state = app_handle.state::<AppState>();
     let (enabled, has_macros) = {
@@ -363,22 +365,22 @@ pub fn sync_voice_macro_listener(app_handle: &AppHandle) {
 
     let mut cancel_guard = state.voice_macro_cancel.lock().unwrap();
 
-    if enabled && has_macros {
-        if cancel_guard.is_none() {
-            crate::log_info!("Starting Voice Macro background listener...");
-            let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel::<()>();
-            *cancel_guard = Some(cancel_tx);
+    // 1. Always stop any previously running listener instance to avoid orphaned channels
+    if let Some(cancel_tx) = cancel_guard.take() {
+        crate::log_info!("Stopping previous Voice Macro background listener...");
+        let _ = cancel_tx.send(());
+    }
 
-            let app = app_handle.clone();
-            tauri::async_runtime::spawn(async move {
-                run_voice_macro_listener_loop(app, cancel_rx).await;
-            });
-        }
-    } else if cancel_guard.is_some() {
-        crate::log_info!("Stopping Voice Macro background listener...");
-        if let Some(cancel_tx) = cancel_guard.take() {
-            let _ = cancel_tx.send(());
-        }
+    // 2. If enabled and has macros, spawn a fresh listener instance attached to current engine
+    if enabled && has_macros {
+        crate::log_info!("Starting Voice Macro background listener...");
+        let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel::<()>();
+        *cancel_guard = Some(cancel_tx);
+
+        let app = app_handle.clone();
+        tauri::async_runtime::spawn(async move {
+            run_voice_macro_listener_loop(app, cancel_rx).await;
+        });
     }
 }
 
@@ -393,21 +395,61 @@ async fn run_voice_macro_listener_loop(
     app_handle: AppHandle,
     mut cancel_rx: tokio::sync::oneshot::Receiver<()>,
 ) {
+    let my_gen = LISTENER_GENERATION.fetch_add(1, Ordering::SeqCst);
     let (audio_tx, audio_rx) = mpsc::sync_channel::<f32>(65536);
     let sample_rate;
+    let engine_macro_tx;
 
     {
         let state = app_handle.state::<AppState>();
         let mut audio_guard = state.audio_engine.lock().unwrap();
+
+        if audio_guard.is_none() {
+            let requested_device = state.config.lock().unwrap().audio_device.clone();
+            let resolved_device = match crate::audio::lookup_device(requested_device.clone()) {
+                Ok(dev) => Some(dev),
+                Err(e) => {
+                    crate::log_warn!(
+                        "Voice Macro listener: Failed to resolve audio device '{}': {}",
+                        requested_device.unwrap_or_else(|| "default".to_string()),
+                        e
+                    );
+                    None
+                }
+            };
+            if let Some(dev) = resolved_device {
+                let sensitivity = state.config.lock().unwrap().input_sensitivity;
+                match crate::audio::PersistentAudioEngine::new(&dev, sensitivity) {
+                    Ok(new_engine) => {
+                        *audio_guard = Some(new_engine);
+                        crate::log_info!(
+                            "Voice Macro listener: Persistent audio engine initialized on-demand"
+                        );
+                    }
+                    Err(e) => {
+                        crate::log_warn!(
+                            "Voice Macro listener: Failed to initialize audio engine on-demand: {}",
+                            e
+                        );
+                    }
+                }
+            }
+        }
+
         match audio_guard.as_mut() {
             Some(engine) => {
                 sample_rate = engine.sample_rate;
-                *engine.macro_tx.lock().unwrap() = Some(audio_tx);
+                engine_macro_tx = engine.macro_tx.clone();
+                *engine_macro_tx.lock().unwrap() = Some(audio_tx);
             }
             None => {
                 crate::log_warn!(
                     "Voice Macro listener: Audio engine not available, exiting listener loop"
                 );
+                let mut cancel_guard = state.voice_macro_cancel.lock().unwrap();
+                if LISTENER_GENERATION.load(Ordering::SeqCst) == my_gen + 1 {
+                    *cancel_guard = None;
+                }
                 return;
             }
         }
@@ -658,12 +700,8 @@ async fn run_voice_macro_listener_loop(
     }
 
     is_running.store(false, Ordering::Relaxed);
-    {
-        let state = app_handle.state::<AppState>();
-        let mut audio_engine = state.audio_engine.lock().unwrap();
-        if let Some(engine) = audio_engine.as_mut() {
-            *engine.macro_tx.lock().unwrap() = None;
-        }
+    if LISTENER_GENERATION.load(Ordering::SeqCst) == my_gen + 1 {
+        *engine_macro_tx.lock().unwrap() = None;
     }
     crate::log_info!("Voice Macro listener loop terminated");
 }
