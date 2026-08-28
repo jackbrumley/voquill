@@ -243,7 +243,7 @@ pub fn send_key_combination(
     let mut main_vks = Vec::new();
 
     for part in parts {
-        let vk = parse_windows_vk(part).map_err(|e| e)?;
+        let vk = parse_windows_vk(part)?;
         if vk == VK_CONTROL || vk == VK_SHIFT || vk == VK_MENU || vk == VK_LWIN {
             if !modifier_vks.contains(&vk) {
                 modifier_vks.push(vk);

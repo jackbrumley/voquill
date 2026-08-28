@@ -64,12 +64,18 @@
       "icons/icon.ico"
     ],
     "targets": "all",
-    "resources": ["../python-runner/**/*"],
+    "resources": [
+      "packaging/windows/vulkan-1.dll",
+      "../python-runner/**/*"
+    ],
     "externalBin": [],
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": ""
+      "timestampUrl": "",
+      "nsis": {
+        "installerHooks": "packaging/windows/hooks.nsh"
+      }
     },
     "linux": {
       "deb": {
