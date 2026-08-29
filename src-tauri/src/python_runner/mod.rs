@@ -13,7 +13,7 @@ const RUNNER_PORT_START: u16 = 6201;
 const RUNNER_PORT_END: u16 = 6350;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
 const HEALTH_RETRY_INTERVAL: Duration = Duration::from_millis(500);
-const RUNNER_VERSION: &str = "1.2.10";
+const RUNNER_VERSION: &str = "1.2.11";
 const PYTHON_VERSION: &str = "20250115";
 const PYTHON_DOWNLOAD_BASE: &str =
     "https://github.com/astral-sh/python-build-standalone/releases/download";

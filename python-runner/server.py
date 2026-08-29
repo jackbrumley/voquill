@@ -147,7 +147,7 @@ async def capabilities() -> list[CapabilityInfo]:
 
 
 @app.post("/diarize")
-async def diarize(body: dict) -> dict:
+def diarize(body: dict) -> dict:
     handlers = app.state.handlers
     if "diarize" not in handlers:
         raise HTTPException(
@@ -178,7 +178,7 @@ async def diarize(body: dict) -> dict:
 
 
 @app.post("/enhance")
-async def enhance(body: dict) -> dict:
+def enhance(body: dict) -> dict:
     handlers = app.state.handlers
     if "enhance" not in handlers:
         raise HTTPException(
@@ -209,7 +209,7 @@ async def enhance(body: dict) -> dict:
 
 
 @app.get("/tts/models")
-async def get_tts_models() -> list[dict]:
+def get_tts_models() -> list[dict]:
     handlers = app.state.handlers
     if "tts" not in handlers:
         raise HTTPException(
@@ -226,7 +226,7 @@ async def get_tts_models() -> list[dict]:
 
 
 @app.get("/tts/voices")
-async def get_tts_voices() -> list[dict]:
+def get_tts_voices() -> list[dict]:
     handlers = app.state.handlers
     if "tts" not in handlers:
         raise HTTPException(
@@ -243,7 +243,7 @@ async def get_tts_voices() -> list[dict]:
 
 
 @app.post("/tts/synthesize")
-async def synthesize_tts(body: dict) -> dict:
+def synthesize_tts(body: dict) -> dict:
     handlers = app.state.handlers
     if "tts" not in handlers:
         raise HTTPException(
@@ -278,7 +278,7 @@ async def synthesize_tts(body: dict) -> dict:
 
 
 @app.post("/tts/synthesize_custom")
-async def synthesize_custom_tts(body: dict) -> dict:
+def synthesize_custom_tts(body: dict) -> dict:
     handlers = app.state.handlers
     if "tts" not in handlers:
         raise HTTPException(

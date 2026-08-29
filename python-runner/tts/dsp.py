@@ -201,18 +201,20 @@ def comb_filter(
     delay_ms: float,
     feedback: float,
 ) -> np.ndarray:
-    """IIR Feedback Comb Filter for metallic chassis resonance."""
+    """IIR Feedback Comb Filter for metallic chassis resonance (C-accelerated via scipy.signal.lfilter)."""
     delay_samples = int(round((delay_ms / 1000.0) * sample_rate))
     if delay_samples <= 0 or delay_samples >= len(samples):
         return samples
 
-    out = np.copy(samples)
     feedback = max(-0.85, min(0.85, feedback))
+    # IIR transfer function: y[n] = x[n] + feedback * y[n - delay_samples]
+    # H(z) = 1 / (1 - feedback * z^-delay_samples)
+    a = np.zeros(delay_samples + 1, dtype=np.float32)
+    a[0] = 1.0
+    a[delay_samples] = -feedback
+    b = np.array([1.0], dtype=np.float32)
 
-    for i in range(delay_samples, len(out)):
-        out[i] += feedback * out[i - delay_samples]
-
-    return out
+    return signal.lfilter(b, a, samples).astype(np.float32)
 
 
 def apply_flanger(
