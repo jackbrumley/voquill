@@ -223,13 +223,12 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
   return (
     <Modal
-      title="Voice Studio — Custom Voice Designer"
       onClose={onClose}
+      showCloseButton={false}
       maxWidth="540px"
       footer={
         <Button
           variant="ghost"
-          pill
           onClick={onClose}
           style={{ padding: '6px 16px', fontSize: '12px' }}
         >
@@ -326,7 +325,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
             {/* LibriTTS Multi-Speaker Slider */}
             {isMultiSpeaker && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(99, 102, 241, 0.08)', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(99, 102, 241, 0.08)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600, color: '#c7d2fe' }}>
                   <span>Speaker ID (0 to 903)</span>
                   <span style={{ fontFamily: 'monospace' }}>{speakerId.value}</span>
@@ -338,7 +337,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                   step="1"
                   value={speakerId.value}
                   onInput={(e) => { speakerId.value = parseInt((e.target as HTMLInputElement).value, 10) || 0; }}
-                  style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
+                  style={sliderStyle}
                 />
                 <span style={{ fontSize: '10px', color: tokens.colors.textMuted }}>
                   Tip: Try ID 700 (Heavy Titan) or ID 200 (Operations Dispatcher).
@@ -359,18 +358,9 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
               />
             </div>
 
-            {/* Quick Preset Chips */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-              <button type="button" onClick={() => { text.value = 'Titan online. Core temperature nominal. Weapons combat ready.'; }} style={chipStyle}>Titan</button>
-              <button type="button" onClick={() => { text.value = 'Bravo Six, going dark. Target neutralized, requesting exfil.'; }} style={chipStyle}>SAS Price</button>
-              <button type="button" onClick={() => { text.value = 'Target down! Air strike inbound on marked coordinates! Heads down!'; }} style={chipStyle}>Shouting</button>
-              <button type="button" onClick={() => { text.value = 'Maximum armor engaged. Energy levels at one hundred percent.'; }} style={chipStyle}>Nanosuit</button>
-              <button type="button" onClick={() => { text.value = 'All automated workflows completed successfully.'; }} style={chipStyle}>Studio</button>
-            </div>
-
             {/* DSP Controls Card */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0, 0, 0, 0.25)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.06)', paddingBottom: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(0, 0, 0, 0.25)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.06)', paddingBottom: '6px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: tokens.colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
                   Acoustic Tuning Knobs
                 </span>
@@ -401,33 +391,33 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                 </button>
               </div>
 
-              {/* Sliders */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', color: tokens.colors.textMuted }}>
+              {/* Sliders with proper vertical clearance */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: tokens.colors.textMuted }}>
                   <span>Pitch Shift</span>
                   <span style={{ fontFamily: 'monospace', color: '#c7d2fe' }}>{pitch.value > 0 ? `+${pitch.value}` : pitch.value} st</span>
                 </div>
                 <input type="range" min="-12" max="12" step="0.5" value={pitch.value} onInput={(e) => { pitch.value = parseFloat((e.target as HTMLInputElement).value); }} style={sliderStyle} />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', color: tokens.colors.textMuted }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: tokens.colors.textMuted }}>
                   <span>Playback Speed</span>
                   <span style={{ fontFamily: 'monospace', color: '#c7d2fe' }}>{speed.value.toFixed(2)}x</span>
                 </div>
                 <input type="range" min="0.6" max="1.5" step="0.05" value={speed.value} onInput={(e) => { speed.value = parseFloat((e.target as HTMLInputElement).value); }} style={sliderStyle} />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', color: tokens.colors.textMuted }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: tokens.colors.textMuted }}>
                   <span>Sub-Bass Weight (&lt;140Hz)</span>
                   <span style={{ fontFamily: 'monospace', color: '#c7d2fe' }}>{Math.round(subBass.value * 100)}%</span>
                 </div>
                 <input type="range" min="0" max="1" step="0.05" value={subBass.value} onInput={(e) => { subBass.value = parseFloat((e.target as HTMLInputElement).value); }} style={sliderStyle} />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', color: tokens.colors.textMuted }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: tokens.colors.textMuted }}>
                   <span>Cockpit Comb Resonance</span>
                   <span style={{ fontFamily: 'monospace', color: '#c7d2fe' }}>{Math.round(combMix.value * 100)}%</span>
                 </div>
@@ -435,7 +425,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
               </div>
 
               {/* Chimes Dropdowns */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '2px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <label style={{ fontSize: '10px', color: tokens.colors.textMuted }}>Opening Beep</label>
                   <SelectField
@@ -587,18 +577,10 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
   );
 }
 
-const chipStyle = {
-  background: 'rgba(255, 255, 255, 0.05)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
-  color: tokens.colors.textSecondary,
-  fontSize: '10px',
-  padding: '3px 6px',
-  borderRadius: '4px',
-  cursor: 'pointer',
-};
-
 const sliderStyle = {
   accentColor: tokens.colors.accentPrimary,
   cursor: 'pointer',
-  height: '4px',
+  height: '5px',
+  margin: '6px 0 2px 0',
+  width: '100%',
 };
