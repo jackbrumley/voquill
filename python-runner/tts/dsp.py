@@ -455,32 +455,50 @@ def apply_custom_dsp(
     if radio_drive > 1.01:
         out = np.tanh(out * radio_drive) / np.tanh(radio_drive)
 
-    # 3. Sub-Bass & Heavy Body Punch
+    # 3. Sub-Bass & Heavy Body Punch (0% flat -> 100% massive +18dB chest/subwoofer boom)
     if sub_bass > 0.01:
-        # Lowpass filter at 220Hz captures vocal chest fundamental
-        cutoff = min(220.0 / nyquist, 0.45)
+        # Lowpass filter below 260Hz captures vocal chest fundamental
+        cutoff = min(260.0 / nyquist, 0.45)
         sos_sub = signal.butter(2, cutoff, btype="lowpass", output="sos")
         low_body = signal.sosfilt(sos_sub, out)
 
-        # Peaking sub-thump at 85Hz
-        sos_thump = signal.butter(2, [min(60.0 / nyquist, 0.4), min(120.0 / nyquist, 0.45)], btype="bandpass", output="sos")
+        # High-frequency damping when sub-bass is high to create dark, cinematic vocal mass
+        sos_damp = signal.butter(1, min(2200.0 / nyquist, 0.85), btype="lowpass", output="sos")
+        damped_body = signal.sosfilt(sos_damp, out)
+
+        # Peaking sub-thump at 90Hz
+        sos_thump = signal.butter(2, [min(60.0 / nyquist, 0.4), min(130.0 / nyquist, 0.45)], btype="bandpass", output="sos")
         thump = signal.sosfilt(sos_thump, out)
 
-        # Saturated sub-octave harmonics (gain scales dynamically from 0 to +14dB)
-        sub_sat = np.tanh(low_body * 2.0) * (sub_bass * 2.4)
-        out = out + sub_sat + thump * (sub_bass * 1.6)
+        # Heavy saturated sub-harmonics (gain scales dynamically up to +18dB)
+        sub_gain = 1.0 + sub_bass * 4.5
+        sub_sat = np.tanh(low_body * 2.4) * sub_gain
+
+        out = (1.0 - sub_bass * 0.35) * damped_body + sub_sat * sub_bass + thump * (sub_bass * 2.2)
 
         # DC blocking highpass filter at 25Hz
         sos_dc = signal.butter(1, min(25.0 / nyquist, 0.4), btype="highpass", output="sos")
         out = signal.sosfilt(sos_dc, out)
 
-    # 4. Cockpit Metallic Comb Resonance (Armored enclosure chassis acoustics)
+    # 4. Cockpit Metallic Comb Resonance (0% dry studio -> 100% heavy armored steel hull reflections)
     if comb_mix > 0.01:
-        # 11.5ms (87Hz) and 19.2ms (52Hz) produce authentic armored vehicle / cockpit steel hull reflections
-        c1 = comb_filter(out, sample_rate, delay_ms=11.5, feedback=-0.55)
-        c2 = comb_filter(out, sample_rate, delay_ms=19.2, feedback=0.45)
-        metallic_layer = 0.55 * c1 + 0.45 * c2
-        out = (1.0 - comb_mix * 0.70) * out + (comb_mix * 0.70) * metallic_layer
+        d1 = int(0.0085 * sample_rate)  # 117Hz chassis reflection
+        d2 = int(0.0152 * sample_rate)  # 66Hz armored hull reflection
+
+        a1 = np.zeros(d1 + 1, dtype=np.float32)
+        a1[0] = 1.0
+        a1[d1] = 0.72
+        b1 = np.array([1.0], dtype=np.float32)
+        c1 = signal.lfilter(b1, a1, out)
+
+        a2 = np.zeros(d2 + 1, dtype=np.float32)
+        a2[0] = 1.0
+        a2[d2] = -0.65
+        b2 = np.array([1.0], dtype=np.float32)
+        c2 = signal.lfilter(b2, a2, out)
+
+        metallic_layer = 0.50 * c1 + 0.50 * c2
+        out = (1.0 - comb_mix * 0.85) * out + (comb_mix * 0.85) * metallic_layer
 
     # 5. Flanger
     if flanger_mix > 0.01:

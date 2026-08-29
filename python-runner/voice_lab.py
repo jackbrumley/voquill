@@ -814,11 +814,31 @@ HTML_CONTENT = """<!DOCTYPE html>
     onModelChange();
   }
 
+  let isGenerating = false;
+
+  function resetPlayBtn() {
+    const btn = document.getElementById('btn_generate');
+    btn.disabled = false;
+    btn.innerText = '▶ Generate & Play Audio';
+    btn.style.background = 'var(--primary)';
+    btn.onclick = generateAudio;
+  }
+
+  function stopAudio() {
+    const audio = document.getElementById('audio_player');
+    audio.pause();
+    audio.currentTime = 0;
+    resetPlayBtn();
+    document.getElementById('status_msg').innerText = 'Audio playback stopped.';
+  }
+
   async function generateAudio() {
+    if (isGenerating) return;
     const btn = document.getElementById('btn_generate');
     const status = document.getElementById('status_msg');
     const audio = document.getElementById('audio_player');
 
+    isGenerating = true;
     btn.disabled = true;
     btn.innerText = '⏳ Generating & Rendering Audio...';
     status.innerText = 'Synthesizing with Sherpa-ONNX & applying DSP...';
@@ -856,13 +876,20 @@ HTML_CONTENT = """<!DOCTYPE html>
       const url = URL.createObjectURL(blob);
       audio.src = url;
       audio.style.display = 'block';
-      audio.play();
+      audio.onended = resetPlayBtn;
+      audio.onpause = resetPlayBtn;
+      await audio.play();
+
+      btn.disabled = false;
+      btn.innerText = '⏹ Stop Audio Preview';
+      btn.style.background = '#ef4444';
+      btn.onclick = stopAudio;
       status.innerHTML = `<span style="color:#34d399;">✓ Playing 2-channel stereo audio in both ears!</span>`;
     } catch (e) {
       status.innerHTML = `<span style="color:#f87171;">Error: ${e.message}</span>`;
+      resetPlayBtn();
     } finally {
-      btn.disabled = false;
-      btn.innerText = '▶ Generate & Play Audio';
+      isGenerating = false;
     }
   }
 
