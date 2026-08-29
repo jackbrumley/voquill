@@ -359,7 +359,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                   }}
                 >
                   <IconRefresh size={11} />
-                  <span>Reset DSP</span>
+                  <span>Reset</span>
                 </button>
               </div>
 
@@ -396,28 +396,27 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                 <input type="range" min="0" max="1" step="0.05" value={combMix.value} onInput={(e) => { combMix.value = parseFloat((e.target as HTMLInputElement).value); }} style={sliderStyle} />
               </div>
 
-              {/* Chimes Dropdowns */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '2px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <label style={{ fontSize: '10px', color: tokens.colors.textMuted }}>Opening Beep</label>
-                  <SelectField
-                    value={openingChime.value}
-                    options={OPENING_CHIMES}
-                    onChange={(val) => { openingChime.value = val; }}
-                    ariaLabel="Opening Chime"
-                    style={{ width: '100%', fontSize: '10.5px' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <label style={{ fontSize: '10px', color: tokens.colors.textMuted }}>Closing Squelch</label>
-                  <SelectField
-                    value={closingChime.value}
-                    options={CLOSING_CHIMES}
-                    onChange={(val) => { closingChime.value = val; }}
-                    ariaLabel="Closing Squelch"
-                    style={{ width: '100%', fontSize: '10.5px' }}
-                  />
-                </div>
+              {/* Chimes Dropdowns (Stacked vertically) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted }}>Opening Beep</label>
+                <SelectField
+                  value={openingChime.value}
+                  options={OPENING_CHIMES}
+                  onChange={(val) => { openingChime.value = val; }}
+                  ariaLabel="Opening Chime"
+                  style={{ width: '100%', fontSize: '11.5px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted }}>Closing Squelch</label>
+                <SelectField
+                  value={closingChime.value}
+                  options={CLOSING_CHIMES}
+                  onChange={(val) => { closingChime.value = val; }}
+                  ariaLabel="Closing Squelch"
+                  style={{ width: '100%', fontSize: '11.5px' }}
+                />
               </div>
 
               {/* Radio Bandpass Toggle */}
