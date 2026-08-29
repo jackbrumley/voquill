@@ -277,6 +277,12 @@ pub async fn delete_macro_sound(macro_id: String) -> Result<(), String> {
 }
 
 #[command]
+pub async fn stop_macro_sound_playback() -> Result<(), String> {
+    crate::voice_macro::sound::stop_macro_sound_playback();
+    Ok(())
+}
+
+#[command]
 pub async fn get_available_base_voice_models(
     app_handle: AppHandle,
     state: State<'_, AppState>,
@@ -292,19 +298,25 @@ pub async fn preview_custom_tts_voice(
     params: crate::python_runner::CustomTtsSynthesizeParams,
 ) -> Result<crate::python_runner::TtsSynthesizeResponse, String> {
     crate::log_info!(
-        "Preview custom TTS: model={}, speed={:.2}, pitch={:.1}, sub_bass={:.2}, comb={:.2}, bandpass={}, drive={:.2}, open='{}', close='{}'",
+        "Preview custom TTS: model={}, speed={:.2}, pitch={:.1}, sub_bass={:.2}, comb={:.2}, flanger={:.2}, bandpass={}, drive={:.2}, rf={:.2}, open='{}', close='{}', text='{}'",
         params.model_key,
         params.speed,
         params.pitch,
         params.sub_bass,
         params.comb_mix,
+        params.flanger_mix,
         params.radio_bandpass,
         params.radio_drive,
+        params.rf_noise,
         params.opening_chime,
-        params.closing_chime
+        params.closing_chime,
+        params.text
     );
     let runner = get_or_start_python_runner(&app_handle, &state).await?;
-    let res = runner.synthesize_custom_tts(&params).await?;
+    let res = runner.synthesize_custom_tts(&params).await.map_err(|e| {
+        crate::log_warn!("Python runner synthesize_custom_tts failed: {}", e);
+        e
+    })?;
 
     let playback_device = {
         let config = state.config.lock().unwrap();
@@ -313,7 +325,21 @@ pub async fn preview_custom_tts_voice(
 
     let path = std::path::PathBuf::from(&res.output_path);
     if path.exists() {
-        let _ = crate::voice_macro::play_macro_sound_file(&path, playback_device);
+        crate::log_info!(
+            "Playing generated custom TTS audio file: {}",
+            path.display()
+        );
+        crate::voice_macro::play_macro_sound_file(&path, playback_device).map_err(|e| {
+            crate::log_warn!("Failed to play custom TTS audio file: {}", e);
+            e
+        })?;
+    } else {
+        let err_msg = format!(
+            "Synthesized audio output file not found on disk: {}",
+            path.display()
+        );
+        crate::log_warn!("{}", err_msg);
+        return Err(err_msg);
     }
 
     Ok(res)

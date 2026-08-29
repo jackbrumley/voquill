@@ -201,18 +201,16 @@ def comb_filter(
     delay_ms: float,
     feedback: float,
 ) -> np.ndarray:
-    """IIR Feedback Comb Filter for metallic chassis resonance (C-accelerated via scipy.signal.lfilter)."""
+    """Gain-normalized IIR Feedback Comb Filter for metallic chassis resonance."""
     delay_samples = int(round((delay_ms / 1000.0) * sample_rate))
     if delay_samples <= 0 or delay_samples >= len(samples):
         return samples
 
     feedback = max(-0.85, min(0.85, feedback))
-    # IIR transfer function: y[n] = x[n] + feedback * y[n - delay_samples]
-    # H(z) = 1 / (1 - feedback * z^-delay_samples)
     a = np.zeros(delay_samples + 1, dtype=np.float32)
     a[0] = 1.0
     a[delay_samples] = -feedback
-    b = np.array([1.0], dtype=np.float32)
+    b = np.array([1.0 - abs(feedback) * 0.4], dtype=np.float32)
 
     return signal.lfilter(b, a, samples).astype(np.float32)
 
@@ -276,6 +274,10 @@ def apply_mech_effect(
 
     combined = 0.60 * flanged + 0.35 * sub_bass_saturated + 0.20 * shifted
     out = np.tanh(combined * 1.5) / np.tanh(1.5)
+
+    # DC block highpass at 25Hz
+    sos_dc = signal.butter(1, min(25.0 / nyquist, 0.4), btype="highpass", output="sos")
+    out = signal.sosfilt(sos_dc, out)
 
     peak = np.max(np.abs(out))
     if peak > 1e-4:
@@ -459,17 +461,26 @@ def apply_custom_dsp(
         cutoff = min(220.0 / nyquist, 0.45)
         sos_sub = signal.butter(2, cutoff, btype="lowpass", output="sos")
         low_body = signal.sosfilt(sos_sub, out)
-        # Generate rich acoustic sub-harmonics via non-linear saturation
-        sub_saturated = np.tanh(low_body * 2.5) + 0.3 * (low_body ** 2)
-        out = out + sub_saturated * (sub_bass * 2.2)
+
+        # Peaking sub-thump at 85Hz
+        sos_thump = signal.butter(2, [min(60.0 / nyquist, 0.4), min(120.0 / nyquist, 0.45)], btype="bandpass", output="sos")
+        thump = signal.sosfilt(sos_thump, out)
+
+        # Saturated sub-octave harmonics (gain scales dynamically from 0 to +14dB)
+        sub_sat = np.tanh(low_body * 2.0) * (sub_bass * 2.4)
+        out = out + sub_sat + thump * (sub_bass * 1.6)
+
+        # DC blocking highpass filter at 25Hz
+        sos_dc = signal.butter(1, min(25.0 / nyquist, 0.4), btype="highpass", output="sos")
+        out = signal.sosfilt(sos_dc, out)
 
     # 4. Cockpit Metallic Comb Resonance (Armored enclosure chassis acoustics)
     if comb_mix > 0.01:
-        # 4.5ms (222Hz) and 7.2ms (138Hz) produce immediate, distinctive metallic chassis resonance
-        c1 = comb_filter(out, sample_rate, delay_ms=4.5, feedback=-0.55)
-        c2 = comb_filter(out, sample_rate, delay_ms=7.2, feedback=0.45)
+        # 11.5ms (87Hz) and 19.2ms (52Hz) produce authentic armored vehicle / cockpit steel hull reflections
+        c1 = comb_filter(out, sample_rate, delay_ms=11.5, feedback=-0.55)
+        c2 = comb_filter(out, sample_rate, delay_ms=19.2, feedback=0.45)
         metallic_layer = 0.55 * c1 + 0.45 * c2
-        out = (1.0 - comb_mix * 0.65) * out + (comb_mix * 0.65) * metallic_layer
+        out = (1.0 - comb_mix * 0.70) * out + (comb_mix * 0.70) * metallic_layer
 
     # 5. Flanger
     if flanger_mix > 0.01:
@@ -498,13 +509,18 @@ def apply_custom_dsp(
 
     out = np.concatenate(parts)
 
-    # Analog soft saturation limiting (preserves bass energy without peak squashing)
     out_saturated = np.tanh(out * 1.15) / np.tanh(1.15)
     peak = np.max(np.abs(out_saturated))
     if peak > 1e-4:
         out = (out_saturated / peak) * 0.95
 
-    return out.astype(np.float32)
+    out_final = out.astype(np.float32)
+    rms = float(np.sqrt(np.mean(out_final**2)))
+    logger.info(
+        "apply_custom_dsp: samples=%d, pitch=%.1f, sub_bass=%.2f, comb=%.2f, bandpass=%s, drive=%.2f -> out=%d, peak=%.3f, rms=%.3f",
+        len(samples), pitch, sub_bass, comb_mix, radio_bandpass, radio_drive, len(out_final), float(np.max(np.abs(out_final))), rms
+    )
+    return out_final
 
 
 def apply_dsp_effect(

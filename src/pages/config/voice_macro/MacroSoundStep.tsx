@@ -161,7 +161,9 @@ export function MacroSoundStep({
   onTtsPitchChange,
 }: MacroSoundStepProps) {
   const availableVoices = useSignal<VoicePersonaInfo[]>(DEFAULT_VOICES);
-  const isPreviewing = useSignal(false);
+  const isPlaying = useSignal(false);
+  const isSynthesizing = useSignal(false);
+  const playTimer = useSignal<ReturnType<typeof setTimeout> | null>(null);
   const previewError = useSignal<string | null>(null);
   const isRecordingMic = useSignal(false);
   const importedFileName = useSignal<string | null>(null);
@@ -205,30 +207,54 @@ export function MacroSoundStep({
   };
 
   const handleTestPreview = async () => {
-    if (isPreviewing.value) return;
+    if (isPlaying.value) {
+      if (playTimer.value) clearTimeout(playTimer.value);
+      isPlaying.value = false;
+      try {
+        await invoke('stop_macro_sound_playback');
+      } catch (e) {
+        console.warn('Failed to stop sound:', e);
+      }
+      return;
+    }
+
+    if (isSynthesizing.value) return;
     previewError.value = null;
-    isPreviewing.value = true;
+    isSynthesizing.value = true;
 
     try {
       if (soundMode === 'default') {
         await invoke('test_voice_macro_sound');
+        isSynthesizing.value = false;
+        isPlaying.value = true;
+        if (playTimer.value) clearTimeout(playTimer.value);
+        playTimer.value = setTimeout(() => { isPlaying.value = false; }, 800);
       } else if (soundMode === 'tts') {
         const text = ttsText.trim() || 'Command confirmed';
         const voice = ttsVoice || 'titan-mech';
-        await invoke('preview_tts_voice', {
+        const res = await invoke<{ duration_secs: number }>('preview_tts_voice', {
           text,
           voiceId: voice,
           speed: ttsSpeed || activePersona.default_speed || 1.0,
           effect: ttsEffect || activePersona.default_effect || undefined,
           pitch: ttsPitch ?? activePersona.default_pitch ?? 0.0,
         });
+        isSynthesizing.value = false;
+        isPlaying.value = true;
+        const durMs = Math.round(((res && res.duration_secs) || 3.0) * 1000) + 400;
+        if (playTimer.value) clearTimeout(playTimer.value);
+        playTimer.value = setTimeout(() => { isPlaying.value = false; }, durMs);
       } else {
         await invoke('play_macro_sound_preview', { macroId });
+        isSynthesizing.value = false;
+        isPlaying.value = true;
+        if (playTimer.value) clearTimeout(playTimer.value);
+        playTimer.value = setTimeout(() => { isPlaying.value = false; }, 2500);
       }
     } catch (e) {
       previewError.value = String(e);
-    } finally {
-      isPreviewing.value = false;
+      isSynthesizing.value = false;
+      isPlaying.value = false;
     }
   };
 
@@ -614,21 +640,33 @@ export function MacroSoundStep({
           }}
         >
           <Button
-            variant="configAction"
+            variant={isPlaying.value ? 'danger' : 'configAction'}
             onClick={handleTestPreview}
-            disabled={isPreviewing.value}
+            disabled={isSynthesizing.value}
             style={{
               padding: '6px 14px',
               fontSize: '11.5px',
               display: 'flex',
               alignItems: 'center',
               gap: '5px',
+              ...(isPlaying.value
+                ? {
+                    background: 'rgba(239, 68, 68, 0.25)',
+                    borderColor: '#ef4444',
+                    color: '#fca5a5',
+                  }
+                : {}),
             }}
           >
-            {isPreviewing.value ? (
+            {isSynthesizing.value ? (
               <>
                 <IconLoader2 size={13} className="spin" />
                 <span>Generating Audio...</span>
+              </>
+            ) : isPlaying.value ? (
+              <>
+                <IconPlayerStop size={13} />
+                <span>Stop Audio Preview</span>
               </>
             ) : (
               <>

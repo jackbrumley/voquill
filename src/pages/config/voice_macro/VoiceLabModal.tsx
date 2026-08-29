@@ -2,6 +2,7 @@ import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import {
   IconPlayerPlay,
+  IconPlayerStop,
   IconLoader2,
   IconCheck,
   IconTrash,
@@ -73,7 +74,9 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
   const openingChime = useSignal('none');
   const closingChime = useSignal('none');
 
-  const isPreviewing = useSignal(false);
+  const isPlaying = useSignal(false);
+  const isSynthesizing = useSignal(false);
+  const playTimer = useSignal<ReturnType<typeof setTimeout> | null>(null);
   const previewError = useSignal<string | null>(null);
   const saveSuccessMsg = useSignal<string | null>(null);
 
@@ -111,34 +114,55 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
     handleResetDsp();
   };
 
-  const handlePreview = async () => {
-    if (isPreviewing.value) return;
+  const handleTogglePreview = async () => {
+    if (isPlaying.value) {
+      if (playTimer.value) clearTimeout(playTimer.value);
+      isPlaying.value = false;
+      try {
+        await invoke('stop_macro_sound_playback');
+      } catch (e) {
+        console.warn('Failed to stop sound:', e);
+      }
+      return;
+    }
+
+    if (isSynthesizing.value) return;
     previewError.value = null;
-    isPreviewing.value = true;
+    isSynthesizing.value = true;
 
     try {
-      await invoke('preview_custom_tts_voice', {
+      const res = await invoke<{ duration_secs: number }>('preview_custom_tts_voice', {
         params: {
           text: text.value.trim() || 'Command confirmed',
           model_key: modelKey.value,
-          speaker_id: speakerId.value,
-          speed: speed.value,
-          noise_scale: noiseScale.value,
-          pitch: pitch.value,
-          sub_bass: subBass.value,
-          comb_mix: combMix.value,
-          flanger_mix: flangerMix.value,
-          radio_bandpass: radioBandpass.value,
-          radio_drive: radioDrive.value,
-          rf_noise: rfNoise.value,
-          opening_chime: openingChime.value,
-          closing_chime: closingChime.value,
+          speaker_id: parseInt(String(speakerId.value), 10) || 0,
+          speed: parseFloat(String(speed.value)) || 1.0,
+          noise_scale: parseFloat(String(noiseScale.value)) || 0.667,
+          pitch: parseFloat(String(pitch.value)) || 0.0,
+          sub_bass: parseFloat(String(subBass.value)) || 0.0,
+          comb_mix: parseFloat(String(combMix.value)) || 0.0,
+          flanger_mix: parseFloat(String(flangerMix.value)) || 0.0,
+          radio_bandpass: Boolean(radioBandpass.value),
+          radio_drive: parseFloat(String(radioDrive.value)) || 1.0,
+          rf_noise: parseFloat(String(rfNoise.value)) || 0.0,
+          opening_chime: openingChime.value || 'none',
+          closing_chime: closingChime.value || 'none',
         },
       });
+
+      isSynthesizing.value = false;
+      isPlaying.value = true;
+
+      const durMs = Math.round(((res && res.duration_secs) || 3.0) * 1000) + 400;
+      if (playTimer.value) clearTimeout(playTimer.value);
+      playTimer.value = setTimeout(() => {
+        isPlaying.value = false;
+      }, durMs);
     } catch (e) {
+      console.error('Preview custom voice failed:', e);
       previewError.value = String(e);
-    } finally {
-      isPreviewing.value = false;
+      isSynthesizing.value = false;
+      isPlaying.value = false;
     }
   };
 
@@ -547,18 +571,38 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
               )}
             </div>
 
-            {/* Preview Button */}
+            {/* Preview / Stop Button */}
             <div>
               <Button
-                variant="primary"
-                onClick={handlePreview}
-                disabled={isPreviewing.value}
-                style={{ width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                variant={isPlaying.value ? 'danger' : 'primary'}
+                onClick={handleTogglePreview}
+                disabled={isSynthesizing.value}
+                style={{
+                  width: '100%',
+                  padding: '8px 14px',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  ...(isPlaying.value
+                    ? {
+                        background: 'rgba(239, 68, 68, 0.3)',
+                        borderColor: '#ef4444',
+                        color: '#fca5a5',
+                      }
+                    : {}),
+                }}
               >
-                {isPreviewing.value ? (
+                {isSynthesizing.value ? (
                   <>
                     <IconLoader2 size={14} className="spin" />
-                    <span>Generating Audio...</span>
+                    <span>Rendering Audio...</span>
+                  </>
+                ) : isPlaying.value ? (
+                  <>
+                    <IconPlayerStop size={14} />
+                    <span>Stop Audio Preview</span>
                   </>
                 ) : (
                   <>

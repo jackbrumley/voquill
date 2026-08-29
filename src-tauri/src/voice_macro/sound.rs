@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
+use std::time::Duration;
 
 use crate::audio::decode::{decode_compressed_audio, DecodedAudio};
 use crate::config::{MacroSoundMode, VoiceMacroCommand};
@@ -8,10 +10,23 @@ const MACRO_TRIGGER_SOUND_BYTES: &[u8] = include_bytes!("../../sounds/macro_trig
 
 static CACHED_SOUND: OnceLock<Option<DecodedAudio>> = OnceLock::new();
 static ACTIVE_SOUND_STREAM: std::sync::Mutex<Option<cpal::Stream>> = std::sync::Mutex::new(None);
+static ACTIVE_CANCEL_FLAG: std::sync::Mutex<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>> =
+    std::sync::Mutex::new(None);
+static PLAYBACK_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 pub fn stop_macro_sound_playback() {
+    PLAYBACK_GENERATION.fetch_add(1, Ordering::SeqCst);
+    if let Ok(mut lock) = ACTIVE_CANCEL_FLAG.lock() {
+        if let Some(flag) = lock.take() {
+            crate::log_info!("Signaling instant audio mute/cancellation");
+            flag.store(true, Ordering::SeqCst);
+        }
+    }
     if let Ok(mut lock) = ACTIVE_SOUND_STREAM.lock() {
-        *lock = None;
+        if lock.is_some() {
+            crate::log_info!("Stopping active macro sound playback stream");
+            *lock = None;
+        }
     }
 }
 
@@ -54,19 +69,40 @@ pub fn play_macro_trigger_sound(playback_device: Option<String>) {
             decoded.samples.clone()
         };
         let sample_rate = decoded.sample_rate;
+        let duration_ms = (samples.len() as f32 / sample_rate as f32 * 1000.0) as u64 + 400;
 
         stop_macro_sound_playback();
+        let current_gen = PLAYBACK_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+        let cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        if let Ok(mut lock) = ACTIVE_CANCEL_FLAG.lock() {
+            *lock = Some(cancel_flag.clone());
+        }
 
-        match crate::audio::playback::play_audio(samples, sample_rate, playback_device, || {
-            stop_macro_sound_playback();
-        }) {
+        match crate::audio::playback::play_audio_cancellable(
+            samples,
+            sample_rate,
+            playback_device,
+            cancel_flag,
+            || {},
+        ) {
             Ok(stream) => {
                 if let Ok(mut lock) = ACTIVE_SOUND_STREAM.lock() {
                     *lock = Some(stream);
                 }
+
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(duration_ms));
+                    if PLAYBACK_GENERATION.load(Ordering::SeqCst) == current_gen {
+                        if let Ok(mut lock) = ACTIVE_SOUND_STREAM.lock() {
+                            if PLAYBACK_GENERATION.load(Ordering::SeqCst) == current_gen {
+                                *lock = None;
+                            }
+                        }
+                    }
+                });
             }
             Err(e) => {
-                crate::log_warn!("Voice Macro playback error: {}", e);
+                crate::log_warn!("Voice Macro trigger playback error: {}", e);
             }
         }
     }
@@ -105,6 +141,7 @@ pub fn play_macro_sound_file(
     file_path: &Path,
     playback_device: Option<String>,
 ) -> Result<(), String> {
+    crate::log_info!("Loading macro sound file from {}", file_path.display());
     let bytes =
         std::fs::read(file_path).map_err(|e| format!("Failed to read macro sound file: {}", e))?;
 
@@ -122,23 +159,55 @@ pub fn play_macro_sound_file(
         decoded.samples
     };
     let sample_rate = decoded.sample_rate;
+    let duration_ms = (samples.len() as f32 / sample_rate as f32 * 1000.0) as u64 + 400;
 
     stop_macro_sound_playback();
+    let current_gen = PLAYBACK_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+    let cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    if let Ok(mut lock) = ACTIVE_CANCEL_FLAG.lock() {
+        *lock = Some(cancel_flag.clone());
+    }
 
-    match crate::audio::playback::play_audio(samples, sample_rate, playback_device, || {
-        stop_macro_sound_playback();
-    }) {
+    crate::log_info!(
+        "Spawning sound playback (samples={}, rate={}Hz, dur={}ms, gen={})",
+        samples.len(),
+        sample_rate,
+        duration_ms,
+        current_gen
+    );
+
+    match crate::audio::playback::play_audio_cancellable(
+        samples,
+        sample_rate,
+        playback_device,
+        cancel_flag,
+        || {},
+    ) {
         Ok(stream) => {
             if let Ok(mut lock) = ACTIVE_SOUND_STREAM.lock() {
                 *lock = Some(stream);
             }
+
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(duration_ms));
+                if PLAYBACK_GENERATION.load(Ordering::SeqCst) == current_gen {
+                    if let Ok(mut lock) = ACTIVE_SOUND_STREAM.lock() {
+                        if PLAYBACK_GENERATION.load(Ordering::SeqCst) == current_gen {
+                            *lock = None;
+                            crate::log_info!("Playback finished cleanly for gen={}", current_gen);
+                        }
+                    }
+                }
+            });
+
+            Ok(())
         }
         Err(e) => {
-            crate::log_warn!("Voice Macro file playback error: {}", e);
+            let err_msg = format!("Voice Macro playback error: {}", e);
+            crate::log_warn!("{}", err_msg);
+            Err(err_msg)
         }
     }
-
-    Ok(())
 }
 
 pub fn import_macro_audio_file(macro_id: &str, source_path: &str) -> Result<String, String> {

@@ -241,6 +241,7 @@ fn main() {
             save_macro_mic_recording,
             play_macro_sound_preview,
             delete_macro_sound,
+            stop_macro_sound_playback,
             get_available_base_voice_models,
             preview_custom_tts_voice,
             get_custom_voice_presets,
