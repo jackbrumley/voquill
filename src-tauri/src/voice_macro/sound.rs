@@ -37,7 +37,16 @@ pub fn macro_sound_path(macro_id: &str) -> Result<PathBuf, String> {
 
 pub fn play_macro_trigger_sound(playback_device: Option<String>) {
     if let Some(decoded) = get_cached_sound() {
-        let samples = decoded.samples.clone();
+        let samples = if decoded.channels > 1 {
+            let chans = decoded.channels;
+            decoded
+                .samples
+                .chunks_exact(chans)
+                .map(|frame| frame.iter().sum::<f32>() / chans as f32)
+                .collect::<Vec<f32>>()
+        } else {
+            decoded.samples.clone()
+        };
         let sample_rate = decoded.sample_rate;
         std::thread::spawn(move || {
             match crate::audio::playback::play_audio(samples, sample_rate, playback_device, || {}) {
@@ -92,7 +101,16 @@ pub fn play_macro_sound_file(
     let decoded = decode_compressed_audio(&bytes)
         .map_err(|e| format!("Failed to decode macro sound file: {}", e))?;
 
-    let samples = decoded.samples;
+    let samples = if decoded.channels > 1 {
+        let chans = decoded.channels;
+        decoded
+            .samples
+            .chunks_exact(chans)
+            .map(|frame| frame.iter().sum::<f32>() / chans as f32)
+            .collect::<Vec<f32>>()
+    } else {
+        decoded.samples
+    };
     let sample_rate = decoded.sample_rate;
     let duration_ms = (samples.len() as f32 / sample_rate as f32 * 1000.0) as u64 + 500;
 
@@ -118,13 +136,24 @@ pub fn import_macro_audio_file(macro_id: &str, source_path: &str) -> Result<Stri
     let decoded = decode_compressed_audio(&src_bytes)
         .map_err(|e| format!("Failed to decode source audio file: {}", e))?;
 
+    let mono_samples = if decoded.channels > 1 {
+        let chans = decoded.channels;
+        decoded
+            .samples
+            .chunks_exact(chans)
+            .map(|frame| frame.iter().sum::<f32>() / chans as f32)
+            .collect::<Vec<f32>>()
+    } else {
+        decoded.samples
+    };
+
     let dest_path = macro_sound_path(macro_id)?;
 
-    save_samples_to_wav(&dest_path, &decoded.samples, decoded.sample_rate)?;
+    save_samples_to_wav(&dest_path, &mono_samples, decoded.sample_rate)?;
     crate::log_info!(
         "Imported custom macro audio for '{}' ({} samples at {}Hz) to {}",
         macro_id,
-        decoded.samples.len(),
+        mono_samples.len(),
         decoded.sample_rate,
         dest_path.display()
     );

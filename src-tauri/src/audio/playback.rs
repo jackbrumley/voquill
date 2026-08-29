@@ -121,5 +121,14 @@ where
         }
         hound::SampleFormat::Float => reader.samples::<f32>().filter_map(|s| s.ok()).collect(),
     };
-    play_audio(samples, spec.sample_rate, device_id, on_done)
+    let mono_samples = if spec.channels > 1 {
+        let chans = spec.channels as usize;
+        samples
+            .chunks_exact(chans)
+            .map(|frame| frame.iter().sum::<f32>() / chans as f32)
+            .collect()
+    } else {
+        samples
+    };
+    play_audio(mono_samples, spec.sample_rate, device_id, on_done)
 }

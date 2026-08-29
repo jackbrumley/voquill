@@ -479,8 +479,7 @@ def run_custom(
         output_path = temp_out
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-    stereo_samples = to_stereo(processed)
-    sf.write(output_path, stereo_samples, audio.sample_rate)
+    sf.write(output_path, processed, audio.sample_rate)
 
     duration_secs = len(processed) / float(audio.sample_rate)
     return TtsSynthesizeResponse(
@@ -600,8 +599,7 @@ def run(
         output_path = temp_out
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-    stereo_samples = to_stereo(processed_samples)
-    sf.write(output_path, stereo_samples, audio.sample_rate)
+    sf.write(output_path, processed_samples, audio.sample_rate)
 
     duration_secs = len(processed_samples) / float(audio.sample_rate)
     logger.info(
