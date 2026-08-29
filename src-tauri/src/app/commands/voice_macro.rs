@@ -160,6 +160,9 @@ async fn get_or_start_python_runner(
     crate::log_info!("Starting Python runner for TTS synthesis...");
     let runner = crate::python_runner::PythonRunner::start(app_handle).await?;
     let mut guard = app_state.python_runner.lock().unwrap();
+    if let Some(existing_after_start) = guard.as_ref() {
+        return Ok(existing_after_start.clone());
+    }
     *guard = Some(runner.clone());
     Ok(runner)
 }
@@ -288,6 +291,18 @@ pub async fn preview_custom_tts_voice(
     state: State<'_, AppState>,
     params: crate::python_runner::CustomTtsSynthesizeParams,
 ) -> Result<crate::python_runner::TtsSynthesizeResponse, String> {
+    crate::log_info!(
+        "Preview custom TTS: model={}, speed={:.2}, pitch={:.1}, sub_bass={:.2}, comb={:.2}, bandpass={}, drive={:.2}, open='{}', close='{}'",
+        params.model_key,
+        params.speed,
+        params.pitch,
+        params.sub_bass,
+        params.comb_mix,
+        params.radio_bandpass,
+        params.radio_drive,
+        params.opening_chime,
+        params.closing_chime
+    );
     let runner = get_or_start_python_runner(&app_handle, &state).await?;
     let res = runner.synthesize_custom_tts(&params).await?;
 
