@@ -57,33 +57,13 @@ pub async fn run_diarization_for_recording(
     cluster_threshold: f32,
 ) -> Result<DiarizationResult, String> {
     let app_state = app_handle.state::<crate::AppState>();
-
-    let needs_start = {
-        let guard = app_state.python_runner.lock().unwrap();
-        guard.is_none()
-    };
-
-    if needs_start {
-        crate::log_info!("Lazily starting Python runner for diarization...");
-        match crate::python_runner::PythonRunner::start(app_handle).await {
-            Ok(runner) => {
-                let mut guard = app_state.python_runner.lock().unwrap();
-                if guard.is_none() {
-                    *guard = Some(runner);
-                }
-            }
-            Err(e) => {
-                crate::log_warn!("Failed to start Python runner: {}", e);
-                return Err(e);
-            }
-        }
-    }
-
-    let runner = {
-        let guard = app_state.python_runner.lock().unwrap();
-        guard.clone()
-    }
-    .ok_or("Python runner not available")?;
+    let runner = app_state
+        .get_or_start_python_runner(app_handle)
+        .await
+        .map_err(|e| {
+            crate::log_warn!("Failed to start Python runner for diarization: {}", e);
+            e
+        })?;
 
     let path_str = audio_path.to_string_lossy().to_string();
     runner.diarize(&path_str, cluster_threshold).await
@@ -96,33 +76,13 @@ pub async fn run_noise_reduction(
     noise_reduction_strength: f32,
 ) -> Result<Vec<u8>, String> {
     let app_state = app_handle.state::<crate::AppState>();
-
-    let needs_start = {
-        let guard = app_state.python_runner.lock().unwrap();
-        guard.is_none()
-    };
-
-    if needs_start {
-        crate::log_info!("Lazily starting Python runner for noise reduction...");
-        match crate::python_runner::PythonRunner::start(app_handle).await {
-            Ok(runner) => {
-                let mut guard = app_state.python_runner.lock().unwrap();
-                if guard.is_none() {
-                    *guard = Some(runner);
-                }
-            }
-            Err(e) => {
-                crate::log_warn!("Failed to start Python runner: {}", e);
-                return Err(e);
-            }
-        }
-    }
-
-    let runner = {
-        let guard = app_state.python_runner.lock().unwrap();
-        guard.clone()
-    }
-    .ok_or("Python runner not available")?;
+    let runner = app_state
+        .get_or_start_python_runner(app_handle)
+        .await
+        .map_err(|e| {
+            crate::log_warn!("Failed to start Python runner for noise reduction: {}", e);
+            e
+        })?;
 
     let temp_dir = crate::paths::temp_dir();
     let _ = std::fs::create_dir_all(&temp_dir);

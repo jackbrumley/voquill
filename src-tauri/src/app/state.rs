@@ -47,6 +47,7 @@ pub struct AppState {
     pub engine_factory: Arc<engine_factory::EngineFactory>,
     pub post_process_factory: Arc<PostProcessFactory>,
     pub python_runner: Arc<Mutex<Option<crate::python_runner::PythonRunner>>>,
+    pub python_runner_init_lock: Arc<tokio::sync::Mutex<()>>,
     pub voice_macro_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
 }
 
@@ -121,6 +122,34 @@ impl AppState {
 
         crate::log_info!("AppState: cleanup complete");
     }
+
+    /// Retrieve the running Python runner instance, starting it if not already active.
+    /// Thread-safe and serialized with an async lock to prevent duplicate sidecar spawns.
+    pub async fn get_or_start_python_runner(
+        &self,
+        app_handle: &tauri::AppHandle,
+    ) -> Result<crate::python_runner::PythonRunner, String> {
+        {
+            let guard = self.python_runner.lock().unwrap();
+            if let Some(runner) = guard.as_ref() {
+                return Ok(runner.clone());
+            }
+        }
+
+        let _init_guard = self.python_runner_init_lock.lock().await;
+
+        {
+            let guard = self.python_runner.lock().unwrap();
+            if let Some(runner) = guard.as_ref() {
+                return Ok(runner.clone());
+            }
+        }
+
+        let runner = crate::python_runner::PythonRunner::start(app_handle).await?;
+        let mut guard = self.python_runner.lock().unwrap();
+        *guard = Some(runner.clone());
+        Ok(runner)
+    }
 }
 
 impl Default for AppState {
@@ -152,6 +181,7 @@ impl Default for AppState {
             engine_factory: Arc::new(engine_factory::EngineFactory::new()),
             post_process_factory: Arc::new(PostProcessFactory::new()),
             python_runner: Arc::new(Mutex::new(None)),
+            python_runner_init_lock: Arc::new(tokio::sync::Mutex::new(())),
             voice_macro_cancel: Arc::new(Mutex::new(None)),
         }
     }

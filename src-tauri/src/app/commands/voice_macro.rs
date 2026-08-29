@@ -145,34 +145,12 @@ pub async fn test_spoken_voice_macro(
     })
 }
 
-async fn get_or_start_python_runner(
-    app_handle: &AppHandle,
-    app_state: &AppState,
-) -> Result<crate::python_runner::PythonRunner, String> {
-    let existing = {
-        let guard = app_state.python_runner.lock().unwrap();
-        guard.clone()
-    };
-    if let Some(runner) = existing {
-        return Ok(runner);
-    }
-
-    crate::log_info!("Starting Python runner for TTS synthesis...");
-    let runner = crate::python_runner::PythonRunner::start(app_handle).await?;
-    let mut guard = app_state.python_runner.lock().unwrap();
-    if let Some(existing_after_start) = guard.as_ref() {
-        return Ok(existing_after_start.clone());
-    }
-    *guard = Some(runner.clone());
-    Ok(runner)
-}
-
 #[command]
 pub async fn get_available_tts_voices(
     app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Vec<crate::python_runner::VoicePersonaInfo>, String> {
-    let runner = get_or_start_python_runner(&app_handle, &state).await?;
+    let runner = state.get_or_start_python_runner(&app_handle).await?;
     runner.get_tts_voices().await
 }
 
@@ -187,7 +165,7 @@ pub async fn preview_tts_voice(
     effect: Option<String>,
     pitch: Option<f32>,
 ) -> Result<crate::python_runner::TtsSynthesizeResponse, String> {
-    let runner = get_or_start_python_runner(&app_handle, &state).await?;
+    let runner = state.get_or_start_python_runner(&app_handle).await?;
     let res = runner
         .synthesize_tts(&text, &voice_id, speed, effect.as_deref(), pitch, None)
         .await?;
@@ -220,7 +198,7 @@ pub async fn save_macro_tts_audio(
     let dest_path = crate::voice_macro::macro_sound_path(&macro_id)?;
     let dest_str = dest_path.to_string_lossy().to_string();
 
-    let runner = get_or_start_python_runner(&app_handle, &state).await?;
+    let runner = state.get_or_start_python_runner(&app_handle).await?;
     let res = runner
         .synthesize_tts(
             &text,
@@ -287,7 +265,7 @@ pub async fn get_available_base_voice_models(
     app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Vec<crate::python_runner::BaseVoiceModelInfo>, String> {
-    let runner = get_or_start_python_runner(&app_handle, &state).await?;
+    let runner = state.get_or_start_python_runner(&app_handle).await?;
     runner.get_tts_models().await
 }
 
@@ -312,7 +290,7 @@ pub async fn preview_custom_tts_voice(
         params.closing_chime,
         params.text
     );
-    let runner = get_or_start_python_runner(&app_handle, &state).await?;
+    let runner = state.get_or_start_python_runner(&app_handle).await?;
     let res = runner.synthesize_custom_tts(&params).await.map_err(|e| {
         crate::log_warn!("Python runner synthesize_custom_tts failed: {}", e);
         e

@@ -400,36 +400,13 @@ async fn run_diarization(
     cluster_threshold: f32,
 ) -> Result<DiarizationResult, String> {
     let app_state = app_handle.state::<crate::AppState>();
-
-    // Check if runner is already running (brief lock, no await)
-    let needs_start = {
-        let guard = app_state.python_runner.lock().unwrap();
-        guard.is_none()
-    };
-
-    if needs_start {
-        crate::log_info!("Lazily starting Python runner for diarization...");
-        match crate::python_runner::PythonRunner::start(app_handle).await {
-            Ok(runner) => {
-                let mut guard = app_state.python_runner.lock().unwrap();
-                // Only set if still None (another thread may have started it)
-                if guard.is_none() {
-                    *guard = Some(runner);
-                }
-            }
-            Err(e) => {
-                crate::log_warn!("Failed to start Python runner: {}", e);
-                return Err(e);
-            }
-        }
-    }
-
-    // Clone the runner out of the state (brief lock)
-    let runner = {
-        let guard = app_state.python_runner.lock().unwrap();
-        guard.clone()
-    }
-    .ok_or("Python runner not available after start attempt")?;
+    let runner = app_state
+        .get_or_start_python_runner(app_handle)
+        .await
+        .map_err(|e| {
+            crate::log_warn!("Failed to start Python runner for diarization: {}", e);
+            e
+        })?;
 
     runner.diarize(audio_path, cluster_threshold).await
 }

@@ -6,6 +6,8 @@ Runs on CPU in <100ms with zero PyTorch dependency.
 
 from __future__ import annotations
 
+from collections import OrderedDict
+import gc
 import json
 import logging
 import os
@@ -234,8 +236,9 @@ LEGACY_ALIASES: Dict[str, str] = {
     "piper-en_US-lessac-low": "nova-studio",
 }
 
-# Cache TTS instances so repeated calls reuse initialized models
-_TTS_INSTANCES: Dict[str, Any] = {}
+# Cache TTS instances (bounded LRU to prevent memory bloat)
+_TTS_INSTANCES: OrderedDict[str, Any] = OrderedDict()
+MAX_CACHED_MODELS = 2
 
 
 def _ensure_base_model(model_key: str, runner_base_dir: str) -> Dict[str, str]:
@@ -268,7 +271,17 @@ def _ensure_base_model(model_key: str, runner_base_dir: str) -> Dict[str, str]:
     logger.info(
         "Downloading TTS voice model %s from %s...", model_key, meta["url"]
     )
-    urllib.request.urlretrieve(meta["url"], archive_path)
+    req = urllib.request.Request(
+        meta["url"],
+        headers={"User-Agent": "Voquill-TTS/1.0"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as response, open(archive_path, "wb") as out_file:
+        chunk_size = 64 * 1024
+        while True:
+            chunk = response.read(chunk_size)
+            if not chunk:
+                break
+            out_file.write(chunk)
 
     logger.info("Extracting TTS voice model %s...", model_key)
     with tarfile.open(archive_path, "r:bz2") as tar:
@@ -302,8 +315,9 @@ def _get_tts_instance(
     length_scale: float = 1.0,
 ) -> Any:
     global _TTS_INSTANCES
-    cache_key = f"{model_key}_{noise_scale}_{length_scale}"
+    cache_key = f"{model_key}_{noise_scale:.3f}_{length_scale:.3f}"
     if cache_key in _TTS_INSTANCES:
+        _TTS_INSTANCES.move_to_end(cache_key)
         return _TTS_INSTANCES[cache_key]
 
     import sherpa_onnx
@@ -336,6 +350,12 @@ def _get_tts_instance(
         )
 
     tts = sherpa_onnx.OfflineTts(tts_config)
+
+    while len(_TTS_INSTANCES) >= MAX_CACHED_MODELS:
+        oldest_key, _ = _TTS_INSTANCES.popitem(last=False)
+        logger.info("Evicted cached TTS model: %s to free memory", oldest_key)
+        gc.collect()
+
     _TTS_INSTANCES[cache_key] = tts
     return tts
 

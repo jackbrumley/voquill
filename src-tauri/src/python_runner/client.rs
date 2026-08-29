@@ -1,4 +1,15 @@
+use std::time::Duration;
+
 use crate::diarization::DiarizationResult;
+
+const HTTP_TIMEOUT: Duration = Duration::from_secs(15);
+
+fn http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .timeout(HTTP_TIMEOUT)
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
 
 #[derive(serde::Serialize)]
 struct DiarizeRequest<'a> {
@@ -20,7 +31,7 @@ struct EnhanceResponse {
 #[allow(dead_code)]
 pub async fn check_health(base_url: &str) -> Result<(), String> {
     let url = format!("{}/health", base_url);
-    let client = reqwest::Client::new();
+    let client = http_client();
     let response = client
         .get(&url)
         .send()
@@ -40,7 +51,7 @@ pub async fn check_health(base_url: &str) -> Result<(), String> {
 #[allow(dead_code)]
 pub async fn get_capabilities(base_url: &str) -> Result<Vec<String>, String> {
     let url = format!("{}/capabilities", base_url);
-    let client = reqwest::Client::new();
+    let client = http_client();
     let response = client
         .get(&url)
         .send()
@@ -80,7 +91,7 @@ pub async fn diarize(
         cluster_threshold,
     };
 
-    let client = reqwest::Client::new();
+    let client = http_client();
     let response = client
         .post(&url)
         .json(&body)
@@ -113,7 +124,7 @@ pub async fn enhance(
         noise_reduction_strength,
     };
 
-    let client = reqwest::Client::new();
+    let client = http_client();
     let response = client
         .post(&url)
         .json(&body)
@@ -214,7 +225,7 @@ fn default_chime() -> String {
 
 pub async fn get_tts_models(base_url: &str) -> Result<Vec<BaseVoiceModelInfo>, String> {
     let url = format!("{}/tts/models", base_url);
-    let client = reqwest::Client::new();
+    let client = http_client();
     let response = client
         .get(&url)
         .send()
@@ -237,7 +248,7 @@ pub async fn get_tts_models(base_url: &str) -> Result<Vec<BaseVoiceModelInfo>, S
 
 pub async fn get_tts_voices(base_url: &str) -> Result<Vec<VoicePersonaInfo>, String> {
     let url = format!("{}/tts/voices", base_url);
-    let client = reqwest::Client::new();
+    let client = http_client();
     let response = client
         .get(&url)
         .send()
@@ -277,7 +288,7 @@ pub async fn synthesize_tts(
         "output_path": output_path,
     });
 
-    let client = reqwest::Client::new();
+    let client = http_client();
     let response = client
         .post(&url)
         .json(&body)
@@ -304,7 +315,7 @@ pub async fn synthesize_custom_tts(
     params: &CustomTtsSynthesizeParams,
 ) -> Result<TtsSynthesizeResponse, String> {
     let url = format!("{}/tts/synthesize_custom", base_url);
-    let client = reqwest::Client::new();
+    let client = http_client();
     let response = client
         .post(&url)
         .json(params)

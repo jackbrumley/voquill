@@ -291,14 +291,10 @@ pub fn spawn_python_runner_prewarm(app_handle: &tauri::AppHandle, config: &Confi
     let app_handle = app_handle.clone();
     tauri::async_runtime::spawn(async move {
         crate::log_info!("Pre-warming Python runner for diarization...");
-        match crate::python_runner::PythonRunner::start(&app_handle).await {
-            Ok(runner) => {
-                let state = app_handle.state::<AppState>();
-                let mut guard = state.python_runner.lock().unwrap();
-                if guard.is_none() {
-                    *guard = Some(runner);
-                    crate::log_info!("Python runner pre-warmed successfully");
-                }
+        let state = app_handle.state::<AppState>();
+        match state.get_or_start_python_runner(&app_handle).await {
+            Ok(_) => {
+                crate::log_info!("Python runner pre-warmed successfully");
             }
             Err(e) => {
                 crate::log_warn!("Failed to pre-warm Python runner: {}", e);
