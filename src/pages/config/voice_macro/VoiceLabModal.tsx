@@ -8,7 +8,6 @@ import {
   IconTrash,
   IconRefresh,
   IconSparkles,
-  IconHistory,
   IconAlertTriangle,
 } from '@tabler/icons-preact';
 import { Modal } from '../../../components/Modal.tsx';
@@ -23,7 +22,7 @@ interface VoiceLabModalProps {
   onPresetSaved?: (preset: VoicePreset) => void;
 }
 
-type TabType = 'studio' | 'presets' | 'history';
+type TabType = 'studio' | 'presets';
 
 const DEFAULT_MODELS: BaseVoiceModelInfo[] = [
   { id: 'piper-en_GB-northern_english_male-medium', label: '🇬🇧 Northern English Male (SAS Price / Tactical)', is_multi_speaker: false },
@@ -207,10 +206,26 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
   const isMultiSpeaker = modelKey.value.includes('libritts');
 
+  const tabs: { id: TabType; label: string; subtext: string; icon: typeof IconAdjustmentsHorizontal }[] = [
+    {
+      id: 'studio',
+      label: '1. Studio',
+      subtext: 'Voice Designer',
+      icon: IconAdjustmentsHorizontal,
+    },
+    {
+      id: 'presets',
+      label: '2. Presets',
+      subtext: savedPresets.value.length > 0 ? `${savedPresets.value.length} saved` : 'Saved Presets',
+      icon: IconSparkles,
+    },
+  ];
+
   return (
     <Modal
       title="🎙️ Voice Studio — Custom Voice Designer"
       onClose={onClose}
+      maxWidth="540px"
       footer={
         <Button
           variant="ghost"
@@ -223,150 +238,140 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
-        {/* Navigation Sub-Tabs */}
-        <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px', flexShrink: 0 }}>
-          <Button
-            variant={activeTab.value === 'studio' ? 'primary' : 'configAction'}
-            onClick={() => { activeTab.value = 'studio'; }}
-            style={{ fontSize: '11.5px', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '5px' }}
-          >
-            <IconAdjustmentsHorizontal size={13} />
-            <span>Interactive Studio</span>
-          </Button>
-
-          <Button
-            variant={activeTab.value === 'presets' ? 'primary' : 'configAction'}
-            onClick={() => { activeTab.value = 'presets'; }}
-            style={{ fontSize: '11.5px', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '5px' }}
-          >
-            <IconSparkles size={13} />
-            <span>Saved Presets ({savedPresets.value.length})</span>
-          </Button>
-
-          <Button
-            variant={activeTab.value === 'history' ? 'primary' : 'configAction'}
-            onClick={() => { activeTab.value = 'history'; }}
-            style={{ fontSize: '11.5px', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '5px' }}
-          >
-            <IconHistory size={13} />
-            <span>Feedback Log (1–27)</span>
-          </Button>
+        {/* Top Segmented Navigation Bar */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '4px',
+            background: 'rgba(0, 0, 0, 0.25)',
+            padding: '3px',
+            borderRadius: '8px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            flexShrink: 0,
+          }}
+        >
+          {tabs.map((tab) => {
+            const isActive = activeTab.value === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  activeTab.value = tab.id;
+                }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '2px',
+                  padding: '5px 4px',
+                  borderRadius: '6px',
+                  background: isActive
+                    ? 'linear-gradient(135deg, rgba(88, 101, 242, 0.3) 0%, rgba(129, 140, 248, 0.2) 100%)'
+                    : 'transparent',
+                  border: isActive
+                    ? '1px solid rgba(99, 102, 241, 0.55)'
+                    : '1px solid transparent',
+                  cursor: 'pointer',
+                  transition: tokens.transitions.fast,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '11.5px',
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive ? '#ffffff' : tokens.colors.textSecondary,
+                  }}
+                >
+                  <Icon size={12} color={isActive ? '#818cf8' : tokens.colors.textMuted} />
+                  <span>{tab.label}</span>
+                </div>
+                <span
+                  style={{
+                    fontSize: '9.5px',
+                    color: isActive ? '#c7d2fe' : tokens.colors.textMuted,
+                    fontWeight: 400,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {tab.subtext}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* TAB 1: INTERACTIVE STUDIO */}
+        {/* TAB 1: INTERACTIVE STUDIO (Vertical Flow) */}
         {activeTab.value === 'studio' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '14px', flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '2px' }}>
-            {/* Left Column: Voice & Phrase */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted, textTransform: 'uppercase' }}>
-                  Base Neural Voice Model
-                </label>
-                <SelectField
-                  value={modelKey.value}
-                  options={models.value.map((m) => ({ value: m.id, label: m.label }))}
-                  onChange={(val) => { modelKey.value = val; }}
-                  ariaLabel="Base Voice Model"
-                  style={{ width: '100%', fontSize: '11.5px' }}
-                />
-              </div>
-
-              {isMultiSpeaker && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(99, 102, 241, 0.08)', padding: '8px', borderRadius: '6px' }}>
-                  <label style={{ fontSize: '11px', fontWeight: 600, color: '#c7d2fe' }}>
-                    Speaker ID (0 to 903): {speakerId.value}
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="903"
-                    step="1"
-                    value={speakerId.value}
-                    onInput={(e) => { speakerId.value = parseInt((e.target as HTMLInputElement).value, 10) || 0; }}
-                    style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
-                  />
-                  <span style={{ fontSize: '10px', color: tokens.colors.textMuted }}>
-                    Tip: Try ID 700 (Heavy Titan) or ID 200 (Operations Dispatcher).
-                  </span>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted, textTransform: 'uppercase' }}>
-                  Spoken Test Phrase
-                </label>
-                <textarea
-                  value={text.value}
-                  onInput={(e) => { text.value = (e.target as HTMLTextAreaElement).value; }}
-                  rows={2}
-                  style={{ ...inputBaseStyle, fontSize: '11.5px', padding: '7px 9px', resize: 'vertical' }}
-                />
-              </div>
-
-              {/* Quick Preset Chips */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                <button type="button" onClick={() => { text.value = 'Titan online. Core temperature nominal. Weapons combat ready.'; }} style={chipStyle}>⚔️ Titan</button>
-                <button type="button" onClick={() => { text.value = 'Bravo Six, going dark. Target neutralized, requesting exfil.'; }} style={chipStyle}>📻 SAS Price</button>
-                <button type="button" onClick={() => { text.value = 'Target down! Air strike inbound on marked coordinates! Heads down!'; }} style={chipStyle}>🔥 Shouting</button>
-                <button type="button" onClick={() => { text.value = 'Maximum armor engaged. Energy levels at one hundred percent.'; }} style={chipStyle}>🛡️ Nanosuit</button>
-                <button type="button" onClick={() => { text.value = 'All automated workflows completed successfully.'; }} style={chipStyle}>🎙️ Studio</button>
-              </div>
-
-              {/* Preview Button */}
-              <div style={{ marginTop: 'auto', paddingTop: '8px' }}>
-                <Button
-                  variant="primary"
-                  onClick={handlePreview}
-                  disabled={isPreviewing.value}
-                  style={{ width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                >
-                  {isPreviewing.value ? (
-                    <>
-                      <IconLoader2 size={14} className="spin" />
-                      <span>Generating Audio in Both Ears...</span>
-                    </>
-                  ) : (
-                    <>
-                      <IconPlayerPlay size={14} />
-                      <span>▶ Preview Audio Feedback</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {/* Save Preset Card */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(255, 255, 255, 0.03)', padding: '8px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                <label style={{ fontSize: '10.5px', fontWeight: 600, color: tokens.colors.textMuted, textTransform: 'uppercase' }}>
-                  Save Custom Preset
-                </label>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input
-                    type="text"
-                    value={presetName.value}
-                    onInput={(e) => { presetName.value = (e.target as HTMLInputElement).value; }}
-                    placeholder="Preset Name (e.g. British SAS Overlord)"
-                    style={{ ...inputBaseStyle, fontSize: '11px', padding: '5px 8px', flex: 1 }}
-                  />
-                  <Button
-                    variant="configAction"
-                    onClick={handleSavePreset}
-                    style={{ fontSize: '11px', padding: '5px 10px', color: '#34d399', borderColor: 'rgba(52, 211, 153, 0.4)' }}
-                  >
-                    <span>💾 Save</span>
-                  </Button>
-                </div>
-                {saveSuccessMsg.value && (
-                  <span style={{ fontSize: '10.5px', color: '#34d399', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <IconCheck size={12} /> {saveSuccessMsg.value}
-                  </span>
-                )}
-              </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            {/* Voice Model Selection */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted, textTransform: 'uppercase' }}>
+                Base Neural Voice Model
+              </label>
+              <SelectField
+                value={modelKey.value}
+                options={models.value.map((m) => ({ value: m.id, label: m.label }))}
+                onChange={(val) => { modelKey.value = val; }}
+                ariaLabel="Base Voice Model"
+                style={{ width: '100%', fontSize: '11.5px' }}
+              />
             </div>
 
-            {/* Right Column: DSP Controls */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0, 0, 0, 0.25)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            {/* LibriTTS Multi-Speaker Slider */}
+            {isMultiSpeaker && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(99, 102, 241, 0.08)', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600, color: '#c7d2fe' }}>
+                  <span>Speaker ID (0 to 903)</span>
+                  <span style={{ fontFamily: 'monospace' }}>{speakerId.value}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="903"
+                  step="1"
+                  value={speakerId.value}
+                  onInput={(e) => { speakerId.value = parseInt((e.target as HTMLInputElement).value, 10) || 0; }}
+                  style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '10px', color: tokens.colors.textMuted }}>
+                  Tip: Try ID 700 (Heavy Titan) or ID 200 (Operations Dispatcher).
+                </span>
+              </div>
+            )}
+
+            {/* Spoken Test Phrase */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted, textTransform: 'uppercase' }}>
+                Spoken Test Phrase
+              </label>
+              <textarea
+                value={text.value}
+                onInput={(e) => { text.value = (e.target as HTMLTextAreaElement).value; }}
+                rows={2}
+                style={{ ...inputBaseStyle, fontSize: '11.5px', padding: '7px 9px', resize: 'vertical' }}
+              />
+            </div>
+
+            {/* Quick Preset Chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+              <button type="button" onClick={() => { text.value = 'Titan online. Core temperature nominal. Weapons combat ready.'; }} style={chipStyle}>⚔️ Titan</button>
+              <button type="button" onClick={() => { text.value = 'Bravo Six, going dark. Target neutralized, requesting exfil.'; }} style={chipStyle}>📻 SAS Price</button>
+              <button type="button" onClick={() => { text.value = 'Target down! Air strike inbound on marked coordinates! Heads down!'; }} style={chipStyle}>🔥 Shouting</button>
+              <button type="button" onClick={() => { text.value = 'Maximum armor engaged. Energy levels at one hundred percent.'; }} style={chipStyle}>🛡️ Nanosuit</button>
+              <button type="button" onClick={() => { text.value = 'All automated workflows completed successfully.'; }} style={chipStyle}>🎙️ Studio</button>
+            </div>
+
+            {/* DSP Controls Card */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0, 0, 0, 0.25)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.06)', paddingBottom: '4px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: tokens.colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
                   Acoustic Tuning Knobs
                 </span>
                 <button
@@ -375,13 +380,20 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#a5b4fc',
+                    color: tokens.colors.textMuted,
                     fontSize: '10.5px',
                     fontWeight: 600,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '3px',
+                    transition: tokens.transitions.fast,
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = '#ffffff';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = tokens.colors.textMuted;
                   }}
                 >
                   <IconRefresh size={11} />
@@ -423,7 +435,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
               </div>
 
               {/* Chimes Dropdowns */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '2px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <label style={{ fontSize: '10px', color: tokens.colors.textMuted }}>Opening Beep</label>
                   <SelectField
@@ -455,7 +467,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                   onChange={(e) => { radioBandpass.value = (e.target as HTMLInputElement).checked; }}
                   style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
                 />
-                <label htmlFor="vl_radio_check" style={{ fontSize: '10.5px', color: '#fff', cursor: 'pointer' }}>
+                <label htmlFor="vl_radio_check" style={{ fontSize: '10.5px', color: tokens.colors.textPrimary, cursor: 'pointer' }}>
                   Military VHF Bandpass (420Hz – 3.4kHz)
                 </label>
               </div>
@@ -469,6 +481,56 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                 </div>
               )}
             </div>
+
+            {/* Preview Button */}
+            <div>
+              <Button
+                variant="primary"
+                onClick={handlePreview}
+                disabled={isPreviewing.value}
+                style={{ width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                {isPreviewing.value ? (
+                  <>
+                    <IconLoader2 size={14} className="spin" />
+                    <span>Generating Audio in Both Ears...</span>
+                  </>
+                ) : (
+                  <>
+                    <IconPlayerPlay size={14} />
+                    <span>Preview Audio Feedback</span>
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Save Preset Card */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(255, 255, 255, 0.03)', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <label style={{ fontSize: '10.5px', fontWeight: 600, color: tokens.colors.textMuted, textTransform: 'uppercase' }}>
+                Save Custom Preset
+              </label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="text"
+                  value={presetName.value}
+                  onInput={(e) => { presetName.value = (e.target as HTMLInputElement).value; }}
+                  placeholder="Preset Name (e.g. British SAS Overlord)"
+                  style={{ ...inputBaseStyle, fontSize: '11px', padding: '5px 8px', flex: 1 }}
+                />
+                <Button
+                  variant="configAction"
+                  onClick={handleSavePreset}
+                  style={{ fontSize: '11px', padding: '5px 12px' }}
+                >
+                  <span>Save</span>
+                </Button>
+              </div>
+              {saveSuccessMsg.value && (
+                <span style={{ fontSize: '10.5px', color: tokens.colors.success, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <IconCheck size={12} /> {saveSuccessMsg.value}
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -476,7 +538,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
         {activeTab.value === 'presets' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {savedPresets.value.length === 0 ? (
-              <p style={{ color: tokens.colors.textMuted, fontSize: '12px', padding: '16px', textAlign: 'center' }}>
+              <p style={{ color: tokens.colors.textMuted, fontSize: '12px', padding: '24px', textAlign: 'center' }}>
                 No custom presets saved yet. Tune a voice in the Studio and click Save!
               </p>
             ) : (
@@ -491,15 +553,16 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                     borderRadius: '6px',
                     background: 'rgba(255, 255, 255, 0.03)',
                     border: '1px solid rgba(255, 255, 255, 0.06)',
+                    gap: '8px',
                   }}
                 >
-                  <div>
-                    <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#c7d2fe' }}>{p.name}</div>
-                    <div style={{ fontSize: '10.5px', color: tokens.colors.textMuted }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#c7d2fe', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                    <div style={{ fontSize: '10.5px', color: tokens.colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {p.model_key} • Pitch: {p.pitch}st • Speed: {p.speed}x • Radio: {p.radio_bandpass ? 'Yes' : 'No'}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                     <Button variant="primary" onClick={() => handleLoadPreset(p)} style={{ fontSize: '10.5px', padding: '4px 8px' }}>
                       Load in Studio
                     </Button>
@@ -513,35 +576,8 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
           </div>
         )}
 
-        {/* TAB 3: FEEDBACK LOG */}
-        {activeTab.value === 'history' && (
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', fontSize: '11px', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '6px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: 'rgba(255, 255, 255, 0.04)', color: tokens.colors.textMuted }}>
-                  <th style={{ padding: '6px 8px' }}>#</th>
-                  <th style={{ padding: '6px 8px' }}>Name / File</th>
-                  <th style={{ padding: '6px 8px' }}>Base Model</th>
-                  <th style={{ padding: '6px 8px' }}>Status</th>
-                  <th style={{ padding: '6px 8px' }}>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}><td>#4</td><td>04_tactical_sas_price.wav</td><td>Northern English Male</td><td style={{ color: '#34d399', fontWeight: 600 }}>Keep</td><td>Sounds quite good, nice British tactical tone.</td></tr>
-                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}><td>#7</td><td>07_tactical_fast_field_danny.wav</td><td>Danny</td><td style={{ color: '#34d399', fontWeight: 600 }}>Keep</td><td>Sounds pretty good as well.</td></tr>
-                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}><td>#10</td><td>10_studio_cori_british.wav</td><td>Cori</td><td style={{ color: '#34d399', fontWeight: 600 }}>Keep</td><td>Sounds pretty good, distinct British tone.</td></tr>
-                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}><td>#11</td><td>11_studio_amy_clean.wav</td><td>Amy</td><td style={{ color: '#34d399', fontWeight: 600 }}>Keep</td><td>Sounds pretty good.</td></tr>
-                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}><td>#18</td><td>18_batman_alan_british_clean.wav</td><td>Alan</td><td style={{ color: '#34d399', fontWeight: 600 }}>Keep</td><td>Sounds really good! Very cold British voice.</td></tr>
-                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}><td>#22</td><td>22_mech_libri_spk700_titan.wav</td><td>LibriTTS Spk 700</td><td style={{ color: '#38bdf8', fontWeight: 600 }}>Titan Baseline</td><td>Closest thing to a Titan style voice. Baseline for Titan.</td></tr>
-                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}><td>#13</td><td>13_batman_norman_clean.wav</td><td>Norman</td><td style={{ color: '#38bdf8' }}>Narration</td><td>Good deep narration/dispatcher voice.</td></tr>
-                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}><td>#21</td><td>21_mech_libri_spk200_titan.wav</td><td>LibriTTS Spk 200</td><td style={{ color: '#38bdf8' }}>Dispatcher</td><td>Professional dispatcher voice.</td></tr>
-              </tbody>
-            </table>
-          </div>
-        )}
-
         {previewError.value && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#f87171' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#f87171', flexShrink: 0 }}>
             <IconAlertTriangle size={13} />
             <span>{previewError.value}</span>
           </div>

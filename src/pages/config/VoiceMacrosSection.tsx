@@ -426,7 +426,6 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                   gap: '4px',
                   padding: '4px 8px',
                   fontSize: '11px',
-                  color: '#38bdf8',
                 }}
                 title="Open Voice Studio to design and tune custom AI voice presets"
               >

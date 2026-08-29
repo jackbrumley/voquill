@@ -417,7 +417,7 @@ export function MacroSoundStep({
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#38bdf8',
+                    color: tokens.colors.textSecondary,
                     fontSize: '10.5px',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -425,9 +425,16 @@ export function MacroSoundStep({
                     alignItems: 'center',
                     gap: '4px',
                     padding: '0 2px',
+                    transition: tokens.transitions.fast,
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = '#ffffff';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = tokens.colors.textSecondary;
                   }}
                 >
-                  <IconAdjustmentsHorizontal size={12} />
+                  <IconAdjustmentsHorizontal size={12} color={tokens.colors.accentPrimary} />
                   <span>Custom Voice Studio</span>
                 </button>
               </div>
