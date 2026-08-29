@@ -1,4 +1,5 @@
 import { useSignal } from '@preact/signals';
+import { useEffect } from 'preact/hooks';
 import {
   IconVolume,
   IconVolumeOff,
@@ -11,6 +12,7 @@ import {
   IconDownload,
   IconUpload,
   IconAdjustmentsHorizontal,
+  IconDotsVertical,
 } from '@tabler/icons-preact';
 import { invoke } from '@tauri-apps/api/core';
 import { ConfigField } from '../../components/ConfigField.tsx';
@@ -53,13 +55,49 @@ const actionButtonStyle = {
   borderRadius: '3px',
 };
 
+const dropdownItemStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '7px 10px',
+  borderRadius: '6px',
+  background: 'transparent',
+  border: 'none',
+  color: tokens.colors.textPrimary,
+  fontSize: '11.5px',
+  fontWeight: 500,
+  cursor: 'pointer',
+  width: '100%',
+  textAlign: 'left' as const,
+  transition: tokens.transitions.fast,
+};
+
 export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMacrosSectionProps) {
   const isEditorModalOpen = useSignal(false);
   const isImportModalOpen = useSignal(false);
   const isVoiceLabModalOpen = useSignal(false);
+  const isMenuOpen = useSignal(false);
   const editingCommand = useSignal<VoiceMacroCommand | null>(null);
   const isPlayingTestSound = useSignal(false);
   const isTestingExecution = useSignal<string | null>(null);
+
+  useEffect(() => {
+    if (!isMenuOpen.value) return;
+    const handleDocumentClick = () => {
+      isMenuOpen.value = false;
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        isMenuOpen.value = false;
+      }
+    };
+    window.addEventListener('click', handleDocumentClick);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('click', handleDocumentClick);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMenuOpen.value]);
 
   const handleTestSound = async () => {
     isPlayingTestSound.value = true;
@@ -394,14 +432,14 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
         >
           <SpokenMacroTester showToast={showToast} />
 
-          {/* Action header with Import, Export All, and Create Macro buttons */}
+          {/* Action header with Voice Studio, Create Macro, and Three-Dot Utility Menu */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              flexWrap: 'wrap',
               gap: '8px',
+              position: 'relative',
             }}
           >
             <span
@@ -414,18 +452,12 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
               Custom Macros ({macros.length})
             </span>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
               <Button
                 variant="ghost"
+                size="sm"
                 onClick={() => {
                   isVoiceLabModalOpen.value = true;
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 8px',
-                  fontSize: '11px',
                 }}
                 title="Open Voice Studio to design and tune custom AI voice presets"
               >
@@ -434,55 +466,96 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
               </Button>
 
               <Button
-                variant="ghost"
-                onClick={() => {
-                  isImportModalOpen.value = true;
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 8px',
-                  fontSize: '11px',
-                }}
-                title="Import macros from a shared JSON file or text snippet"
-              >
-                <IconUpload size={13} />
-                <span>Import</span>
-              </Button>
-
-              {macros.length > 0 && (
-                <Button
-                  variant="ghost"
-                  onClick={handleExportAllMacros}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '4px 8px',
-                    fontSize: '11px',
-                  }}
-                  title="Export all configured macros to a JSON file"
-                >
-                  <IconDownload size={13} />
-                  <span>Export All</span>
-                </Button>
-              )}
-
-              <Button
                 variant="configAction"
+                size="sm"
                 onClick={handleOpenCreateModal}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 10px',
-                  fontSize: '11.5px',
-                }}
+                title="Create a new voice macro"
+                style={{ padding: '5px 10px' }}
               >
                 <IconPlus size={14} />
-                <span>Create Voice Macro</span>
+                <span>New</span>
               </Button>
+
+              <div style={{ position: 'relative' }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    isMenuOpen.value = !isMenuOpen.value;
+                  }}
+                  title="More actions (Import / Export)"
+                  style={{ padding: '5px 8px', minWidth: '28px' }}
+                >
+                  <IconDotsVertical size={14} />
+                </Button>
+
+                {isMenuOpen.value && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      right: 0,
+                      zIndex: 100,
+                      minWidth: '160px',
+                      background: 'rgba(26, 29, 38, 0.95)',
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '10px',
+                      padding: '4px',
+                      boxShadow: tokens.shadows.lg,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        isMenuOpen.value = false;
+                        isImportModalOpen.value = true;
+                      }}
+                      style={dropdownItemStyle}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255, 255, 255, 0.08)';
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                      }}
+                    >
+                      <IconUpload size={13} />
+                      <span>Import Macros...</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        isMenuOpen.value = false;
+                        handleExportAllMacros();
+                      }}
+                      disabled={macros.length === 0}
+                      style={{
+                        ...dropdownItemStyle,
+                        opacity: macros.length === 0 ? 0.4 : 1,
+                        cursor: macros.length === 0 ? 'not-allowed' : 'pointer',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (macros.length > 0) {
+                          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255, 255, 255, 0.08)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                      }}
+                    >
+                      <IconDownload size={13} />
+                      <span>Export All ({macros.length})</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

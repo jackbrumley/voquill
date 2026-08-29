@@ -73,9 +73,8 @@ export const Button = ({
       color: tokens.colors.textPrimary,
       background: tokens.colors.accentPrimary,
       border: '1px solid rgba(255, 255, 255, 0.08)',
-      borderRadius: '40px',
-      padding: '10px 24px',
-      fontWeight: 700,
+      borderRadius: '999px',
+      fontWeight: 600,
       boxShadow: 'none',
     },
     danger: {
@@ -84,17 +83,17 @@ export const Button = ({
       border: 'none',
     },
     ghost: {
-      border: '1px solid transparent',
-      background: 'rgba(255, 255, 255, 0.08)',
-      color: '#d9dfe7',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      background: 'rgba(255, 255, 255, 0.05)',
+      color: tokens.colors.textPrimary,
     },
     icon: {
-      border: '1px solid transparent',
-      background: 'rgba(255, 255, 255, 0.08)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      background: 'rgba(255, 255, 255, 0.05)',
       color: tokens.colors.textPrimary,
-      width: '38px',
-      height: '38px',
-      padding: tokens.spacing.sm,
+      width: '36px',
+      height: '36px',
+      padding: 0,
       borderRadius: '999px',
     },
     titlebarIcon: {
@@ -120,18 +119,18 @@ export const Button = ({
   };
 
   const sizeStyles: Record<string, Record<string, string | number>> = {
-    sm: { padding: `6px ${tokens.spacing.sm}`, fontSize: tokens.typography.sizeXs },
-    md: { padding: `10px ${tokens.spacing.md}`, fontSize: tokens.typography.sizeSm },
-    lg: { padding: `14px ${tokens.spacing.lg}`, fontSize: tokens.typography.sizeMd },
+    sm: { padding: '5px 12px', fontSize: '11px', gap: '4px' },
+    md: { padding: '8px 16px', fontSize: '12.5px', gap: '6px' },
+    lg: { padding: '10px 22px', fontSize: '14px', gap: '8px' },
   };
 
   const hoverStyles: Record<string, Record<string, string | number>> = {
-    primary: { background: '#0ea371', transform: 'translateY(-2px)' },
-    secondary: { background: tokens.colors.accentHover, transform: 'translateY(-2px)' },
-    configAction: { background: tokens.colors.accentHover, filter: 'brightness(1.04)' },
-    danger: { background: '#ff5f5f', transform: 'translateY(-2px)' },
-    ghost: { background: 'rgba(255, 255, 255, 0.14)', transform: 'translateY(-1px)' },
-    icon: { background: 'rgba(255, 255, 255, 0.14)', transform: 'translateY(-1px)' },
+    primary: { background: '#0ea371', transform: 'translateY(-1px)' },
+    secondary: { background: tokens.colors.accentHover, transform: 'translateY(-1px)' },
+    configAction: { background: tokens.colors.accentHover, filter: 'brightness(1.05)' },
+    danger: { background: '#ff5f5f', transform: 'translateY(-1px)' },
+    ghost: { background: 'rgba(255, 255, 255, 0.12)', borderColor: 'rgba(255, 255, 255, 0.18)', transform: 'translateY(-1px)' },
+    icon: { background: 'rgba(255, 255, 255, 0.12)', borderColor: 'rgba(255, 255, 255, 0.18)', transform: 'translateY(-1px)' },
     titlebarIcon: {
       background: 'rgba(255, 255, 255, 0.3)',
       color: tokens.colors.textPrimary,
@@ -144,15 +143,18 @@ export const Button = ({
 
   const baseStyle: Record<string, string | number> = {
     background: 'transparent',
-    border: '2px solid transparent',
+    border: '1px solid transparent',
     borderRadius: tokens.radii.button,
     cursor: disabled ? 'not-allowed' : 'pointer',
     fontWeight: 600,
-    transition: tokens.transitions.normal,
+    lineHeight: 1.2,
+    whiteSpace: 'nowrap',
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
+    transition: tokens.transitions.fast,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: tokens.spacing.sm,
     opacity: disabled ? 0.5 : 1,
     color: disabled ? tokens.colors.textMuted : tokens.colors.textPrimary,
   };
@@ -165,12 +167,12 @@ export const Button = ({
     ...(pressed.value && !disabled && !['titlebarIcon', 'titlebarClose'].includes(variant)
       ? { transform: 'translateY(0)', filter: 'brightness(0.9)' }
       : {}),
-    ...(pill ? { borderRadius: '40px' } : {}),
+    ...(pill ? { borderRadius: '999px' } : {}),
     ...(floating
       ? {
           pointerEvents: 'auto',
           padding: '12px 32px',
-          borderRadius: '40px',
+          borderRadius: '999px',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           boxShadow: `${tokens.shadows.lg}, 0 8px 30px rgba(0, 0, 0, 0.5)`,
@@ -190,7 +192,7 @@ export const Button = ({
   const handleClick = (e: MouseEvent) => {
     if (!disableClickLog) {
       const label = logLabel || title || extractText(children) || 'Unnamed Button';
-      invoke('log_ui_event', { message: `🖱️ Button clicked: ${label}` }).catch(() => {});
+      invoke('log_ui_event', { message: `[Button clicked] ${label}` }).catch(() => {});
     }
     onClick?.(e);
   };

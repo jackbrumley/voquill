@@ -25,18 +25,18 @@ interface VoiceLabModalProps {
 type TabType = 'studio' | 'presets';
 
 const DEFAULT_MODELS: BaseVoiceModelInfo[] = [
-  { id: 'piper-en_GB-northern_english_male-medium', label: '🇬🇧 Northern English Male (SAS Price / Tactical)', is_multi_speaker: false },
-  { id: 'piper-en_GB-alan-medium', label: '🇬🇧 Alan (Cold British Commander / Dark Baritone)', is_multi_speaker: false },
-  { id: 'piper-en_US-norman-medium', label: '🇺🇸 Norman (Deep American Baritone / Dispatcher)', is_multi_speaker: false },
-  { id: 'piper-en_US-joe-medium', label: '🇺🇸 Joe (Gritty Older Combat Veteran)', is_multi_speaker: false },
-  { id: 'piper-en_US-bryce-medium', label: '🇺🇸 Bryce (High-Energy / Commanding Operator)', is_multi_speaker: false },
-  { id: 'piper-en_US-danny-low', label: '🇺🇸 Danny (Fast Tactical Field Operator)', is_multi_speaker: false },
-  { id: 'piper-en_US-ryan-low', label: '🇺🇸 Ryan (Deep Male / Titan Base)', is_multi_speaker: false },
-  { id: 'piper-en_US-amy-low', label: '🛸 Amy (Cyberpunk EVA / Clear Sci-Fi Female)', is_multi_speaker: false },
-  { id: 'piper-en_GB-cori-medium', label: '🇬🇧 Cori (Expressive British Female)', is_multi_speaker: false },
-  { id: 'piper-en_US-glados', label: '🤖 GLaDOS (Iconic Robotic Portal AI)', is_multi_speaker: false },
-  { id: 'piper-en_GB-southern_english_female-low', label: '✈️ Southern English Female (Flight Deck ATC)', is_multi_speaker: false },
-  { id: 'piper-en_US-libritts_r-medium', label: '🎭 LibriTTS-R Multi-Speaker (904 Speakers)', is_multi_speaker: true },
+  { id: 'piper-en_GB-northern_english_male-medium', label: 'Northern English Male (SAS Price / Tactical)', is_multi_speaker: false },
+  { id: 'piper-en_GB-alan-medium', label: 'Alan (Cold British Commander / Dark Baritone)', is_multi_speaker: false },
+  { id: 'piper-en_US-norman-medium', label: 'Norman (Deep American Baritone / Dispatcher)', is_multi_speaker: false },
+  { id: 'piper-en_US-joe-medium', label: 'Joe (Gritty Older Combat Veteran)', is_multi_speaker: false },
+  { id: 'piper-en_US-bryce-medium', label: 'Bryce (High-Energy / Commanding Operator)', is_multi_speaker: false },
+  { id: 'piper-en_US-danny-low', label: 'Danny (Fast Tactical Field Operator)', is_multi_speaker: false },
+  { id: 'piper-en_US-ryan-low', label: 'Ryan (Deep Male / Titan Base)', is_multi_speaker: false },
+  { id: 'piper-en_US-amy-low', label: 'Amy (Cyberpunk EVA / Clear Sci-Fi Female)', is_multi_speaker: false },
+  { id: 'piper-en_GB-cori-medium', label: 'Cori (Expressive British Female)', is_multi_speaker: false },
+  { id: 'piper-en_US-glados', label: 'GLaDOS (Iconic Robotic Portal AI)', is_multi_speaker: false },
+  { id: 'piper-en_GB-southern_english_female-low', label: 'Southern English Female (Flight Deck ATC)', is_multi_speaker: false },
+  { id: 'piper-en_US-libritts_r-medium', label: 'LibriTTS-R Multi-Speaker (904 Speakers)', is_multi_speaker: true },
 ];
 
 const OPENING_CHIMES = [
@@ -223,7 +223,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
   return (
     <Modal
-      title="🎙️ Voice Studio — Custom Voice Designer"
+      title="Voice Studio — Custom Voice Designer"
       onClose={onClose}
       maxWidth="540px"
       footer={
@@ -361,11 +361,11 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
             {/* Quick Preset Chips */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-              <button type="button" onClick={() => { text.value = 'Titan online. Core temperature nominal. Weapons combat ready.'; }} style={chipStyle}>⚔️ Titan</button>
-              <button type="button" onClick={() => { text.value = 'Bravo Six, going dark. Target neutralized, requesting exfil.'; }} style={chipStyle}>📻 SAS Price</button>
-              <button type="button" onClick={() => { text.value = 'Target down! Air strike inbound on marked coordinates! Heads down!'; }} style={chipStyle}>🔥 Shouting</button>
-              <button type="button" onClick={() => { text.value = 'Maximum armor engaged. Energy levels at one hundred percent.'; }} style={chipStyle}>🛡️ Nanosuit</button>
-              <button type="button" onClick={() => { text.value = 'All automated workflows completed successfully.'; }} style={chipStyle}>🎙️ Studio</button>
+              <button type="button" onClick={() => { text.value = 'Titan online. Core temperature nominal. Weapons combat ready.'; }} style={chipStyle}>Titan</button>
+              <button type="button" onClick={() => { text.value = 'Bravo Six, going dark. Target neutralized, requesting exfil.'; }} style={chipStyle}>SAS Price</button>
+              <button type="button" onClick={() => { text.value = 'Target down! Air strike inbound on marked coordinates! Heads down!'; }} style={chipStyle}>Shouting</button>
+              <button type="button" onClick={() => { text.value = 'Maximum armor engaged. Energy levels at one hundred percent.'; }} style={chipStyle}>Nanosuit</button>
+              <button type="button" onClick={() => { text.value = 'All automated workflows completed successfully.'; }} style={chipStyle}>Studio</button>
             </div>
 
             {/* DSP Controls Card */}

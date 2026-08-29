@@ -73,7 +73,7 @@ export function ModeSwitcher<T extends string>({ value, options, onToggle, class
               transition: tokens.transitions.normal,
             }}
             onClick={() => {
-              invoke('log_ui_event', { message: `🖱️ Button clicked: ${option.label}` }).catch(() => {});
+              invoke('log_ui_event', { message: `[Button clicked] ${option.label}` }).catch(() => {});
               onToggle(option.value);
             }}
             title={option.title}

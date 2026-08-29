@@ -33,7 +33,7 @@ export const Switch = ({ checked, onChange, name, label, className = '' }: Switc
           onChange={(e) => {
             const nextValue = (e.target as HTMLInputElement).checked;
             invoke('log_ui_event', {
-              message: `🖱️ Switch toggled: ${name} -> ${nextValue ? 'On' : 'Off'}`,
+              message: `[Switch toggled] ${name} -> ${nextValue ? 'On' : 'Off'}`,
             }).catch(() => {});
             onChange(nextValue);
           }}

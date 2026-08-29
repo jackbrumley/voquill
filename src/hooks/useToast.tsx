@@ -1,18 +1,20 @@
 import { useSignal } from '@preact/signals';
 import type { JSX } from 'preact';
+import { IconX } from '@tabler/icons-preact';
 import { Toast } from '../types.ts';
 import { getToastMessageStyle, getToastStyle, toastContainerStyle } from '../theme/ui-primitives.ts';
 
 const closeButtonStyle: JSX.CSSProperties = {
   background: 'none',
   border: 'none',
-  color: 'rgba(255,255,255,0.7)',
-  fontSize: '14px',
-  lineHeight: 1,
+  color: 'rgba(255,255,255,0.85)',
   cursor: 'pointer',
   padding: '2px',
   flexShrink: 0,
-  opacity: 0.7,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  opacity: 0.8,
   transition: 'opacity 0.15s ease',
 };
 
@@ -57,7 +59,7 @@ export function useToast() {
             style={closeButtonStyle}
             aria-label="Dismiss"
           >
-            ✕
+            <IconX size={14} />
           </button>
         </div>
       ))}

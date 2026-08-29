@@ -35,7 +35,7 @@ export const tokens = {
   radii: {
     input: '8px',
     panel: '12px',
-    button: '8px',
+    button: '999px',
   },
   
   shadows: {
