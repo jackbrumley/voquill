@@ -7,6 +7,7 @@ import {
   IconTrash,
   IconRefresh,
   IconAlertTriangle,
+  IconPlus,
 } from '@tabler/icons-preact';
 import { Modal } from '../../../components/Modal.tsx';
 import { Button } from '../../../components/Button.tsx';
@@ -57,8 +58,10 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
   const activeTab = useSignal<TabType>('studio');
   const models = useSignal<BaseVoiceModelInfo[]>(DEFAULT_MODELS);
   const savedPresets = useSignal<VoicePreset[]>([]);
+  const currentPresetId = useSignal<string | null>(null);
 
   // Studio Form State
+  const presetName = useSignal('');
   const text = useSignal('Titan online. Core temperature nominal. All weapon systems combat ready.');
   const modelKey = useSignal('piper-en_GB-northern_english_male-medium');
   const speakerId = useSignal(700);
@@ -74,7 +77,6 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
   const openingChime = useSignal('none');
   const closingChime = useSignal('none');
 
-  const presetName = useSignal('');
   const isPreviewing = useSignal(false);
   const previewError = useSignal<string | null>(null);
   const saveSuccessMsg = useSignal<string | null>(null);
@@ -105,6 +107,12 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
     radioBandpass.value = false;
     radioDrive.value = 2.2;
     rfNoise.value = 0.25;
+  };
+
+  const handleStartNewPreset = () => {
+    currentPresetId.value = null;
+    presetName.value = '';
+    handleResetDsp();
   };
 
   const handlePreview = async () => {
@@ -142,7 +150,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
     const name = presetName.value.trim();
     if (!name) return;
 
-    const id = `preset-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    const id = currentPresetId.value || `preset-${Date.now()}`;
     const newPreset: VoicePreset = {
       id,
       name,
@@ -165,9 +173,9 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
     try {
       await invoke('save_custom_voice_preset', { preset: newPreset });
+      currentPresetId.value = id;
       savedPresets.value = [...savedPresets.value.filter((p) => p.id !== id), newPreset];
       saveSuccessMsg.value = `Saved "${name}"!`;
-      presetName.value = '';
       onPresetSaved?.(newPreset);
       setTimeout(() => {
         saveSuccessMsg.value = null;
@@ -178,6 +186,8 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
   };
 
   const handleLoadPreset = (p: VoicePreset) => {
+    currentPresetId.value = p.id;
+    presetName.value = p.name;
     modelKey.value = p.model_key;
     speakerId.value = p.speaker_id || 0;
     speed.value = p.speed;
@@ -197,6 +207,10 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
     try {
       await invoke('delete_custom_voice_preset', { presetId });
       savedPresets.value = savedPresets.value.filter((p) => p.id !== presetId);
+      if (currentPresetId.value === presetId) {
+        currentPresetId.value = null;
+        presetName.value = '';
+      }
     } catch (e) {
       previewError.value = `Failed to delete preset: ${e}`;
     }
@@ -268,19 +282,113 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
         </div>
       }
       footer={
-        <Button
-          variant="ghost"
-          onClick={onClose}
-          style={{ padding: '6px 16px', fontSize: '12px' }}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            gap: '8px',
+          }}
         >
-          Close
-        </Button>
+          <div>
+            {saveSuccessMsg.value && (
+              <span
+                style={{
+                  fontSize: '11px',
+                  color: tokens.colors.success,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <IconCheck size={13} /> {saveSuccessMsg.value}
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Button
+              variant="ghost"
+              onClick={onClose}
+              style={{ padding: '6px 14px', fontSize: '12px' }}
+            >
+              Close
+            </Button>
+
+            {activeTab.value === 'studio' && (
+              <Button
+                variant="configAction"
+                onClick={handleSavePreset}
+                disabled={!presetName.value.trim()}
+                style={{
+                  padding: '6px 16px',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                }}
+              >
+                <IconCheck size={14} />
+                <span>{currentPresetId.value ? 'Update Preset' : 'Save Preset'}</span>
+              </Button>
+            )}
+          </div>
+        </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%' }}>
         {/* TAB 1: INTERACTIVE STUDIO (Vertical Flow) */}
         {activeTab.value === 'studio' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+            {/* Preset Name Field (At the top of form) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: tokens.colors.textMuted,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.4px',
+                  }}
+                >
+                  Preset Name
+                </label>
+                {currentPresetId.value && (
+                  <button
+                    type="button"
+                    onClick={handleStartNewPreset}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: tokens.colors.accentPrimary,
+                      fontSize: '10.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      padding: 0,
+                    }}
+                    title="Clear current preset and start a new unlinked voice"
+                  >
+                    <IconPlus size={11} />
+                    <span>New Preset</span>
+                  </button>
+                )}
+              </div>
+              <input
+                type="text"
+                value={presetName.value}
+                onInput={(e) => {
+                  presetName.value = (e.target as HTMLInputElement).value;
+                }}
+                placeholder="e.g. British SAS Overlord, Cockpit AI"
+                style={{ ...inputBaseStyle, padding: '8px 10px', fontSize: '12px' }}
+              />
+            </div>
+
             {/* Voice Model Selection */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted, textTransform: 'uppercase' }}>
@@ -463,34 +571,6 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                   </>
                 )}
               </Button>
-            </div>
-
-            {/* Save Preset Card */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(255, 255, 255, 0.03)', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-              <label style={{ fontSize: '10.5px', fontWeight: 600, color: tokens.colors.textMuted, textTransform: 'uppercase' }}>
-                Save Custom Preset
-              </label>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <input
-                  type="text"
-                  value={presetName.value}
-                  onInput={(e) => { presetName.value = (e.target as HTMLInputElement).value; }}
-                  placeholder="Preset Name (e.g. British SAS Overlord)"
-                  style={{ ...inputBaseStyle, fontSize: '11px', padding: '5px 8px', flex: 1 }}
-                />
-                <Button
-                  variant="configAction"
-                  onClick={handleSavePreset}
-                  style={{ fontSize: '11px', padding: '5px 12px' }}
-                >
-                  <span>Save</span>
-                </Button>
-              </div>
-              {saveSuccessMsg.value && (
-                <span style={{ fontSize: '10.5px', color: tokens.colors.success, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <IconCheck size={12} /> {saveSuccessMsg.value}
-                </span>
-              )}
             </div>
           </div>
         )}
