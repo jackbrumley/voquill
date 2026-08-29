@@ -7,9 +7,11 @@ interface UseUpdatesReturn {
   updateResult: UpdateCheckResult | null;
   lastCheckedAt: number | null;
   checkingUpdates: boolean;
+  installingUpdate: boolean;
   showUpdateModal: boolean;
   setShowUpdateModal: (show: boolean) => void;
   checkForUpdates: (showUpToDateModal: boolean) => Promise<void>;
+  installUpdate: () => Promise<void>;
   openLatestReleasePage: () => Promise<void>;
   getLastCheckedLabel: () => string;
 }
@@ -18,10 +20,11 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
   const updateResult = useSignal<UpdateCheckResult | null>(null);
   const lastCheckedAt = useSignal<number | null>(null);
   const checkingUpdates = useSignal(false);
+  const installingUpdate = useSignal(false);
   const showUpdateModal = useSignal(false);
 
   const checkForUpdates = async (showUpToDateModal: boolean) => {
-    if (checkingUpdates.value) return;
+    if (checkingUpdates.value || installingUpdate.value) return;
 
     checkingUpdates.value = true;
     try {
@@ -42,6 +45,19 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
       }
     } finally {
       checkingUpdates.value = false;
+    }
+  };
+
+  const installUpdate = async () => {
+    if (installingUpdate.value) return;
+
+    installingUpdate.value = true;
+    try {
+      showToast('Starting update... Voquill will restart shortly.', 'info');
+      await invoke('install_update');
+    } catch (error) {
+      installingUpdate.value = false;
+      showToast(`Failed to start update: ${error}`, 'error');
     }
   };
 
@@ -82,9 +98,11 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
     updateResult: updateResult.value,
     lastCheckedAt: lastCheckedAt.value,
     checkingUpdates: checkingUpdates.value,
+    installingUpdate: installingUpdate.value,
     showUpdateModal: showUpdateModal.value,
     setShowUpdateModal: (show) => { showUpdateModal.value = show; },
     checkForUpdates,
+    installUpdate,
     openLatestReleasePage,
     getLastCheckedLabel,
   };

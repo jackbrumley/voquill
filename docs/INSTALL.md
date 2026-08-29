@@ -51,6 +51,7 @@ irm https://voquill.org/install-system.ps1 | iex
 | `--version <tag>` | `-Version <tag>` | Install a specific release tag (e.g. `v1.5.0`) |
 | `--channel <name>` | — | Release channel: `latest` or `stable` (default: `latest`) |
 | `--yes` | — | Run non-interactively (skip confirmation prompts) |
+| `--relaunch` | `-Relaunch` | Launch Voquill after successful installation |
 | `--insecure-skip-verify` | `-InsecureSkipVerify` | Skip checksum verification (not recommended) |
 | `--help` | `-Help` | Show script usage |
 

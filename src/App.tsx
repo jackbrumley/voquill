@@ -379,6 +379,7 @@ function App() {
         hotkeyBindingState={hotkeySetup.hotkeyBindingState}
         updateResult={updatesHook.updateResult}
         appVersion={appVersion.value}
+        isInstallingUpdate={updatesHook.installingUpdate}
         getLastCheckedLabel={updatesHook.getLastCheckedLabel}
         onCancelHotkeyCapture={() => void hotkeySetup.cancelHotkeyCapture()}
         onCloseSystemShortcut={() => hotkeySetup.setShowSystemShortcutModal(false)}
@@ -390,6 +391,7 @@ function App() {
         onCloseFactoryReset={() => hotkeySetup.setShowFactoryResetModal(false)}
         onFactoryReset={() => void handleFactoryReset(configHook.loadConfig, audioSetup.loadMics, configHook.loadModels, historyHook.loadHistory, () => audioSetup.checkSetupStatus().then(() => {}))}
         onCloseUpdate={() => updatesHook.setShowUpdateModal(false)}
+        onInstallUpdate={() => void updatesHook.installUpdate()}
         onOpenLatestRelease={() => void updatesHook.openLatestReleasePage()}
         onCloseModelGuide={() => { showModelGuide.value = false; }}
         onClosePostProcessGuide={() => { showPostProcessGuide.value = false; }}

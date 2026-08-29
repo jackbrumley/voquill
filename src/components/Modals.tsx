@@ -20,6 +20,7 @@ interface ModalsProps {
   hotkeyBindingState: HotkeyBindingState | null;
   updateResult: UpdateCheckResult | null;
   appVersion: string;
+  isInstallingUpdate?: boolean;
   getLastCheckedLabel: () => string;
   onCancelHotkeyCapture: () => void;
   onCloseSystemShortcut: () => void;
@@ -27,6 +28,7 @@ interface ModalsProps {
   onCloseFactoryReset: () => void;
   onFactoryReset: () => void;
   onCloseUpdate: () => void;
+  onInstallUpdate?: () => void;
   onOpenLatestRelease: () => void;
   onCloseModelGuide: () => void;
   onClosePostProcessGuide: () => void;
@@ -157,13 +159,20 @@ export function Modals(props: ModalsProps) {
           footerAlign="center"
           footer={
             <>
-              <Button variant="ghost" pill onClick={props.onCloseUpdate}>
+              <Button variant="ghost" pill onClick={props.onCloseUpdate} disabled={props.isInstallingUpdate}>
                 {props.updateResult?.updateAvailable ? 'Later' : 'Close'}
               </Button>
               {props.updateResult?.updateAvailable && (
-                <Button variant="primary" pill onClick={props.onOpenLatestRelease}>
-                  Download Latest
-                </Button>
+                <>
+                  <Button variant="ghost" pill onClick={props.onOpenLatestRelease} disabled={props.isInstallingUpdate}>
+                    Release Notes
+                  </Button>
+                  {props.onInstallUpdate && (
+                    <Button variant="primary" pill onClick={props.onInstallUpdate} disabled={props.isInstallingUpdate}>
+                      {props.isInstallingUpdate ? 'Updating...' : 'Update Now'}
+                    </Button>
+                  )}
+                </>
               )}
             </>
           }
@@ -174,9 +183,13 @@ export function Modals(props: ModalsProps) {
                 ? `A newer Voquill version is available. Current: v${props.updateResult.currentVersion} -> Latest: v${props.updateResult.latestVersion}.`
                 : `You are on the latest version (v${props.updateResult?.currentVersion || props.appVersion}).`}
             </p>
-            <p style={{ ...modalShortcutNoteStyle, margin: 0 }}>
-              Updates are currently installed manually by downloading the latest release package.
-            </p>
+            {props.updateResult?.updateAvailable && (
+              <p style={{ ...modalShortcutNoteStyle, margin: 0 }}>
+                {props.isInstallingUpdate
+                  ? 'Downloading and applying the update. Voquill will close and relaunch automatically once completed.'
+                  : 'Click "Update Now" to automatically download and install the latest release. Voquill will restart after updating.'}
+              </p>
+            )}
             <p style={{ ...modalShortcutNoteStyle, margin: 0 }}>
               Last checked: {props.getLastCheckedLabel()}
             </p>

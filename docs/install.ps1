@@ -13,6 +13,8 @@
   Install a specific release tag (e.g. "v1.5.0").
 .PARAMETER InsecureSkipVerify
   Skip checksum verification (not recommended).
+.PARAMETER Relaunch
+  Launch Voquill after successful installation.
 .PARAMETER Help
   Show this help message.
 .EXAMPLE
@@ -21,6 +23,8 @@
   irm https://voquill.org/install.ps1 | iex -args "-System"
 .EXAMPLE
   irm https://voquill.org/install.ps1 | iex -args "-Version v1.5.0"
+.EXAMPLE
+  irm https://voquill.org/install.ps1 | iex -args "-Relaunch"
 #>
 
 param(
@@ -28,6 +32,7 @@ param(
   [switch]$System,
   [switch]$Clean,
   [switch]$InsecureSkipVerify,
+  [switch]$Relaunch,
   [switch]$Help
 )
 
@@ -295,4 +300,29 @@ Log "Voquill was installed. Launch it from your Start Menu."
 
 if ($InstallType -eq "msi" -and $process.ExitCode -eq 3010) {
   Log "NOTE: A system restart is recommended to complete the installation."
+}
+
+if ($Relaunch) {
+  Log "Relaunching Voquill..."
+  $possiblePaths = @(
+    (Join-Path $env:LOCALAPPDATA "Programs\Voquill\Voquill.exe"),
+    (Join-Path $env:LOCALAPPDATA "Programs\Voquill\voquill.exe"),
+    (Join-Path $env:ProgramFiles "Voquill\Voquill.exe"),
+    (Join-Path $env:ProgramFiles "Voquill\voquill.exe"),
+    (Join-Path ${env:ProgramFiles(x86)} "Voquill\Voquill.exe")
+  )
+  $started = $false
+  foreach ($p in $possiblePaths) {
+    if ($p -and (Test-Path $p)) {
+      Start-Process -FilePath $p
+      $started = $true
+      break
+    }
+  }
+  if (-not $started) {
+    $shortcut = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Voquill.lnk"
+    if (Test-Path $shortcut) {
+      Start-Process -FilePath $shortcut
+    }
+  }
 }

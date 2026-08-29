@@ -9,7 +9,7 @@ usage() {
 Voquill bootstrap installer
 
 Usage:
-  install.sh [--appimage] [--system] [--version <tag>] [--channel latest|stable] [--yes] [--insecure-skip-verify]
+  install.sh [--appimage] [--system] [--version <tag>] [--channel latest|stable] [--yes] [--relaunch] [--insecure-skip-verify]
 
 Default: system-wide install via apt/dnf (requires sudo). Falls back to AppImage
 if no supported package manager or sudo is unavailable.
@@ -22,6 +22,7 @@ Options:
   --version <tag>         Install specific release tag (e.g. v1.5.0)
   --channel <name>        Release channel (default: latest)
   --yes                   Skip interactive confirmation prompts
+  --relaunch              Launch Voquill after successful installation
   --insecure-skip-verify  Skip checksum verification (not recommended)
   -h, --help              Show this help message
 
@@ -255,6 +256,7 @@ install_appimage=false
 non_interactive=false
 skip_verify=false
 clean=false
+relaunch=false
 version=""
 channel="latest"
 
@@ -268,6 +270,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --clean)
       clean=true
+      ;;
+    --relaunch)
+      relaunch=true
       ;;
     --version)
       [[ $# -ge 2 ]] || fail "--version requires a value"
@@ -532,4 +537,21 @@ log "Run: ${BIN_NAME}"
 
 if [[ "$install_system" == true ]]; then
   log "Or launch from your application menu"
+fi
+
+if [[ "$relaunch" == true ]]; then
+  log "Relaunching Voquill..."
+  if [[ "$install_system" == true ]]; then
+    if optional_cmd voquill; then
+      nohup voquill >/dev/null 2>&1 &
+    elif [[ -x "/usr/bin/voquill" ]]; then
+      nohup /usr/bin/voquill >/dev/null 2>&1 &
+    fi
+  else
+    if [[ -n "${appimage_path:-}" && -x "${appimage_path}" ]]; then
+      nohup "${appimage_path}" >/dev/null 2>&1 &
+    elif [[ -x "${HOME}/.local/bin/voquill" ]]; then
+      nohup "${HOME}/.local/bin/voquill" >/dev/null 2>&1 &
+    fi
+  fi
 fi
