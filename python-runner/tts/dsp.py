@@ -451,18 +451,23 @@ def apply_custom_dsp(
     if radio_drive > 1.01:
         out = np.tanh(out * radio_drive) / np.tanh(radio_drive)
 
-    # 3. Sub-Bass Boost
+    # 3. Sub-Bass & Heavy Body Punch
     if sub_bass > 0.01:
-        sos_sub = signal.butter(2, min(140.0 / nyquist, 0.45), btype="lowpass", output="sos")
-        sub = signal.sosfilt(sos_sub, out)
-        out = out + sub * sub_bass * 1.5
+        # Lowpass filter at 220Hz captures vocal chest fundamental
+        cutoff = min(220.0 / nyquist, 0.45)
+        sos_sub = signal.butter(2, cutoff, btype="lowpass", output="sos")
+        low_body = signal.sosfilt(sos_sub, out)
+        # Generate rich acoustic sub-harmonics via non-linear saturation
+        sub_saturated = np.tanh(low_body * 2.5) + 0.3 * (low_body ** 2)
+        out = out + sub_saturated * (sub_bass * 2.2)
 
-    # 4. Comb filter (Chassis resonance)
+    # 4. Cockpit Metallic Comb Resonance (Armored enclosure chassis acoustics)
     if comb_mix > 0.01:
-        c1 = comb_filter(out, sample_rate, delay_ms=11.5, feedback=-0.38)
-        c2 = comb_filter(out, sample_rate, delay_ms=18.5, feedback=-0.28)
-        comb_layer = 0.55 * c1 + 0.45 * c2
-        out = (1.0 - comb_mix * 0.7) * out + (comb_mix * 0.7) * comb_layer
+        # 4.5ms (222Hz) and 7.2ms (138Hz) produce immediate, distinctive metallic chassis resonance
+        c1 = comb_filter(out, sample_rate, delay_ms=4.5, feedback=-0.55)
+        c2 = comb_filter(out, sample_rate, delay_ms=7.2, feedback=0.45)
+        metallic_layer = 0.55 * c1 + 0.45 * c2
+        out = (1.0 - comb_mix * 0.65) * out + (comb_mix * 0.65) * metallic_layer
 
     # 5. Flanger
     if flanger_mix > 0.01:
@@ -491,9 +496,11 @@ def apply_custom_dsp(
 
     out = np.concatenate(parts)
 
-    peak = np.max(np.abs(out))
+    # Analog soft saturation limiting (preserves bass energy without peak squashing)
+    out_saturated = np.tanh(out * 1.15) / np.tanh(1.15)
+    peak = np.max(np.abs(out_saturated))
     if peak > 1e-4:
-        out = (out / peak) * 0.95
+        out = (out_saturated / peak) * 0.95
 
     return out.astype(np.float32)
 

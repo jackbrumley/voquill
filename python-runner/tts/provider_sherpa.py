@@ -445,12 +445,18 @@ def run_custom(
     tts = _get_tts_instance(model_key, runner_base_dir, noise_scale=noise_scale)
 
     logger.info(
-        "Custom synthesis (%d chars) [model=%s, sid=%d, speed=%.2f, pitch=%.1f]...",
+        "Custom synthesis (%d chars) [model=%s, sid=%d, speed=%.2f, pitch=%.1f, sub_bass=%.2f, comb=%.2f, bandpass=%s, drive=%.2f, open='%s', close='%s']...",
         len(clean_text),
         model_key,
         speaker_id,
         speed,
         pitch,
+        sub_bass,
+        comb_mix,
+        radio_bandpass,
+        radio_drive,
+        opening_chime,
+        closing_chime,
     )
     audio = tts.generate(clean_text, sid=speaker_id, speed=speed)
 

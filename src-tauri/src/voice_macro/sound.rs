@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-use std::time::Duration;
 
 use crate::audio::decode::{decode_compressed_audio, DecodedAudio};
 use crate::config::{MacroSoundMode, VoiceMacroCommand};
@@ -8,6 +7,13 @@ use crate::config::{MacroSoundMode, VoiceMacroCommand};
 const MACRO_TRIGGER_SOUND_BYTES: &[u8] = include_bytes!("../../sounds/macro_trigger.mp3");
 
 static CACHED_SOUND: OnceLock<Option<DecodedAudio>> = OnceLock::new();
+static ACTIVE_SOUND_STREAM: std::sync::Mutex<Option<cpal::Stream>> = std::sync::Mutex::new(None);
+
+pub fn stop_macro_sound_playback() {
+    if let Ok(mut lock) = ACTIVE_SOUND_STREAM.lock() {
+        *lock = None;
+    }
+}
 
 fn get_cached_sound() -> Option<&'static DecodedAudio> {
     CACHED_SOUND
@@ -48,17 +54,21 @@ pub fn play_macro_trigger_sound(playback_device: Option<String>) {
             decoded.samples.clone()
         };
         let sample_rate = decoded.sample_rate;
-        std::thread::spawn(move || {
-            match crate::audio::playback::play_audio(samples, sample_rate, playback_device, || {}) {
-                Ok(stream) => {
-                    std::thread::sleep(Duration::from_millis(1500));
-                    drop(stream);
-                }
-                Err(e) => {
-                    crate::log_warn!("Voice Macro playback error: {}", e);
+
+        stop_macro_sound_playback();
+
+        match crate::audio::playback::play_audio(samples, sample_rate, playback_device, || {
+            stop_macro_sound_playback();
+        }) {
+            Ok(stream) => {
+                if let Ok(mut lock) = ACTIVE_SOUND_STREAM.lock() {
+                    *lock = Some(stream);
                 }
             }
-        });
+            Err(e) => {
+                crate::log_warn!("Voice Macro playback error: {}", e);
+            }
+        }
     }
 }
 
@@ -112,19 +122,21 @@ pub fn play_macro_sound_file(
         decoded.samples
     };
     let sample_rate = decoded.sample_rate;
-    let duration_ms = (samples.len() as f32 / sample_rate as f32 * 1000.0) as u64 + 500;
 
-    std::thread::spawn(move || {
-        match crate::audio::playback::play_audio(samples, sample_rate, playback_device, || {}) {
-            Ok(stream) => {
-                std::thread::sleep(Duration::from_millis(duration_ms));
-                drop(stream);
-            }
-            Err(e) => {
-                crate::log_warn!("Voice Macro file playback error: {}", e);
+    stop_macro_sound_playback();
+
+    match crate::audio::playback::play_audio(samples, sample_rate, playback_device, || {
+        stop_macro_sound_playback();
+    }) {
+        Ok(stream) => {
+            if let Ok(mut lock) = ACTIVE_SOUND_STREAM.lock() {
+                *lock = Some(stream);
             }
         }
-    });
+        Err(e) => {
+            crate::log_warn!("Voice Macro file playback error: {}", e);
+        }
+    }
 
     Ok(())
 }
