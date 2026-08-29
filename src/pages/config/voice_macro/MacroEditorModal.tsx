@@ -3,9 +3,6 @@ import {
   IconCheck,
   IconTrash,
   IconCopy,
-  IconMicrophone,
-  IconKeyboard,
-  IconSparkles,
 } from '@tabler/icons-preact';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -205,24 +202,18 @@ export function MacroEditorModal({
   const isSaveDisabled =
     totalPhraseCount === 0 || sequence.steps.value.length === 0 || sequence.isRecording.value;
 
-  const tabs: { id: EditorTab; label: string; subtext: string; icon: typeof IconMicrophone }[] = [
+  const tabs: { id: EditorTab; label: string }[] = [
     {
       id: 'trigger',
-      label: '1. Trigger',
-      subtext: phrases.value.length > 0 ? `${phrases.value.length} phrase(s)` : 'Spoken Phrase',
-      icon: IconMicrophone,
+      label: phrases.value.length > 0 ? `Trigger (${phrases.value.length})` : 'Trigger',
     },
     {
       id: 'sequence',
-      label: '2. Sequence',
-      subtext: sequence.steps.value.length > 0 ? `${sequence.steps.value.length} action(s)` : 'Key & Actions',
-      icon: IconKeyboard,
+      label: sequence.steps.value.length > 0 ? `Sequence (${sequence.steps.value.length})` : 'Sequence',
     },
     {
       id: 'sound',
-      label: '3. Sound',
-      subtext: soundMode.value === 'tts' ? 'AI Voice' : soundMode.value === 'none' ? 'Mute' : 'Chirp',
-      icon: IconSparkles,
+      label: soundMode.value === 'tts' ? 'Sound (Voice)' : soundMode.value === 'none' ? 'Sound (Mute)' : 'Sound',
     },
   ];
 
@@ -231,6 +222,53 @@ export function MacroEditorModal({
       onClose={onClose}
       showCloseButton={false}
       footerAlign="space-between"
+      topBar={
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '4px',
+            background: 'rgba(0, 0, 0, 0.25)',
+            padding: '3px',
+            borderRadius: '999px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          {tabs.map((tab) => {
+            const isActive = activeTab.value === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  activeTab.value = tab.id;
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '6px 8px',
+                  borderRadius: '999px',
+                  background: isActive
+                    ? 'linear-gradient(135deg, rgba(88, 101, 242, 0.35) 0%, rgba(129, 140, 248, 0.2) 100%)'
+                    : 'transparent',
+                  border: isActive
+                    ? '1px solid rgba(99, 102, 241, 0.55)'
+                    : '1px solid transparent',
+                  color: isActive ? '#ffffff' : tokens.colors.textSecondary,
+                  fontSize: '11.5px',
+                  fontWeight: isActive ? 600 : 500,
+                  cursor: 'pointer',
+                  transition: tokens.transitions.fast,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      }
       footer={
         <div
           style={{
@@ -306,85 +344,7 @@ export function MacroEditorModal({
         </div>
       }
     >
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-          height: '100%',
-          minHeight: 0,
-        }}
-      >
-        {/* Top 3-Step Navigation Bar */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '4px',
-            background: 'rgba(0, 0, 0, 0.25)',
-            padding: '3px',
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            flexShrink: 0,
-          }}
-        >
-          {tabs.map((tab) => {
-            const isActive = activeTab.value === tab.id;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  activeTab.value = tab.id;
-                }}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '2px',
-                  padding: '5px 4px',
-                  borderRadius: '6px',
-                  background: isActive
-                    ? 'linear-gradient(135deg, rgba(88, 101, 242, 0.3) 0%, rgba(129, 140, 248, 0.2) 100%)'
-                    : 'transparent',
-                  border: isActive
-                    ? '1px solid rgba(99, 102, 241, 0.55)'
-                    : '1px solid transparent',
-                  cursor: 'pointer',
-                  transition: tokens.transitions.fast,
-                  position: 'relative',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '11.5px',
-                    fontWeight: isActive ? 700 : 500,
-                    color: isActive ? '#ffffff' : tokens.colors.textSecondary,
-                  }}
-                >
-                  <Icon size={12} color={isActive ? '#818cf8' : tokens.colors.textMuted} />
-                  <span>{tab.label}</span>
-                </div>
-                <span
-                  style={{
-                    fontSize: '9.5px',
-                    color: isActive ? '#c7d2fe' : tokens.colors.textMuted,
-                    fontWeight: 400,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {tab.subtext}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
         {/* Tab 1: Trigger Step */}
         {activeTab.value === 'trigger' && (
           <MacroTriggerStep

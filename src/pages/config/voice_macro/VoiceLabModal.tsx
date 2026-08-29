@@ -1,13 +1,11 @@
 import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import {
-  IconAdjustmentsHorizontal,
   IconPlayerPlay,
   IconLoader2,
   IconCheck,
   IconTrash,
   IconRefresh,
-  IconSparkles,
   IconAlertTriangle,
 } from '@tabler/icons-preact';
 import { Modal } from '../../../components/Modal.tsx';
@@ -206,18 +204,14 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
   const isMultiSpeaker = modelKey.value.includes('libritts');
 
-  const tabs: { id: TabType; label: string; subtext: string; icon: typeof IconAdjustmentsHorizontal }[] = [
+  const tabs: { id: TabType; label: string }[] = [
     {
       id: 'studio',
-      label: '1. Studio',
-      subtext: 'Voice Designer',
-      icon: IconAdjustmentsHorizontal,
+      label: 'Studio',
     },
     {
       id: 'presets',
-      label: '2. Presets',
-      subtext: savedPresets.value.length > 0 ? `${savedPresets.value.length} saved` : 'Saved Presets',
-      icon: IconSparkles,
+      label: savedPresets.value.length > 0 ? `Presets (${savedPresets.value.length})` : 'Presets',
     },
   ];
 
@@ -226,6 +220,53 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
       onClose={onClose}
       showCloseButton={false}
       maxWidth="540px"
+      topBar={
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '4px',
+            background: 'rgba(0, 0, 0, 0.25)',
+            padding: '3px',
+            borderRadius: '999px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          {tabs.map((tab) => {
+            const isActive = activeTab.value === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  activeTab.value = tab.id;
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '6px 12px',
+                  borderRadius: '999px',
+                  background: isActive
+                    ? 'linear-gradient(135deg, rgba(88, 101, 242, 0.35) 0%, rgba(129, 140, 248, 0.2) 100%)'
+                    : 'transparent',
+                  border: isActive
+                    ? '1px solid rgba(99, 102, 241, 0.55)'
+                    : '1px solid transparent',
+                  color: isActive ? '#ffffff' : tokens.colors.textSecondary,
+                  fontSize: '12px',
+                  fontWeight: isActive ? 600 : 500,
+                  cursor: 'pointer',
+                  transition: tokens.transitions.fast,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      }
       footer={
         <Button
           variant="ghost"
@@ -236,79 +277,10 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
         </Button>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
-        {/* Top Segmented Navigation Bar */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: '4px',
-            background: 'rgba(0, 0, 0, 0.25)',
-            padding: '3px',
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            flexShrink: 0,
-          }}
-        >
-          {tabs.map((tab) => {
-            const isActive = activeTab.value === tab.id;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  activeTab.value = tab.id;
-                }}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '2px',
-                  padding: '5px 4px',
-                  borderRadius: '6px',
-                  background: isActive
-                    ? 'linear-gradient(135deg, rgba(88, 101, 242, 0.3) 0%, rgba(129, 140, 248, 0.2) 100%)'
-                    : 'transparent',
-                  border: isActive
-                    ? '1px solid rgba(99, 102, 241, 0.55)'
-                    : '1px solid transparent',
-                  cursor: 'pointer',
-                  transition: tokens.transitions.fast,
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '11.5px',
-                    fontWeight: isActive ? 700 : 500,
-                    color: isActive ? '#ffffff' : tokens.colors.textSecondary,
-                  }}
-                >
-                  <Icon size={12} color={isActive ? '#818cf8' : tokens.colors.textMuted} />
-                  <span>{tab.label}</span>
-                </div>
-                <span
-                  style={{
-                    fontSize: '9.5px',
-                    color: isActive ? '#c7d2fe' : tokens.colors.textMuted,
-                    fontWeight: 400,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {tab.subtext}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
         {/* TAB 1: INTERACTIVE STUDIO (Vertical Flow) */}
         {activeTab.value === 'studio' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
             {/* Voice Model Selection */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted, textTransform: 'uppercase' }}>
@@ -526,7 +498,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
         {/* TAB 2: SAVED PRESETS */}
         {activeTab.value === 'presets' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
             {savedPresets.value.length === 0 ? (
               <p style={{ color: tokens.colors.textMuted, fontSize: '12px', padding: '24px', textAlign: 'center' }}>
                 No custom presets saved yet. Tune a voice in the Studio and click Save!

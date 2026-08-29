@@ -15,6 +15,7 @@ export interface ModalProps {
   footerAlign?: 'end' | 'center' | 'space-between';
   showCloseButton?: boolean;
   headerSlot?: ComponentChildren;
+  topBar?: ComponentChildren;
   fullScreen?: boolean;
   closeOnOverlay?: boolean;
 }
@@ -30,6 +31,7 @@ export function Modal({
   footerAlign = 'end',
   showCloseButton = true,
   headerSlot,
+  topBar,
 }: ModalProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -140,25 +142,49 @@ export function Modal({
         </div>
       )}
 
-      {/* Main Body Content */}
+      {/* Pinned Top Bar (e.g. Navigation Tab Switcher) */}
+      {topBar && (
+        <div
+          style={{
+            padding: '8px 16px',
+            background: 'rgba(0, 0, 0, 0.15)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              maxWidth: maxWidth || 'none',
+              margin: maxWidth ? '0 auto' : undefined,
+              width: '100%',
+            }}
+          >
+            {topBar}
+          </div>
+        </div>
+      )}
+
+      {/* Edge-to-Edge Scroll Viewport (Scrollbar is flush with window edge) */}
       <div
         style={{
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
+          overflowX: 'hidden',
           scrollbarGutter: 'stable',
-          padding: '14px 16px',
           display: 'flex',
           flexDirection: 'column',
+          width: '100%',
         }}
       >
+        {/* Inner Content Wrapper (Padded comfortably away from scrollbar) */}
         <div
           style={{
             maxWidth: maxWidth || 'none',
             width: '100%',
             margin: maxWidth ? '0 auto' : undefined,
-            height: '100%',
-            minHeight: 0,
+            minHeight: '100%',
+            padding: '14px 16px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: centerContent ? 'center' : 'flex-start',
