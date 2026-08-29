@@ -138,11 +138,11 @@ const DEFAULT_VOICES: VoicePersonaInfo[] = [
 ];
 
 const SPEED_OPTIONS = [
-  { label: '0.8x (Slow)', value: 0.8 },
+  { label: '0.8x', value: 0.8 },
   { label: '0.9x', value: 0.9 },
-  { label: '1.0x (Normal)', value: 1.0 },
+  { label: '1.0x', value: 1.0 },
   { label: '1.1x', value: 1.1 },
-  { label: '1.2x (Fast)', value: 1.2 },
+  { label: '1.2x', value: 1.2 },
 ];
 
 export function MacroSoundStep({
@@ -288,42 +288,32 @@ export function MacroSoundStep({
   ];
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-        flex: 1,
-        minHeight: 0,
-        overflowY: 'auto',
-        padding: '2px',
-      }}
-    >
-      {/* Sound Mode Selector Tabs */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '6px',
-          padding: '10px 12px',
-          borderRadius: '8px',
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-        }}
-      >
-        <span
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%' }}>
+      {/* Sound Mode Selector */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <label
           style={{
             fontSize: '11px',
-            fontWeight: 700,
-            color: '#a5b4fc',
+            fontWeight: 600,
+            color: tokens.colors.textMuted,
             textTransform: 'uppercase',
             letterSpacing: '0.4px',
           }}
         >
-          Spoken Audio Feedback Mode
-        </span>
+          Audio Feedback Mode
+        </label>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(5, 1fr)',
+            gap: '4px',
+            background: 'rgba(0, 0, 0, 0.25)',
+            padding: '3px',
+            borderRadius: '999px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
           {soundModeTabs.map((tab) => {
             const isActive = soundMode === tab.id;
             const IconComponent = tab.icon;
@@ -334,50 +324,60 @@ export function MacroSoundStep({
                 onClick={() => onSoundModeChange(tab.id)}
                 style={{
                   display: 'flex',
-                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '4px',
-                  padding: '6px 4px',
-                  borderRadius: '6px',
+                  padding: '5px 4px',
+                  borderRadius: '999px',
                   fontSize: '11px',
                   fontWeight: isActive ? 600 : 500,
                   background: isActive
-                    ? 'rgba(99, 102, 241, 0.25)'
-                    : 'rgba(255, 255, 255, 0.04)',
+                    ? 'linear-gradient(135deg, rgba(88, 101, 242, 0.35) 0%, rgba(129, 140, 248, 0.2) 100%)'
+                    : 'transparent',
                   border: isActive
                     ? '1px solid rgba(99, 102, 241, 0.55)'
-                    : '1px solid rgba(255, 255, 255, 0.08)',
-                  color: isActive ? '#c7d2fe' : tokens.colors.textSecondary,
+                    : '1px solid transparent',
+                  color: isActive ? '#ffffff' : tokens.colors.textSecondary,
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  textAlign: 'center',
+                  transition: tokens.transitions.fast,
+                  whiteSpace: 'nowrap',
                 }}
               >
-                <IconComponent size={14} />
-                <span style={{ fontSize: '10px', whiteSpace: 'nowrap' }}>{tab.label}</span>
+                <IconComponent size={13} color={isActive ? '#818cf8' : tokens.colors.textMuted} />
+                <span style={{ fontSize: '10.5px' }}>{tab.label}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Mode Specific Settings Card */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-          padding: '12px',
-          borderRadius: '8px',
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-        }}
-      >
-        {/* TTS Mode Details */}
-        {soundMode === 'tts' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      {/* Mode Specific Settings */}
+      {soundMode === 'tts' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Spoken Confirmation Phrase */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: tokens.colors.textMuted,
+                textTransform: 'uppercase',
+              }}
+            >
+              Spoken Confirmation Phrase
+            </label>
+            <input
+              type="text"
+              value={ttsText}
+              onInput={(e) => onTtsTextChange((e.target as HTMLInputElement).value)}
+              placeholder="e.g. Airstrike inbound, landing gear deployed..."
+              style={{ ...inputBaseStyle, padding: '8px 10px', fontSize: '12px' }}
+            />
+          </div>
+
+          {/* Voice Preset Picker */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label
                 style={{
                   fontSize: '11px',
@@ -386,296 +386,274 @@ export function MacroSoundStep({
                   textTransform: 'uppercase',
                 }}
               >
-                Spoken Confirmation Phrase
+                Voice Preset
               </label>
-              <input
-                type="text"
-                value={ttsText}
-                onInput={(e) => onTtsTextChange((e.target as HTMLInputElement).value)}
-                placeholder="e.g. Airstrike inbound, landing gear deployed..."
-                style={{ ...inputBaseStyle, padding: '7px 10px', fontSize: '12px' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: tokens.colors.textMuted,
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  AI Voice
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    isVoiceLabModalOpen.value = true;
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: tokens.colors.textSecondary,
-                    fontSize: '10.5px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '0 2px',
-                    transition: tokens.transitions.fast,
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = '#ffffff';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = tokens.colors.textSecondary;
-                  }}
-                >
-                  <IconAdjustmentsHorizontal size={12} color={tokens.colors.accentPrimary} />
-                  <span>Custom Voice Studio</span>
-                </button>
-              </div>
-              <SelectField
-                value={ttsVoice || 'titan-mech'}
-                options={availableVoices.value.map((v) => ({
-                  value: v.id,
-                  label: `${v.name} — ${v.persona}`,
-                  searchText: `${v.name} ${v.persona} ${v.category} ${v.description}`,
-                }))}
-                onChange={(val) => handleSelectVoice(val)}
-                ariaLabel="AI Voice Persona"
-                style={{ width: '100%', fontSize: '12px' }}
-              />
-
-              {activePersona && (
-                <div
-                  style={{
-                    padding: '6px 8px',
-                    borderRadius: '5px',
-                    background: 'rgba(99, 102, 241, 0.08)',
-                    border: '1px solid rgba(99, 102, 241, 0.2)',
-                    fontSize: '11px',
-                    color: tokens.colors.textSecondary,
-                    lineHeight: '1.4',
-                  }}
-                >
-                  <span style={{ color: '#c7d2fe', fontWeight: 600 }}>{activePersona.category}:</span>{' '}
-                  {activePersona.description}
-                </div>
-              )}
-            </div>
-
-            {/* Playback Speed */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label
+              <button
+                type="button"
+                onClick={() => {
+                  isVoiceLabModalOpen.value = true;
+                }}
                 style={{
-                  fontSize: '11px',
+                  background: 'none',
+                  border: 'none',
+                  color: tokens.colors.textSecondary,
+                  fontSize: '10.5px',
                   fontWeight: 600,
-                  color: tokens.colors.textMuted,
-                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '0 2px',
+                  transition: tokens.transitions.fast,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = '#ffffff';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = tokens.colors.textSecondary;
                 }}
               >
-                Playback Speed
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px' }}>
-                {SPEED_OPTIONS.map((opt) => {
-                  const currentSpeed = ttsSpeed || activePersona.default_speed || 1.0;
-                  const isSelected = Math.abs(currentSpeed - opt.value) < 0.01;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => onTtsSpeedChange(opt.value)}
-                      style={{
-                        padding: '4px 2px',
-                        fontSize: '10px',
-                        fontWeight: isSelected ? 600 : 500,
-                        borderRadius: '4px',
-                        background: isSelected
-                          ? 'rgba(99, 102, 241, 0.25)'
-                          : 'rgba(255, 255, 255, 0.04)',
-                        border: isSelected
-                          ? '1px solid rgba(99, 102, 241, 0.5)'
-                          : '1px solid rgba(255, 255, 255, 0.08)',
-                        color: isSelected ? '#c7d2fe' : tokens.colors.textSecondary,
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                      }}
-                    >
-                      {opt.value}x
-                    </button>
-                  );
-                })}
+                <IconAdjustmentsHorizontal size={12} color={tokens.colors.accentPrimary} />
+                <span>Voice Studio</span>
+              </button>
+            </div>
+            <SelectField
+              value={ttsVoice || 'titan-mech'}
+              options={availableVoices.value.map((v) => ({
+                value: v.id,
+                label: `${v.name} — ${v.persona}`,
+                searchText: `${v.name} ${v.persona} ${v.category} ${v.description}`,
+              }))}
+              onChange={(val) => handleSelectVoice(val)}
+              ariaLabel="Voice Preset"
+              style={{ width: '100%', fontSize: '12px' }}
+            />
+
+            {activePersona && (
+              <div
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.2)',
+                  fontSize: '11px',
+                  color: tokens.colors.textSecondary,
+                  lineHeight: '1.4',
+                }}
+              >
+                <span style={{ color: '#c7d2fe', fontWeight: 600 }}>{activePersona.category}:</span>{' '}
+                {activePersona.description}
               </div>
-            </div>
+            )}
           </div>
-        )}
 
-        {/* Custom Audio File Mode */}
-        {soundMode === 'custom_file' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '11.5px', color: tokens.colors.textSecondary }}>
-              Upload any custom sound effect (.wav, .mp3, .ogg) to play when this macro triggers.
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Button
-                variant="configAction"
-                onClick={handleBrowseFile}
-                style={{
-                  padding: '6px 12px',
-                  fontSize: '11.5px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                }}
-              >
-                <IconUpload size={13} />
-                <span>Choose Audio File...</span>
-              </Button>
-
-              {importedFileName.value && (
-                <span
-                  style={{
-                    fontSize: '11.5px',
-                    fontFamily: 'monospace',
-                    color: '#34d399',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                >
-                  <IconCheck size={13} />
-                  <span>{importedFileName.value}</span>
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Mic Recording Mode */}
-        {soundMode === 'mic_recording' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '11.5px', color: tokens.colors.textSecondary }}>
-              Record a quick custom voice response from your microphone.
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Button
-                variant={isRecordingMic.value ? 'primary' : 'configAction'}
-                onClick={handleToggleMicRecord}
-                style={{
-                  padding: '6px 12px',
-                  fontSize: '11.5px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  ...(isRecordingMic.value
-                    ? {
-                        background: 'rgba(239, 68, 68, 0.3)',
-                        borderColor: '#ef4444',
-                        color: '#fca5a5',
-                      }
-                    : {}),
-                }}
-              >
-                {isRecordingMic.value ? (
-                  <>
-                    <IconPlayerStop size={13} />
-                    <span>Stop & Save Recording</span>
-                  </>
-                ) : (
-                  <>
-                    <IconMicrophone size={13} />
-                    <span>Record Audio Clip</span>
-                  </>
-                )}
-              </Button>
-              <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
-                {isRecordingMic.value ? 'Recording audio snippet...' : 'Click to record snippet'}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Default Chirp Mode */}
-        {soundMode === 'default' && (
+          {/* Playback Speed */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ fontSize: '12px', color: tokens.colors.textSecondary, fontWeight: 500 }}>
-              Standard Radio Chirp
-            </span>
-            <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
-              Plays a brief, subtle audio beep to confirm execution.
-            </span>
+            <label
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: tokens.colors.textMuted,
+                textTransform: 'uppercase',
+              }}
+            >
+              Playback Speed
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px' }}>
+              {SPEED_OPTIONS.map((opt) => {
+                const currentSpeed = ttsSpeed || activePersona.default_speed || 1.0;
+                const isSelected = Math.abs(currentSpeed - opt.value) < 0.01;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => onTtsSpeedChange(opt.value)}
+                    style={{
+                      padding: '5px 4px',
+                      fontSize: '11px',
+                      fontWeight: isSelected ? 600 : 500,
+                      borderRadius: '999px',
+                      background: isSelected
+                        ? 'rgba(99, 102, 241, 0.25)'
+                        : 'rgba(255, 255, 255, 0.04)',
+                      border: isSelected
+                        ? '1px solid rgba(99, 102, 241, 0.5)'
+                        : '1px solid rgba(255, 255, 255, 0.08)',
+                      color: isSelected ? '#c7d2fe' : tokens.colors.textSecondary,
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: tokens.transitions.fast,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Mute Mode */}
-        {soundMode === 'none' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ fontSize: '12px', color: tokens.colors.textSecondary, fontWeight: 500 }}>
-              Silent Execution
-            </span>
-            <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
-              No audio feedback or spoken voice will play.
-            </span>
-          </div>
-        )}
-
-        {/* Preview Button */}
-        {soundMode !== 'none' && (
-          <div
-            style={{
-              paddingTop: '6px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
+      {/* Custom Audio File Mode */}
+      {soundMode === 'custom_file' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <span style={{ fontSize: '11.5px', color: tokens.colors.textSecondary }}>
+            Upload any custom sound effect (.wav, .mp3, .ogg) to play when this macro triggers.
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Button
               variant="configAction"
-              onClick={handleTestPreview}
-              disabled={isPreviewing.value}
+              onClick={handleBrowseFile}
               style={{
-                padding: '5px 12px',
+                padding: '6px 14px',
                 fontSize: '11.5px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
               }}
             >
-              {isPreviewing.value ? (
+              <IconUpload size={13} />
+              <span>Choose Audio File...</span>
+            </Button>
+
+            {importedFileName.value && (
+              <span
+                style={{
+                  fontSize: '11.5px',
+                  fontFamily: 'monospace',
+                  color: tokens.colors.success,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <IconCheck size={13} />
+                <span>{importedFileName.value}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mic Recording Mode */}
+      {soundMode === 'mic_recording' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <span style={{ fontSize: '11.5px', color: tokens.colors.textSecondary }}>
+            Record a quick custom voice response from your microphone.
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Button
+              variant={isRecordingMic.value ? 'primary' : 'configAction'}
+              onClick={handleToggleMicRecord}
+              style={{
+                padding: '6px 14px',
+                fontSize: '11.5px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                ...(isRecordingMic.value
+                  ? {
+                      background: 'rgba(239, 68, 68, 0.3)',
+                      borderColor: '#ef4444',
+                      color: '#fca5a5',
+                    }
+                  : {}),
+              }}
+            >
+              {isRecordingMic.value ? (
                 <>
-                  <IconLoader2 size={13} className="spin" />
-                  <span>Generating Audio...</span>
+                  <IconPlayerStop size={13} />
+                  <span>Stop & Save Recording</span>
                 </>
               ) : (
                 <>
-                  <IconPlayerPlay size={13} />
-                  <span>Preview Audio Feedback</span>
+                  <IconMicrophone size={13} />
+                  <span>Record Audio Clip</span>
                 </>
               )}
             </Button>
+            <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
+              {isRecordingMic.value ? 'Recording audio snippet...' : 'Click to record snippet'}
+            </span>
           </div>
-        )}
+        </div>
+      )}
 
-        {previewError.value && (
-          <div
+      {/* Default Chirp Mode */}
+      {soundMode === 'default' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ fontSize: '12px', color: tokens.colors.textSecondary, fontWeight: 500 }}>
+            Standard Radio Chirp
+          </span>
+          <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
+            Plays a brief, subtle audio beep to confirm execution.
+          </span>
+        </div>
+      )}
+
+      {/* Mute Mode */}
+      {soundMode === 'none' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ fontSize: '12px', color: tokens.colors.textSecondary, fontWeight: 500 }}>
+            Silent Execution
+          </span>
+          <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
+            No audio feedback or spoken voice will play.
+          </span>
+        </div>
+      )}
+
+      {/* Preview Button */}
+      {soundMode !== 'none' && (
+        <div
+          style={{
+            paddingTop: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+          }}
+        >
+          <Button
+            variant="configAction"
+            onClick={handleTestPreview}
+            disabled={isPreviewing.value}
             style={{
+              padding: '6px 14px',
+              fontSize: '11.5px',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px',
-              fontSize: '11px',
-              color: '#f87171',
+              gap: '5px',
             }}
           >
-            <IconAlertTriangle size={13} />
-            <span>{previewError.value}</span>
-          </div>
-        )}
-      </div>
+            {isPreviewing.value ? (
+              <>
+                <IconLoader2 size={13} className="spin" />
+                <span>Generating Audio...</span>
+              </>
+            ) : (
+              <>
+                <IconPlayerPlay size={13} />
+                <span>Preview Audio Feedback</span>
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {previewError.value && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '11px',
+            color: '#f87171',
+          }}
+        >
+          <IconAlertTriangle size={13} />
+          <span>{previewError.value}</span>
+        </div>
+      )}
 
       {isVoiceLabModalOpen.value && (
         <VoiceLabModal

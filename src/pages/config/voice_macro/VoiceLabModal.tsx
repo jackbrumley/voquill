@@ -455,7 +455,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                 {isPreviewing.value ? (
                   <>
                     <IconLoader2 size={14} className="spin" />
-                    <span>Generating Audio in Both Ears...</span>
+                    <span>Generating Audio...</span>
                   </>
                 ) : (
                   <>

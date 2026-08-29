@@ -1,4 +1,4 @@
-import { IconPlus, IconX, IconMicrophone, IconBulb } from '@tabler/icons-preact';
+import { IconPlus, IconX, IconBulb } from '@tabler/icons-preact';
 import { Button } from '../../../components/Button.tsx';
 import { inputBaseStyle } from '../../../theme/ui-primitives.ts';
 import { tokens } from '../../../design-tokens.ts';
@@ -21,47 +21,23 @@ export function MacroTriggerStep({
   autoFocus = false,
 }: MacroTriggerStepProps) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-        flex: 1,
-        minHeight: 0,
-        overflowY: 'auto',
-        padding: '2px',
-      }}
-    >
-      {/* Primary Trigger Phrase Card */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-          padding: '12px',
-          borderRadius: '8px',
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-        }}
-      >
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%' }}>
+      {/* Primary Trigger Phrase Section */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <label
             style={{
-              fontSize: '11.5px',
-              fontWeight: 700,
-              color: '#a5b4fc',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
+              fontSize: '11px',
+              fontWeight: 600,
+              color: tokens.colors.textMuted,
               textTransform: 'uppercase',
               letterSpacing: '0.4px',
             }}
           >
-            <IconMicrophone size={13} />
-            <span>Spoken Trigger Phrase</span>
+            Spoken Trigger Phrase
           </label>
           <span style={{ fontSize: '10.5px', color: tokens.colors.textMuted }}>
-            Enter or comma to add
+            Press Enter or comma to add
           </span>
         </div>
 
@@ -85,9 +61,8 @@ export function MacroTriggerStep({
             style={{
               ...inputBaseStyle,
               flex: 1,
-              padding: '7px 10px',
-              fontSize: '12.5px',
-              borderRadius: '6px',
+              padding: '8px 10px',
+              fontSize: '12px',
             }}
           />
           <Button
@@ -95,7 +70,7 @@ export function MacroTriggerStep({
             onClick={onAddPhrase}
             disabled={!phraseInput.trim()}
             style={{
-              padding: '6px 12px',
+              padding: '6px 14px',
               fontSize: '12px',
               display: 'flex',
               alignItems: 'center',
@@ -110,7 +85,7 @@ export function MacroTriggerStep({
 
         {/* Phrases and Aliases Tag List */}
         {phrases.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
             <span style={{ fontSize: '10.5px', color: tokens.colors.textMuted, fontWeight: 500 }}>
               Configured trigger phrases ({phrases.length}):
             </span>
@@ -125,7 +100,7 @@ export function MacroTriggerStep({
                       alignItems: 'center',
                       gap: '5px',
                       padding: '4px 8px',
-                      borderRadius: '5px',
+                      borderRadius: '999px',
                       fontSize: '11.5px',
                       fontWeight: 600,
                       background: isPrimary
@@ -142,8 +117,8 @@ export function MacroTriggerStep({
                       <span
                         style={{
                           fontSize: '9.5px',
-                          padding: '1px 4px',
-                          borderRadius: '3px',
+                          padding: '1px 5px',
+                          borderRadius: '999px',
                           background: 'rgba(99, 102, 241, 0.4)',
                           color: '#e0e7ff',
                         }}
