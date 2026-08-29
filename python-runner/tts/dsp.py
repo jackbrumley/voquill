@@ -20,8 +20,8 @@ def to_stereo(samples: np.ndarray) -> np.ndarray:
     return samples.astype(np.float32)
 
 
-def generate_opening_chime(chime_type: str, sample_rate: int) -> np.ndarray:
-    """Generates synthetic opening radio chirps, beeps, and cockpit chimes with a clean pre-voice pause."""
+def _synthesize_chime(chime_type: str, sample_rate: int) -> np.ndarray:
+    """Core synthesizer for all tactical chirps, squelches, clicks, and cockpit tones."""
     sr = float(sample_rate)
     ctype = (chime_type or "none").lower().strip()
 
@@ -31,15 +31,13 @@ def generate_opening_chime(chime_type: str, sample_rate: int) -> np.ndarray:
         tone1 = np.sin(2.0 * np.pi * 880.0 * t1) * 0.18
         tone1 *= np.sin(np.linspace(0, np.pi, len(tone1)))
 
-        gap = np.zeros(int(0.012 * sr))
+        gap = np.zeros(int(0.012 * sr), dtype=np.float32)
 
         t2 = np.arange(int(0.032 * sr)) / sr
         tone2 = np.sin(2.0 * np.pi * 1175.0 * t2) * 0.20
         tone2 *= np.sin(np.linspace(0, np.pi, len(tone2)))
 
-        # Natural 75ms pause after beep before voice begins
-        pause = np.zeros(int(0.075 * sr))
-        return np.concatenate([tone1, gap, tone2, pause]).astype(np.float32)
+        return np.concatenate([tone1, gap, tone2]).astype(np.float32)
 
     elif ctype in ("radio_click", "mic_click", "click"):
         # 16ms subtle mic key-click pop
@@ -48,10 +46,7 @@ def generate_opening_chime(chime_type: str, sample_rate: int) -> np.ndarray:
         click_pop = np.sin(2.0 * np.pi * 300.0 * t) * 0.14
         noise = np.random.normal(0, 0.10, n_samples)
         fade = np.linspace(1.0, 0.0, n_samples) ** 2
-        click = ((click_pop + noise) * fade).astype(np.float32)
-        # Natural 70ms pause after mic click before voice begins
-        pause = np.zeros(int(0.070 * sr), dtype=np.float32)
-        return np.concatenate([click, pause]).astype(np.float32)
+        return ((click_pop + noise) * fade).astype(np.float32)
 
     elif ctype in ("cockpit_chime", "chime", "sci_fi_chime"):
         # Sci-Fi 3-tone chord (587Hz + 880Hz + 1320Hz)
@@ -63,9 +58,7 @@ def generate_opening_chime(chime_type: str, sample_rate: int) -> np.ndarray:
             + 0.3 * np.sin(2 * np.pi * 880 * t)
             + 0.2 * np.sin(2 * np.pi * 1320 * t)
         ) * 0.18 * decay
-        # Natural 80ms pause after cockpit chime before voice begins
-        pause = np.zeros(int(0.080 * sr), dtype=np.float32)
-        return np.concatenate([chime, pause]).astype(np.float32)
+        return chime.astype(np.float32)
 
     elif ctype in ("transmit_blip", "blip"):
         # 18ms high-tech transmit blip (1760Hz)
@@ -73,19 +66,9 @@ def generate_opening_chime(chime_type: str, sample_rate: int) -> np.ndarray:
         t = np.arange(n_samples) / sr
         blip = np.sin(2.0 * np.pi * 1760.0 * t) * 0.15
         blip *= np.sin(np.linspace(0, np.pi, n_samples))
-        # Natural 75ms pause after transmit blip before voice begins
-        pause = np.zeros(int(0.075 * sr), dtype=np.float32)
-        return np.concatenate([blip, pause]).astype(np.float32)
+        return blip.astype(np.float32)
 
-    return np.zeros(0, dtype=np.float32)
-
-
-def generate_closing_chime(chime_type: str, sample_rate: int) -> np.ndarray:
-    """Generates synthetic closing radio squelches, release clicks, and ack tones."""
-    sr = float(sample_rate)
-    ctype = (chime_type or "none").lower().strip()
-
-    if ctype in ("radio_squelch", "squelch"):
+    elif ctype in ("radio_squelch", "squelch"):
         # 35ms analog radio squelch chirp
         squelch_len = int(0.035 * sr)
         squelch_noise = np.random.normal(0, 0.18, squelch_len)
@@ -126,6 +109,26 @@ def generate_closing_chime(chime_type: str, sample_rate: int) -> np.ndarray:
         return np.concatenate([tone1, tone2]).astype(np.float32)
 
     return np.zeros(0, dtype=np.float32)
+
+
+def generate_opening_chime(chime_type: str, sample_rate: int) -> np.ndarray:
+    """Generates synthetic opening radio chirps, beeps, and cockpit chimes with a clean pre-voice pause."""
+    raw = _synthesize_chime(chime_type, sample_rate)
+    if len(raw) == 0:
+        return np.zeros(0, dtype=np.float32)
+    sr = float(sample_rate)
+    pause = np.zeros(int(0.075 * sr), dtype=np.float32)
+    return np.concatenate([raw, pause]).astype(np.float32)
+
+
+def generate_closing_chime(chime_type: str, sample_rate: int) -> np.ndarray:
+    """Generates synthetic closing radio squelches, release clicks, and ack tones with a clean post-voice gap."""
+    raw = _synthesize_chime(chime_type, sample_rate)
+    if len(raw) == 0:
+        return np.zeros(0, dtype=np.float32)
+    sr = float(sample_rate)
+    gap = np.zeros(int(0.020 * sr), dtype=np.float32)
+    return np.concatenate([gap, raw]).astype(np.float32)
 
 
 def pitch_shift(samples: np.ndarray, sample_rate: int, semitones: float) -> np.ndarray:

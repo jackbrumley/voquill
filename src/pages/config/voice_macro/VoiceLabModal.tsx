@@ -38,16 +38,12 @@ const DEFAULT_MODELS: BaseVoiceModelInfo[] = [
   { id: 'piper-en_US-libritts_r-medium', label: 'LibriTTS-R Multi-Speaker (904 Speakers)', is_multi_speaker: true },
 ];
 
-const OPENING_CHIMES = [
+const CHIME_OPTIONS = [
   { value: 'none', label: 'None' },
   { value: 'tactical_double_beep', label: 'Tactical Double Beep (CS style)' },
   { value: 'radio_click', label: 'Subtle Radio Key-Click' },
   { value: 'cockpit_chime', label: 'Sci-Fi Cockpit Chime' },
   { value: 'transmit_blip', label: 'Military Transmit Blip' },
-];
-
-const CLOSING_CHIMES = [
-  { value: 'none', label: 'None' },
   { value: 'radio_squelch', label: 'Subtle Radio Squelch' },
   { value: 'cs_radio_off', label: 'CS Comms Release Burst' },
   { value: 'mic_release_click', label: 'Mic Release Click' },
@@ -506,23 +502,23 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
               {/* Chimes Dropdowns (Stacked vertically) */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted }}>Opening Beep</label>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted }}>Opening Sound Effect</label>
                 <SelectField
                   value={openingChime.value}
-                  options={OPENING_CHIMES}
+                  options={CHIME_OPTIONS}
                   onChange={(val) => { openingChime.value = val; }}
-                  ariaLabel="Opening Chime"
+                  ariaLabel="Opening Sound Effect"
                   style={{ width: '100%', fontSize: '11.5px' }}
                 />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted }}>Closing Squelch</label>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: tokens.colors.textMuted }}>Closing Sound Effect</label>
                 <SelectField
                   value={closingChime.value}
-                  options={CLOSING_CHIMES}
+                  options={CHIME_OPTIONS}
                   onChange={(val) => { closingChime.value = val; }}
-                  ariaLabel="Closing Squelch"
+                  ariaLabel="Closing Sound Effect"
                   style={{ width: '100%', fontSize: '11.5px' }}
                 />
               </div>
