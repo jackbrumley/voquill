@@ -10,6 +10,7 @@ import {
   IconShare,
   IconDownload,
   IconUpload,
+  IconAdjustmentsHorizontal,
 } from '@tabler/icons-preact';
 import { invoke } from '@tauri-apps/api/core';
 import { ConfigField } from '../../components/ConfigField.tsx';
@@ -23,6 +24,7 @@ import { resolveMacroSteps } from './voice_macro/keyUtils.ts';
 import { MacroEditorModal } from './voice_macro/MacroEditorModal.tsx';
 import { SpokenMacroTester } from './voice_macro/SpokenMacroTester.tsx';
 import { MacroImportModal } from './voice_macro/MacroImportModal.tsx';
+import { VoiceLabModal } from './voice_macro/VoiceLabModal.tsx';
 import {
   cloneMacro,
   generateMacroId,
@@ -54,6 +56,7 @@ const actionButtonStyle = {
 export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMacrosSectionProps) {
   const isEditorModalOpen = useSignal(false);
   const isImportModalOpen = useSignal(false);
+  const isVoiceLabModalOpen = useSignal(false);
   const editingCommand = useSignal<VoiceMacroCommand | null>(null);
   const isPlayingTestSound = useSignal(false);
   const isTestingExecution = useSignal<string | null>(null);
@@ -415,6 +418,25 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
               <Button
                 variant="ghost"
                 onClick={() => {
+                  isVoiceLabModalOpen.value = true;
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 8px',
+                  fontSize: '11px',
+                  color: '#38bdf8',
+                }}
+                title="Open Voice Studio to design and tune custom AI voice presets"
+              >
+                <IconAdjustmentsHorizontal size={13} />
+                <span>Voice Studio</span>
+              </Button>
+
+              <Button
+                variant="ghost"
+                onClick={() => {
                   isImportModalOpen.value = true;
                 }}
                 style={{
@@ -718,6 +740,15 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
           onImport={handleImportMacros}
           onClose={() => {
             isImportModalOpen.value = false;
+          }}
+        />
+      )}
+
+      {/* Voice Studio Modal */}
+      {isVoiceLabModalOpen.value && (
+        <VoiceLabModal
+          onClose={() => {
+            isVoiceLabModalOpen.value = false;
           }}
         />
       )}

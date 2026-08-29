@@ -272,3 +272,91 @@ pub async fn play_macro_sound_preview(
 pub async fn delete_macro_sound(macro_id: String) -> Result<(), String> {
     crate::voice_macro::delete_macro_sound(&macro_id)
 }
+
+#[command]
+pub async fn get_available_base_voice_models(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::python_runner::BaseVoiceModelInfo>, String> {
+    let runner = get_or_start_python_runner(&app_handle, &state).await?;
+    runner.get_tts_models().await
+}
+
+#[command]
+pub async fn preview_custom_tts_voice(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+    params: crate::python_runner::CustomTtsSynthesizeParams,
+) -> Result<crate::python_runner::TtsSynthesizeResponse, String> {
+    let runner = get_or_start_python_runner(&app_handle, &state).await?;
+    let res = runner.synthesize_custom_tts(&params).await?;
+
+    let playback_device = {
+        let config = state.config.lock().unwrap();
+        config.playback_device.clone()
+    };
+
+    let path = std::path::PathBuf::from(&res.output_path);
+    if path.exists() {
+        let _ = crate::voice_macro::play_macro_sound_file(&path, playback_device);
+    }
+
+    Ok(res)
+}
+
+#[command]
+pub async fn get_custom_voice_presets() -> Result<Vec<serde_json::Value>, String> {
+    let presets_file = crate::paths::voice_presets_file()?;
+    if !presets_file.exists() {
+        return Ok(Vec::new());
+    }
+    let data = std::fs::read_to_string(&presets_file)
+        .map_err(|e| format!("Failed to read voice presets: {}", e))?;
+    let presets: Vec<serde_json::Value> = serde_json::from_str(&data).unwrap_or_default();
+    Ok(presets)
+}
+
+#[command]
+pub async fn save_custom_voice_preset(preset: serde_json::Value) -> Result<(), String> {
+    let presets_file = crate::paths::voice_presets_file()?;
+    let mut presets: Vec<serde_json::Value> = if presets_file.exists() {
+        let data = std::fs::read_to_string(&presets_file).unwrap_or_default();
+        serde_json::from_str(&data).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    let id = preset
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+    if !id.is_empty() {
+        presets.retain(|p| p.get("id").and_then(|v| v.as_str()) != Some(id));
+    }
+    presets.push(preset);
+
+    let json = serde_json::to_string_pretty(&presets)
+        .map_err(|e| format!("Failed to serialize voice presets: {}", e))?;
+    std::fs::write(&presets_file, json)
+        .map_err(|e| format!("Failed to save voice presets: {}", e))?;
+
+    Ok(())
+}
+
+#[command]
+pub async fn delete_custom_voice_preset(preset_id: String) -> Result<(), String> {
+    let presets_file = crate::paths::voice_presets_file()?;
+    if !presets_file.exists() {
+        return Ok(());
+    }
+    let data = std::fs::read_to_string(&presets_file).unwrap_or_default();
+    let mut presets: Vec<serde_json::Value> = serde_json::from_str(&data).unwrap_or_default();
+    presets.retain(|p| p.get("id").and_then(|v| v.as_str()) != Some(&preset_id));
+
+    let json = serde_json::to_string_pretty(&presets)
+        .map_err(|e| format!("Failed to serialize voice presets: {}", e))?;
+    std::fs::write(&presets_file, json)
+        .map_err(|e| format!("Failed to update voice presets: {}", e))?;
+
+    Ok(())
+}

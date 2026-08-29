@@ -13,12 +13,14 @@ import {
   IconLoader2,
   IconCheck,
   IconAlertTriangle,
+  IconAdjustmentsHorizontal,
 } from '@tabler/icons-preact';
 import type { MacroSoundMode, VoicePersonaInfo } from '../../../types.ts';
 import { tokens } from '../../../design-tokens.ts';
 import { Button } from '../../../components/Button.tsx';
 import { SelectField } from '../../../components/SelectField.tsx';
 import { inputBaseStyle } from '../../../theme/ui-primitives.ts';
+import { VoiceLabModal } from './VoiceLabModal.tsx';
 
 interface MacroSoundStepProps {
   macroId: string;
@@ -38,58 +40,100 @@ interface MacroSoundStepProps {
 
 const DEFAULT_VOICES: VoicePersonaInfo[] = [
   {
-    id: 'piper-en_US-amy-low',
-    name: 'Cyberpunk EVA',
-    persona: 'Crisp Sci-Fi Female AI',
-    category: 'Sci-Fi / Cockpit',
+    id: 'tactical-comms',
+    name: 'Tactical Comms',
+    persona: 'SAS Tactical Operator',
+    category: 'Military & Tactical',
     engine: 'piper',
-    description: 'Futuristic, calm, and intelligent ship computer voice.',
+    description: 'Northern English military comms with authentic VHF bandpass filtering, tactical overdrive, and tail squelch.',
     is_ready: true,
+    default_effect: 'radio',
+    default_pitch: 0.0,
+    default_speed: 1.05,
   },
   {
-    id: 'piper-en_US-glados',
+    id: 'titan-mech',
+    name: 'Titan Mech',
+    persona: 'Armored Cockpit AI',
+    category: 'Sci-Fi & Gaming',
+    engine: 'piper',
+    description: 'Deep, authoritative pilot system with metallic armored chassis resonance and sub-bass weight.',
+    is_ready: true,
+    default_effect: 'mech',
+    default_pitch: -4.0,
+    default_speed: 0.95,
+  },
+  {
+    id: 'nanosuit',
+    name: 'Nanosuit AI',
+    persona: 'Tactical Combat Exosuit',
+    category: 'Sci-Fi & Gaming',
+    engine: 'piper',
+    description: 'Cybernetic combat armor system with synthetic pitch modulation and power-shield resonance.',
+    is_ready: true,
+    default_effect: 'mech',
+    default_pitch: -2.0,
+    default_speed: 1.0,
+  },
+  {
+    id: 'glados',
     name: 'GLaDOS AI',
     persona: 'Iconic Robot AI',
-    category: 'Robotic / AI',
+    category: 'Sci-Fi & Gaming',
     engine: 'piper',
-    description: 'Iconic robotic AI with distinctive robotic inflections.',
+    description: 'Iconic robotic AI with distinctive robotic inflections and dry demeanor.',
     is_ready: true,
+    default_effect: 'clean',
+    default_pitch: 0.0,
+    default_speed: 1.0,
   },
   {
-    id: 'piper-en_US-ryan-low',
-    name: 'Titan Mech',
-    persona: 'Deep Cockpit Male',
-    category: 'Sci-Fi / Cockpit',
+    id: 'cyberpunk-eva',
+    name: 'Cyberpunk EVA',
+    persona: 'Holographic Ship AI',
+    category: 'Sci-Fi & Gaming',
     engine: 'piper',
-    description: 'Authoritative, deep mechanical pilot system voice.',
+    description: 'Futuristic spacecraft computer with holographic bridge reflections and crystal air clarity.',
     is_ready: true,
+    default_effect: 'eva',
+    default_pitch: 1.0,
+    default_speed: 1.0,
   },
   {
-    id: 'piper-en_GB-southern_english_female-low',
-    name: 'Aero Cockpit',
-    persona: 'British Flight Deck AI',
-    category: 'Sci-Fi / Cockpit',
+    id: 'flight-deck',
+    name: 'Flight Deck ATC',
+    persona: 'British Flight Controller',
+    category: 'Aviation & Simulation',
     engine: 'piper',
-    description: 'Crisp British ATC / flight deck automated system.',
+    description: 'Crisp British aviation air traffic control / cockpit automated warning system.',
     is_ready: true,
+    default_effect: 'flight_deck',
+    default_pitch: 0.0,
+    default_speed: 1.0,
   },
   {
-    id: 'piper-en_US-arctic-medium',
-    name: 'Tactical Radio',
-    persona: 'Military Radio Comms',
-    category: 'Tactical Military',
+    id: 'nova-studio',
+    name: 'Nova Studio (Female)',
+    persona: 'Clean Studio Female',
+    category: 'Studio & Natural',
     engine: 'piper',
-    description: 'Tactical, direct military comms channel tone.',
+    description: 'Natural, crystal-clear studio narration voice with zero acoustic coloration.',
     is_ready: true,
+    default_effect: 'clean',
+    default_pitch: 0.0,
+    default_speed: 1.0,
   },
   {
-    id: 'piper-en_US-lessac-low',
-    name: 'Nova Studio',
-    persona: 'Clear Studio Voice',
-    category: 'Realistic / Studio',
+    id: 'apex-studio',
+    name: 'Apex Studio (Male)',
+    persona: 'Authoritative Studio Male',
+    category: 'Studio & Natural',
     engine: 'piper',
-    description: 'Clean, human-grade natural studio voice.',
+    description: 'Clean, warm, and natural male studio voice for desktop automation and productivity.',
     is_ready: true,
+    default_effect: 'clean',
+    default_pitch: 0.0,
+    default_speed: 1.0,
   },
 ];
 
@@ -99,22 +143,6 @@ const SPEED_OPTIONS = [
   { label: '1.0x (Normal)', value: 1.0 },
   { label: '1.1x', value: 1.1 },
   { label: '1.2x (Fast)', value: 1.2 },
-];
-
-const EFFECT_OPTIONS = [
-  { value: 'mech', label: 'Titan Mech (Deep Metallic Ring Mod)' },
-  { value: 'radio', label: 'Tactical Radio (Comms Bandpass Filter)' },
-  { value: 'eva', label: 'Cyberpunk EVA (Ship Bridge Reflection)' },
-  { value: 'clean', label: 'Clean / Studio (Natural Output)' },
-];
-
-const PITCH_OPTIONS = [
-  { value: -6, label: 'Very Deep (-6)' },
-  { value: -4, label: 'Deep (-4)' },
-  { value: -2, label: 'Low (-2)' },
-  { value: 0, label: 'Default (0)' },
-  { value: 2, label: 'High (+2)' },
-  { value: 4, label: 'Bright (+4)' },
 ];
 
 export function MacroSoundStep({
@@ -127,9 +155,9 @@ export function MacroSoundStep({
   onTtsVoiceChange,
   ttsSpeed,
   onTtsSpeedChange,
-  ttsEffect = 'clean',
+  ttsEffect,
   onTtsEffectChange,
-  ttsPitch = 0,
+  ttsPitch,
   onTtsPitchChange,
 }: MacroSoundStepProps) {
   const availableVoices = useSignal<VoicePersonaInfo[]>(DEFAULT_VOICES);
@@ -137,8 +165,9 @@ export function MacroSoundStep({
   const previewError = useSignal<string | null>(null);
   const isRecordingMic = useSignal(false);
   const importedFileName = useSignal<string | null>(null);
+  const isVoiceLabModalOpen = useSignal(false);
 
-  useSignalEffect(() => {
+  const fetchVoices = () => {
     invoke<VoicePersonaInfo[]>('get_available_tts_voices')
       .then((voices) => {
         if (voices && voices.length > 0) {
@@ -148,7 +177,32 @@ export function MacroSoundStep({
       .catch(() => {
         // Fallback to default presets
       });
+  };
+
+  useSignalEffect(() => {
+    fetchVoices();
   });
+
+  const activePersona =
+    availableVoices.value.find((v) => v.id === ttsVoice) ||
+    availableVoices.value.find((v) => v.id === 'titan-mech') ||
+    DEFAULT_VOICES[0];
+
+  const handleSelectVoice = (selectedId: string) => {
+    onTtsVoiceChange(selectedId);
+    const matched = availableVoices.value.find((v) => v.id === selectedId);
+    if (matched) {
+      if (matched.default_effect && onTtsEffectChange) {
+        onTtsEffectChange(matched.default_effect);
+      }
+      if (matched.default_pitch !== undefined && matched.default_pitch !== null && onTtsPitchChange) {
+        onTtsPitchChange(matched.default_pitch);
+      }
+      if (matched.default_speed !== undefined && matched.default_speed !== null) {
+        onTtsSpeedChange(matched.default_speed);
+      }
+    }
+  };
 
   const handleTestPreview = async () => {
     if (isPreviewing.value) return;
@@ -160,13 +214,13 @@ export function MacroSoundStep({
         await invoke('test_voice_macro_sound');
       } else if (soundMode === 'tts') {
         const text = ttsText.trim() || 'Command confirmed';
-        const voice = ttsVoice || 'piper-en_US-amy-low';
+        const voice = ttsVoice || 'titan-mech';
         await invoke('preview_tts_voice', {
           text,
           voiceId: voice,
-          speed: ttsSpeed || 1.0,
-          effect: ttsEffect || 'clean',
-          pitch: ttsPitch || 0.0,
+          speed: ttsSpeed || activePersona.default_speed || 1.0,
+          effect: ttsEffect || activePersona.default_effect || undefined,
+          pitch: ttsPitch ?? activePersona.default_pitch ?? 0.0,
         });
       } else {
         await invoke('play_macro_sound_preview', { macroId });
@@ -344,29 +398,70 @@ export function MacroSoundStep({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  color: tokens.colors.textMuted,
-                  textTransform: 'uppercase',
-                }}
-              >
-                AI Voice Persona
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: tokens.colors.textMuted,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  AI Voice
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    isVoiceLabModalOpen.value = true;
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#38bdf8',
+                    fontSize: '10.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '0 2px',
+                  }}
+                >
+                  <IconAdjustmentsHorizontal size={12} />
+                  <span>Custom Voice Studio</span>
+                </button>
+              </div>
               <SelectField
-                value={ttsVoice || 'piper-en_US-amy-low'}
+                value={ttsVoice || 'titan-mech'}
                 options={availableVoices.value.map((v) => ({
                   value: v.id,
                   label: `${v.name} — ${v.persona}`,
                   searchText: `${v.name} ${v.persona} ${v.category} ${v.description}`,
                 }))}
-                onChange={(val) => onTtsVoiceChange(val)}
-                ariaLabel="TTS Voice Persona"
+                onChange={(val) => handleSelectVoice(val)}
+                ariaLabel="AI Voice Persona"
                 style={{ width: '100%', fontSize: '12px' }}
               />
+
+              {activePersona && (
+                <div
+                  style={{
+                    padding: '6px 8px',
+                    borderRadius: '5px',
+                    background: 'rgba(99, 102, 241, 0.08)',
+                    border: '1px solid rgba(99, 102, 241, 0.2)',
+                    fontSize: '11px',
+                    color: tokens.colors.textSecondary,
+                    lineHeight: '1.4',
+                  }}
+                >
+                  <span style={{ color: '#c7d2fe', fontWeight: 600 }}>{activePersona.category}:</span>{' '}
+                  {activePersona.description}
+                </div>
+              )}
             </div>
 
+            {/* Playback Speed */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label
                 style={{
@@ -376,102 +471,37 @@ export function MacroSoundStep({
                   textTransform: 'uppercase',
                 }}
               >
-                Audio Effect Profile
+                Playback Speed
               </label>
-              <SelectField
-                value={ttsEffect || 'clean'}
-                options={EFFECT_OPTIONS}
-                onChange={(val) => onTtsEffectChange?.(val)}
-                ariaLabel="Audio Effect Profile"
-                style={{ width: '100%', fontSize: '12px' }}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: tokens.colors.textMuted,
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Tone / Pitch Adjustment
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '3px' }}>
-                  {PITCH_OPTIONS.map((opt) => {
-                    const currentPitch = ttsPitch ?? 0;
-                    const isSelected = Math.abs(currentPitch - opt.value) < 0.1;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => onTtsPitchChange?.(opt.value)}
-                        style={{
-                          padding: '4px 1px',
-                          fontSize: '10px',
-                          fontWeight: isSelected ? 600 : 500,
-                          borderRadius: '4px',
-                          background: isSelected
-                            ? 'rgba(99, 102, 241, 0.25)'
-                            : 'rgba(255, 255, 255, 0.04)',
-                          border: isSelected
-                            ? '1px solid rgba(99, 102, 241, 0.5)'
-                            : '1px solid rgba(255, 255, 255, 0.08)',
-                          color: isSelected ? '#c7d2fe' : tokens.colors.textSecondary,
-                          cursor: 'pointer',
-                          textAlign: 'center',
-                        }}
-                      >
-                        {opt.value > 0 ? `+${opt.value}` : opt.value}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: tokens.colors.textMuted,
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Playback Speed
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '3px' }}>
-                  {SPEED_OPTIONS.map((opt) => {
-                    const currentSpeed = ttsSpeed || 1.0;
-                    const isSelected = Math.abs(currentSpeed - opt.value) < 0.01;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => onTtsSpeedChange(opt.value)}
-                        style={{
-                          padding: '4px 1px',
-                          fontSize: '10px',
-                          fontWeight: isSelected ? 600 : 500,
-                          borderRadius: '4px',
-                          background: isSelected
-                            ? 'rgba(99, 102, 241, 0.25)'
-                            : 'rgba(255, 255, 255, 0.04)',
-                          border: isSelected
-                            ? '1px solid rgba(99, 102, 241, 0.5)'
-                            : '1px solid rgba(255, 255, 255, 0.08)',
-                          color: isSelected ? '#c7d2fe' : tokens.colors.textSecondary,
-                          cursor: 'pointer',
-                          textAlign: 'center',
-                        }}
-                      >
-                        {opt.value}x
-                      </button>
-                    );
-                  })}
-                </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px' }}>
+                {SPEED_OPTIONS.map((opt) => {
+                  const currentSpeed = ttsSpeed || activePersona.default_speed || 1.0;
+                  const isSelected = Math.abs(currentSpeed - opt.value) < 0.01;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => onTtsSpeedChange(opt.value)}
+                      style={{
+                        padding: '4px 2px',
+                        fontSize: '10px',
+                        fontWeight: isSelected ? 600 : 500,
+                        borderRadius: '4px',
+                        background: isSelected
+                          ? 'rgba(99, 102, 241, 0.25)'
+                          : 'rgba(255, 255, 255, 0.04)',
+                        border: isSelected
+                          ? '1px solid rgba(99, 102, 241, 0.5)'
+                          : '1px solid rgba(255, 255, 255, 0.08)',
+                        color: isSelected ? '#c7d2fe' : tokens.colors.textSecondary,
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {opt.value}x
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -639,6 +669,20 @@ export function MacroSoundStep({
           </div>
         )}
       </div>
+
+      {isVoiceLabModalOpen.value && (
+        <VoiceLabModal
+          onClose={() => {
+            isVoiceLabModalOpen.value = false;
+          }}
+          onPresetSaved={(newPreset) => {
+            fetchVoices();
+            onTtsVoiceChange(newPreset.id);
+            if (onTtsSpeedChange) onTtsSpeedChange(newPreset.speed);
+            if (onTtsPitchChange) onTtsPitchChange(newPreset.pitch);
+          }}
+        />
+      )}
     </div>
   );
 }

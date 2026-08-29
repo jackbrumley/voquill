@@ -77,10 +77,10 @@ export function MacroEditorModal({
   const phraseInput = useSignal('');
   const soundMode = useSignal<MacroSoundMode>(initialCommand?.sound_mode || 'default');
   const soundTtsText = useSignal<string>(initialCommand?.sound_tts_text || '');
-  const soundTtsVoice = useSignal<string>(initialCommand?.sound_tts_voice || 'piper-en_US-amy-low');
-  const soundTtsSpeed = useSignal<number>(initialCommand?.sound_tts_speed || 1.0);
-  const soundTtsEffect = useSignal<string>(initialCommand?.sound_tts_effect || 'clean');
-  const soundTtsPitch = useSignal<number>(initialCommand?.sound_tts_pitch || 0);
+  const soundTtsVoice = useSignal<string>(initialCommand?.sound_tts_voice || 'titan-mech');
+  const soundTtsSpeed = useSignal<number>(initialCommand?.sound_tts_speed || 0.95);
+  const soundTtsEffect = useSignal<string>(initialCommand?.sound_tts_effect || 'mech');
+  const soundTtsPitch = useSignal<number>(initialCommand?.sound_tts_pitch ?? -4);
   const macroId = useSignal<string>(initialCommand?.id || `macro-${Date.now()}`);
 
   const sequence = useMacroSequence(initialCommand?.steps || []);
@@ -117,10 +117,10 @@ export function MacroEditorModal({
         await invoke('save_macro_tts_audio', {
           macroId: macroId.value,
           text: soundTtsText.value.trim(),
-          voiceId: soundTtsVoice.value || 'piper-en_US-amy-low',
+          voiceId: soundTtsVoice.value || 'titan-mech',
           speed: soundTtsSpeed.value || 1.0,
-          effect: soundTtsEffect.value || 'clean',
-          pitch: soundTtsPitch.value || 0.0,
+          effect: soundTtsEffect.value || 'mech',
+          pitch: soundTtsPitch.value ?? 0.0,
         });
       } catch (e) {
         console.warn('Failed to pre-render TTS audio:', e);
@@ -161,10 +161,10 @@ export function MacroEditorModal({
         await invoke('save_macro_tts_audio', {
           macroId: newId,
           text: soundTtsText.value.trim(),
-          voiceId: soundTtsVoice.value || 'piper-en_US-amy-low',
+          voiceId: soundTtsVoice.value || 'titan-mech',
           speed: soundTtsSpeed.value || 1.0,
-          effect: soundTtsEffect.value || 'clean',
-          pitch: soundTtsPitch.value || 0.0,
+          effect: soundTtsEffect.value || 'mech',
+          pitch: soundTtsPitch.value ?? 0.0,
         });
       } catch (e) {
         console.warn('Failed to pre-render TTS audio for copy:', e);

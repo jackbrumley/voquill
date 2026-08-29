@@ -239,7 +239,12 @@ fn main() {
             import_macro_audio_file,
             save_macro_mic_recording,
             play_macro_sound_preview,
-            delete_macro_sound
+            delete_macro_sound,
+            get_available_base_voice_models,
+            preview_custom_tts_voice,
+            get_custom_voice_presets,
+            save_custom_voice_preset,
+            delete_custom_voice_preset
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

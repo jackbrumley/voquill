@@ -70,6 +70,10 @@ pub fn python_runner_dir() -> Result<PathBuf, String> {
     Ok(app_root()?.join("python-runner"))
 }
 
+pub fn voice_presets_file() -> Result<PathBuf, String> {
+    Ok(ensure_app_root()?.join("voice_presets.json"))
+}
+
 pub fn debug_dir() -> Result<PathBuf, String> {
     let dir = app_root()?.join("debug");
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;

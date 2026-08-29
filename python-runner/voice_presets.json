@@ -1,0 +1,20 @@
+[
+  {
+    "id": "sas-tactical-operator",
+    "name": "SAS Tactical Operator",
+    "category": "Military & Tactical",
+    "description": "Counter-Strike style tactical comms with opening double-beep and tail squelch",
+    "model_key": "piper-en_GB-northern_english_male-medium",
+    "speaker_id": 0,
+    "speed": 1.05,
+    "pitch": 0.0,
+    "sub_bass": 0.0,
+    "comb_mix": 0.0,
+    "flanger_mix": 0.0,
+    "radio_bandpass": true,
+    "radio_drive": 2.2,
+    "rf_noise": 0.0,
+    "opening_chime": "tactical_double_beep",
+    "closing_chime": "cs_radio_off"
+  }
+]

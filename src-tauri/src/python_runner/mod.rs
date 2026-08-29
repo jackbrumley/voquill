@@ -13,7 +13,7 @@ const RUNNER_PORT_START: u16 = 6201;
 const RUNNER_PORT_END: u16 = 6350;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
 const HEALTH_RETRY_INTERVAL: Duration = Duration::from_millis(500);
-const RUNNER_VERSION: &str = "1.2.1";
+const RUNNER_VERSION: &str = "1.2.6";
 const PYTHON_VERSION: &str = "20250115";
 const PYTHON_DOWNLOAD_BASE: &str =
     "https://github.com/astral-sh/python-build-standalone/releases/download";
@@ -74,6 +74,10 @@ impl PythonRunner {
         client::enhance(&self.base_url, audio_path, noise_reduction_strength).await
     }
 
+    pub async fn get_tts_models(&self) -> Result<Vec<client::BaseVoiceModelInfo>, String> {
+        client::get_tts_models(&self.base_url).await
+    }
+
     pub async fn get_tts_voices(&self) -> Result<Vec<client::VoicePersonaInfo>, String> {
         client::get_tts_voices(&self.base_url).await
     }
@@ -97,6 +101,13 @@ impl PythonRunner {
             output_path,
         )
         .await
+    }
+
+    pub async fn synthesize_custom_tts(
+        &self,
+        params: &client::CustomTtsSynthesizeParams,
+    ) -> Result<client::TtsSynthesizeResponse, String> {
+        client::synthesize_custom_tts(&self.base_url, params).await
     }
 }
 
@@ -539,4 +550,6 @@ async fn wait_for_health(process: &mut Child, base_url: &str) -> Result<(), Stri
 
 // ── HTTP client ───────────────────────────────────────────────────────────
 pub mod client;
-pub use client::{TtsSynthesizeResponse, VoicePersonaInfo};
+pub use client::{
+    BaseVoiceModelInfo, CustomTtsSynthesizeParams, TtsSynthesizeResponse, VoicePersonaInfo,
+};

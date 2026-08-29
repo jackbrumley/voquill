@@ -16,6 +16,32 @@ export type MacroStep =
 
 export type MacroSoundMode = 'default' | 'none' | 'tts' | 'custom_file' | 'mic_recording';
 
+export interface BaseVoiceModelInfo {
+  id: string;
+  label: string;
+  is_multi_speaker: boolean;
+}
+
+export interface VoicePreset {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  model_key: string;
+  speaker_id: number;
+  speed: number;
+  noise_scale?: number;
+  pitch: number;
+  sub_bass: number;
+  comb_mix: number;
+  flanger_mix: number;
+  radio_bandpass: boolean;
+  radio_drive: number;
+  rf_noise: number;
+  opening_chime: string;
+  closing_chime: string;
+}
+
 export interface VoicePersonaInfo {
   id: string;
   name: string;
@@ -24,6 +50,9 @@ export interface VoicePersonaInfo {
   engine: string;
   description: string;
   is_ready: boolean;
+  default_effect?: string | null;
+  default_pitch?: number | null;
+  default_speed?: number | null;
 }
 
 export interface VoiceMacroCommand {

@@ -1,0 +1,250 @@
+{
+  "project": "Voquill Audio Persona Catalog & Samples Log",
+  "generated_at": "2026-08-27",
+  "total_samples": 27,
+  "samples": [
+    {
+      "id": 1,
+      "filename": "01_titan_mech_heavy_subbass.wav",
+      "base_model": "piper-en_US-ryan-low",
+      "style": "Titan Mech",
+      "dsp_applied": "Heavy sub-bass (-5.5st, comb filter, sub saturation)",
+      "user_status": "Discard",
+      "user_feedback": "Sounds bad, forced low pitch on normal voice, sounds like hollow tube."
+    },
+    {
+      "id": 2,
+      "filename": "02_titan_mech_metallic_growl.wav",
+      "base_model": "piper-en_US-ryan-low",
+      "style": "Titan Mech",
+      "dsp_applied": "Chassis growl (-6st, 26Hz modulation)",
+      "user_status": "Discard",
+      "user_feedback": "Sounds bad, hollow/forced."
+    },
+    {
+      "id": 3,
+      "filename": "03_titan_mech_cyber_vocoder.wav",
+      "base_model": "piper-en_US-ryan-low",
+      "style": "Titan Mech",
+      "dsp_applied": "Cyber vocoder (-4.5st, air EQ, flanger)",
+      "user_status": "Discard",
+      "user_feedback": "Sounds bad, fake."
+    },
+    {
+      "id": 4,
+      "filename": "04_tactical_sas_price.wav",
+      "base_model": "piper-en_GB-northern_english_male-medium",
+      "style": "Tactical Comms (SAS Price)",
+      "dsp_applied": "Mil-Spec VHF bandpass (420Hz-3.3kHz) + Drive 2.4 + Tail Squelch",
+      "user_status": "Keep",
+      "user_feedback": "Sounds quite good, nice British tactical comms tone."
+    },
+    {
+      "id": 5,
+      "filename": "05_tactical_us_shouting_bryce.wav",
+      "base_model": "piper-en_US-bryce-medium",
+      "style": "Tactical US Shouting",
+      "dsp_applied": "Aggressive throat mic overdrive (Drive 3.5) + Squelch",
+      "user_status": "Discard",
+      "user_feedback": "Can probably go, too harsh/over-driven."
+    },
+    {
+      "id": 6,
+      "filename": "06_tactical_us_gravel_joe.wav",
+      "base_model": "piper-en_US-joe-medium",
+      "style": "Tactical US Gravel",
+      "dsp_applied": "VHF bandpass + Drive 2.6 + Squelch",
+      "user_status": "Keep / Candidate",
+      "user_feedback": "Sounds okay."
+    },
+    {
+      "id": 7,
+      "filename": "07_tactical_fast_field_danny.wav",
+      "base_model": "piper-en_US-danny-low",
+      "style": "Tactical Fast Field",
+      "dsp_applied": "VHF bandpass + Drive 2.8 + Squelch",
+      "user_status": "Keep",
+      "user_feedback": "Sounds pretty good as well."
+    },
+    {
+      "id": 8,
+      "filename": "08_nanosuit_cybernetic_crysis.wav",
+      "base_model": "piper-en_US-ryan-low",
+      "style": "Nanosuit Cybernetic",
+      "dsp_applied": "Tight comb filter (-2.5st, 7.8ms/14.2ms delay) + air EQ",
+      "user_status": "Discard",
+      "user_feedback": "Right effect but sounds bad, talking through a hollow tube, very fake."
+    },
+    {
+      "id": 9,
+      "filename": "09_nanosuit_heavy_power.wav",
+      "base_model": "piper-en_US-ryan-low",
+      "style": "Nanosuit Heavy Power",
+      "dsp_applied": "Comb filter (-3.8st) + flanger + sub boost",
+      "user_status": "Discard",
+      "user_feedback": "Same as #8, hollow and fake."
+    },
+    {
+      "id": 10,
+      "filename": "10_studio_cori_british.wav",
+      "base_model": "piper-en_GB-cori-medium",
+      "style": "Studio British (Cori)",
+      "dsp_applied": "Clean Studio Master",
+      "user_status": "Keep",
+      "user_feedback": "Sounds pretty good, distinct British tone."
+    },
+    {
+      "id": 11,
+      "filename": "11_studio_amy_clean.wav",
+      "base_model": "piper-en_US-amy-low",
+      "style": "Studio Sci-Fi (Amy)",
+      "dsp_applied": "Clean Studio Master",
+      "user_status": "Keep",
+      "user_feedback": "Sounds pretty good."
+    },
+    {
+      "id": 12,
+      "filename": "12_studio_lessac_natural.wav",
+      "base_model": "piper-en_US-lessac-low",
+      "style": "Studio Natural (Lessac)",
+      "dsp_applied": "Clean Studio Master",
+      "user_status": "Discard",
+      "user_feedback": "A bit generic and uninteresting, can probably get rid of."
+    },
+    {
+      "id": 13,
+      "filename": "13_batman_norman_clean.wav",
+      "base_model": "piper-en_US-norman-medium",
+      "style": "Deep American (Norman)",
+      "dsp_applied": "Gentle low-shelf warmth",
+      "user_status": "Keep (Relabel)",
+      "user_feedback": "Sounds okay as a narration voice, but not Batman. Keep as normal deep voice."
+    },
+    {
+      "id": 14,
+      "filename": "14_mech_norman_cockpit.wav",
+      "base_model": "piper-en_US-norman-medium",
+      "style": "Norman Cockpit Mech",
+      "dsp_applied": "Natural mech comb filter on deep voice",
+      "user_status": "Keep (Relabel)",
+      "user_feedback": "Sounds okay, but not a mech. Just a decent narration voice."
+    },
+    {
+      "id": 15,
+      "filename": "15_mech_norman_heavy_armor.wav",
+      "base_model": "piper-en_US-norman-medium",
+      "style": "Norman Heavy Armor",
+      "dsp_applied": "Heavy armored comb + chassis growl",
+      "user_status": "Consolidate",
+      "user_feedback": "Sounds pretty much exactly the same as 14."
+    },
+    {
+      "id": 16,
+      "filename": "16_batman_joe_gravel_clean.wav",
+      "base_model": "piper-en_US-joe-medium",
+      "style": "Gravelly Baritone (Joe)",
+      "dsp_applied": "Low-shelf warmth",
+      "user_status": "Consolidate",
+      "user_feedback": "Group with 14/15, keep one as normal voice."
+    },
+    {
+      "id": 17,
+      "filename": "17_mech_joe_gritty_cockpit.wav",
+      "base_model": "piper-en_US-joe-medium",
+      "style": "Joe Gritty Mech",
+      "dsp_applied": "Gritty comb filter",
+      "user_status": "Discard",
+      "user_feedback": "Falls in the same boat."
+    },
+    {
+      "id": 18,
+      "filename": "18_batman_alan_british_clean.wav",
+      "base_model": "piper-en_GB-alan-medium",
+      "style": "Cold British Commander (Alan)",
+      "dsp_applied": "Gentle low-shelf warmth",
+      "user_status": "Keep",
+      "user_feedback": "Sounds really good! Very cold British voice. Definitely want to keep, relabel appropriately."
+    },
+    {
+      "id": 19,
+      "filename": "19_mech_alan_british_cockpit.wav",
+      "base_model": "piper-en_GB-alan-medium",
+      "style": "Alan British Mech",
+      "dsp_applied": "British cockpit comb",
+      "user_status": "Discard",
+      "user_feedback": "Sounds almost exact same as 18 but slower. Can discard."
+    },
+    {
+      "id": 20,
+      "filename": "20_batman_libri_spk200_clean.wav",
+      "base_model": "piper-en_US-libritts_r-medium (sid 200)",
+      "style": "LibriTTS Speaker 200",
+      "dsp_applied": "Clean",
+      "user_status": "Keep (Relabel)",
+      "user_feedback": "More sounds like a nerdy kind of voice, not Batman. Can keep under appropriate label."
+    },
+    {
+      "id": 21,
+      "filename": "21_mech_libri_spk200_titan.wav",
+      "base_model": "piper-en_US-libritts_r-medium (sid 200)",
+      "style": "LibriTTS Speaker 200 Mech",
+      "dsp_applied": "Cockpit comb filter",
+      "user_status": "Keep (Relabel)",
+      "user_feedback": "Unique, sounds like a professional dispatcher voice. Keep as Dispatcher."
+    },
+    {
+      "id": 22,
+      "filename": "22_mech_libri_spk700_titan.wav",
+      "base_model": "piper-en_US-libritts_r-medium (sid 700)",
+      "style": "Titan Mech Baseline (Speaker 700)",
+      "dsp_applied": "Heavy bass titan mech",
+      "user_status": "Keep as Titan Baseline",
+      "user_feedback": "Closest thing to a Titan style voice so far. Label as Titan baseline."
+    },
+    {
+      "id": 23,
+      "filename": "23_batman_bale_norman_guttural.wav",
+      "base_model": "piper-en_US-norman-medium",
+      "style": "Bale Batman Guttural",
+      "dsp_applied": "Guttural throat rasp + dynamic breath",
+      "user_status": "Discard",
+      "user_feedback": "Barely understandable, heavily modulated, sounds fake."
+    },
+    {
+      "id": 24,
+      "filename": "24_batman_bale_norman_cowl.wav",
+      "base_model": "piper-en_US-norman-medium",
+      "style": "Bale Batman Cowl",
+      "dsp_applied": "Heavy cowl scrambler",
+      "user_status": "Discard",
+      "user_feedback": "Same as 23, over-modulated."
+    },
+    {
+      "id": 25,
+      "filename": "25_batman_bale_bryce_intense.wav",
+      "base_model": "piper-en_US-bryce-medium",
+      "style": "Bryce Intense",
+      "dsp_applied": "Intense throat compression",
+      "user_status": "Candidate (Unprocessed)",
+      "user_feedback": "If we remove heavy modulation/effects, would sound like a decent voice by itself."
+    },
+    {
+      "id": 26,
+      "filename": "26_batman_bale_joe_raspy.wav",
+      "base_model": "piper-en_US-joe-medium",
+      "style": "Joe Raspy",
+      "dsp_applied": "Raspy throat drive",
+      "user_status": "Candidate (Unprocessed)",
+      "user_feedback": "If we remove audio effects, would sound quite good."
+    },
+    {
+      "id": 27,
+      "filename": "27_mech_batman_cowl_titan.wav",
+      "base_model": "piper-en_US-norman-medium",
+      "style": "Batman Cowl Titan",
+      "dsp_applied": "Bale rasp + Titan cockpit resonance",
+      "user_status": "Discard",
+      "user_feedback": "Deep voice sounds good, but effects make it hard to understand."
+    }
+  ]
+}

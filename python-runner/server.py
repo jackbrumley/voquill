@@ -208,6 +208,23 @@ async def enhance(body: dict) -> dict:
         raise HTTPException(status_code=500, detail=f"Enhancement failed: {e}")
 
 
+@app.get("/tts/models")
+async def get_tts_models() -> list[dict]:
+    handlers = app.state.handlers
+    if "tts" not in handlers:
+        raise HTTPException(
+            status_code=501,
+            detail="TTS capability not available (sherpa-onnx not installed?)",
+        )
+    mod = handlers["tts"]["module"]
+    try:
+        models = mod.get_available_models()
+        return [m.model_dump() for m in models]
+    except Exception as e:
+        logger.exception("Failed to query TTS models")
+        raise HTTPException(status_code=500, detail=f"Failed to query TTS models: {e}")
+
+
 @app.get("/tts/voices")
 async def get_tts_voices() -> list[dict]:
     handlers = app.state.handlers
@@ -237,9 +254,9 @@ async def synthesize_tts(body: dict) -> dict:
     if not text:
         raise HTTPException(status_code=400, detail="text is required")
 
-    voice_id = body.get("voice_id", "piper-en_US-amy-low")
+    voice_id = body.get("voice_id", "titan-mech")
     speed = body.get("speed", 1.0)
-    effect = body.get("effect", "clean")
+    effect = body.get("effect")
     pitch = body.get("pitch", 0.0)
     output_path = body.get("output_path")
 
@@ -258,6 +275,59 @@ async def synthesize_tts(body: dict) -> dict:
     except Exception as e:
         logger.exception("TTS synthesis failed")
         raise HTTPException(status_code=500, detail=f"TTS synthesis failed: {e}")
+
+
+@app.post("/tts/synthesize_custom")
+async def synthesize_custom_tts(body: dict) -> dict:
+    handlers = app.state.handlers
+    if "tts" not in handlers:
+        raise HTTPException(
+            status_code=501,
+            detail="TTS capability not available (sherpa-onnx not installed?)",
+        )
+    text = body.get("text")
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required")
+
+    model_key = body.get("model_key", "piper-en_GB-northern_english_male-medium")
+    speaker_id = body.get("speaker_id", 0)
+    speed = body.get("speed", 1.0)
+    noise_scale = body.get("noise_scale", 0.667)
+    pitch = body.get("pitch", 0.0)
+    sub_bass = body.get("sub_bass", 0.0)
+    comb_mix = body.get("comb_mix", 0.0)
+    flanger_mix = body.get("flanger_mix", 0.0)
+    radio_bandpass = body.get("radio_bandpass", False)
+    radio_drive = body.get("radio_drive", 1.0)
+    rf_noise = body.get("rf_noise", 0.0)
+    opening_chime = body.get("opening_chime", "none")
+    closing_chime = body.get("closing_chime", "none")
+    output_path = body.get("output_path")
+
+    mod = handlers["tts"]["module"]
+    try:
+        result = mod.run_custom(
+            text=text,
+            model_key=model_key,
+            speaker_id=speaker_id,
+            speed=speed,
+            noise_scale=noise_scale,
+            pitch=pitch,
+            sub_bass=sub_bass,
+            comb_mix=comb_mix,
+            flanger_mix=flanger_mix,
+            radio_bandpass=radio_bandpass,
+            radio_drive=radio_drive,
+            rf_noise=rf_noise,
+            opening_chime=opening_chime,
+            closing_chime=closing_chime,
+            output_path=output_path,
+            runner_base_dir=RUNNER_BASE_DIR,
+        )
+        return result.model_dump()
+    except Exception as e:
+        logger.exception("Custom TTS synthesis failed")
+        raise HTTPException(status_code=500, detail=f"Custom TTS synthesis failed: {e}")
 
 
 # ── Entry point (used when Rust spawns the server) ─────────────────────────
