@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use crate::audio::decode::{decode_compressed_audio, DecodedAudio};
 use crate::config::{MacroSoundMode, VoiceMacroCommand};
+use cpal::traits::StreamTrait;
 
 const MACRO_TRIGGER_SOUND_BYTES: &[u8] = include_bytes!("../../sounds/macro_trigger.mp3");
 
@@ -23,9 +24,9 @@ pub fn stop_macro_sound_playback() {
         }
     }
     if let Ok(mut lock) = ACTIVE_SOUND_STREAM.lock() {
-        if lock.is_some() {
-            crate::log_info!("Stopping active macro sound playback stream");
-            *lock = None;
+        if let Some(stream) = lock.take() {
+            crate::log_info!("Pausing and dropping active macro sound playback stream");
+            let _ = stream.pause();
         }
     }
 }

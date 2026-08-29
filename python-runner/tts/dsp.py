@@ -480,25 +480,35 @@ def apply_custom_dsp(
         sos_dc = signal.butter(1, min(25.0 / nyquist, 0.4), btype="highpass", output="sos")
         out = signal.sosfilt(sos_dc, out)
 
-    # 4. Cockpit Metallic Comb Resonance (0% dry studio -> 100% heavy armored steel hull reflections)
+    # 4. Cockpit Metallic Comb Resonance (0% dry studio -> 50% cockpit -> 100% extreme mechanized armored resonance)
     if comb_mix > 0.01:
         d1 = int(0.0085 * sample_rate)  # 117Hz chassis reflection
         d2 = int(0.0152 * sample_rate)  # 66Hz armored hull reflection
+        d3 = int(0.0042 * sample_rate)  # 238Hz metallic robot plate ring
+
+        # Dynamic feedback scaling: at 0.5 fb is ~0.72/-0.65; at 1.0 fb rises to 0.88/-0.82
+        fb1 = min(0.88, 0.50 + comb_mix * 0.38)
+        fb2 = -min(0.82, 0.45 + comb_mix * 0.37)
+        fb3 = min(0.78, 0.30 + comb_mix * 0.48)
 
         a1 = np.zeros(d1 + 1, dtype=np.float32)
         a1[0] = 1.0
-        a1[d1] = 0.72
-        b1 = np.array([1.0], dtype=np.float32)
-        c1 = signal.lfilter(b1, a1, out)
+        a1[d1] = fb1
+        c1 = signal.lfilter([1.0], a1, out)
 
         a2 = np.zeros(d2 + 1, dtype=np.float32)
         a2[0] = 1.0
-        a2[d2] = -0.65
-        b2 = np.array([1.0], dtype=np.float32)
-        c2 = signal.lfilter(b2, a2, out)
+        a2[d2] = fb2
+        c2 = signal.lfilter([1.0], a2, out)
 
-        metallic_layer = 0.50 * c1 + 0.50 * c2
-        out = (1.0 - comb_mix * 0.85) * out + (comb_mix * 0.85) * metallic_layer
+        a3 = np.zeros(d3 + 1, dtype=np.float32)
+        a3[0] = 1.0
+        a3[d3] = fb3
+        c3 = signal.lfilter([1.0], a3, out)
+
+        metallic_layer = 0.45 * c1 + 0.35 * c2 + 0.20 * c3
+        wet_mix = min(0.95, comb_mix * 0.95)
+        out = (1.0 - wet_mix) * out + wet_mix * metallic_layer
 
     # 5. Flanger
     if flanger_mix > 0.01:

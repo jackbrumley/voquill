@@ -876,14 +876,16 @@ HTML_CONTENT = """<!DOCTYPE html>
       const url = URL.createObjectURL(blob);
       audio.src = url;
       audio.style.display = 'block';
+      audio.onplay = () => {
+        btn.disabled = false;
+        btn.innerText = '⏹ Stop Audio Preview';
+        btn.style.background = '#ef4444';
+        btn.onclick = stopAudio;
+      };
       audio.onended = resetPlayBtn;
       audio.onpause = resetPlayBtn;
       await audio.play();
 
-      btn.disabled = false;
-      btn.innerText = '⏹ Stop Audio Preview';
-      btn.style.background = '#ef4444';
-      btn.onclick = stopAudio;
       status.innerHTML = `<span style="color:#34d399;">✓ Playing 2-channel stereo audio in both ears!</span>`;
     } catch (e) {
       status.innerHTML = `<span style="color:#f87171;">Error: ${e.message}</span>`;
