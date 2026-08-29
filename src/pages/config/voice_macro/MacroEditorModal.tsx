@@ -229,7 +229,8 @@ export function MacroEditorModal({
   return (
     <Modal
       onClose={onClose}
-      fullScreen
+      showCloseButton={false}
+      footerAlign="space-between"
       footer={
         <div
           style={{

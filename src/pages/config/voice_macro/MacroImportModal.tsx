@@ -98,9 +98,10 @@ export function MacroImportModal({
     <Modal
       title="Import Voice Macros"
       onClose={onClose}
-      maxWidth="620px"
+      maxWidth="720px"
+      footerAlign="space-between"
       footer={
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+        <>
           <Button variant="ghost" onClick={onClose} style={{ padding: '6px 12px', fontSize: '12px' }}>
             Cancel
           </Button>
@@ -120,12 +121,12 @@ export function MacroImportModal({
                   : `Import ${validCount} Macros`}
             </span>
           </Button>
-        </div>
+        </>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minHeight: 0 }}>
         {/* Quick action bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexShrink: 0 }}>
           <span style={{ fontSize: '11px', color: tokens.colors.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
             Paste Macro JSON or File Content
           </span>
@@ -158,7 +159,7 @@ export function MacroImportModal({
             jsonInput.value = (e.target as HTMLTextAreaElement).value;
           }}
           placeholder='Paste shared JSON snippet here (e.g. {"phrase": "whats my hostname", "steps": [...]})'
-          rows={6}
+          rows={5}
           style={{
             ...inputBaseStyle,
             width: '100%',
@@ -166,8 +167,9 @@ export function MacroImportModal({
             fontSize: '11.5px',
             lineHeight: 1.4,
             resize: 'vertical',
-            minHeight: '100px',
-            maxHeight: '200px',
+            minHeight: '90px',
+            maxHeight: '180px',
+            flexShrink: 0,
           }}
         />
 
@@ -180,6 +182,7 @@ export function MacroImportModal({
               border: '1px solid rgba(239, 68, 68, 0.3)',
               fontSize: '11px',
               color: '#fca5a5',
+              flexShrink: 0,
             }}
           >
             {fileError.value}
@@ -197,7 +200,8 @@ export function MacroImportModal({
               borderRadius: '6px',
               background: 'rgba(0, 0, 0, 0.25)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
-              maxHeight: '200px',
+              flex: 1,
+              minHeight: 0,
               overflowY: 'auto',
             }}
           >

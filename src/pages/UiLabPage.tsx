@@ -86,11 +86,20 @@ export function UiLabPage({ onBackToSettings }: UiLabPageProps) {
         <ConfigField label="Modal" description="Demo modal dialog">
           <Button variant="primary" pill onClick={() => { isModalOpen.value = true; }}>Open Modal</Button>
           {isModalOpen.value && (
-            <Modal title="Demo Modal" onClose={() => { isModalOpen.value = false; }} maxWidth="400px">
-              <p>This is a demo modal for testing purposes.</p>
-              <div style={{ marginTop: '16px' }}>
-                <Button variant="primary" pill onClick={() => { isModalOpen.value = false; }}>Close</Button>
-              </div>
+            <Modal
+              title="Demo Modal"
+              onClose={() => { isModalOpen.value = false; }}
+              maxWidth="480px"
+              centerContent
+              footer={
+                <Button variant="primary" pill onClick={() => { isModalOpen.value = false; }}>
+                  Close
+                </Button>
+              }
+            >
+              <p style={{ color: tokens.colors.textSecondary, margin: 0, textAlign: 'center' }}>
+                This is a demo of the standardized full-page modal with application background.
+              </p>
             </Modal>
           )}
         </ConfigField>

@@ -211,11 +211,20 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
     <Modal
       title="🎙️ Voice Studio — Custom Voice Designer"
       onClose={onClose}
-      maxWidth="780px"
+      footer={
+        <Button
+          variant="ghost"
+          pill
+          onClick={onClose}
+          style={{ padding: '6px 16px', fontSize: '12px' }}
+        >
+          Close
+        </Button>
+      }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
         {/* Navigation Sub-Tabs */}
-        <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px' }}>
+        <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px', flexShrink: 0 }}>
           <Button
             variant={activeTab.value === 'studio' ? 'primary' : 'configAction'}
             onClick={() => { activeTab.value = 'studio'; }}
@@ -246,7 +255,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
         {/* TAB 1: INTERACTIVE STUDIO */}
         {activeTab.value === 'studio' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '14px', maxHeight: '490px', overflowY: 'auto', paddingRight: '2px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '14px', flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '2px' }}>
             {/* Left Column: Voice & Phrase */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -465,7 +474,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
         {/* TAB 2: SAVED PRESETS */}
         {activeTab.value === 'presets' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '420px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {savedPresets.value.length === 0 ? (
               <p style={{ color: tokens.colors.textMuted, fontSize: '12px', padding: '16px', textAlign: 'center' }}>
                 No custom presets saved yet. Tune a voice in the Studio and click Save!
@@ -506,7 +515,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
         {/* TAB 3: FEEDBACK LOG */}
         {activeTab.value === 'history' && (
-          <div style={{ maxHeight: '420px', overflowY: 'auto', fontSize: '11px', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '6px' }}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', fontSize: '11px', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '6px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: 'rgba(255, 255, 255, 0.04)', color: tokens.colors.textMuted }}>

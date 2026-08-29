@@ -12,14 +12,20 @@ export function PostProcessModelInfoModal({ onClose }: PostProcessModelInfoModal
     <Modal
       title="Post-Processing Models"
       onClose={onClose}
-      fullScreen
+      maxWidth="680px"
+      footerAlign="center"
+      footer={
+        <Button variant="primary" pill onClick={onClose} style={{ minWidth: '180px' }}>
+          Got it
+        </Button>
+      }
     >
       <p style={{ fontSize: tokens.typography.sizeMd, color: tokens.colors.textSecondary, lineHeight: 1.6, margin: 0 }}>
         Post-processing uses a local language model to clean up your transcriptions — fixing punctuation, capitalization, and removing filler words. Pick a model below that fits your hardware.
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.md }}>
-        <div style={{ display: 'flex', gap: tokens.spacing.md, padding: tokens.spacing.md, borderRadius: '12px', border: '1px solid rgba(88, 101, 242, 0.32)', background: '#313652' }}>
+        <div style={{ display: 'flex', gap: tokens.spacing.md, padding: tokens.spacing.md, borderRadius: '12px', border: '1px solid rgba(88, 101, 242, 0.32)', background: 'rgba(49, 54, 82, 0.65)' }}>
           <div style={{ width: '48px', height: '48px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: '#29413a', color: '#10b981' }}>
             <IconScale size={24} />
           </div>
@@ -29,7 +35,7 @@ export function PostProcessModelInfoModal({ onClose }: PostProcessModelInfoModal
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: tokens.spacing.md, padding: tokens.spacing.md, background: '#2f3136', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+        <div style={{ display: 'flex', gap: tokens.spacing.md, padding: tokens.spacing.md, background: 'rgba(47, 49, 54, 0.65)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
           <div style={{ width: '48px', height: '48px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: '#3a2f25', color: '#f1c40f' }}>
             <IconBolt size={24} />
           </div>
@@ -39,7 +45,7 @@ export function PostProcessModelInfoModal({ onClose }: PostProcessModelInfoModal
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: tokens.spacing.md, padding: tokens.spacing.md, background: '#2f3136', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+        <div style={{ display: 'flex', gap: tokens.spacing.md, padding: tokens.spacing.md, background: 'rgba(47, 49, 54, 0.65)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
           <div style={{ width: '48px', height: '48px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: '#2a3344', color: '#5865f2' }}>
             <IconCpu size={24} />
           </div>
@@ -48,10 +54,6 @@ export function PostProcessModelInfoModal({ onClose }: PostProcessModelInfoModal
             <p style={{ margin: 0, fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, lineHeight: 1.5 }}>After transcription, your text is sent to a local llama-server process running the selected GGUF model. It runs entirely on your machine — no internet needed after download.</p>
           </div>
         </div>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: tokens.spacing.sm, paddingBottom: tokens.spacing.md }}>
-        <Button variant="primary" pill onClick={onClose} style={{ minWidth: '180px' }}>Got it</Button>
       </div>
     </Modal>
   );
