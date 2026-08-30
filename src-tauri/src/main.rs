@@ -126,6 +126,9 @@ fn main() {
     // unified ~/.config/voquill-app root before anything touches storage.
     let storage_migration_report = paths::migrate_legacy_location();
 
+    // Clean up any legacy autostart entries from previous application versions.
+    let autostart_cleanup_report = paths::cleanup_legacy_autostart_entries();
+
     let initial_config = config::load_config().unwrap_or_default();
 
     // Session logging is always enabled. The persistence toggle is available
@@ -135,6 +138,9 @@ fn main() {
 
     if let Some(report) = storage_migration_report {
         log_info!("Storage migration: {}", report);
+    }
+    for item in autostart_cleanup_report {
+        log_info!("Autostart migration: {}", item);
     }
 
     log_cpu_features();
@@ -149,7 +155,12 @@ fn main() {
     let app_state = app::bootstrap::build_app_state(&initial_config);
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_autostart::Builder::new().build())
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name("voquill")
+                .arg("--start-hidden")
+                .build(),
+        )
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())

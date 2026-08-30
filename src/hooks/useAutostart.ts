@@ -25,8 +25,9 @@ export function useAutostart(showToast: (message: string, type: 'success' | 'err
       } else {
         await disableAutostart();
       }
-      autostartEnabled.value = enabled;
-      showToast(`Auto-start ${enabled ? 'enabled' : 'disabled'}`, 'success');
+      const actualState = await isEnabled();
+      autostartEnabled.value = actualState;
+      showToast(`Auto-start ${actualState ? 'enabled' : 'disabled'}`, 'success');
     } catch (error) {
       showToast(`Failed to toggle auto-start: ${error}`, 'error');
     }

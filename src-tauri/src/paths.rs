@@ -171,6 +171,63 @@ pub fn migrate_legacy_location() -> Option<String> {
     }
 }
 
+/// Cleans up legacy or obsolete autostart desktop entries and registry keys
+/// from previous versions of the application (e.g. `org.voquill.app.desktop`,
+/// `org.voquill.foss.desktop`, `Voquill.desktop`).
+pub fn cleanup_legacy_autostart_entries() -> Vec<String> {
+    let mut cleaned = Vec::new();
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(config_dir) = dirs::config_dir() {
+            let autostart_dir = config_dir.join("autostart");
+            if autostart_dir.is_dir() {
+                let legacy_files = [
+                    "org.voquill.app.desktop",
+                    "org.voquill.foss.desktop",
+                    "Voquill.desktop",
+                    "org.voquill.desktop.desktop",
+                ];
+                for file_name in legacy_files {
+                    let path = autostart_dir.join(file_name);
+                    if path.exists() && fs::remove_file(&path).is_ok() {
+                        cleaned.push(format!("removed legacy autostart file: {}", path.display()));
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use winreg::enums::{HKEY_CURRENT_USER, KEY_SET_VALUE};
+        use winreg::RegKey;
+
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        if let Ok(run_key) = hkcu.open_subkey_with_flags(
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+            KEY_SET_VALUE,
+        ) {
+            let legacy_names = [
+                "Voquill",
+                "org.voquill.app",
+                "org.voquill.foss",
+                "foss-voquill",
+            ];
+            for name in legacy_names {
+                if run_key.delete_value(name).is_ok() {
+                    cleaned.push(format!(
+                        "removed legacy Windows autostart registry key: {}",
+                        name
+                    ));
+                }
+            }
+        }
+    }
+
+    cleaned
+}
+
 fn copy_tree(source: &Path, destination: &Path) -> std::io::Result<()> {
     fs::create_dir_all(destination)?;
     for entry in fs::read_dir(source)? {
