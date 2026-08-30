@@ -22,6 +22,8 @@ import importlib
 import logging
 import os
 import sys
+import threading
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -37,6 +39,64 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger("voquill.server")
+
+
+# ── Parent Watchdog ────────────────────────────────────────────────────────
+def _is_process_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            SYNCHRONIZE = 0x00100000
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not handle:
+                err = kernel32.GetLastError()
+                # ERROR_ACCESS_DENIED (5) confirms the process exists and is active
+                if err == 5:
+                    return True
+                # ERROR_INVALID_PARAMETER (87) means process does not exist
+                return False
+            wait_res = kernel32.WaitForSingleObject(handle, 0)
+            kernel32.CloseHandle(handle)
+            # WAIT_TIMEOUT = 258 -> process still running
+            return wait_res == 258
+        except Exception:
+            return True
+    else:
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError as e:
+            import errno
+            return e.errno == errno.EPERM
+
+
+def _start_parent_watchdog(parent_pid_str: str | None) -> None:
+    if not parent_pid_str:
+        return
+    try:
+        parent_pid = int(parent_pid_str)
+    except ValueError:
+        return
+
+    def _watchdog_loop():
+        logger.info("Parent watchdog active for PID %d", parent_pid)
+        dead_count = 0
+        while True:
+            time.sleep(1.0)
+            if not _is_process_alive(parent_pid):
+                dead_count += 1
+                if dead_count >= 3:
+                    logger.info("Parent PID %d exited (confirmed %d times). Terminating Python runner.", parent_pid, dead_count)
+                    os._exit(0)
+            else:
+                dead_count = 0
+
+    thread = threading.Thread(target=_watchdog_loop, name="parent-watchdog", daemon=True)
+    thread.start()
 
 # ── Startup state ──────────────────────────────────────────────────────────
 # Set by the Rust launcher as an env var so the server knows its home.
@@ -342,6 +402,7 @@ def synthesize_custom_tts(body: dict) -> dict:
 
 # ── Entry point (used when Rust spawns the server) ─────────────────────────
 def main():
+    _start_parent_watchdog(os.environ.get("VOQUILL_PARENT_PID"))
     port = int(os.environ.get("VOQUILL_PORT", "9000"))
     logger.info("Starting on port %d (base_dir=%s)", port, RUNNER_BASE_DIR)
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")

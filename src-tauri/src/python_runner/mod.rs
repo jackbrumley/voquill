@@ -13,7 +13,7 @@ const RUNNER_PORT_START: u16 = 6201;
 const RUNNER_PORT_END: u16 = 6350;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
 const HEALTH_RETRY_INTERVAL: Duration = Duration::from_millis(500);
-const RUNNER_VERSION: &str = "1.2.21";
+const RUNNER_VERSION: &str = "1.2.25";
 const PYTHON_VERSION: &str = "20250115";
 const PYTHON_DOWNLOAD_BASE: &str =
     "https://github.com/astral-sh/python-build-standalone/releases/download";
@@ -494,8 +494,8 @@ async fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
     let server_script_str = server_script
         .to_str()
         .ok_or_else(|| "Invalid server.py path".to_string())?;
-    let child = silent_command(&python_bin)
-        .args([server_script_str])
+    let mut cmd = silent_command(&python_bin);
+    cmd.args([server_script_str])
         .env("VOQUILL_PORT", port.to_string())
         .env(
             "VOQUILL_PYTHON_RUNNER_DIR",
@@ -506,12 +506,21 @@ async fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
             "VOQUILL_VOICE_PRESETS_FILE",
             presets_file.to_string_lossy().as_ref(),
         )
+        .env("VOQUILL_PARENT_PID", std::process::id().to_string())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .stdin(Stdio::null())
-        .kill_on_drop(true)
+        .kill_on_drop(true);
+
+    crate::process_guard::configure_tokio_command_death_signal(&mut cmd);
+
+    let child = cmd
         .spawn()
         .map_err(|e| format!("Failed to spawn Python runner: {}", e))?;
+
+    if let Some(pid) = child.id() {
+        crate::process_guard::bind_child_process(pid);
+    }
 
     Ok(child)
 }

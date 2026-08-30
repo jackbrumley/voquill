@@ -6,6 +6,8 @@ use cpal::{SampleFormat, StreamConfig};
 
 use super::conversion::resample_linear;
 
+const PLAYBACK_GAIN: f32 = 0.70;
+
 #[allow(dead_code)]
 pub fn play_audio_on_device<F>(
     device: &cpal::Device,
@@ -58,7 +60,7 @@ where
                     }
                     for frame in data.chunks_mut(chans) {
                         if idx < resampled_clone.len() {
-                            let s = resampled_clone[idx];
+                            let s = (resampled_clone[idx] * PLAYBACK_GAIN).clamp(-1.0, 1.0);
                             for out in frame.iter_mut() {
                                 *out = s;
                             }
@@ -92,7 +94,8 @@ where
                     }
                     for frame in data.chunks_mut(chans) {
                         if idx < resampled_clone.len() {
-                            let s = (resampled_clone[idx] * i16::MAX as f32) as i16;
+                            let s = ((resampled_clone[idx] * PLAYBACK_GAIN).clamp(-1.0, 1.0)
+                                * i16::MAX as f32) as i16;
                             for out in frame.iter_mut() {
                                 *out = s;
                             }

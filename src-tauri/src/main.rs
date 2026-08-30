@@ -58,6 +58,7 @@ mod parakeet;
 mod paths;
 pub mod platform;
 mod post_process;
+pub mod process_guard;
 mod python_runner;
 mod sidecar;
 mod text_cleanup;
@@ -260,6 +261,17 @@ fn main() {
             save_custom_voice_preset,
             delete_custom_voice_preset
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                crate::log_info!("Tauri exit event received — cleaning up background sidecars");
+                let state = app_handle.state::<AppState>();
+                let mut runner = None;
+                if let Ok(mut runner_guard) = state.python_runner.lock() {
+                    runner = runner_guard.take();
+                }
+                drop(runner);
+            }
+        });
 }

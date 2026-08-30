@@ -341,7 +341,7 @@ def apply_radio_effect(
 
     peak = np.max(np.abs(out))
     if peak > 1e-4:
-        out = (out / peak) * 0.92
+        out = (out / peak) * 0.68
 
     return out.astype(np.float32)
 
@@ -389,7 +389,7 @@ def apply_eva_effect(
 
     peak = np.max(np.abs(out))
     if peak > 1e-4:
-        out = (out / peak) * 0.95
+        out = (out / peak) * 0.68
 
     return out.astype(np.float32)
 
@@ -417,7 +417,7 @@ def apply_flight_deck_effect(
 
     peak = np.max(np.abs(out))
     if peak > 1e-4:
-        out = (out / peak) * 0.94
+        out = (out / peak) * 0.68
 
     return out.astype(np.float32)
 
@@ -444,16 +444,26 @@ def apply_custom_dsp(
 
     nyquist = 0.5 * sample_rate
 
-    # 1. Radio Bandpass
+    # 1. Radio Bandpass & Overdrive
     if radio_bandpass:
         low = 420.0 / nyquist
         high = min(3400.0 / nyquist, 0.95)
         sos = signal.butter(4, [low, high], btype="bandpass", output="sos")
         out = signal.sosfilt(sos, out)
 
-    # 2. Drive / Saturation
-    if radio_drive > 1.01:
-        out = np.tanh(out * radio_drive) / np.tanh(radio_drive)
+        # Drive / Saturation
+        if radio_drive > 1.01:
+            out = np.tanh(out * radio_drive) / np.tanh(radio_drive)
+
+        # RF Noise
+        if rf_noise > 0.01:
+            np.random.seed(42)
+            noise = np.random.normal(0, 0.03, len(out))
+            env = np.abs(out)
+            sos_env = signal.butter(1, min(12.0 / nyquist, 0.4), btype="lowpass", output="sos")
+            env_smooth = signal.sosfilt(sos_env, env)
+            env_smooth = np.clip(env_smooth / (np.max(env_smooth) + 1e-5), 0.15, 1.0)
+            out = out + noise * env_smooth * rf_noise
 
     # 3. Sub-Bass & Heavy Body Punch (0% flat -> 100% massive +18dB chest/subwoofer boom)
     if sub_bass > 0.01:
@@ -514,17 +524,7 @@ def apply_custom_dsp(
     if flanger_mix > 0.01:
         out = apply_flanger(out, sample_rate, rate_hz=0.6, depth_ms=1.8, base_delay_ms=2.5, mix=flanger_mix * 0.4)
 
-    # 6. RF Noise
-    if rf_noise > 0.01:
-        np.random.seed(42)
-        noise = np.random.normal(0, 0.03, len(out))
-        env = np.abs(out)
-        sos_env = signal.butter(1, min(12.0 / nyquist, 0.4), btype="lowpass", output="sos")
-        env_smooth = signal.sosfilt(sos_env, env)
-        env_smooth = np.clip(env_smooth / (np.max(env_smooth) + 1e-5), 0.15, 1.0)
-        out = out + noise * env_smooth * rf_noise
-
-    # 7. Opening / Closing Chimes
+    # 6. Opening / Closing Chimes
     open_tone = generate_opening_chime(opening_chime, sample_rate)
     close_tone = generate_closing_chime(closing_chime, sample_rate)
 
@@ -537,10 +537,9 @@ def apply_custom_dsp(
 
     out = np.concatenate(parts)
 
-    out_saturated = np.tanh(out * 1.15) / np.tanh(1.15)
-    peak = np.max(np.abs(out_saturated))
+    peak = float(np.max(np.abs(out)))
     if peak > 1e-4:
-        out = (out_saturated / peak) * 0.95
+        out = (out / peak) * 0.65
 
     out_final = out.astype(np.float32)
     rms = float(np.sqrt(np.mean(out_final**2)))
@@ -587,10 +586,10 @@ def apply_dsp_effect(
             shifted = pitch_shift(samples, sample_rate, pitch)
             peak = np.max(np.abs(shifted))
             if peak > 1e-4:
-                shifted = (shifted / peak) * 0.95
+                shifted = (shifted / peak) * 0.65
             return shifted
 
         peak = np.max(np.abs(samples))
         if peak > 1e-4:
-            return (samples / peak * 0.95).astype(np.float32)
+            return (samples / peak * 0.65).astype(np.float32)
         return samples

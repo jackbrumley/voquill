@@ -73,8 +73,8 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
   const combMix = useSignal(0.0);
   const flangerMix = useSignal(0.0);
   const radioBandpass = useSignal(false);
-  const radioDrive = useSignal(2.2);
-  const rfNoise = useSignal(0.25);
+  const radioDrive = useSignal(1.0);
+  const rfNoise = useSignal(0.0);
   const openingChime = useSignal('none');
   const closingChime = useSignal('none');
 
@@ -129,8 +129,8 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
     openingChime.value = 'none';
     closingChime.value = 'none';
     radioBandpass.value = false;
-    radioDrive.value = 2.2;
-    rfNoise.value = 0.25;
+    radioDrive.value = 1.0;
+    rfNoise.value = 0.0;
   };
 
   const handleStartNewPreset = () => {
@@ -168,8 +168,8 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
           comb_mix: parseFloat(String(combMix.value)) || 0.0,
           flanger_mix: parseFloat(String(flangerMix.value)) || 0.0,
           radio_bandpass: Boolean(radioBandpass.value),
-          radio_drive: parseFloat(String(radioDrive.value)) || 1.0,
-          rf_noise: parseFloat(String(rfNoise.value)) || 0.0,
+          radio_drive: radioBandpass.value ? (parseFloat(String(radioDrive.value)) || 1.0) : 1.0,
+          rf_noise: radioBandpass.value ? (parseFloat(String(rfNoise.value)) || 0.0) : 0.0,
           opening_chime: openingChime.value || 'none',
           closing_chime: closingChime.value || 'none',
         },
@@ -218,8 +218,8 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
       comb_mix: combMix.value,
       flanger_mix: flangerMix.value,
       radio_bandpass: radioBandpass.value,
-      radio_drive: radioDrive.value,
-      rf_noise: rfNoise.value,
+      radio_drive: radioBandpass.value ? radioDrive.value : 1.0,
+      rf_noise: radioBandpass.value ? rfNoise.value : 0.0,
       opening_chime: openingChime.value,
       closing_chime: closingChime.value,
     };
@@ -622,7 +622,17 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                   type="checkbox"
                   id="vl_radio_check"
                   checked={radioBandpass.value}
-                  onChange={(e) => { radioBandpass.value = (e.target as HTMLInputElement).checked; }}
+                  onChange={(e) => {
+                    const checked = (e.target as HTMLInputElement).checked;
+                    radioBandpass.value = checked;
+                    if (checked && radioDrive.value <= 1.01) {
+                      radioDrive.value = 2.2;
+                      rfNoise.value = 0.25;
+                    } else if (!checked) {
+                      radioDrive.value = 1.0;
+                      rfNoise.value = 0.0;
+                    }
+                  }}
                   style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
                 />
                 <label htmlFor="vl_radio_check" style={{ fontSize: '10.5px', color: tokens.colors.textPrimary, cursor: 'pointer' }}>

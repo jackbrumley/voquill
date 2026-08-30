@@ -149,6 +149,8 @@ pub fn spawn_sidecar(binary_path: &std::path::Path, args: &[String]) -> anyhow::
         .stdin(Stdio::null())
         .kill_on_drop(true);
 
+    crate::process_guard::configure_tokio_command_death_signal(&mut command);
+
     #[cfg(target_os = "windows")]
     {
         // CREATE_NO_WINDOW: prevent the console-subsystem sidecar from
@@ -156,7 +158,13 @@ pub fn spawn_sidecar(binary_path: &std::path::Path, args: &[String]) -> anyhow::
         command.creation_flags(0x08000000);
     }
 
-    command
+    let child = command
         .spawn()
-        .with_context(|| format!("Failed to spawn {}", binary_path.display()))
+        .with_context(|| format!("Failed to spawn {}", binary_path.display()))?;
+
+    if let Some(pid) = child.id() {
+        crate::process_guard::bind_child_process(pid);
+    }
+
+    Ok(child)
 }
