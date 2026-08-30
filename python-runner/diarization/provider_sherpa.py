@@ -51,13 +51,18 @@ def _ensure_segmentation_model(runner_base_dir: str) -> str:
     archive_name = f"{_SEGMENTATION_MODEL_DIR}.tar.bz2"
     archive_path = os.path.join(models_dir, archive_name)
 
-    logger.info("Downloading speaker segmentation model...")
-    urllib.request.urlretrieve(_SEGMENTATION_MODEL_URL, archive_path)
-
-    logger.info("Extracting speaker segmentation model...")
-    with tarfile.open(archive_path, "r:bz2") as tar:
-        tar.extractall(path=models_dir)
-    os.remove(archive_path)
+    logger.info("Downloading speaker segmentation model fallback...")
+    try:
+        urllib.request.urlretrieve(_SEGMENTATION_MODEL_URL, archive_path)
+        logger.info("Extracting speaker segmentation model...")
+        with tarfile.open(archive_path, "r:bz2") as tar:
+            tar.extractall(path=models_dir)
+    finally:
+        if os.path.exists(archive_path):
+            try:
+                os.remove(archive_path)
+            except OSError:
+                pass
 
     if not os.path.exists(model_path):
         raise FileNotFoundError(
@@ -80,13 +85,18 @@ def _ensure_embedding_model(runner_base_dir: str) -> str:
     models_dir = os.path.join(runner_base_dir, "models")
     os.makedirs(models_dir, exist_ok=True)
 
-    logger.info("Downloading speaker embedding model...")
-    urllib.request.urlretrieve(_EMBEDDING_MODEL_URL, model_path)
-
-    if not os.path.exists(model_path):
+    logger.info("Downloading speaker embedding model fallback...")
+    try:
+        urllib.request.urlretrieve(_EMBEDDING_MODEL_URL, model_path)
+    except Exception as e:
+        if os.path.exists(model_path):
+            try:
+                os.remove(model_path)
+            except OSError:
+                pass
         raise FileNotFoundError(
-            f"Embedding model not found after download at {model_path}"
-        )
+            f"Embedding model not found after download attempt at {model_path}: {e}"
+        ) from e
 
     logger.info("Speaker embedding model ready at %s", model_path)
     return model_path

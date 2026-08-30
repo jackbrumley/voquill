@@ -225,14 +225,18 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
     };
 
     try {
-      await invoke('save_custom_voice_preset', { preset: newPreset });
+      const updatedCount = await invoke<number>('save_custom_voice_preset', { preset: newPreset });
       currentPresetId.value = id;
       savedPresets.value = [...savedPresets.value.filter((p) => p.id !== id), newPreset];
-      saveSuccessMsg.value = `Saved "${name}"!`;
+      if (typeof updatedCount === 'number' && updatedCount > 0) {
+        saveSuccessMsg.value = `Saved "${name}" and updated ${updatedCount} macro voice${updatedCount === 1 ? '' : 's'}!`;
+      } else {
+        saveSuccessMsg.value = `Saved "${name}"!`;
+      }
       onPresetSaved?.(newPreset);
       setTimeout(() => {
         saveSuccessMsg.value = null;
-      }, 3000);
+      }, 3500);
     } catch (e) {
       previewError.value = `Failed to save preset: ${e}`;
     }

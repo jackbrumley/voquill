@@ -357,7 +357,11 @@ pub async fn get_custom_voice_presets() -> Result<Vec<serde_json::Value>, String
 }
 
 #[command]
-pub async fn save_custom_voice_preset(preset: serde_json::Value) -> Result<(), String> {
+pub async fn save_custom_voice_preset(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+    preset: serde_json::Value,
+) -> Result<usize, String> {
     let presets_file = crate::paths::voice_presets_file()?;
     let mut presets: Vec<serde_json::Value> = if presets_file.exists() {
         let data = std::fs::read_to_string(&presets_file).unwrap_or_default();
@@ -369,9 +373,23 @@ pub async fn save_custom_voice_preset(preset: serde_json::Value) -> Result<(), S
     let id = preset
         .get("id")
         .and_then(|v| v.as_str())
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .to_string();
+
+    let speed = preset
+        .get("speed")
+        .and_then(|v| v.as_f64())
+        .map(|v| v as f32)
+        .unwrap_or(1.0);
+
+    let pitch = preset
+        .get("pitch")
+        .and_then(|v| v.as_f64())
+        .map(|v| v as f32)
+        .unwrap_or(0.0);
+
     if !id.is_empty() {
-        presets.retain(|p| p.get("id").and_then(|v| v.as_str()) != Some(id));
+        presets.retain(|p| p.get("id").and_then(|v| v.as_str()) != Some(&id));
     }
     presets.push(preset);
 
@@ -380,7 +398,59 @@ pub async fn save_custom_voice_preset(preset: serde_json::Value) -> Result<(), S
     std::fs::write(&presets_file, json)
         .map_err(|e| format!("Failed to save voice presets: {}", e))?;
 
-    Ok(())
+    // Automatically regenerate audio on disk for all macros that use this preset
+    let mut regenerated_count = 0;
+    if !id.is_empty() {
+        let matching_macros: Vec<(String, String)> = {
+            let config = state.config.lock().unwrap();
+            config
+                .voice_macros
+                .iter()
+                .filter(|m| {
+                    m.sound_mode == crate::config::MacroSoundMode::Tts
+                        && m.sound_tts_voice.as_deref() == Some(&id)
+                        && m.sound_tts_text
+                            .as_deref()
+                            .map(|t| !t.trim().is_empty())
+                            .unwrap_or(false)
+                })
+                .map(|m| (m.id.clone(), m.sound_tts_text.clone().unwrap()))
+                .collect()
+        };
+
+        for (macro_id, text) in matching_macros {
+            crate::log_info!(
+                "[Voice Preset] Regenerating audio for macro '{}' using updated preset '{}'...",
+                macro_id,
+                id
+            );
+            match save_macro_tts_audio(
+                app_handle.clone(),
+                state.clone(),
+                macro_id.clone(),
+                text,
+                id.clone(),
+                speed,
+                Some("custom".to_string()),
+                Some(pitch),
+            )
+            .await
+            {
+                Ok(_) => {
+                    regenerated_count += 1;
+                }
+                Err(e) => {
+                    crate::log_warn!(
+                        "[Voice Preset] Failed to regenerate audio for macro '{}': {}",
+                        macro_id,
+                        e
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(regenerated_count)
 }
 
 #[command]

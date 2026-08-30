@@ -399,6 +399,10 @@ async fn run_diarization(
     audio_path: &str,
     cluster_threshold: f32,
 ) -> Result<DiarizationResult, String> {
+    if !crate::python_runner::is_diarization_ready() {
+        crate::python_runner::download_diarization_models(app_handle).await?;
+    }
+
     let app_state = app_handle.state::<crate::AppState>();
     let runner = app_state
         .get_or_start_python_runner(app_handle)
