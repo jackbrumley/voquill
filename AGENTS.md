@@ -37,9 +37,15 @@ We design for long-term maintainability as a solo-developed project. Architectur
 - **Small, Localized Change Surface:** Future platform changes (portal updates, new compositor behavior) should require minor edits in capability/adapter modules, not architectural rewrites.
 - **State Machines Over Ad-Hoc Flags:** For non-trivial flows (permissions, hotkeys, portal sessions), prefer explicit state transitions over scattered booleans.
 
-### 8. Python Runner Architecture (Diarization & Audio Processing)
+### 8. Python Runner Architecture (Pure Execution Runtime)
 
 The `python-runner/` directory at the project root is a self-contained Python FastAPI server that handles audio processing tasks requiring Python ML libraries. It is bundled as a Tauri resource and extracted to the config directory at runtime.
+
+**Core Philosophy & Architecture Boundaries:**
+- **Rust is Core / Python is Pure Execution:** Rust is the authoritative core of Voquill. Rust owns all network I/O, model downloads, archive extraction, streaming progress emission to Preact, process lifecycle management, and UI state synchronization. The Python runner is **strictly an execution runtime** for specialized ML inference (Piper TTS, sherpa-onnx diarization, spectral enhancement).
+- **Zero Autonomous Python Downloads:** Python modules must **never** perform blocking asset downloads (e.g. via `urllib.request` or `requests`) inside request handlers. All neural models, weights, and runtime files must be downloaded, verified, and placed on disk by Rust before invoking Python endpoints. Downloading within Python causes severe UI disconnects, breaks progress indicators, and triggers HTTP client timeouts.
+- **Native Rust Extraction:** Model archives (`.tar.bz2`, `.tar.gz`, `.zip`) must be acquired and extracted natively in Rust via `archive::extract_archive` directly to the runner storage directory, streaming live `model-download-progress` / `tts-model-download-progress` events to the UI.
+- **Fast Inference:** Python endpoints assume local model assets are already present on disk, performing immediate inference (<100ms for TTS) and returning structured Pydantic responses.
 
 **How it works:**
 1. **Bundling:** `python-runner/**/*` is listed in `tauri.conf.json` `resources`. At build time, all Python source files are bundled with the app.
@@ -50,9 +56,10 @@ The `python-runner/` directory at the project root is a self-contained Python Fa
    - `GET /health` — health check
    - `GET /capabilities` — discover available endpoints
    - `POST /diarize` — speaker diarization
+   - `POST /tts/synthesize` — text-to-speech synthesis
 
 **Capability-Based Design:**
-- Each feature (diarization, VAD, enhancement) is a separate module under `python-runner/`
+- Each feature (diarization, TTS, enhancement) is a separate module under `python-runner/`
 - Each module has a `run()` function with a standard signature
 - The Rust side discovers endpoints via `GET /capabilities`
 - Adding a new capability requires only a new Python module + requirements file — no Rust changes
@@ -66,11 +73,13 @@ The `python-runner/` directory at the project root is a self-contained Python Fa
 | File | Role |
 |------|------|
 | `python-runner/server.py` | FastAPI app, capability discovery, routing |
+| `python-runner/tts/provider_sherpa.py` | Tier 2 Piper TTS execution |
 | `python-runner/diarization/provider_sherpa.py` | Tier 2 diarization (sherpa-onnx) |
 | `python-runner/diarization/schemas.py` | Pydantic models (shared across providers) |
 | `python-runner/requirements/base.txt` | Core deps (fastapi, uvicorn) |
 | `python-runner/requirements/diarization-sherpa.txt` | Tier 2 deps (sherpa-onnx, soundfile) |
 | `src-tauri/src/python_runner/mod.rs` | Rust lifecycle: extract, venv, spawn, health |
+| `src-tauri/src/python_runner/tts_models.rs` | Rust TTS model catalog, download, and archive extraction |
 | `src-tauri/src/diarization/mod.rs` | Rust types: Segment, DiarizationResult, DiarizationService trait |
 | `src-tauri/src/diarization/provider_python.rs` | (future) Wraps PythonRunner for DiarizationService trait |
 
