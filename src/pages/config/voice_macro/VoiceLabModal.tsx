@@ -458,13 +458,6 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                 ariaLabel="Base Voice Model"
                 style={{ width: '100%', fontSize: '11.5px' }}
               />
-              <DownloadProgressBar
-                isDownloading={isDownloading.value}
-                progress={downloadProgress.value}
-                phase={downloadPhase.value}
-                itemLabel="neural voice model"
-                compact
-              />
             </div>
 
             {/* LibriTTS Multi-Speaker Slider */}
@@ -654,6 +647,18 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                 </div>
               )}
             </div>
+
+            {/* Model Download Progress Bar */}
+            {isDownloading.value && (
+              <div style={{ width: '100%', marginTop: '4px' }}>
+                <DownloadProgressBar
+                  isDownloading={isDownloading.value}
+                  progress={downloadProgress.value}
+                  phase={downloadPhase.value}
+                  itemLabel="Voice Model"
+                />
+              </div>
+            )}
 
             {/* Preview / Stop Button */}
             <div>

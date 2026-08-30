@@ -486,6 +486,8 @@ fn python_bin_path(runner_dir: &Path) -> PathBuf {
 async fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
     let python_bin = python_bin_path(runner_dir);
     let server_script = runner_dir.join("server.py");
+    let app_root = crate::paths::app_root()?;
+    let presets_file = crate::paths::voice_presets_file()?;
 
     crate::log_info!("Starting Python runner on port {}", port);
 
@@ -498,6 +500,11 @@ async fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
         .env(
             "VOQUILL_PYTHON_RUNNER_DIR",
             runner_dir.to_string_lossy().as_ref(),
+        )
+        .env("VOQUILL_APP_ROOT", app_root.to_string_lossy().as_ref())
+        .env(
+            "VOQUILL_VOICE_PRESETS_FILE",
+            presets_file.to_string_lossy().as_ref(),
         )
         .stdout(Stdio::null())
         .stderr(Stdio::piped())

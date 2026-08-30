@@ -388,7 +388,27 @@ def get_available_models(runner_base_dir: str = ".") -> List[BaseVoiceModelInfo]
     return results
 
 
-def get_available_voices(runner_base_dir: str) -> list[VoicePersonaInfo]:
+def _resolve_presets_file_path(runner_base_dir: str, presets_file_path: str | None = None) -> str:
+    if presets_file_path and os.path.exists(presets_file_path):
+        return presets_file_path
+    env_path = os.environ.get("VOQUILL_VOICE_PRESETS_FILE")
+    if env_path and os.path.exists(env_path):
+        return env_path
+    # Standard location: ~/.config/voquill-app/voice_presets.json (parent of runner_dir)
+    parent_path = os.path.join(os.path.dirname(os.path.abspath(runner_base_dir)), "voice_presets.json")
+    if os.path.exists(parent_path):
+        return parent_path
+    # Direct fallback in runner_base_dir
+    direct_path = os.path.join(runner_base_dir, "voice_presets.json")
+    if os.path.exists(direct_path):
+        return direct_path
+    return presets_file_path or env_path or parent_path
+
+
+def get_available_voices(
+    runner_base_dir: str,
+    presets_file_path: str | None = None,
+) -> list[VoicePersonaInfo]:
     models_dir = os.path.join(runner_base_dir, "models", "tts")
     results: list[VoicePersonaInfo] = []
 
@@ -418,8 +438,8 @@ def get_available_voices(runner_base_dir: str) -> list[VoicePersonaInfo]:
             )
         )
 
-    # 2. User saved presets from voice_presets.json
-    presets_file = os.path.join(runner_base_dir, "voice_presets.json")
+    # 2. User saved presets from voice_presets.json (Single Source of Truth)
+    presets_file = _resolve_presets_file_path(runner_base_dir, presets_file_path)
     if os.path.exists(presets_file):
         try:
             with open(presets_file, "r") as f:
@@ -448,7 +468,7 @@ def get_available_voices(runner_base_dir: str) -> list[VoicePersonaInfo]:
                         )
                     )
         except Exception as e:
-            logger.warning("Could not read voice_presets.json: %s", e)
+            logger.warning("Could not read voice_presets.json at %s: %s", presets_file, e)
 
     return results
 
@@ -542,13 +562,15 @@ def run(
     pitch: float = 0.0,
     output_path: str | None = None,
     runner_base_dir: str = ".",
+    presets_file_path: str | None = None,
 ) -> TtsSynthesizeResponse:
     clean_text = text.strip()
     if not clean_text:
         raise ValueError("Text to synthesize cannot be empty")
 
-    # Check if voice_id is a custom user preset from voice_presets.json
-    presets_file = os.path.join(runner_base_dir, "voice_presets.json")
+    presets_file = _resolve_presets_file_path(runner_base_dir, presets_file_path)
+
+    # 1. Check if voice_id is a custom user preset from voice_presets.json
     if os.path.exists(presets_file):
         try:
             with open(presets_file, "r") as f:
@@ -574,9 +596,17 @@ def run(
                             runner_base_dir=runner_base_dir,
                         )
         except Exception as e:
-            logger.warning("Error checking voice presets in run: %s", e)
+            logger.error("Error reading voice presets from %s: %s", presets_file, e)
+            raise RuntimeError(f"Failed to read custom voice presets from {presets_file}: {e}")
 
-    # Resolve legacy aliases if passed
+    # Fail hard if a custom preset ID was requested but not found
+    if voice_id.startswith("preset-"):
+        raise ValueError(
+            f"Custom voice preset '{voice_id}' was not found in {presets_file}. "
+            "Please create and save the preset in Voice Studio before synthesizing."
+        )
+
+    # 2. Resolve legacy aliases or built-in personas
     canonical_id = LEGACY_ALIASES.get(voice_id, voice_id)
     persona = PERSONA_CATALOG.get(canonical_id)
 
@@ -605,10 +635,9 @@ def run(
         active_pitch = pitch
         active_speed = speed
     else:
-        base_model_key = "piper-en_GB-northern_english_male-medium"
-        active_effect = effect or "radio"
-        active_pitch = pitch
-        active_speed = speed
+        raise ValueError(
+            f"Unknown voice ID '{voice_id}'. Not found in system personas, base models, or custom presets at {presets_file}."
+        )
 
     active_speed = max(0.5, min(2.0, float(active_speed)))
     tts = _get_tts_instance(base_model_key, runner_base_dir)

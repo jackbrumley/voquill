@@ -44,6 +44,10 @@ RUNNER_BASE_DIR = os.environ.get(
     "VOQUILL_PYTHON_RUNNER_DIR",
     os.path.dirname(os.path.abspath(__file__)),
 )
+VOICE_PRESETS_FILE = os.environ.get(
+    "VOQUILL_VOICE_PRESETS_FILE",
+    os.path.join(os.path.dirname(os.path.abspath(RUNNER_BASE_DIR)), "voice_presets.json"),
+)
 
 
 class CapabilityInfo(BaseModel):
@@ -235,7 +239,10 @@ def get_tts_voices() -> list[dict]:
         )
     mod = handlers["tts"]["module"]
     try:
-        voices = mod.get_available_voices(RUNNER_BASE_DIR)
+        voices = mod.get_available_voices(
+            runner_base_dir=RUNNER_BASE_DIR,
+            presets_file_path=VOICE_PRESETS_FILE,
+        )
         return [v.model_dump() for v in voices]
     except Exception as e:
         logger.exception("Failed to query TTS voices")
@@ -270,6 +277,7 @@ def synthesize_tts(body: dict) -> dict:
             pitch=pitch,
             output_path=output_path,
             runner_base_dir=RUNNER_BASE_DIR,
+            presets_file_path=VOICE_PRESETS_FILE,
         )
         return result.model_dump()
     except Exception as e:
