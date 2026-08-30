@@ -46,11 +46,32 @@ Voquill is a **private, offline-first, system-wide dictation app** for Linux and
 - **Configurable cluster threshold** — Adjust how aggressively voices are merged.
 - **Per-segment transcription** — Each speaker segment transcribed independently, labeled in output and history.
 
+### Voice Macros & Automation
+
+- **Always-Listening Detection** — Hands-free spoken triggers with configurable Voice Activation Thresholds (VAD).
+- **Key Sequence Recorder** — Record multi-step keystrokes, holds, millisecond delays, and modifier combinations.
+- **Command & Text Steps** — Launch native system scripts (`RunCommand`) or output preset text (`TypeText`).
+- **Multi-Alias Triggers** — Assign multiple spoken trigger phrases to the same macro.
+- **Share & Diagnostic Tools** — Export/import macros as clean JSON and test triggers with the live diagnostic tester.
+
+### Audio Feedback & Neural TTS
+
+- **Instant Spoken Confirmations** — Local, on-device Piper neural TTS (<100ms) with zero cloud latency.
+- **Authentic DSP Personas** — Curated voice profiles: SAS Tactical, Titan Cockpit AI, Nanosuit, GLaDOS, and Studio narration.
+- **Custom Sounds** — Upload `.wav`/`.mp3` sound files or record quick microphone snippets directly in settings.
+
+### Interactive Voice Studio
+
+- **Acoustic Tuning** — Customize pitch, speed, sub-bass weight (<140Hz), cockpit comb resonance, and radio drive.
+- **Radio Chimes** — Authentic pre/post-speech sound effects (tactical double beeps, cockpit alerts, mic release clicks).
+- **904-Speaker Explorer** — Browse and tune across LibriTTS-R multi-speaker neural identities.
+
 ### Platform & Integration
 
 - **Wayland-native (XDG Portals)** — GlobalShortcuts, RemoteDesktop input emulation, Camera microphone, Layer Shell overlay. No external tools needed.
 - **X11** — XTest keyboard simulation, native global shortcuts via tauri-plugin.
 - **Windows** — SendInput keyboard simulation, native global shortcuts, WASAPI endpoints.
+- **In-App Auto Updates** — Single-click updates with automatic application relaunch.
 - **Minimalist overlay** — Transparent status overlay during recording and transcription. Platform-native positioning (Layer Shell on Wayland).
 - **System tray & Startup** — Minimize-to-tray, launch on login, and `--start-hidden` CLI flag.
 
@@ -85,6 +106,5 @@ Voquill is a **private, offline-first, system-wide dictation app** for Linux and
 - **Multi-state tray icons** — Different icons for Idle, Recording, Transcribing.
 - **Model submenu** — Switch models from the system tray.
 - **Portable mode** — Store all data alongside the executable.
-- **Audio feedback** — Recording start/stop sounds.
 - **Streaming transcription** — Live preview in overlay (requires streaming-compatible models).
 - **Multi-engine architectures** — Additional engine backends (SenseVoice, Moonshine, etc.).
