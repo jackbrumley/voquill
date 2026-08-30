@@ -1,5 +1,7 @@
+import { useEffect } from 'preact/hooks';
 import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import {
   Icon,
@@ -11,13 +13,13 @@ import {
   IconPlayerStop,
   IconSparkles,
   IconLoader2,
-  IconCheck,
   IconAlertTriangle,
   IconAdjustmentsHorizontal,
 } from '@tabler/icons-preact';
-import type { MacroSoundMode, VoicePersonaInfo } from '../../../types.ts';
+import type { DownloadPhase, MacroSoundMode, TtsModelDownloadProgress, VoicePreset } from '../../../types.ts';
 import { tokens } from '../../../design-tokens.ts';
 import { Button } from '../../../components/Button.tsx';
+import { DownloadProgressBar } from '../../../components/DownloadProgressBar.tsx';
 import { SelectField } from '../../../components/SelectField.tsx';
 import { inputBaseStyle } from '../../../theme/ui-primitives.ts';
 import { VoiceLabModal } from './VoiceLabModal.tsx';
@@ -30,120 +32,13 @@ interface MacroSoundStepProps {
   onTtsTextChange: (text: string) => void;
   ttsVoice: string;
   onTtsVoiceChange: (voice: string) => void;
-  ttsSpeed: number;
-  onTtsSpeedChange: (speed: number) => void;
+  ttsSpeed?: number;
+  onTtsSpeedChange?: (speed: number) => void;
   ttsEffect?: string;
   onTtsEffectChange?: (effect: string) => void;
   ttsPitch?: number;
   onTtsPitchChange?: (pitch: number) => void;
 }
-
-const DEFAULT_VOICES: VoicePersonaInfo[] = [
-  {
-    id: 'tactical-comms',
-    name: 'Tactical Comms',
-    persona: 'SAS Tactical Operator',
-    category: 'Military & Tactical',
-    engine: 'piper',
-    description: 'Northern English military comms with authentic VHF bandpass filtering, tactical overdrive, and tail squelch.',
-    is_ready: true,
-    default_effect: 'radio',
-    default_pitch: 0.0,
-    default_speed: 1.05,
-  },
-  {
-    id: 'titan-mech',
-    name: 'Titan Mech',
-    persona: 'Armored Cockpit AI',
-    category: 'Sci-Fi & Gaming',
-    engine: 'piper',
-    description: 'Deep, authoritative pilot system with metallic armored chassis resonance and sub-bass weight.',
-    is_ready: true,
-    default_effect: 'mech',
-    default_pitch: -4.0,
-    default_speed: 0.95,
-  },
-  {
-    id: 'nanosuit',
-    name: 'Nanosuit AI',
-    persona: 'Tactical Combat Exosuit',
-    category: 'Sci-Fi & Gaming',
-    engine: 'piper',
-    description: 'Cybernetic combat armor system with synthetic pitch modulation and power-shield resonance.',
-    is_ready: true,
-    default_effect: 'mech',
-    default_pitch: -2.0,
-    default_speed: 1.0,
-  },
-  {
-    id: 'glados',
-    name: 'GLaDOS AI',
-    persona: 'Iconic Robot AI',
-    category: 'Sci-Fi & Gaming',
-    engine: 'piper',
-    description: 'Iconic robotic AI with distinctive robotic inflections and dry demeanor.',
-    is_ready: true,
-    default_effect: 'clean',
-    default_pitch: 0.0,
-    default_speed: 1.0,
-  },
-  {
-    id: 'cyberpunk-eva',
-    name: 'Cyberpunk EVA',
-    persona: 'Holographic Ship AI',
-    category: 'Sci-Fi & Gaming',
-    engine: 'piper',
-    description: 'Futuristic spacecraft computer with holographic bridge reflections and crystal air clarity.',
-    is_ready: true,
-    default_effect: 'eva',
-    default_pitch: 1.0,
-    default_speed: 1.0,
-  },
-  {
-    id: 'flight-deck',
-    name: 'Flight Deck ATC',
-    persona: 'British Flight Controller',
-    category: 'Aviation & Simulation',
-    engine: 'piper',
-    description: 'Crisp British aviation air traffic control / cockpit automated warning system.',
-    is_ready: true,
-    default_effect: 'flight_deck',
-    default_pitch: 0.0,
-    default_speed: 1.0,
-  },
-  {
-    id: 'nova-studio',
-    name: 'Nova Studio (Female)',
-    persona: 'Clean Studio Female',
-    category: 'Studio & Natural',
-    engine: 'piper',
-    description: 'Natural, crystal-clear studio narration voice with zero acoustic coloration.',
-    is_ready: true,
-    default_effect: 'clean',
-    default_pitch: 0.0,
-    default_speed: 1.0,
-  },
-  {
-    id: 'apex-studio',
-    name: 'Apex Studio (Male)',
-    persona: 'Authoritative Studio Male',
-    category: 'Studio & Natural',
-    engine: 'piper',
-    description: 'Clean, warm, and natural male studio voice for desktop automation and productivity.',
-    is_ready: true,
-    default_effect: 'clean',
-    default_pitch: 0.0,
-    default_speed: 1.0,
-  },
-];
-
-const SPEED_OPTIONS = [
-  { label: '0.8x', value: 0.8 },
-  { label: '0.9x', value: 0.9 },
-  { label: '1.0x', value: 1.0 },
-  { label: '1.1x', value: 1.1 },
-  { label: '1.2x', value: 1.2 },
-];
 
 export function MacroSoundStep({
   macroId,
@@ -160,48 +55,71 @@ export function MacroSoundStep({
   ttsPitch,
   onTtsPitchChange,
 }: MacroSoundStepProps) {
-  const availableVoices = useSignal<VoicePersonaInfo[]>(DEFAULT_VOICES);
+  const customPresets = useSignal<VoicePreset[]>([]);
   const isPlaying = useSignal(false);
   const isSynthesizing = useSignal(false);
+  const isDownloading = useSignal(false);
+  const downloadProgress = useSignal(0);
+  const downloadPhase = useSignal<DownloadPhase>('downloading');
   const playTimer = useSignal<ReturnType<typeof setTimeout> | null>(null);
   const previewError = useSignal<string | null>(null);
   const isRecordingMic = useSignal(false);
   const importedFileName = useSignal<string | null>(null);
   const isVoiceLabModalOpen = useSignal(false);
 
-  const fetchVoices = () => {
-    invoke<VoicePersonaInfo[]>('get_available_tts_voices')
-      .then((voices) => {
-        if (voices && voices.length > 0) {
-          availableVoices.value = voices;
+  const fetchPresets = () => {
+    invoke<VoicePreset[]>('get_custom_voice_presets')
+      .then((presets) => {
+        const list = presets || [];
+        customPresets.value = list;
+        if (list.length > 0) {
+          const currentFound = list.find((p) => p.id === ttsVoice);
+          if (!currentFound && (!ttsVoice || ttsVoice === 'titan-mech' || ttsVoice === 'default')) {
+            handleSelectPreset(list[0].id, list);
+          }
         }
       })
-      .catch(() => {
-        // Fallback to default presets
+      .catch((err) => {
+        console.warn('Failed to fetch custom voice presets:', err);
+        customPresets.value = [];
       });
   };
 
   useSignalEffect(() => {
-    fetchVoices();
+    fetchPresets();
   });
 
-  const activePersona =
-    availableVoices.value.find((v) => v.id === ttsVoice) ||
-    availableVoices.value.find((v) => v.id === 'titan-mech') ||
-    DEFAULT_VOICES[0];
+  useEffect(() => {
+    let isMounted = true;
+    const unlistenPromise = listen<TtsModelDownloadProgress>(
+      'tts-model-download-progress',
+      (event) => {
+        if (!isMounted) return;
+        isDownloading.value = true;
+        downloadProgress.value = event.payload.progress;
+        downloadPhase.value = event.payload.phase;
+      }
+    );
 
-  const handleSelectVoice = (selectedId: string) => {
+    return () => {
+      isMounted = false;
+      unlistenPromise.then((fn) => fn());
+    };
+  }, []);
+
+  const activePreset = customPresets.value.find((p) => p.id === ttsVoice) || customPresets.value[0];
+
+  const handleSelectPreset = (selectedId: string, listOverride?: VoicePreset[]) => {
     onTtsVoiceChange(selectedId);
-    const matched = availableVoices.value.find((v) => v.id === selectedId);
+    const list = listOverride || customPresets.value;
+    const matched = list.find((p) => p.id === selectedId);
     if (matched) {
-      if (matched.default_effect && onTtsEffectChange) {
-        onTtsEffectChange(matched.default_effect);
+      if (onTtsEffectChange) onTtsEffectChange('custom');
+      if (matched.pitch !== undefined && matched.pitch !== null && onTtsPitchChange) {
+        onTtsPitchChange(matched.pitch);
       }
-      if (matched.default_pitch !== undefined && matched.default_pitch !== null && onTtsPitchChange) {
-        onTtsPitchChange(matched.default_pitch);
-      }
-      if (matched.default_speed !== undefined && matched.default_speed !== null) {
-        onTtsSpeedChange(matched.default_speed);
+      if (matched.speed !== undefined && matched.speed !== null && onTtsSpeedChange) {
+        onTtsSpeedChange(matched.speed);
       }
     }
   };
@@ -218,7 +136,7 @@ export function MacroSoundStep({
       return;
     }
 
-    if (isSynthesizing.value) return;
+    if (isSynthesizing.value || isDownloading.value) return;
     previewError.value = null;
     isSynthesizing.value = true;
 
@@ -231,16 +149,23 @@ export function MacroSoundStep({
         playTimer.value = setTimeout(() => { isPlaying.value = false; }, 800);
       } else if (soundMode === 'tts') {
         const text = ttsText.trim() || 'Command confirmed';
-        const voice = ttsVoice || 'titan-mech';
+        const selectedId = ttsVoice || activePreset?.id;
+        if (!selectedId) {
+          previewError.value = 'Please create or select a custom voice preset in Voice Studio first.';
+          isSynthesizing.value = false;
+          return;
+        }
         const res = await invoke<{ duration_secs: number }>('preview_tts_voice', {
           text,
-          voiceId: voice,
-          speed: ttsSpeed || activePersona.default_speed || 1.0,
-          effect: ttsEffect || activePersona.default_effect || undefined,
-          pitch: ttsPitch ?? activePersona.default_pitch ?? 0.0,
+          voiceId: selectedId,
+          speed: ttsSpeed || activePreset?.speed || 1.0,
+          effect: ttsEffect || 'custom',
+          pitch: ttsPitch ?? activePreset?.pitch ?? 0.0,
         });
+        isDownloading.value = false;
         isSynthesizing.value = false;
         isPlaying.value = true;
+        fetchPresets();
         const durMs = Math.round(((res && res.duration_secs) || 3.0) * 1000) + 400;
         if (playTimer.value) clearTimeout(playTimer.value);
         playTimer.value = setTimeout(() => { isPlaying.value = false; }, durMs);
@@ -253,6 +178,7 @@ export function MacroSoundStep({
       }
     } catch (e) {
       previewError.value = String(e);
+      isDownloading.value = false;
       isSynthesizing.value = false;
       isPlaying.value = false;
     }
@@ -314,8 +240,8 @@ export function MacroSoundStep({
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%' }}>
-      {/* Sound Mode Selector */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+      {/* Sound Mode Selection Pills */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <label
           style={{
@@ -443,235 +369,192 @@ export function MacroSoundStep({
                 <span>Voice Studio</span>
               </button>
             </div>
-            <SelectField
-              value={ttsVoice || 'titan-mech'}
-              options={availableVoices.value.map((v) => ({
-                value: v.id,
-                label: `${v.name} — ${v.persona}`,
-                searchText: `${v.name} ${v.persona} ${v.category} ${v.description}`,
-              }))}
-              onChange={(val) => handleSelectVoice(val)}
-              ariaLabel="Voice Preset"
-              style={{ width: '100%', fontSize: '12px' }}
-            />
 
-            {activePersona && (
+            {customPresets.value.length > 0 ? (
+              <SelectField
+                value={ttsVoice || customPresets.value[0]?.id}
+                options={customPresets.value.map((p) => ({
+                  value: p.id,
+                  label: p.name,
+                  searchText: `${p.name} ${p.description || ''} ${p.model_key || ''}`,
+                }))}
+                onChange={(val) => handleSelectPreset(val)}
+                ariaLabel="Voice Preset"
+                style={{ width: '100%', fontSize: '12px' }}
+              />
+            ) : (
               <div
                 style={{
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  background: 'rgba(99, 102, 241, 0.08)',
-                  border: '1px solid rgba(99, 102, 241, 0.2)',
-                  fontSize: '11px',
-                  color: tokens.colors.textSecondary,
-                  lineHeight: '1.4',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  background: 'rgba(88, 101, 242, 0.08)',
+                  border: '1px solid rgba(88, 101, 242, 0.25)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
                 }}
               >
-                <span style={{ color: '#c7d2fe', fontWeight: 600 }}>{activePersona.category}:</span>{' '}
-                {activePersona.description}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: tokens.colors.textPrimary, fontWeight: 600 }}>
+                  <IconSparkles size={14} color="#9ba5ff" />
+                  <span>No Custom Presets Yet</span>
+                </div>
+                <p style={{ fontSize: '11px', color: tokens.colors.textMuted, margin: 0, lineHeight: 1.4 }}>
+                  Open Voice Studio to design, tune DSP filters, and save your custom voices.
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => { isVoiceLabModalOpen.value = true; }}
+                  style={{ alignSelf: 'flex-start', marginTop: '2px', fontSize: '11px', padding: '4px 10px' }}
+                >
+                  <IconAdjustmentsHorizontal size={13} />
+                  <span>Open Voice Studio</span>
+                </Button>
               </div>
             )}
-          </div>
-
-          {/* Playback Speed */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                color: tokens.colors.textMuted,
-                textTransform: 'uppercase',
-              }}
-            >
-              Playback Speed
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px' }}>
-              {SPEED_OPTIONS.map((opt) => {
-                const currentSpeed = ttsSpeed || activePersona.default_speed || 1.0;
-                const isSelected = Math.abs(currentSpeed - opt.value) < 0.01;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => onTtsSpeedChange(opt.value)}
-                    style={{
-                      padding: '5px 4px',
-                      fontSize: '11px',
-                      fontWeight: isSelected ? 600 : 500,
-                      borderRadius: '999px',
-                      background: isSelected
-                        ? 'rgba(99, 102, 241, 0.25)'
-                        : 'rgba(255, 255, 255, 0.04)',
-                      border: isSelected
-                        ? '1px solid rgba(99, 102, 241, 0.5)'
-                        : '1px solid rgba(255, 255, 255, 0.08)',
-                      color: isSelected ? '#c7d2fe' : tokens.colors.textSecondary,
-                      cursor: 'pointer',
-                      textAlign: 'center',
-                      transition: tokens.transitions.fast,
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
           </div>
         </div>
       )}
 
-      {/* Custom Audio File Mode */}
       {soundMode === 'custom_file' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <span style={{ fontSize: '11.5px', color: tokens.colors.textSecondary }}>
-            Upload any custom sound effect (.wav, .mp3, .ogg) to play when this macro triggers.
-          </span>
+          <label
+            style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              color: tokens.colors.textMuted,
+              textTransform: 'uppercase',
+            }}
+          >
+            Imported Audio Sound File
+          </label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Button
-              variant="configAction"
+              variant="secondary"
               onClick={handleBrowseFile}
-              style={{
-                padding: '6px 14px',
-                fontSize: '11.5px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
             >
-              <IconUpload size={13} />
+              <IconUpload size={14} />
               <span>Choose Audio File...</span>
             </Button>
-
             {importedFileName.value && (
-              <span
-                style={{
-                  fontSize: '11.5px',
-                  fontFamily: 'monospace',
-                  color: tokens.colors.success,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <IconCheck size={13} />
-                <span>{importedFileName.value}</span>
+              <span style={{ fontSize: '12px', color: tokens.colors.textSecondary }}>
+                {importedFileName.value}
+              </span>
+            )}
+          </div>
+          <p style={{ fontSize: '11px', color: tokens.colors.textMuted, margin: 0 }}>
+            Supports MP3, WAV, FLAC, OGG, M4A, AAC. Audio is normalized and cached with the macro.
+          </p>
+        </div>
+      )}
+
+      {soundMode === 'mic_recording' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <label
+            style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              color: tokens.colors.textMuted,
+              textTransform: 'uppercase',
+            }}
+          >
+            Record Directly from Microphone
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Button
+              variant={isRecordingMic.value ? 'danger' : 'secondary'}
+              onClick={handleToggleMicRecord}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+            >
+              <IconMicrophone size={14} />
+              <span>{isRecordingMic.value ? 'Stop Recording & Save' : 'Record Mic Snippet'}</span>
+            </Button>
+            {isRecordingMic.value && (
+              <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>
+                ● Recording in progress... speak now
               </span>
             )}
           </div>
         </div>
       )}
 
-      {/* Mic Recording Mode */}
-      {soundMode === 'mic_recording' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <span style={{ fontSize: '11.5px', color: tokens.colors.textSecondary }}>
-            Record a quick custom voice response from your microphone.
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Button
-              variant={isRecordingMic.value ? 'primary' : 'configAction'}
-              onClick={handleToggleMicRecord}
-              style={{
-                padding: '6px 14px',
-                fontSize: '11.5px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                ...(isRecordingMic.value
-                  ? {
-                      background: 'rgba(239, 68, 68, 0.3)',
-                      borderColor: '#ef4444',
-                      color: '#fca5a5',
-                    }
-                  : {}),
-              }}
-            >
-              {isRecordingMic.value ? (
-                <>
-                  <IconPlayerStop size={13} />
-                  <span>Stop & Save Recording</span>
-                </>
-              ) : (
-                <>
-                  <IconMicrophone size={13} />
-                  <span>Record Audio Clip</span>
-                </>
-              )}
-            </Button>
-            <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
-              {isRecordingMic.value ? 'Recording audio snippet...' : 'Click to record snippet'}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Default Chirp Mode */}
       {soundMode === 'default' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span style={{ fontSize: '12px', color: tokens.colors.textSecondary, fontWeight: 500 }}>
-            Standard Radio Chirp
-          </span>
-          <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
-            Plays a brief, subtle audio beep to confirm execution.
-          </span>
-        </div>
-      )}
-
-      {/* Mute Mode */}
-      {soundMode === 'none' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span style={{ fontSize: '12px', color: tokens.colors.textSecondary, fontWeight: 500 }}>
-            Silent Execution
-          </span>
-          <span style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
-            No audio feedback or spoken voice will play.
-          </span>
-        </div>
-      )}
-
-      {/* Preview Button */}
-      {soundMode !== 'none' && (
         <div
           style={{
-            paddingTop: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
+            padding: '10px 12px',
+            borderRadius: '8px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            fontSize: '11.5px',
+            color: tokens.colors.textSecondary,
           }}
         >
+          Plays the default Voquill tactical audio chime on macro execution.
+        </div>
+      )}
+
+      {soundMode === 'none' && (
+        <div
+          style={{
+            padding: '10px 12px',
+            borderRadius: '8px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            fontSize: '11.5px',
+            color: tokens.colors.textMuted,
+          }}
+        >
+          Silent execution. No audio confirmation will be played.
+        </div>
+      )}
+
+      {/* Model Download Progress Bar */}
+      {isDownloading.value && (
+        <div style={{ width: '100%', marginTop: '4px' }}>
+          <DownloadProgressBar
+            isDownloading={isDownloading.value}
+            progress={downloadProgress.value}
+            phase={downloadPhase.value}
+            itemLabel={activePreset ? activePreset.name : 'TTS Voice Model'}
+          />
+        </div>
+      )}
+
+      {/* Test Preview Action Button */}
+      {soundMode !== 'none' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
           <Button
-            variant={isPlaying.value ? 'danger' : 'configAction'}
+            variant={isPlaying.value ? 'danger' : 'primary'}
             onClick={handleTestPreview}
-            disabled={isSynthesizing.value}
+            disabled={isSynthesizing.value || isDownloading.value}
             style={{
-              padding: '6px 14px',
-              fontSize: '11.5px',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '5px',
-              ...(isPlaying.value
-                ? {
-                    background: 'rgba(239, 68, 68, 0.25)',
-                    borderColor: '#ef4444',
-                    color: '#fca5a5',
-                  }
-                : {}),
+              gap: '6px',
+              padding: '6px 14px',
+              fontSize: '12px',
             }}
           >
             {isSynthesizing.value ? (
               <>
-                <IconLoader2 size={13} className="spin" />
-                <span>Generating Audio...</span>
+                <IconLoader2 size={14} className="spin" />
+                <span>Synthesizing Voice...</span>
+              </>
+            ) : isDownloading.value ? (
+              <>
+                <IconLoader2 size={14} className="spin" />
+                <span>Downloading Voice...</span>
               </>
             ) : isPlaying.value ? (
               <>
-                <IconPlayerStop size={13} />
-                <span>Stop Audio Preview</span>
+                <IconPlayerStop size={14} />
+                <span>Stop Preview</span>
               </>
             ) : (
               <>
-                <IconPlayerPlay size={13} />
-                <span>Preview Audio Feedback</span>
+                <IconPlayerPlay size={14} />
+                <span>Test Audio Preview</span>
               </>
             )}
           </Button>
@@ -699,10 +582,8 @@ export function MacroSoundStep({
             isVoiceLabModalOpen.value = false;
           }}
           onPresetSaved={(newPreset) => {
-            fetchVoices();
-            onTtsVoiceChange(newPreset.id);
-            if (onTtsSpeedChange) onTtsSpeedChange(newPreset.speed);
-            if (onTtsPitchChange) onTtsPitchChange(newPreset.pitch);
+            fetchPresets();
+            handleSelectPreset(newPreset.id);
           }}
         />
       )}

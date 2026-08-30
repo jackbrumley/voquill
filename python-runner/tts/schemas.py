@@ -21,6 +21,7 @@ class BaseVoiceModelInfo(BaseModel):
     id: str
     label: str
     is_multi_speaker: bool = False
+    is_ready: bool = False
 
 
 class TtsSynthesizeRequest(BaseModel):

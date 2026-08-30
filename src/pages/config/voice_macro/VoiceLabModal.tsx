@@ -1,5 +1,7 @@
+import { useEffect } from 'preact/hooks';
 import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import {
   IconPlayerPlay,
   IconPlayerStop,
@@ -12,8 +14,10 @@ import {
 } from '@tabler/icons-preact';
 import { Modal } from '../../../components/Modal.tsx';
 import { Button } from '../../../components/Button.tsx';
+import { DownloadProgressBar } from '../../../components/DownloadProgressBar.tsx';
 import { SelectField } from '../../../components/SelectField.tsx';
-import type { BaseVoiceModelInfo, VoicePreset } from '../../../types.ts';
+import { SliderField } from '../../../components/SliderField.tsx';
+import type { BaseVoiceModelInfo, DownloadPhase, TtsModelDownloadProgress, VoicePreset } from '../../../types.ts';
 import { tokens } from '../../../design-tokens.ts';
 import { inputBaseStyle } from '../../../theme/ui-primitives.ts';
 
@@ -76,6 +80,9 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
 
   const isPlaying = useSignal(false);
   const isSynthesizing = useSignal(false);
+  const isDownloading = useSignal(false);
+  const downloadProgress = useSignal(0);
+  const downloadPhase = useSignal<DownloadPhase>('downloading');
   const playTimer = useSignal<ReturnType<typeof setTimeout> | null>(null);
   const previewError = useSignal<string | null>(null);
   const saveSuccessMsg = useSignal<string | null>(null);
@@ -93,6 +100,24 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
       })
       .catch(() => {});
   });
+
+  useEffect(() => {
+    let isMounted = true;
+    const unlistenPromise = listen<TtsModelDownloadProgress>(
+      'tts-model-download-progress',
+      (event) => {
+        if (!isMounted) return;
+        isDownloading.value = true;
+        downloadProgress.value = event.payload.progress;
+        downloadPhase.value = event.payload.phase;
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      unlistenPromise.then((fn) => fn());
+    };
+  }, []);
 
   const handleResetDsp = () => {
     pitch.value = 0.0;
@@ -126,7 +151,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
       return;
     }
 
-    if (isSynthesizing.value) return;
+    if (isSynthesizing.value || isDownloading.value) return;
     previewError.value = null;
     isSynthesizing.value = true;
 
@@ -150,8 +175,15 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
         },
       });
 
+      isDownloading.value = false;
       isSynthesizing.value = false;
       isPlaying.value = true;
+
+      invoke<BaseVoiceModelInfo[]>('get_available_base_voice_models')
+        .then((m) => {
+          if (m && m.length > 0) models.value = m;
+        })
+        .catch(() => {});
 
       const durMs = Math.round(((res && res.duration_secs) || 3.0) * 1000) + 400;
       if (playTimer.value) clearTimeout(playTimer.value);
@@ -161,6 +193,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
     } catch (e) {
       console.error('Preview custom voice failed:', e);
       previewError.value = String(e);
+      isDownloading.value = false;
       isSynthesizing.value = false;
       isPlaying.value = false;
     }
@@ -421,6 +454,13 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                 ariaLabel="Base Voice Model"
                 style={{ width: '100%', fontSize: '11.5px' }}
               />
+              <DownloadProgressBar
+                isDownloading={isDownloading.value}
+                progress={downloadProgress.value}
+                phase={downloadPhase.value}
+                itemLabel="neural voice model"
+                compact
+              />
             </div>
 
             {/* LibriTTS Multi-Speaker Slider */}
@@ -430,14 +470,14 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                   <span>Speaker ID (0 to 903)</span>
                   <span style={{ fontFamily: 'monospace' }}>{speakerId.value}</span>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="903"
-                  step="1"
+                <SliderField
+                  min={0}
+                  max={903}
+                  step={1}
                   value={speakerId.value}
-                  onInput={(e) => { speakerId.value = parseInt((e.target as HTMLInputElement).value, 10) || 0; }}
-                  style={sliderStyle}
+                  onChange={(val) => { speakerId.value = Math.round(val); }}
+                  hideEndLabels
+                  ariaLabel="Speaker ID"
                 />
                 <span style={{ fontSize: '10px', color: tokens.colors.textMuted }}>
                   Tip: Try ID 700 (Heavy Titan) or ID 200 (Operations Dispatcher).
@@ -497,7 +537,15 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                   <span>Pitch Shift</span>
                   <span style={{ fontFamily: 'monospace', color: '#c7d2fe' }}>{pitch.value > 0 ? `+${pitch.value}` : pitch.value} st</span>
                 </div>
-                <input type="range" min="-12" max="12" step="0.5" value={pitch.value} onInput={(e) => { pitch.value = parseFloat((e.target as HTMLInputElement).value); }} style={sliderStyle} />
+                <SliderField
+                  min={-12}
+                  max={12}
+                  step={0.5}
+                  value={pitch.value}
+                  onChange={(val) => { pitch.value = val; }}
+                  hideEndLabels
+                  ariaLabel="Pitch Shift"
+                />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -505,7 +553,15 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                   <span>Playback Speed</span>
                   <span style={{ fontFamily: 'monospace', color: '#c7d2fe' }}>{speed.value.toFixed(2)}x</span>
                 </div>
-                <input type="range" min="0.6" max="1.5" step="0.05" value={speed.value} onInput={(e) => { speed.value = parseFloat((e.target as HTMLInputElement).value); }} style={sliderStyle} />
+                <SliderField
+                  min={0.6}
+                  max={1.5}
+                  step={0.05}
+                  value={speed.value}
+                  onChange={(val) => { speed.value = val; }}
+                  hideEndLabels
+                  ariaLabel="Playback Speed"
+                />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -513,7 +569,15 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                   <span>Sub-Bass Weight (&lt;140Hz)</span>
                   <span style={{ fontFamily: 'monospace', color: '#c7d2fe' }}>{Math.round(subBass.value * 100)}%</span>
                 </div>
-                <input type="range" min="0" max="1" step="0.05" value={subBass.value} onInput={(e) => { subBass.value = parseFloat((e.target as HTMLInputElement).value); }} style={sliderStyle} />
+                <SliderField
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={subBass.value}
+                  onChange={(val) => { subBass.value = val; }}
+                  hideEndLabels
+                  ariaLabel="Sub-Bass Weight"
+                />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -521,7 +585,15 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                   <span>Cockpit Comb Resonance</span>
                   <span style={{ fontFamily: 'monospace', color: '#c7d2fe' }}>{Math.round(combMix.value * 100)}%</span>
                 </div>
-                <input type="range" min="0" max="1" step="0.05" value={combMix.value} onInput={(e) => { combMix.value = parseFloat((e.target as HTMLInputElement).value); }} style={sliderStyle} />
+                <SliderField
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={combMix.value}
+                  onChange={(val) => { combMix.value = val; }}
+                  hideEndLabels
+                  ariaLabel="Cockpit Comb Resonance"
+                />
               </div>
 
               {/* Chimes Dropdowns (Stacked vertically) */}
@@ -566,7 +638,15 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: tokens.colors.textMuted }}>
                     <span>Radio Drive: {radioDrive.value.toFixed(1)}x</span>
                   </div>
-                  <input type="range" min="1.0" max="4.0" step="0.2" value={radioDrive.value} onInput={(e) => { radioDrive.value = parseFloat((e.target as HTMLInputElement).value); }} style={sliderStyle} />
+                  <SliderField
+                    min={1.0}
+                    max={4.0}
+                    step={0.2}
+                    value={radioDrive.value}
+                    onChange={(val) => { radioDrive.value = val; }}
+                    hideEndLabels
+                    ariaLabel="Radio Drive"
+                  />
                 </div>
               )}
             </div>
@@ -576,7 +656,7 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
               <Button
                 variant={isPlaying.value ? 'danger' : 'primary'}
                 onClick={handleTogglePreview}
-                disabled={isSynthesizing.value}
+                disabled={isSynthesizing.value || isDownloading.value}
                 style={{
                   width: '100%',
                   padding: '8px 14px',
@@ -594,7 +674,12 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
                     : {}),
                 }}
               >
-                {isSynthesizing.value ? (
+                {isDownloading.value ? (
+                  <>
+                    <IconLoader2 size={14} className="spin" />
+                    <span>Downloading Voice Model...</span>
+                  </>
+                ) : isSynthesizing.value ? (
                   <>
                     <IconLoader2 size={14} className="spin" />
                     <span>Rendering Audio...</span>
@@ -667,11 +752,3 @@ export function VoiceLabModal({ onClose, onPresetSaved }: VoiceLabModalProps) {
     </Modal>
   );
 }
-
-const sliderStyle = {
-  accentColor: tokens.colors.accentPrimary,
-  cursor: 'pointer',
-  height: '5px',
-  margin: '6px 0 2px 0',
-  width: '100%',
-};

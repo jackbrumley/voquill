@@ -96,6 +96,7 @@ export function AudioSection({
                 min={0.1}
                 max={1.0}
                 step={0.05}
+                formatEndLabel={(value) => `${Math.round(value * 100)}%`}
                 onChange={(value) => updateConfig('noise_reduction_strength', value)}
                 ariaLabel="Noise reduction strength"
                 style={{ margin: `${tokens.spacing.sm} 0` }}

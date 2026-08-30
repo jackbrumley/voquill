@@ -182,13 +182,19 @@ export function UiLabPage({ onBackToSettings }: UiLabPageProps) {
         </ConfigField>
 
         <ConfigField label="SliderField" description="Range slider with label and display value.">
-          <SliderField
-            value={sliderValue.value}
-            min={0}
-            max={5}
-            step={0.1}
-            onChange={(v) => { sliderValue.value = v; }}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+            <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted }}>
+              Value: {sliderValue.value.toFixed(1)}
+            </div>
+            <SliderField
+              value={sliderValue.value}
+              min={0}
+              max={5}
+              step={0.1}
+              formatEndLabel={(v) => `${v}`}
+              onChange={(v) => { sliderValue.value = v; }}
+            />
+          </div>
         </ConfigField>
 
         <ConfigField label="ModeSwitcher" description="Toggle between Typewriter and Clipboard modes.">

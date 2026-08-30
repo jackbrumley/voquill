@@ -74,10 +74,10 @@ export function MacroEditorModal({
   const phraseInput = useSignal('');
   const soundMode = useSignal<MacroSoundMode>(initialCommand?.sound_mode || 'default');
   const soundTtsText = useSignal<string>(initialCommand?.sound_tts_text || '');
-  const soundTtsVoice = useSignal<string>(initialCommand?.sound_tts_voice || 'titan-mech');
-  const soundTtsSpeed = useSignal<number>(initialCommand?.sound_tts_speed || 0.95);
-  const soundTtsEffect = useSignal<string>(initialCommand?.sound_tts_effect || 'mech');
-  const soundTtsPitch = useSignal<number>(initialCommand?.sound_tts_pitch ?? -4);
+  const soundTtsVoice = useSignal<string>(initialCommand?.sound_tts_voice || '');
+  const soundTtsSpeed = useSignal<number>(initialCommand?.sound_tts_speed || 1.0);
+  const soundTtsEffect = useSignal<string>(initialCommand?.sound_tts_effect || 'custom');
+  const soundTtsPitch = useSignal<number>(initialCommand?.sound_tts_pitch ?? 0);
   const macroId = useSignal<string>(initialCommand?.id || `macro-${Date.now()}`);
 
   const sequence = useMacroSequence(initialCommand?.steps || []);
@@ -110,17 +110,19 @@ export function MacroEditorModal({
     const aliasPhrases = all.slice(1);
 
     if (soundMode.value === 'tts' && soundTtsText.value.trim()) {
-      try {
-        await invoke('save_macro_tts_audio', {
-          macroId: macroId.value,
-          text: soundTtsText.value.trim(),
-          voiceId: soundTtsVoice.value || 'titan-mech',
-          speed: soundTtsSpeed.value || 1.0,
-          effect: soundTtsEffect.value || 'mech',
-          pitch: soundTtsPitch.value ?? 0.0,
-        });
-      } catch (e) {
-        console.warn('Failed to pre-render TTS audio:', e);
+      if (soundTtsVoice.value) {
+        try {
+          await invoke('save_macro_tts_audio', {
+            macroId: macroId.value,
+            text: soundTtsText.value.trim(),
+            voiceId: soundTtsVoice.value,
+            speed: soundTtsSpeed.value || 1.0,
+            effect: soundTtsEffect.value || 'custom',
+            pitch: soundTtsPitch.value ?? 0.0,
+          });
+        } catch (e) {
+          console.warn('Failed to pre-render TTS audio:', e);
+        }
       }
     }
 
@@ -154,17 +156,19 @@ export function MacroEditorModal({
     const newId = `macro-${Date.now()}`;
 
     if (soundMode.value === 'tts' && soundTtsText.value.trim()) {
-      try {
-        await invoke('save_macro_tts_audio', {
-          macroId: newId,
-          text: soundTtsText.value.trim(),
-          voiceId: soundTtsVoice.value || 'titan-mech',
-          speed: soundTtsSpeed.value || 1.0,
-          effect: soundTtsEffect.value || 'mech',
-          pitch: soundTtsPitch.value ?? 0.0,
-        });
-      } catch (e) {
-        console.warn('Failed to pre-render TTS audio for copy:', e);
+      if (soundTtsVoice.value) {
+        try {
+          await invoke('save_macro_tts_audio', {
+            macroId: newId,
+            text: soundTtsText.value.trim(),
+            voiceId: soundTtsVoice.value,
+            speed: soundTtsSpeed.value || 1.0,
+            effect: soundTtsEffect.value || 'custom',
+            pitch: soundTtsPitch.value ?? 0.0,
+          });
+        } catch (e) {
+          console.warn('Failed to pre-render TTS audio for copy:', e);
+        }
       }
     }
 

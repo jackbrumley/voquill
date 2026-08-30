@@ -20,6 +20,7 @@ export interface BaseVoiceModelInfo {
   id: string;
   label: string;
   is_multi_speaker: boolean;
+  is_ready?: boolean;
 }
 
 export interface VoicePreset {
@@ -221,6 +222,12 @@ export interface ModelInfo {
 export type DownloadPhase = 'downloading' | 'extracting';
 
 export interface ModelDownloadProgress {
+  phase: DownloadPhase;
+  progress: number;
+}
+
+export interface TtsModelDownloadProgress {
+  model_id: string;
   phase: DownloadPhase;
   progress: number;
 }

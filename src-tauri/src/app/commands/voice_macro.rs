@@ -155,6 +155,15 @@ pub async fn get_available_tts_voices(
 }
 
 #[command]
+pub async fn download_tts_voice_model(
+    app_handle: AppHandle,
+    voice_or_model_id: String,
+) -> Result<(), String> {
+    crate::python_runner::download_tts_model(&app_handle, &voice_or_model_id).await?;
+    Ok(())
+}
+
+#[command]
 #[allow(clippy::too_many_arguments)]
 pub async fn preview_tts_voice(
     app_handle: AppHandle,
@@ -165,6 +174,10 @@ pub async fn preview_tts_voice(
     effect: Option<String>,
     pitch: Option<f32>,
 ) -> Result<crate::python_runner::TtsSynthesizeResponse, String> {
+    if !crate::python_runner::is_tts_model_downloaded(&voice_id) {
+        crate::python_runner::download_tts_model(&app_handle, &voice_id).await?;
+    }
+
     let runner = state.get_or_start_python_runner(&app_handle).await?;
     let res = runner
         .synthesize_tts(&text, &voice_id, speed, effect.as_deref(), pitch, None)
@@ -197,6 +210,10 @@ pub async fn save_macro_tts_audio(
 ) -> Result<String, String> {
     let dest_path = crate::voice_macro::macro_sound_path(&macro_id)?;
     let dest_str = dest_path.to_string_lossy().to_string();
+
+    if !crate::python_runner::is_tts_model_downloaded(&voice_id) {
+        crate::python_runner::download_tts_model(&app_handle, &voice_id).await?;
+    }
 
     let runner = state.get_or_start_python_runner(&app_handle).await?;
     let res = runner
@@ -290,6 +307,10 @@ pub async fn preview_custom_tts_voice(
         params.closing_chime,
         params.text
     );
+    if !crate::python_runner::is_tts_model_downloaded(&params.model_key) {
+        crate::python_runner::download_tts_model(&app_handle, &params.model_key).await?;
+    }
+
     let runner = state.get_or_start_python_runner(&app_handle).await?;
     let res = runner.synthesize_custom_tts(&params).await.map_err(|e| {
         crate::log_warn!("Python runner synthesize_custom_tts failed: {}", e);

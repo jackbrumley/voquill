@@ -1,6 +1,7 @@
 import { IconInfoCircle } from '@tabler/icons-preact';
 import { Button } from './Button.tsx';
 import { SelectField } from './SelectField.tsx';
+import { DownloadProgressBar } from './DownloadProgressBar.tsx';
 import { selectWrapperStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 import type { DownloadPhase } from '../types.ts';
@@ -100,18 +101,12 @@ export function ModelSelectionPanel({
         )}
       </div>
 
-      {isDownloading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
-          <div style={{ width: '100%', height: '4px', background: tokens.colors.bgTertiary, borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(downloadProgress, 100)}%`, height: '100%', background: tokens.colors.success }}></div>
-          </div>
-          <div style={{ fontSize: '10px', color: '#d9dfe7', textAlign: 'right' }}>
-            {downloadPhase === 'extracting'
-              ? 'Extracting model... this can take a minute'
-              : `Downloading model... ${Math.round(downloadProgress)}%`}
-          </div>
-        </div>
-      )}
+      <DownloadProgressBar
+        isDownloading={isDownloading}
+        progress={downloadProgress}
+        phase={downloadPhase}
+        itemLabel="model"
+      />
 
       {availableModels.length > 0 && (
         <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textSecondary }}>

@@ -50,6 +50,7 @@ export function MicSetupPanel({
         min={0.1}
         max={2.0}
         step={0.05}
+        formatEndLabel={(v) => `${Math.round(v * 100)}%`}
         onChange={onInputSensitivityChange}
         ariaLabel="Mic sensitivity"
         style={{ margin: `${tokens.spacing.sm} 0` }}
@@ -58,13 +59,14 @@ export function MicSetupPanel({
       {voiceMacroActivationThreshold !== undefined && onVoiceMacroActivationThresholdChange && (
         <div style={{ marginTop: tokens.spacing.sm }}>
           <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, marginBottom: '4px', textAlign: 'left' }}>
-            Voice Activation Threshold ({Math.round(threshold * 1000)} / 100)
+            Voice Activation Threshold ({(threshold * 100).toFixed(1)}%)
           </div>
           <SliderField
             value={voiceMacroActivationThreshold}
             min={0.01}
             max={0.12}
             step={0.005}
+            formatEndLabel={(v) => `${(v * 100).toFixed(1)}%`}
             onChange={onVoiceMacroActivationThresholdChange}
             ariaLabel="Voice activation threshold"
             style={{ margin: `${tokens.spacing.sm} 0` }}

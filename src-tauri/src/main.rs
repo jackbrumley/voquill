@@ -246,6 +246,7 @@ fn main() {
             test_voice_macro_execution,
             test_spoken_voice_macro,
             get_available_tts_voices,
+            download_tts_voice_model,
             preview_tts_voice,
             save_macro_tts_audio,
             import_macro_audio_file,

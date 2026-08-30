@@ -18,7 +18,6 @@ import { invoke } from '@tauri-apps/api/core';
 import { ConfigField } from '../../components/ConfigField.tsx';
 import { Switch } from '../../components/Switch.tsx';
 import { Button } from '../../components/Button.tsx';
-import { SliderField } from '../../components/SliderField.tsx';
 import type { Config, MacroSoundMode, MacroStep, VoiceMacroCommand } from '../../types.ts';
 import { inputBaseStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
@@ -380,40 +379,6 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
             name="Suppress Overlay"
             checked={config.voice_macro_suppress_overlay}
             onChange={(checked) => updateConfig('voice_macro_suppress_overlay', checked)}
-          />
-        </div>
-      </ConfigField>
-
-      <ConfigField
-        label="Voice Activation Threshold"
-        description="Adjust the sound level required to trigger speech recognition. Higher values ignore breathing, fan hum, and background noise."
-      >
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: tokens.spacing.xs,
-            width: '100%',
-          }}
-        >
-          <div
-            style={{
-              fontSize: tokens.typography.sizeXs,
-              color: tokens.colors.textMuted,
-              textAlign: 'left',
-            }}
-          >
-            Threshold Level: {Math.round((config.voice_macro_activation_threshold || 0.035) * 1000)}{' '}
-            / 100
-          </div>
-          <SliderField
-            value={config.voice_macro_activation_threshold || 0.035}
-            min={0.01}
-            max={0.12}
-            step={0.005}
-            onChange={(val) => updateConfig('voice_macro_activation_threshold', val)}
-            ariaLabel="Voice activation threshold"
-            style={{ margin: `${tokens.spacing.sm} 0` }}
           />
         </div>
       </ConfigField>

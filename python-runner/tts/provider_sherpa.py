@@ -271,24 +271,28 @@ def _ensure_base_model(model_key: str, runner_base_dir: str) -> Dict[str, str]:
     logger.info(
         "Downloading TTS voice model %s from %s...", model_key, meta["url"]
     )
-    req = urllib.request.Request(
-        meta["url"],
-        headers={"User-Agent": "Voquill-TTS/1.0"},
-    )
-    with urllib.request.urlopen(req, timeout=30) as response, open(archive_path, "wb") as out_file:
-        chunk_size = 64 * 1024
-        while True:
-            chunk = response.read(chunk_size)
-            if not chunk:
-                break
-            out_file.write(chunk)
+    try:
+        req = urllib.request.Request(
+            meta["url"],
+            headers={"User-Agent": "Voquill-TTS/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=120) as response, open(archive_path, "wb") as out_file:
+            chunk_size = 64 * 1024
+            while True:
+                chunk = response.read(chunk_size)
+                if not chunk:
+                    break
+                out_file.write(chunk)
 
-    logger.info("Extracting TTS voice model %s...", model_key)
-    with tarfile.open(archive_path, "r:bz2") as tar:
-        tar.extractall(path=models_dir)
-
-    if os.path.exists(archive_path):
-        os.remove(archive_path)
+        logger.info("Extracting TTS voice model %s...", model_key)
+        with tarfile.open(archive_path, "r:bz2") as tar:
+            tar.extractall(path=models_dir)
+    finally:
+        if os.path.exists(archive_path):
+            try:
+                os.remove(archive_path)
+            except OSError:
+                pass
 
     if not (
         os.path.exists(model_path)
@@ -360,15 +364,28 @@ def _get_tts_instance(
     return tts
 
 
-def get_available_models() -> List[BaseVoiceModelInfo]:
-    return [
-        BaseVoiceModelInfo(
-            id=k,
-            label=v["label"],
-            is_multi_speaker=v.get("is_multi_speaker", False),
+def get_available_models(runner_base_dir: str = ".") -> List[BaseVoiceModelInfo]:
+    models_dir = os.path.join(runner_base_dir, "models", "tts")
+    results: List[BaseVoiceModelInfo] = []
+    for k, v in BASE_MODELS.items():
+        voice_dir = os.path.join(models_dir, v["archive"])
+        model_path = os.path.join(voice_dir, v["model_file"])
+        tokens_path = os.path.join(voice_dir, "tokens.txt")
+        data_dir = os.path.join(voice_dir, "espeak-ng-data")
+        is_ready = (
+            os.path.exists(model_path)
+            and os.path.exists(tokens_path)
+            and os.path.exists(data_dir)
         )
-        for k, v in BASE_MODELS.items()
-    ]
+        results.append(
+            BaseVoiceModelInfo(
+                id=k,
+                label=v["label"],
+                is_multi_speaker=v.get("is_multi_speaker", False),
+                is_ready=is_ready,
+            )
+        )
+    return results
 
 
 def get_available_voices(runner_base_dir: str) -> list[VoicePersonaInfo]:

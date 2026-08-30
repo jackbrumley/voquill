@@ -2,11 +2,19 @@ use std::time::Duration;
 
 use crate::diarization::DiarizationResult;
 
-const HTTP_TIMEOUT: Duration = Duration::from_secs(15);
+const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(15);
+const HEAVY_HTTP_TIMEOUT: Duration = Duration::from_secs(300);
 
 fn http_client() -> reqwest::Client {
     reqwest::Client::builder()
-        .timeout(HTTP_TIMEOUT)
+        .timeout(DEFAULT_HTTP_TIMEOUT)
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
+
+fn heavy_http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .timeout(HEAVY_HTTP_TIMEOUT)
         .build()
         .unwrap_or_else(|_| reqwest::Client::new())
 }
@@ -91,7 +99,7 @@ pub async fn diarize(
         cluster_threshold,
     };
 
-    let client = http_client();
+    let client = heavy_http_client();
     let response = client
         .post(&url)
         .json(&body)
@@ -124,7 +132,7 @@ pub async fn enhance(
         noise_reduction_strength,
     };
 
-    let client = http_client();
+    let client = heavy_http_client();
     let response = client
         .post(&url)
         .json(&body)
@@ -169,6 +177,8 @@ pub struct BaseVoiceModelInfo {
     pub label: String,
     #[serde(default)]
     pub is_multi_speaker: bool,
+    #[serde(default)]
+    pub is_ready: bool,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -288,7 +298,7 @@ pub async fn synthesize_tts(
         "output_path": output_path,
     });
 
-    let client = http_client();
+    let client = heavy_http_client();
     let response = client
         .post(&url)
         .json(&body)
@@ -315,7 +325,7 @@ pub async fn synthesize_custom_tts(
     params: &CustomTtsSynthesizeParams,
 ) -> Result<TtsSynthesizeResponse, String> {
     let url = format!("{}/tts/synthesize_custom", base_url);
-    let client = http_client();
+    let client = heavy_http_client();
     let response = client
         .post(&url)
         .json(params)

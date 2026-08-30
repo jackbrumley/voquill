@@ -194,6 +194,7 @@ export function TranscriptionSection({
               min={0.3}
               max={0.95}
               step={0.05}
+              formatEndLabel={(value) => `${Math.round(value * 100)}%`}
               onChange={(value) => updateConfig('diarization_cluster_threshold', value)}
               ariaLabel="Voice distinctiveness"
               style={{ margin: `${tokens.spacing.sm} 0` }}

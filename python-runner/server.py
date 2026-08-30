@@ -218,7 +218,7 @@ def get_tts_models() -> list[dict]:
         )
     mod = handlers["tts"]["module"]
     try:
-        models = mod.get_available_models()
+        models = mod.get_available_models(RUNNER_BASE_DIR)
         return [m.model_dump() for m in models]
     except Exception as e:
         logger.exception("Failed to query TTS models")
