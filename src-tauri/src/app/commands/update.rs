@@ -125,9 +125,9 @@ fn spawn_update_process() -> Result<(), String> {
             .unwrap_or(false);
 
     let script_cmd = if is_appimage {
-        "curl -sf https://voquill.org/install.sh | bash -s -- --appimage --yes --relaunch"
+        "curl -sf https://voquill.org/install.sh | bash -s -- --appimage"
     } else {
-        "curl -sf https://voquill.org/install.sh | bash -s -- --system --yes --relaunch"
+        "curl -sf https://voquill.org/install.sh | bash"
     };
 
     crate::log_info!("Spawning Linux update process: {}", script_cmd);
@@ -176,7 +176,7 @@ fn spawn_update_process() -> Result<(), String> {
     const DETACHED_PROCESS: u32 = 0x00000008;
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
 
-    let script_cmd = "irm https://voquill.org/install.ps1 | iex -args '-Relaunch'";
+    let script_cmd = "irm https://voquill.org/install.ps1 | iex";
     crate::log_info!("Spawning Windows update process: {}", script_cmd);
 
     let log_path = crate::paths::debug_dir()

@@ -9,25 +9,27 @@ usage() {
 Voquill bootstrap installer
 
 Usage:
-  install.sh [--appimage] [--system] [--version <tag>] [--channel latest|stable] [--yes] [--relaunch] [--insecure-skip-verify]
+  install.sh [--appimage] [--system] [--version <tag>] [--channel latest|stable] [--yes] [--no-relaunch] [--insecure-skip-verify]
 
-Default: system-wide install via apt/dnf (requires sudo). Falls back to AppImage
-if no supported package manager or sudo is unavailable.
+Default: system-wide install via apt/dnf (requires sudo/pkexec). Falls back to AppImage
+if no supported package manager or root authentication is unavailable.
 
 Options:
   --appimage              Install AppImage to ~/.local/bin (user-local, no sudo)
-  --system                Force system-wide install via package manager (requires sudo)
+  --system                Force system-wide install via package manager (requires root)
   --clean                 Remove old packages and purge cached data (models, python-runner, debug)
                           before installing. Keeps config.json and history.db.
   --version <tag>         Install specific release tag (e.g. v1.5.0)
   --channel <name>        Release channel (default: latest)
   --yes                   Skip interactive confirmation prompts
-  --relaunch              Launch Voquill after successful installation
+  --no-relaunch           Do not launch Voquill after installation (launches by default)
+  --relaunch              Explicitly launch Voquill after installation (default behavior)
   --insecure-skip-verify  Skip checksum verification (not recommended)
   -h, --help              Show this help message
 
 Environment overrides:
   VOQUILL_INSTALL_URL     Full package URL override
+  VOQUILL_NO_RELAUNCH     Set to 1 to disable auto-launching Voquill after install
 
 Examples:
   curl -sf https://voquill.org/install.sh | bash
@@ -36,12 +38,26 @@ Examples:
 EOF
 }
 
+LOG_DIR="${HOME}/.config/voquill-app/debug"
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+LOG_FILE="${LOG_DIR}/update.log"
+
 log() {
+  local timestamp
+  timestamp="$(date '+%Y-%m-%d %H:%M:%S.%3N' 2>/dev/null || date '+%Y-%m-%d %H:%M:%S')"
   printf "[voquill] %s\n" "$*"
+  if [[ -n "${LOG_FILE:-}" && -d "$LOG_DIR" ]]; then
+    printf "[%s] [voquill] %s\n" "$timestamp" "$*" >> "$LOG_FILE" 2>/dev/null || true
+  fi
 }
 
 fail() {
+  local timestamp
+  timestamp="$(date '+%Y-%m-%d %H:%M:%S.%3N' 2>/dev/null || date '+%Y-%m-%d %H:%M:%S')"
   printf "[voquill] ERROR: %s\n" "$*" >&2
+  if [[ -n "${LOG_FILE:-}" && -d "$LOG_DIR" ]]; then
+    printf "[%s] [voquill] ERROR: %s\n" "$timestamp" "$*" >> "$LOG_FILE" 2>/dev/null || true
+  fi
   exit 1
 }
 
@@ -226,7 +242,10 @@ install_appimage=false
 non_interactive=false
 skip_verify=false
 clean=false
-relaunch=false
+relaunch=true
+if [[ "${VOQUILL_NO_RELAUNCH:-}" == "1" || "${VOQUILL_NO_RELAUNCH:-}" == "true" ]]; then
+  relaunch=false
+fi
 version=""
 channel="latest"
 
@@ -243,6 +262,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --relaunch)
       relaunch=true
+      ;;
+    --no-relaunch)
+      relaunch=false
       ;;
     --version)
       [[ $# -ge 2 ]] || fail "--version requires a value"

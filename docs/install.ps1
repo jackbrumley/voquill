@@ -13,8 +13,8 @@
   Install a specific release tag (e.g. "v1.5.0").
 .PARAMETER InsecureSkipVerify
   Skip checksum verification (not recommended).
-.PARAMETER Relaunch
-  Launch Voquill after successful installation.
+.PARAMETER NoRelaunch
+  Do not launch Voquill after installation (launches by default).
 .PARAMETER Help
   Show this help message.
 .EXAMPLE
@@ -24,7 +24,7 @@
 .EXAMPLE
   irm https://voquill.org/install.ps1 | iex -args "-Version v1.5.0"
 .EXAMPLE
-  irm https://voquill.org/install.ps1 | iex -args "-Relaunch"
+  irm https://voquill.org/install.ps1 | iex -args "-NoRelaunch"
 #>
 
 param(
@@ -32,7 +32,7 @@ param(
   [switch]$System,
   [switch]$Clean,
   [switch]$InsecureSkipVerify,
-  [switch]$Relaunch,
+  [switch]$NoRelaunch,
   [switch]$Help
 )
 
@@ -45,12 +45,37 @@ $Repo = "jackbrumley/voquill"
 $AppName = "voquill"
 $TempDir = Join-Path $env:TEMP "voquill-install"
 
+$DebugDir = Join-Path $env:USERPROFILE ".config\voquill-app\debug"
+$LogFile = $null
+try {
+  if (-not (Test-Path $DebugDir)) {
+    New-Item -ItemType Directory -Force -Path $DebugDir | Out-Null
+  }
+  $LogFile = Join-Path $DebugDir "update.log"
+} catch {
+  $LogFile = $null
+}
+
 function Log($Message) {
+  $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"
+  $formatted = "[$timestamp] [voquill] $Message"
   Write-Host "[voquill] $Message"
+  if ($LogFile) {
+    try {
+      Add-Content -Path $LogFile -Value $formatted -ErrorAction SilentlyContinue
+    } catch {}
+  }
 }
 
 function Fail($Message) {
+  $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"
+  $formatted = "[$timestamp] [voquill] ERROR: $Message"
   Write-Host "[voquill] ERROR: $Message" -ForegroundColor Red
+  if ($LogFile) {
+    try {
+      Add-Content -Path $LogFile -Value $formatted -ErrorAction SilentlyContinue
+    } catch {}
+  }
   exit 1
 }
 
@@ -302,8 +327,10 @@ if ($InstallType -eq "msi" -and $process.ExitCode -eq 3010) {
   Log "NOTE: A system restart is recommended to complete the installation."
 }
 
-if ($Relaunch) {
-  Log "Relaunching Voquill..."
+$ShouldLaunch = -not $NoRelaunch -and ($env:VOQUILL_NO_RELAUNCH -ne "1") -and ($env:VOQUILL_NO_RELAUNCH -ne "true")
+
+if ($ShouldLaunch) {
+  Log "Launching Voquill..."
   $possiblePaths = @(
     (Join-Path $env:LOCALAPPDATA "Programs\Voquill\Voquill.exe"),
     (Join-Path $env:LOCALAPPDATA "Programs\Voquill\voquill.exe"),
