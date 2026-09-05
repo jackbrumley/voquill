@@ -224,9 +224,51 @@ pub fn convert_audio_for_whisper(
     finalize_captured_audio_for_whisper(&mono, spec.sample_rate)
 }
 
+/// Trims excessive leading silence from 16kHz audio before whisper decoding,
+/// while preserving a safe 150ms pre-roll buffer so initial soft consonants
+/// (s, f, th, p) are never clipped.
+pub fn trim_leading_silence(samples: &[f32], sample_rate: u32) -> Vec<f32> {
+    if samples.is_empty() || sample_rate == 0 {
+        return samples.to_vec();
+    }
+
+    let frame_size = (sample_rate as f32 * 0.020).round() as usize; // 20ms frame
+    let pre_roll_samples = (sample_rate as f32 * 0.150).round() as usize; // 150ms pre-roll
+    const SPEECH_ONSET_RMS_THRESHOLD: f32 = 0.020;
+
+    if samples.len() <= pre_roll_samples + frame_size {
+        return samples.to_vec();
+    }
+
+    for i in (0..samples.len().saturating_sub(frame_size)).step_by(frame_size) {
+        let chunk = &samples[i..i + frame_size];
+        let energy: f32 = chunk.iter().map(|&s| s * s).sum::<f32>() / frame_size as f32;
+        let rms = energy.sqrt();
+
+        if rms >= SPEECH_ONSET_RMS_THRESHOLD {
+            if i > pre_roll_samples {
+                let trim_start = i - pre_roll_samples;
+                let trimmed_secs = trim_start as f64 / sample_rate as f64;
+                crate::log_info!(
+                    "Trimmed {:.3}s of leading silence before speech onset at {:.3}s",
+                    trimmed_secs,
+                    i as f64 / sample_rate as f64
+                );
+                return samples[trim_start..].to_vec();
+            }
+            // Speech onset is already within pre-roll buffer at start
+            return samples.to_vec();
+        }
+    }
+
+    // No speech threshold reached; keep original audio
+    samples.to_vec()
+}
+
 /// Finalize in-memory float audio samples for whisper:
 /// - Skips resampling if the stream is already 16,000Hz (0ms latency).
 /// - Resamples with band-limited FFT if not 16,000Hz.
+/// - Trims excessive leading silence with a safe 150ms pre-roll.
 /// - Normalizes using 99.5th percentile peak and active speech RMS with soft limiting.
 /// - Writes single 16-bit mono 16kHz PCM WAV.
 pub fn finalize_captured_audio_for_whisper(
@@ -244,7 +286,8 @@ pub fn finalize_captured_audio_for_whisper(
         samples.to_vec()
     };
 
-    let normalized = normalize_audio(&resampled);
+    let trimmed = trim_leading_silence(&resampled, 16000);
+    let normalized = normalize_audio(&trimmed);
     let peak = normalized.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
     let rms = if normalized.is_empty() {
         0.0
@@ -398,6 +441,37 @@ mod tests {
         assert_eq!(reader.spec().sample_rate, 16000);
         assert_eq!(reader.spec().channels, 1);
         assert_eq!(reader.duration(), 16000);
+    }
+
+    #[test]
+    fn trim_leading_silence_trims_long_initial_silence() {
+        let sample_rate = 16000;
+        let silence_len = 16000 * 2; // 2 seconds of silence
+        let speech_len = 16000 * 3; // 3 seconds of active speech
+
+        let mut input = vec![0.001f32; silence_len];
+        input.extend(vec![0.1f32; speech_len]);
+
+        let trimmed = trim_leading_silence(&input, sample_rate);
+        // Should keep 150ms (2400 samples) pre-roll before speech onset (32000), so starts at ~29600
+        assert!(trimmed.len() < input.len());
+        assert!(trimmed.len() >= speech_len + 2400);
+    }
+
+    #[test]
+    fn trim_leading_silence_preserves_immediate_speech() {
+        let sample_rate = 16000;
+        let input = vec![0.1f32; 16000 * 2]; // Immediate speech
+        let trimmed = trim_leading_silence(&input, sample_rate);
+        assert_eq!(trimmed.len(), input.len());
+    }
+
+    #[test]
+    fn trim_leading_silence_handles_pure_silence() {
+        let sample_rate = 16000;
+        let input = vec![0.001f32; 16000 * 2]; // Pure silence
+        let trimmed = trim_leading_silence(&input, sample_rate);
+        assert_eq!(trimmed.len(), input.len());
     }
 
     #[test]
