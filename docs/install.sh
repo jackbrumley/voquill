@@ -62,15 +62,37 @@ require_safe_path() {
 run_as_root() {
   if [[ "$EUID" -eq 0 ]]; then
     "$@"
-  else
+  elif optional_cmd sudo && sudo -n true 2>/dev/null; then
     sudo "$@"
+  elif [[ -t 0 ]] && optional_cmd sudo; then
+    sudo "$@"
+  elif optional_cmd pkexec && [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
+    pkexec "$@"
+  elif optional_cmd sudo; then
+    sudo "$@"
+  else
+    fail "Root permissions required but neither pkexec nor sudo is available"
   fi
 }
 
 acquire_root() {
-  if [[ "$EUID" -ne 0 ]]; then
+  if [[ "$EUID" -eq 0 ]]; then
+    return 0
+  fi
+  if optional_cmd sudo && sudo -n true 2>/dev/null; then
+    return 0
+  fi
+  if [[ -t 0 ]]; then
     optional_cmd sudo || return 1
     sudo -v
+  else
+    if optional_cmd pkexec && [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
+      pkexec true
+    elif optional_cmd sudo; then
+      sudo -n true 2>/dev/null || return 1
+    else
+      return 1
+    fi
   fi
 }
 
@@ -123,112 +145,60 @@ fetch_latest_release_tag() {
 }
 
 uninstall_existing() {
-  log "Removing previous Voquill installation"
+  log "Checking for previous installations"
   local has_root=false
-  if [[ "$EUID" -eq 0 ]] || optional_cmd sudo; then
+  if [[ "$EUID" -eq 0 ]] || (optional_cmd sudo && sudo -n true 2>/dev/null) || (optional_cmd pkexec && [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]); then
     has_root=true
   fi
 
-  # 1. Remove packages via package manager
-  local package_names=("voquill" "org.voquill.desktop" "org.voquill.app" "org.voquill.foss")
-  for pkg in "${package_names[@]}"; do
+  # 1. Remove legacy package names via package manager (note: "voquill" is upgraded in-place by apt/dnf)
+  local legacy_packages=("org.voquill.desktop" "org.voquill.app" "org.voquill.foss")
+  for pkg in "${legacy_packages[@]}"; do
     if optional_cmd rpm && [[ "$has_root" == true ]]; then
-      # Tauri converts dots to dashes in RPM package names, try both
       for rpm_name in "$pkg" "${pkg//./-}"; do
         if rpm -q "$rpm_name" >/dev/null 2>&1; then
-          log "Removing old package: ${rpm_name}"
+          log "Removing legacy package: ${rpm_name}"
           run_as_root dnf remove -y "$rpm_name" 2>/dev/null || run_as_root rpm -e "$rpm_name" 2>/dev/null || true
           break
         fi
       done
     fi
     if optional_cmd dpkg && [[ "$has_root" == true ]] && dpkg -l "$pkg" >/dev/null 2>&1; then
-      log "Removing old package: ${pkg}"
+      log "Removing legacy package: ${pkg}"
       run_as_root apt remove -y "$pkg" 2>/dev/null || run_as_root dpkg -r "$pkg" 2>/dev/null || true
     fi
   done
 
-  # 2. Clean leftover binaries across system and user locations
-  local binary_paths=(
-    "/usr/bin/voquill"
-    "/usr/local/bin/voquill"
-    "${HOME}/.local/bin/voquill"
-  )
-  for bpath in "${binary_paths[@]}"; do
-    require_safe_path "$bpath"
-    if [[ -e "$bpath" || -L "$bpath" ]]; then
-      log "Removing binary: ${bpath}"
-      if [[ "$bpath" == /usr/* ]]; then
-        if [[ "$has_root" == true ]]; then
-          run_as_root rm -f "$bpath" 2>/dev/null || true
-        fi
-      else
-        rm -f "$bpath" 2>/dev/null || true
-      fi
+  # 2. Clean leftover binaries and desktop integration based on target install mode
+  if [[ "$install_system" == true ]]; then
+    # When installing system-wide, remove any user-local AppImage and desktop files that could shadow /usr/bin/voquill
+    local user_binary="${HOME}/.local/bin/voquill"
+    require_safe_path "$user_binary"
+    if [[ -e "$user_binary" || -L "$user_binary" ]]; then
+      log "Removing user-local binary: ${user_binary}"
+      rm -f "$user_binary" 2>/dev/null || true
     fi
-  done
 
-  # 3. Clean desktop integration files
-  local desktop_files=(
-    "/usr/share/applications/voquill.desktop"
-    "/usr/share/applications/org.voquill.desktop.desktop"
-    "/usr/share/applications/org.voquill.app.desktop"
-    "${HOME}/.local/share/applications/voquill.desktop"
-    "${HOME}/.local/share/applications/org.voquill.desktop.desktop"
-    "${HOME}/.local/share/applications/org.voquill.app.desktop"
-  )
-  for dfile in "${desktop_files[@]}"; do
-    require_safe_path "$dfile"
-    if [[ -e "$dfile" || -L "$dfile" ]]; then
-      log "Removing desktop entry: ${dfile}"
-      if [[ "$dfile" == /usr/share/* ]]; then
-        if [[ "$has_root" == true ]]; then
-          run_as_root rm -f "$dfile" 2>/dev/null || true
-        fi
-      else
+    local user_desktop_files=(
+      "${HOME}/.local/share/applications/voquill.desktop"
+      "${HOME}/.local/share/applications/org.voquill.desktop.desktop"
+      "${HOME}/.local/share/applications/org.voquill.app.desktop"
+    )
+    for dfile in "${user_desktop_files[@]}"; do
+      require_safe_path "$dfile"
+      if [[ -e "$dfile" || -L "$dfile" ]]; then
+        log "Removing user-local desktop entry: ${dfile}"
         rm -f "$dfile" 2>/dev/null || true
       fi
-    fi
-  done
-
-  # 4. Clean icons
-  local icon_dirs=(
-    "/usr/share/icons/hicolor/scalable/apps"
-    "${HOME}/.local/share/icons/hicolor/scalable/apps"
-  )
-  for idir in "${icon_dirs[@]}"; do
-    require_safe_path "$idir"
-    for iname in "voquill.svg" "org.voquill.desktop.svg" "org.voquill.app.svg"; do
-      local ipath="${idir}/${iname}"
-      if [[ -e "$ipath" || -L "$ipath" ]]; then
-        log "Removing icon: ${ipath}"
-        if [[ "$ipath" == /usr/share/* ]]; then
-          if [[ "$has_root" == true ]]; then
-            run_as_root rm -f "$ipath" 2>/dev/null || true
-          fi
-        else
-          rm -f "$ipath" 2>/dev/null || true
-        fi
-      fi
     done
-  done
-
-  # 5. Clean metainfo
-  local metainfo_files=(
-    "/usr/share/metainfo/org.voquill.desktop.metainfo.xml"
-    "/usr/share/appdata/org.voquill.desktop.metainfo.xml"
-    "/usr/share/metainfo/org.voquill.app.metainfo.xml"
-    "/usr/share/appdata/org.voquill.app.metainfo.xml"
-  )
-  for mfile in "${metainfo_files[@]}"; do
-    require_safe_path "$mfile"
-    if [[ -e "$mfile" || -L "$mfile" ]]; then
-      log "Removing metainfo: ${mfile}"
-      if [[ "$has_root" == true ]]; then
-        run_as_root rm -f "$mfile" 2>/dev/null || true
-      fi
+  else
+    # When installing user-local AppImage, remove old user-local binary and legacy entries
+    local user_binary="${HOME}/.local/bin/voquill"
+    require_safe_path "$user_binary"
+    if [[ -e "$user_binary" || -L "$user_binary" ]]; then
+      rm -f "$user_binary" 2>/dev/null || true
     fi
-  done
+  fi
 }
 
 clean_user_data() {
@@ -318,7 +288,7 @@ if [[ -z "$version" ]]; then
   fi
 fi
 
-# Resolve install mode: default to system if package manager + root/sudo available
+# Resolve install mode: default to system if package manager + root/sudo/polkit available
 if [[ "$install_appimage" == true ]]; then
   install_system=false
 elif [[ "$install_system" == true ]]; then
@@ -327,8 +297,8 @@ elif [[ "$install_system" == true ]]; then
     fail "No supported package manager found (dnf/apt). Use --appimage for user-local install."
   fi
   if [[ "$EUID" -ne 0 ]]; then
-    log "System install requested; sudo may prompt for your password"
-    acquire_root || fail "failed to acquire sudo permission for system install"
+    log "System install requested; root authorization required"
+    acquire_root || fail "failed to acquire root permission for system install"
   fi
 else
   pm="$(detect_package_manager)"
@@ -336,11 +306,18 @@ else
     if [[ "$EUID" -eq 0 ]]; then
       install_system=true
     else
-      log "Package manager '${pm}' detected. Sudo may prompt for your password:"
+      has_system_install=false
+      if [[ -x "/usr/bin/voquill" || -x "/usr/local/bin/voquill" ]]; then
+        has_system_install=true
+      fi
+
+      log "Package manager '${pm}' detected. Acquiring root permissions..."
       if acquire_root; then
         install_system=true
+      elif [[ "$has_system_install" == true ]]; then
+        fail "Root permissions required to update existing system package in /usr/bin. Update aborted."
       else
-        log "Sudo authentication unavailable. Falling back to AppImage."
+        log "Root authentication unavailable. Falling back to AppImage."
         install_system=false
       fi
     fi
@@ -455,8 +432,7 @@ if [[ "$install_system" == true ]]; then
   if [[ "$pm" == "dnf" ]]; then
     run_as_root dnf install -y "$package_path"
   elif [[ "$pm" == "apt" ]]; then
-    run_as_root cp "$package_path" /var/cache/apt/archives/
-    run_as_root apt install -y "/var/cache/apt/archives/${BIN_NAME}.${package_ext}"
+    run_as_root apt install -y "$package_path"
   fi
 
   log "System installation complete via ${pm}"
@@ -504,15 +480,19 @@ fi
 
 if optional_cmd gtk-update-icon-cache; then
   if [[ "$install_system" == true ]]; then
-    run_as_root gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
+    if [[ "$EUID" -eq 0 ]] || (optional_cmd sudo && sudo -n true 2>/dev/null); then
+      run_as_root gtk-update-icon-cache -f -t -q /usr/share/icons/hicolor >/dev/null 2>&1 || true
+    fi
   else
-    gtk-update-icon-cache -f -t "${HOME}/.local/share/icons/hicolor" >/dev/null 2>&1 || true
+    gtk-update-icon-cache -f -t -q "${HOME}/.local/share/icons/hicolor" >/dev/null 2>&1 || true
   fi
 fi
 
 if optional_cmd update-desktop-database; then
   if [[ "$install_system" == true ]]; then
-    run_as_root update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+    if [[ "$EUID" -eq 0 ]] || (optional_cmd sudo && sudo -n true 2>/dev/null); then
+      run_as_root update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+    fi
   else
     update-desktop-database "${HOME}/.local/share/applications" >/dev/null 2>&1 || true
   fi

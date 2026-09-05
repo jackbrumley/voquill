@@ -127,18 +127,33 @@ fn spawn_update_process() -> Result<(), String> {
     let script_cmd = if is_appimage {
         "curl -sf https://voquill.org/install.sh | bash -s -- --appimage --yes --relaunch"
     } else {
-        "curl -sf https://voquill.org/install.sh | bash -s -- --yes --relaunch"
+        "curl -sf https://voquill.org/install.sh | bash -s -- --system --yes --relaunch"
     };
 
     crate::log_info!("Spawning Linux update process: {}", script_cmd);
+
+    let log_path = crate::paths::debug_dir()
+        .map(|dir| dir.join("update.log"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("voquill-update.log"));
+
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&log_path)
+        .map_err(|error| format!("Failed to open update log file: {error}"))?;
+
+    let log_file_err = log_file
+        .try_clone()
+        .map_err(|error| format!("Failed to clone update log handle: {error}"))?;
 
     let mut command = std::process::Command::new("bash");
     command
         .arg("-c")
         .arg(script_cmd)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
+        .stdout(log_file)
+        .stderr(log_file_err);
 
     unsafe {
         command.pre_exec(|| {
@@ -164,6 +179,21 @@ fn spawn_update_process() -> Result<(), String> {
     let script_cmd = "irm https://voquill.org/install.ps1 | iex -args '-Relaunch'";
     crate::log_info!("Spawning Windows update process: {}", script_cmd);
 
+    let log_path = crate::paths::debug_dir()
+        .map(|dir| dir.join("update.log"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("voquill-update.log"));
+
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&log_path)
+        .map_err(|error| format!("Failed to open update log file: {error}"))?;
+
+    let log_file_err = log_file
+        .try_clone()
+        .map_err(|error| format!("Failed to clone update log handle: {error}"))?;
+
     let mut command = std::process::Command::new("powershell.exe");
     command
         .args([
@@ -174,8 +204,8 @@ fn spawn_update_process() -> Result<(), String> {
             script_cmd,
         ])
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdout(log_file)
+        .stderr(log_file_err)
         .creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
 
     command

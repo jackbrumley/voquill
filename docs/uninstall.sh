@@ -39,8 +39,37 @@ optional_cmd() {
 run_as_root() {
   if [[ "$EUID" -eq 0 ]]; then
     "$@"
-  else
+  elif optional_cmd sudo && sudo -n true 2>/dev/null; then
     sudo "$@"
+  elif [[ -t 0 ]] && optional_cmd sudo; then
+    sudo "$@"
+  elif optional_cmd pkexec && [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
+    pkexec "$@"
+  elif optional_cmd sudo; then
+    sudo "$@"
+  else
+    fail "Root permissions required but neither pkexec nor sudo is available"
+  fi
+}
+
+acquire_root() {
+  if [[ "$EUID" -eq 0 ]]; then
+    return 0
+  fi
+  if optional_cmd sudo && sudo -n true 2>/dev/null; then
+    return 0
+  fi
+  if [[ -t 0 ]]; then
+    optional_cmd sudo || return 1
+    sudo -v
+  else
+    if optional_cmd pkexec && [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
+      pkexec true
+    elif optional_cmd sudo; then
+      sudo -n true 2>/dev/null || return 1
+    else
+      return 1
+    fi
   fi
 }
 
@@ -144,7 +173,7 @@ for path in "${METAINFO_FILES[@]}"; do
 done
 
 if [[ "$system_changes_required" == true && "$EUID" -ne 0 ]]; then
-  optional_cmd sudo || fail "system cleanup requires sudo, but sudo was not found"
+  optional_cmd sudo || optional_cmd pkexec || fail "system cleanup requires root permissions, but neither sudo nor pkexec was found"
 fi
 
 log "Preparing Voquill uninstall"
@@ -171,10 +200,10 @@ if optional_cmd pgrep && pgrep -x voquill >/dev/null 2>&1; then
   fi
 fi
 
-# Acquire sudo if needed
+# Acquire root permissions if needed
 if [[ "$system_changes_required" == true && "$EUID" -ne 0 ]]; then
-  log "System-level cleanup detected; sudo may prompt for your password"
-  sudo -v || fail "failed to acquire sudo permission for system cleanup"
+  log "System-level cleanup detected; root authorization required"
+  acquire_root || fail "failed to acquire root permission for system cleanup"
 fi
 
 # Remove via package manager
