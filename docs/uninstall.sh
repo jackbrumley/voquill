@@ -64,7 +64,7 @@ acquire_root() {
     sudo -v
   else
     if optional_cmd pkexec && [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
-      pkexec true
+      return 0
     elif optional_cmd sudo; then
       sudo -n true 2>/dev/null || return 1
     else
@@ -155,7 +155,7 @@ for pkg in "${PACKAGE_NAMES[@]}"; do
       fi
     done
   fi
-  if [[ "$package_installed" != true ]] && optional_cmd dpkg && dpkg -l "$pkg" >/dev/null 2>&1; then
+  if [[ "$package_installed" != true ]] && optional_cmd dpkg && dpkg -s "$pkg" 2>/dev/null | grep -q "Status: install ok installed"; then
     package_installed=true
     system_changes_required=true
   fi
@@ -218,7 +218,7 @@ for pkg in "${PACKAGE_NAMES[@]}"; do
       fi
     done
   fi
-  if optional_cmd dpkg && dpkg -l "$pkg" >/dev/null 2>&1; then
+  if optional_cmd dpkg && dpkg -s "$pkg" 2>/dev/null | grep -q "Status: install ok installed"; then
     log "Removing DEB package: ${pkg}"
     run_as_root apt remove -y "$pkg" 2>/dev/null || run_as_root dpkg -r "$pkg" 2>/dev/null || log "Package removal may have already been handled"
   fi

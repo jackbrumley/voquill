@@ -87,7 +87,7 @@ acquire_root() {
     sudo -v
   else
     if optional_cmd pkexec && [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
-      pkexec true
+      return 0
     elif optional_cmd sudo; then
       sudo -n true 2>/dev/null || return 1
     else
@@ -163,7 +163,7 @@ uninstall_existing() {
         fi
       done
     fi
-    if optional_cmd dpkg && [[ "$has_root" == true ]] && dpkg -l "$pkg" >/dev/null 2>&1; then
+    if optional_cmd dpkg && [[ "$has_root" == true ]] && dpkg -s "$pkg" 2>/dev/null | grep -q "Status: install ok installed"; then
       log "Removing legacy package: ${pkg}"
       run_as_root apt remove -y "$pkg" 2>/dev/null || run_as_root dpkg -r "$pkg" 2>/dev/null || true
     fi
