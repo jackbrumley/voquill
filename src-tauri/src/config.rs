@@ -348,9 +348,8 @@ impl Config {
     }
 
     /// Builds a cleanly framed prompt hint for transcription models.
-    /// Prefixes dictionary hotwords with "Vocabulary:" and ensures terminal
-    /// punctuation so Whisper treats preceding text as expository context
-    /// rather than completed subtitle dialogue (which causes hallucinated leading dashes).
+    /// Formats spelling conventions and custom dictionary terms as natural
+    /// context words and ensures terminal punctuation without synthetic prefixes.
     pub fn resolve_prompt_hint(&self) -> Option<String> {
         let spelling_hint = match self.language.as_str() {
             "en-AU" => Some("Australian spelling."),
@@ -373,7 +372,7 @@ impl Config {
             {
                 dict_str.push('.');
             }
-            parts.push(format!("Vocabulary: {}", dict_str));
+            parts.push(dict_str);
         }
 
         if parts.is_empty() {
@@ -756,7 +755,7 @@ mod tests {
         };
         assert_eq!(
             config.resolve_prompt_hint(),
-            Some("Vocabulary: xylophone, Voquill.".to_string())
+            Some("xylophone, Voquill.".to_string())
         );
     }
 
@@ -769,7 +768,7 @@ mod tests {
         };
         assert_eq!(
             config.resolve_prompt_hint(),
-            Some("American spelling. Vocabulary: Voquill, llama.".to_string())
+            Some("American spelling. Voquill, llama.".to_string())
         );
     }
 
@@ -780,10 +779,7 @@ mod tests {
             dictionary: vec!["Voquill!".to_string()],
             ..Default::default()
         };
-        assert_eq!(
-            config.resolve_prompt_hint(),
-            Some("Vocabulary: Voquill!".to_string())
-        );
+        assert_eq!(config.resolve_prompt_hint(), Some("Voquill!".to_string()));
     }
 
     #[test]
