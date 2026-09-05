@@ -8,9 +8,8 @@ import { Button } from '../components/Button.tsx';
 import { MicSetupPanel } from '../components/MicSetupPanel.tsx';
 import { ModelSelectionPanel } from '../components/ModelSelectionPanel.tsx';
 import { SelectField } from '../components/SelectField.tsx';
-import { SurfaceCard } from '../components/SurfaceCard.tsx';
 import { SettingRow } from '../components/SettingRow.tsx';
-import { helperTextStyle, inputBaseStyle, selectWrapperStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
+import { helperTextStyle, inputBaseStyle, selectWrapperStyle, tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 import { API_KEY_PLACEHOLDER, type ReadinessStatus } from '../readiness.ts';
 import type { AudioDevice, DownloadPhase, GpuStatus } from '../types.ts';
@@ -157,21 +156,9 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
   const isGpuEngineSelected = config.local_engine.includes('(GPU)');
 
   return (
-    <div style={{ ...tabPanelStyle, overflow: 'auto', padding: 0 }} key="initial-setup">
-      <SurfaceCard
-        className="tab-panel-content"
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'transparent',
-          border: 'none',
-          boxShadow: 'none',
-          backdropFilter: 'none',
-          WebkitBackdropFilter: 'none',
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.lg, width: '100%', maxWidth: '900px', margin: '0 auto', borderRadius: tokens.radii.panel, padding: tokens.spacing.md, background: 'rgba(35, 37, 42, 0.5)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.md, textAlign: 'center', width: '100%' }}>
+    <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="initial-setup">
+      <div style={{ ...tabPanelPaddedStyle, flex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.md, textAlign: 'center', width: '100%', paddingTop: tokens.spacing.md }}>
           <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: tokens.colors.accentPrimary, boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
             <IconShieldLock size={32} />
           </div>
@@ -456,8 +443,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
             </div>
           )}
         </div>
-        </div>
-      </SurfaceCard>
+      </div>
     </div>
   );
 }
