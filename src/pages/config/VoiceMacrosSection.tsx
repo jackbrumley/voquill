@@ -28,7 +28,6 @@ import { MacroImportModal } from './voice_macro/MacroImportModal.tsx';
 import { VoiceLabModal } from './voice_macro/VoiceLabModal.tsx';
 import {
   cloneMacro,
-  generateMacroId,
   serializeSingleMacro,
   serializeMacroBundle,
 } from './voice_macro/macroSharing.ts';
@@ -142,6 +141,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
   };
 
   const handleSaveModal = (
+    id: string,
     phrase: string,
     phrases: string[],
     steps: MacroStep[],
@@ -180,7 +180,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
       showToast?.(`Updated macro "${phrase}"`, 'success');
     } else {
       const newCommand: VoiceMacroCommand = {
-        id: generateMacroId(),
+        id,
         phrase,
         phrases: [...phrases],
         steps: [...steps],
@@ -202,6 +202,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
   };
 
   const handleSaveAsCopy = (
+    id: string,
     phrase: string,
     phrases: string[],
     steps: MacroStep[],
@@ -214,7 +215,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
   ) => {
     const currentMacros = config.voice_macros || [];
     const newCommand: VoiceMacroCommand = {
-      id: generateMacroId(),
+      id,
       phrase,
       phrases: [...phrases],
       steps: [...steps],
@@ -233,7 +234,7 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
     handleCloseModal();
   };
 
-  const handleDuplicateMacro = (cmd: VoiceMacroCommand) => {
+  const handleDuplicateMacro = async (cmd: VoiceMacroCommand) => {
     const currentMacros = config.voice_macros || [];
     const cloned = cloneMacro(cmd);
     const existingPhrases = new Set(currentMacros.map((m) => m.phrase.trim().toLowerCase()));
@@ -244,6 +245,18 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
       counter++;
     }
     cloned.phrase = phrase;
+
+    if (cloned.sound_mode && cloned.sound_mode !== 'default' && cloned.sound_mode !== 'none') {
+      try {
+        await invoke('clone_macro_sound', {
+          sourceMacroId: cmd.id,
+          targetMacroId: cloned.id,
+        });
+      } catch (e) {
+        console.warn('Failed to clone macro sound on disk:', e);
+      }
+    }
+
     updateConfig('voice_macros', [...currentMacros, cloned]);
     showToast?.(`Duplicated macro "${cmd.phrase}"`, 'success');
   };
@@ -296,6 +309,9 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
     const currentMacros = config.voice_macros || [];
     const updated = currentMacros.filter((m) => m.id !== id);
     updateConfig('voice_macros', updated);
+    invoke('delete_macro_sound', { macroId: id }).catch((e) => {
+      console.warn('Failed to delete macro sound on disk:', e);
+    });
     showToast?.(`Removed macro "${phrase}"`, 'info');
     handleCloseModal();
   };

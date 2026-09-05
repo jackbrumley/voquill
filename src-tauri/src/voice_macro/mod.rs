@@ -8,8 +8,9 @@ pub use matcher::{
     MacroMatchResult,
 };
 pub use sound::{
-    delete_macro_sound, import_macro_audio_file, macro_sound_path, play_macro_sound,
-    play_macro_sound_file, play_macro_trigger_sound, save_macro_mic_recording,
+    cleanup_orphaned_macro_sounds, clone_macro_sound, delete_macro_sound, import_macro_audio_file,
+    macro_sound_path, play_macro_sound, play_macro_sound_file, play_macro_trigger_sound,
+    save_macro_mic_recording,
 };
 
 use std::collections::VecDeque;
@@ -26,10 +27,17 @@ static LISTENER_GENERATION: AtomicU64 = AtomicU64::new(1);
 
 pub fn sync_voice_macro_listener(app_handle: &AppHandle) {
     let state = app_handle.state::<AppState>();
-    let (enabled, has_macros) = {
+    let (enabled, has_macros, active_macro_ids) = {
         let config = state.config.lock().unwrap();
-        (config.voice_macros_enabled, !config.voice_macros.is_empty())
+        let ids: Vec<String> = config.voice_macros.iter().map(|m| m.id.clone()).collect();
+        (
+            config.voice_macros_enabled,
+            !config.voice_macros.is_empty(),
+            ids,
+        )
     };
+
+    let _ = sound::cleanup_orphaned_macro_sounds(&active_macro_ids);
 
     let mut cancel_guard = state.voice_macro_cancel.lock().unwrap();
 
@@ -146,11 +154,24 @@ async fn run_voice_macro_listener_loop(
                 Ok(sample) => {
                     frame_buffer.push(sample);
                     if frame_buffer.len() >= frame_size {
-                        let open_threshold = {
+                        let (open_threshold, is_app_idle) = {
                             let state = app_handle_for_vad.state::<AppState>();
+                            let is_idle =
+                                *state.session_state.lock().unwrap() == SessionState::Idle;
                             let config = state.config.lock().unwrap();
-                            config.voice_macro_activation_threshold
+                            (config.voice_macro_activation_threshold, is_idle)
                         };
+
+                        if !is_app_idle {
+                            // If dictation or macro execution is active, reset buffers so dictation speech never builds macro chunks
+                            if !speech_buffer.is_empty() || vad.is_speaking {
+                                vad.reset();
+                                speech_buffer.clear();
+                                max_rms_in_phrase = 0.0;
+                            }
+                            frame_buffer.clear();
+                            continue;
+                        }
 
                         let vad_res = vad.process_frame(&frame_buffer, open_threshold);
 

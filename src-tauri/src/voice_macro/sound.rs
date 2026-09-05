@@ -276,6 +276,50 @@ pub fn delete_macro_sound(macro_id: &str) -> Result<(), String> {
     Ok(())
 }
 
+pub fn clone_macro_sound(source_id: &str, target_id: &str) -> Result<(), String> {
+    let src_path = macro_sound_path(source_id)?;
+    if src_path.exists() {
+        let dest_path = macro_sound_path(target_id)?;
+        std::fs::copy(&src_path, &dest_path).map_err(|e| {
+            format!(
+                "Failed to copy macro sound from '{}' to '{}': {}",
+                src_path.display(),
+                dest_path.display(),
+                e
+            )
+        })?;
+        crate::log_info!("Cloned macro sound from '{}' to '{}'", source_id, target_id);
+    }
+    Ok(())
+}
+
+pub fn cleanup_orphaned_macro_sounds(active_macro_ids: &[String]) -> Result<usize, String> {
+    let dir = crate::paths::macro_sounds_dir()?;
+    if !dir.exists() {
+        return Ok(0);
+    }
+
+    let mut removed_count = 0;
+    let entries =
+        std::fs::read_dir(&dir).map_err(|e| format!("Failed to read macro sounds dir: {}", e))?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("wav") {
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                if !active_macro_ids.iter().any(|id| id == stem)
+                    && std::fs::remove_file(&path).is_ok()
+                {
+                    crate::log_info!("Cleaned up orphaned macro sound: {}", path.display());
+                    removed_count += 1;
+                }
+            }
+        }
+    }
+
+    Ok(removed_count)
+}
+
 fn save_samples_to_wav(dest_path: &Path, samples: &[f32], sample_rate: u32) -> Result<(), String> {
     let spec = hound::WavSpec {
         channels: 1,

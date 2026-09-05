@@ -14,10 +14,12 @@ import { MacroTriggerStep } from './MacroTriggerStep.tsx';
 import { MacroSequenceStep } from './MacroSequenceStep.tsx';
 import { MacroSoundStep } from './MacroSoundStep.tsx';
 import { useMacroSequence } from './useMacroSequence.ts';
+import { generateMacroId } from './macroSharing.ts';
 
 interface MacroEditorModalProps {
   initialCommand: VoiceMacroCommand | null;
   onSave: (
+    id: string,
     phrase: string,
     phrases: string[],
     steps: MacroStep[],
@@ -29,6 +31,7 @@ interface MacroEditorModalProps {
     soundTtsPitch?: number | null
   ) => void;
   onSaveAsCopy?: (
+    id: string,
     phrase: string,
     phrases: string[],
     steps: MacroStep[],
@@ -78,7 +81,7 @@ export function MacroEditorModal({
   const soundTtsSpeed = useSignal<number>(initialCommand?.sound_tts_speed || 1.0);
   const soundTtsEffect = useSignal<string>(initialCommand?.sound_tts_effect || 'custom');
   const soundTtsPitch = useSignal<number>(initialCommand?.sound_tts_pitch ?? 0);
-  const macroId = useSignal<string>(initialCommand?.id || `macro-${Date.now()}`);
+  const macroId = useSignal<string>(initialCommand?.id || generateMacroId());
 
   const sequence = useMacroSequence(initialCommand?.steps || []);
 
@@ -127,6 +130,7 @@ export function MacroEditorModal({
     }
 
     onSave(
+      macroId.value,
       primaryPhrase,
       aliasPhrases,
       sequence.steps.value,
@@ -153,7 +157,7 @@ export function MacroEditorModal({
       primaryPhrase = `copy of ${primaryPhrase}`;
     }
     const aliasPhrases = all.slice(1);
-    const newId = `macro-${Date.now()}`;
+    const newId = generateMacroId();
 
     if (soundMode.value === 'tts' && soundTtsText.value.trim()) {
       if (soundTtsVoice.value) {
@@ -174,6 +178,7 @@ export function MacroEditorModal({
 
     if (onSaveAsCopy) {
       onSaveAsCopy(
+        newId,
         primaryPhrase,
         aliasPhrases,
         sequence.steps.value,

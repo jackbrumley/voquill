@@ -272,6 +272,14 @@ pub async fn delete_macro_sound(macro_id: String) -> Result<(), String> {
 }
 
 #[command]
+pub async fn clone_macro_sound(
+    source_macro_id: String,
+    target_macro_id: String,
+) -> Result<(), String> {
+    crate::voice_macro::clone_macro_sound(&source_macro_id, &target_macro_id)
+}
+
+#[command]
 pub async fn stop_macro_sound_playback() -> Result<(), String> {
     crate::voice_macro::sound::stop_macro_sound_playback();
     Ok(())
