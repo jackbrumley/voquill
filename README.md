@@ -34,19 +34,42 @@ It exists because dictation should be a basic utility, not a locked service. If 
 
 ## Install
 
-Download the latest release here:
+### Linux
 
-- **[Download Latest Release](https://github.com/jackbrumley/voquill/releases/latest)**
+**Native Package (`.deb` / `.rpm` — Recommended)**  
+Auto-detects `apt` or `dnf` and installs system-wide (prompts for sudo if required):
+```bash
+curl -sf https://voquill.org/install.sh | bash
+```
 
-Release package options:
+**AppImage (User-Local / Standalone)**  
+Installs AppImage to `~/.local/bin` without requiring sudo:
+```bash
+curl -sf https://voquill.org/install.sh | bash -s -- --appimage
+```
 
-- Windows (Most users): Setup EXE (no admin)
-- Windows (IT/Admin): System MSI
-- Linux (Debian/Ubuntu): `.deb`
-- Linux (Fedora/RHEL): `.rpm`
-- Linux (Portable): `.AppImage`
+### Windows
 
-Setup EXE installs per-user (no admin). MSI is a system-wide install intended for IT/admin deployment.
+Open **PowerShell** or **Windows Terminal**:
+
+**User Install (Recommended — No Admin Required)**  
+Installs Voquill in the current user context:
+```powershell
+irm https://voquill.org/install.ps1 | iex
+```
+
+**System Install (MSI — All Users)**  
+Installs Voquill system-wide (requires administrator privileges):
+```powershell
+irm https://voquill.org/install-system.ps1 | iex
+```
+
+### Manual Download
+
+Download standalone installers and packages directly from the **[Latest Release](https://github.com/jackbrumley/voquill/releases/latest)**:
+
+- **Windows:** Setup EXE (per-user, no admin) or System MSI (IT/admin deployment)
+- **Linux:** `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL), or `.AppImage` (portable / cross-distro)
 
 ## Getting Started
 
