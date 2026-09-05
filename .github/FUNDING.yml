@@ -1,0 +1,9 @@
+# These are supported funding model platforms
+
+# GitHub Sponsors (use your username if GitHub Sponsors is enabled)
+github: jackbrumley
+
+# Custom donation links (website donation page and/or direct PayPal link)
+custom:
+  - https://voquill.org/donate
+  - https://www.paypal.com/donate/?business=NQLJU7FJPRFB4&no_recurring=0&item_name=Support+development+and+maintenance+of+FOSS+Voquill%2C+a+free+and+open-source+offline+dictation+tool.&currency_code=AUD
