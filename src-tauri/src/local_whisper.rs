@@ -420,25 +420,19 @@ impl TranscriptionService for LocalWhisperService {
 
         // ── Prompt fallback ──
         // If the audio has meaningful content (>1s) but Whisper returned only
-        // punctuation or silence, or latched onto prompt words and aborted early (EOT),
-        // and a prompt was provided, retry immediately without the prompt.
-        let is_empty_or_punct = !trimmed.is_empty()
+        // punctuation or silence, and a prompt was provided, retry immediately
+        // without the prompt. The prompt can cause Whisper's cross-attention to
+        // latch onto prompt punctuation and emit an early EOT.
+        if !trimmed.is_empty()
             && !text_cleanup::has_alphanumeric_content(&trimmed)
-            && duration_secs > 1.0;
-
-        let is_latch = if let Some(p) = prompt {
-            is_prompt_echo(&trimmed, p, duration_secs)
-        } else {
-            false
-        };
-
-        if prompt.is_some() && (is_empty_or_punct || is_latch) {
+            && duration_secs > 1.0
+            && prompt.is_some()
+        {
             crate::log_info!(
-                "Prompt latch / early EOT detected (output=\"{}\", duration={:.1}s), retrying without prompt",
-                trimmed,
-                duration_secs
+                "Prompt-induced silence detected (chars={}), retrying without prompt",
+                trimmed.len()
             );
-            return self.transcribe(audio_data, resolved_language, None).await;
+            return self.transcribe(audio_data, Some("en"), None).await;
         }
 
         Ok(trimmed)
@@ -451,28 +445,4 @@ impl TranscriptionService for LocalWhisperService {
             "Local Whisper (CPU)"
         }
     }
-}
-
-fn is_prompt_echo(output: &str, prompt: &str, duration_secs: f64) -> bool {
-    if duration_secs < 2.0 || output.len() > 30 {
-        return false;
-    }
-
-    let out_words: Vec<String> = output
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|w| !w.is_empty())
-        .map(|w| w.to_lowercase())
-        .collect();
-
-    if out_words.is_empty() {
-        return false;
-    }
-
-    let prompt_words: Vec<String> = prompt
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|w| !w.is_empty())
-        .map(|w| w.to_lowercase())
-        .collect();
-
-    out_words.iter().all(|w| prompt_words.contains(w))
 }

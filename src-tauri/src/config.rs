@@ -348,8 +348,8 @@ impl Config {
     }
 
     /// Builds a cleanly framed prompt hint for transcription models.
-    /// Formats spelling conventions and custom dictionary terms as natural
-    /// context words and ensures terminal punctuation without synthetic prefixes.
+    /// Formats spelling conventions and custom dictionary terms as independent,
+    /// period-terminated context tokens to prevent open-clause completion loops.
     pub fn resolve_prompt_hint(&self) -> Option<String> {
         let spelling_hint = match self.language.as_str() {
             "en-AU" => Some("Australian spelling."),
@@ -363,16 +363,16 @@ impl Config {
             parts.push(hint.to_string());
         }
         if !self.dictionary.is_empty() {
-            let mut dict_str = self.dictionary.join(", ");
-            let trimmed = dict_str.trim();
-            if !trimmed.is_empty()
-                && !trimmed.ends_with('.')
-                && !trimmed.ends_with('!')
-                && !trimmed.ends_with('?')
-            {
-                dict_str.push('.');
+            for word in &self.dictionary {
+                let trimmed = word.trim();
+                if !trimmed.is_empty() {
+                    let mut term = trimmed.to_string();
+                    if !term.ends_with('.') && !term.ends_with('!') && !term.ends_with('?') {
+                        term.push('.');
+                    }
+                    parts.push(term);
+                }
             }
-            parts.push(dict_str);
         }
 
         if parts.is_empty() {
@@ -755,7 +755,7 @@ mod tests {
         };
         assert_eq!(
             config.resolve_prompt_hint(),
-            Some("xylophone, Voquill.".to_string())
+            Some("xylophone. Voquill.".to_string())
         );
     }
 
@@ -768,7 +768,7 @@ mod tests {
         };
         assert_eq!(
             config.resolve_prompt_hint(),
-            Some("American spelling. Voquill, llama.".to_string())
+            Some("American spelling. Voquill. llama.".to_string())
         );
     }
 
