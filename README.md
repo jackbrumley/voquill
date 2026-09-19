@@ -22,7 +22,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jackbrumley/voquill/releases/latest"><img src="https://img.shields.io/badge/Download-Latest%20Release-ef4444?style=for-the-badge" alt="Download Latest Release" /></a>
+  <a href="https://voquill.org"><img src="https://img.shields.io/badge/Get%20Voquill-voquill.org-10b981?style=for-the-badge&logo=firefoxbrowser&logoColor=white" alt="Get Voquill on voquill.org" /></a>
+  <a href="https://github.com/jackbrumley/voquill/releases/latest"><img src="https://img.shields.io/badge/Manual%20Download-GitHub%20Releases-374151?style=for-the-badge&logo=github&logoColor=white" alt="Manual Download" /></a>
 </p>
 
 FOSS Voquill is offline dictation that works in any app on your system. Your voice never leaves your device, and there are no accounts, subscriptions, or cloud dependencies. On Linux, it uses XDG Portals for native Wayland support.
@@ -42,42 +43,34 @@ It exists because dictation should be a basic utility, not a locked service. If 
 
 ## Install
 
-### Linux
+### Quick Install (Recommended)
 
-**Native Package (`.deb` / `.rpm` — Recommended)**  
-Auto-detects `apt` or `dnf` and installs system-wide (prompts for sudo if required):
-```bash
-curl -sf https://voquill.org/install.sh | bash
-```
+The fastest way to install Voquill is via the one-line installer:
 
-**AppImage (User-Local / Standalone)**  
-Installs AppImage to `~/.local/bin` without requiring sudo:
-```bash
-curl -sf https://voquill.org/install.sh | bash -s -- --appimage
-```
-
-### Windows
-
-Open **PowerShell** or **Windows Terminal**:
-
-**User Install (Recommended — No Admin Required)**  
-Installs Voquill in the current user context:
+**Windows (PowerShell / Windows Terminal):**
 ```powershell
 irm https://voquill.org/install.ps1 | iex
 ```
 
-**System Install (MSI — All Users)**  
-Installs Voquill system-wide (requires administrator privileges):
-```powershell
-irm https://voquill.org/install-system.ps1 | iex
+**Linux (Debian, Ubuntu, Fedora, Arch, etc.):**
+```bash
+curl -sf https://voquill.org/install.sh | bash
 ```
+
+> **Prefer a visual installer or AppImage?** Visit **[voquill.org](https://voquill.org)** for automatic platform detection and all package options.
+
+---
 
 ### Manual Download
 
-Download standalone installers and packages directly from the **[Latest Release](https://github.com/jackbrumley/voquill/releases/latest)**:
+If you prefer downloading standalone packages directly:
 
-- **Windows:** Setup EXE (per-user, no admin) or System MSI (IT/admin deployment)
-- **Linux:** `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL), or `.AppImage` (portable / cross-distro)
+- **[Download Latest Release Packages](https://github.com/jackbrumley/voquill/releases/latest)**
+  - **Windows (Most users):** `Voquill-Setup.exe` (User install, no admin required)
+  - **Windows (IT / Admin):** `.msi` (System wide)
+  - **Linux (Debian / Ubuntu):** `.deb`
+  - **Linux (Fedora / RHEL):** `.rpm`
+  - **Linux (Cross-distro fallback):** `.AppImage`
 
 ## Getting Started
 
