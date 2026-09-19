@@ -22,7 +22,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jackbrumley/voquill/releases/latest"><img src="https://img.shields.io/badge/Download-Latest%20Release-ef4444?style=for-the-badge" alt="Download Latest Release" /></a>
+  <a href="https://voquill.org"><img src="https://img.shields.io/badge/Get%20Voquill-voquill.org-10b981?style=for-the-badge&logo=firefoxbrowser&logoColor=white" alt="Get Voquill on voquill.org" /></a>
+  <a href="https://github.com/jackbrumley/voquill/releases/latest"><img src="https://img.shields.io/badge/Manual%20Download-GitHub%20Releases-374151?style=for-the-badge&logo=github&logoColor=white" alt="Manual Download" /></a>
 </p>
 
 FOSS Voquill is offline dictation that works in any app on your system. Your voice never leaves your device, and there are no accounts, subscriptions, or cloud dependencies. On Linux, it uses XDG Portals for native Wayland support.
@@ -42,19 +43,34 @@ It exists because dictation should be a basic utility, not a locked service. If 
 
 ## Install
 
-Download the latest release here:
+### Quick Install (Recommended)
 
-- **[Download Latest Release](https://github.com/jackbrumley/voquill/releases/latest)**
+The fastest way to install Voquill is via the one-line installer:
 
-Release package options:
+**Windows (PowerShell / Windows Terminal):**
+```powershell
+irm https://voquill.org/install.ps1 | iex
+```
 
-- Windows (Most users): Setup EXE (no admin)
-- Windows (IT/Admin): System MSI
-- Linux (Debian/Ubuntu): `.deb`
-- Linux (Fedora/RHEL): `.rpm`
-- Linux (Portable): `.AppImage`
+**Linux (Debian, Ubuntu, Fedora, Arch, etc.):**
+```bash
+curl -sf https://voquill.org/install.sh | bash
+```
 
-Setup EXE installs per-user (no admin). MSI is a system-wide install intended for IT/admin deployment.
+> **Prefer a visual installer or AppImage?** Visit **[voquill.org](https://voquill.org)** for automatic platform detection and all package options.
+
+---
+
+### Manual Download
+
+If you prefer downloading standalone packages directly:
+
+- **[Download Latest Release Packages](https://github.com/jackbrumley/voquill/releases/latest)**
+  - **Windows (Most users):** `Voquill-Setup.exe` (User install, no admin required)
+  - **Windows (IT / Admin):** `.msi` (System wide)
+  - **Linux (Debian / Ubuntu):** `.deb`
+  - **Linux (Fedora / RHEL):** `.rpm`
+  - **Linux (Cross-distro fallback):** `.AppImage`
 
 ## Getting Started
 
