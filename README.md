@@ -7,10 +7,18 @@
 <p align="center">Truly free, private system-wide push-to-talk dictation tool.</p>
 
 <p align="center">
+  <a href="#features"><img src="https://img.shields.io/badge/Voice%20Macros-Key%20Combos%20%26%20Automation-8b5cf6" alt="Voice Macros" /></a>
+  <a href="#features"><img src="https://img.shields.io/badge/Local%20AI-LLM%20Post--Processing-6366f1" alt="Local AI Post-Processing" /></a>
+  <a href="#features"><img src="https://img.shields.io/badge/Hardware%20Typing-Typewriter%20%26%20Auto--Paste-06b6d4" alt="Hardware Typing & Emulation" /></a>
+  <a href="#features"><img src="https://img.shields.io/badge/Speaker%20Diarization-Multi--Voice-ec4899" alt="Speaker Diarization" /></a>
+  <a href="#the-philosophy"><img src="https://img.shields.io/badge/100%25%20Offline-Zero%20Telemetry-10b981" alt="100% Offline" /></a>
+</p>
+
+<p align="center">
   <a href="https://www.gnu.org/licenses/agpl-3.0.html"><img src="https://img.shields.io/badge/License-AGPLv3-blue.svg" alt="AGPL v3 License" /></a>
   <a href="https://github.com/jackbrumley/voquill"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-4f46e5" alt="Platform" /></a>
-  <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Built%20With-Tauri-14b8a6" alt="Built with Tauri" /></a>
   <a href="https://flatpak.github.io/xdg-desktop-portal/"><img src="https://img.shields.io/badge/Wayland-XDG%20Portals-4f46e5" alt="Wayland via XDG Portals" /></a>
+  <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Built%20With-Tauri%20%2B%20Rust-14b8a6" alt="Built with Tauri and Rust" /></a>
 </p>
 
 <p align="center">
@@ -87,6 +95,7 @@ Download standalone installers and packages directly from the **[Latest Release]
 
 - **Private & Offline by Default** — On-device speech recognition powered by Whisper.cpp (Vulkan GPU / CPU) and NVIDIA Parakeet. Your voice never leaves your machine—no accounts, no cloud dependencies, no subscriptions.
 - **Push-to-Talk & Toggle Modes** — Choose between Hold-to-Talk or Toggle mode. Customizable global hotkey with instant capture UI and press-to-cancel support during transcription.
+- **Voice Macros & Input Automation** — Trigger automated keystroke combinations (`Ctrl+Alt+1`), key holds, typed text sequences, pauses, and custom sound feedback (synthesized TTS, custom recordings, chimes) using spoken phrases. Built-in visual sequence builder with import/export capabilities.
 - **Transcript Post-Processing (Local & Cloud AI)** — Clean up transcripts, fix grammar, punctuation, and speech artefacts using local LLMs (Qwen 2.5 1.5B, Llama 3.2 1B) or OpenAI-compatible cloud APIs (OpenRouter, Groq, Ollama, vLLM). Create custom prompt presets (or use built-in presets for grammar, email polish, and concise notes) and compare original vs. cleaned text side-by-side.
 - **Audio File Transcription** — Drag-and-drop or browse audio files (WAV, MP3, M4A, FLAC, OGG). Fully integrated with speaker differentiation and post-processing.
 - **Differentiate Voices (Speaker Diarization)** — Detect and label distinct speakers (`Speaker 1`, `Speaker 2`) in both imported audio files and live dictations with configurable cluster sensitivity.
