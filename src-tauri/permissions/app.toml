@@ -41,7 +41,7 @@ commands.allow = [
     "preload_transcription_engine",
     "transcribe_audio_file",
     "test_cleanup_api",
-    "get_linux_setup_status",
+    "get_platform_setup_status",
     "request_audio_permission",
     "request_input_permission",
     "set_configuring_hotkey",

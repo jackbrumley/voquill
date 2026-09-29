@@ -1,5 +1,5 @@
 use crate::config::{Config, PasteShortcut};
-use crate::platform::permissions::LinuxPermissions;
+use crate::platform::permissions::PlatformPermissions;
 use async_trait::async_trait;
 use tauri::{AppHandle, WebviewWindow};
 
@@ -39,7 +39,7 @@ pub trait GlobalShortcutEngine: Send + Sync {
 #[async_trait]
 pub trait PermissionManager: Send + Sync {
     async fn request_permissions(&self, app_handle: AppHandle) -> Result<(), String>;
-    async fn check_permissions(&self, config: &Config) -> LinuxPermissions;
+    async fn check_permissions(&self, config: &Config) -> PlatformPermissions;
 }
 
 #[async_trait]

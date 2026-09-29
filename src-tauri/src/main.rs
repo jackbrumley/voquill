@@ -108,6 +108,34 @@ fn log_cpu_features() {
 #[cfg(not(target_arch = "x86_64"))]
 fn log_cpu_features() {}
 
+#[cfg(target_os = "macos")]
+fn configure_bundled_vulkan() {
+    let Ok(executable) = std::env::current_exe() else {
+        return;
+    };
+    let Some(contents_dir) = executable.parent().and_then(std::path::Path::parent) else {
+        return;
+    };
+    let manifest = contents_dir
+        .join("Resources")
+        .join("packaging")
+        .join("macos")
+        .join("MoltenVK_icd.json");
+    if manifest.is_file() {
+        // SAFETY: called before any Vulkan-dependent code or worker threads start.
+        unsafe {
+            std::env::set_var("VK_ICD_FILENAMES", &manifest);
+        }
+        log_info!(
+            "Using bundled MoltenVK driver manifest: {}",
+            manifest.display()
+        );
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn configure_bundled_vulkan() {}
+
 fn main() {
     let cli = Cli::parse();
     let start_hidden = cli.start_hidden;
@@ -122,6 +150,7 @@ fn main() {
     unsafe {
         std::env::set_var("VK_LOADER_LAYERS_DISABLE", "~all~");
     }
+    configure_bundled_vulkan();
 
     // Migrate legacy data location (%APPDATA%\foss-voquill etc.) to the
     // unified ~/.config/voquill-app root before anything touches storage.
@@ -236,7 +265,7 @@ fn main() {
             preload_transcription_engine,
             transcribe_audio_file,
             test_cleanup_api,
-            get_linux_setup_status,
+            get_platform_setup_status,
             request_audio_permission,
             request_input_permission,
             set_configuring_hotkey,

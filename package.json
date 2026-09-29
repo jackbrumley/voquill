@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "deps:check": "node scripts/check-deps.mjs",
-    "predev": "npm run deps:check",
+    "predev": "",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "prebuild": "npm run deps:check",

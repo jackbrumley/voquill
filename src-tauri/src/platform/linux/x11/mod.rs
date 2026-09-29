@@ -76,9 +76,9 @@ impl PermissionManager for X11Backend {
     async fn check_permissions(
         &self,
         _config: &crate::config::Config,
-    ) -> crate::platform::permissions::LinuxPermissions {
+    ) -> crate::platform::permissions::PlatformPermissions {
         // All "true" because X11 is open
-        crate::platform::permissions::LinuxPermissions {
+        crate::platform::permissions::PlatformPermissions {
             audio: true,
             shortcuts: true,
             input_emulation: true,

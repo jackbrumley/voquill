@@ -2,7 +2,7 @@
 use crate::platform::linux::detection::is_wayland_session;
 #[cfg(target_os = "linux")]
 use crate::platform::linux::wayland::portal::capabilities::PortalDiagnostics;
-use crate::platform::permissions::LinuxPermissions;
+use crate::platform::permissions::PlatformPermissions;
 #[cfg(not(target_os = "linux"))]
 use crate::PortalDiagnostics;
 use crate::{audio, AppState};
@@ -139,10 +139,10 @@ pub async fn get_system_shortcut_context() -> Result<SystemShortcutContext, Stri
 }
 
 #[tauri::command]
-pub async fn get_linux_setup_status(
+pub async fn get_platform_setup_status(
     state: tauri::State<'_, AppState>,
-) -> Result<LinuxPermissions, String> {
-    crate::log_info!("Tauri Command: get_linux_setup_status invoked");
+) -> Result<PlatformPermissions, String> {
+    crate::log_info!("Tauri Command: get_platform_setup_status invoked");
     let config = {
         let guard = state.config.lock().unwrap();
         guard.clone()
@@ -170,6 +170,10 @@ pub async fn get_linux_setup_status(
             Some("Manual overlay position adjustment is not available on your system.".to_string())
         };
     }
+    #[cfg(target_os = "macos")]
+    {
+        permissions.audio = state.audio_engine.lock().unwrap().is_some();
+    }
     crate::log_info!(
         "Setup readiness: audio={}, shortcuts={} (status={}), input_emulation={}, input_emulation_restoring={}, runtime_hotkey_bound={}, runtime_hotkey_listening={}",
         permissions.audio,
@@ -184,7 +188,7 @@ pub async fn get_linux_setup_status(
 }
 
 #[tauri::command]
-pub async fn request_audio_permission() -> Result<(), String> {
+pub async fn request_audio_permission(_state: tauri::State<'_, AppState>) -> Result<(), String> {
     crate::log_info!("Tauri Command: request_audio_permission invoked");
     #[cfg(target_os = "linux")]
     {
@@ -202,8 +206,21 @@ pub async fn request_audio_permission() -> Result<(), String> {
             .map_err(|error| format!("Audio access denied: {}", error))?;
         Ok(())
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
     {
+        if _state.audio_engine.lock().unwrap().is_some() {
+            return Ok(());
+        }
+
+        let config = _state.config.lock().unwrap().clone();
+        let device = audio::lookup_device(config.audio_device)?;
+        let engine = audio::PersistentAudioEngine::new(&device, config.input_sensitivity)?;
+        *_state.audio_engine.lock().unwrap() = Some(engine);
+        Ok(())
+    }
+    #[cfg(all(not(target_os = "linux"), not(target_os = "macos")))]
+    {
+        let _ = _state;
         Ok(())
     }
 }
@@ -224,7 +241,13 @@ pub async fn request_input_permission(
         }
         Ok(())
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
+    {
+        let _ = state;
+        let _ = app_handle;
+        crate::platform::macos::permissions::request_accessibility_permission()
+    }
+    #[cfg(all(not(target_os = "linux"), not(target_os = "macos")))]
     {
         let _ = state;
         let _ = app_handle;

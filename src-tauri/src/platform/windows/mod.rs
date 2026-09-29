@@ -86,7 +86,7 @@ impl PermissionManager for WindowsBackend {
     async fn check_permissions(
         &self,
         _config: &crate::config::Config,
-    ) -> crate::platform::permissions::LinuxPermissions {
+    ) -> crate::platform::permissions::PlatformPermissions {
         permissions::check_windows_permissions().await
     }
 }

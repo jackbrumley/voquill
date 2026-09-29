@@ -103,6 +103,29 @@ function getWindowsDependencies() {
   ];
 }
 
+function getMacosDependencies() {
+  return [
+    {
+      name: "vulkan-sdk",
+      desc: "Vulkan SDK (required for GPU transcription; set VULKAN_SDK to its macOS directory)",
+      check: () => !!process.env.VULKAN_SDK && fs.existsSync(path.join(process.env.VULKAN_SDK, "include", "vulkan", "vulkan.h")),
+      install: "Install the LunarG macOS Vulkan SDK, then export VULKAN_SDK=/path/to/VulkanSDK/<version>/macOS",
+    },
+    {
+      name: "rust",
+      desc: "Rust toolchain (cargo, rustc)",
+      check: () => commandExists("cargo"),
+      install: "brew install rust",
+    },
+    {
+      name: "nodejs",
+      desc: "Node.js runtime (required for UI build)",
+      check: () => commandExists("node"),
+      install: "brew install node",
+    },
+  ];
+}
+
 function getFedoraDependencies() {
   return [
     ["libpulse", "PulseAudio development headers", () => checkPkgConfig("libpulse"), "sudo dnf install -y pulseaudio-libs-devel"],
@@ -202,6 +225,11 @@ function getDependenciesForCurrentSystem() {
   if (process.platform === "win32") {
     console.log(`${colors.cyan}Detected Windows system${colors.reset}`);
     return getWindowsDependencies();
+  }
+
+  if (process.platform === "darwin") {
+    console.log(`${colors.cyan}Detected macOS system${colors.reset}`);
+    return getMacosDependencies();
   }
 
   if (process.platform !== "linux") {

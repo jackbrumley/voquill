@@ -75,7 +75,7 @@ impl PermissionManager for WaylandBackend {
     async fn check_permissions(
         &self,
         config: &crate::config::Config,
-    ) -> crate::platform::permissions::LinuxPermissions {
+    ) -> crate::platform::permissions::PlatformPermissions {
         permissions::check_linux_permissions(config).await
     }
 }

@@ -64,6 +64,10 @@ export function TypingSection({ config, updateConfig }: TypingSectionProps) {
                       value: 'CtrlShiftV',
                       label: 'Ctrl + Shift + V (Terminal Only)',
                     },
+                    {
+                      value: 'CommandV',
+                      label: 'Command + V (macOS)',
+                    },
                   ]}
                   onChange={(nextShortcut) => updateConfig('paste_shortcut', nextShortcut as PasteShortcut)}
                   ariaLabel="Paste Shortcut"
@@ -78,6 +82,9 @@ export function TypingSection({ config, updateConfig }: TypingSectionProps) {
                 )}
                 {config.paste_shortcut === 'CtrlShiftV' && (
                   'Ctrl + Shift + V is standard in terminal emulators, but is not recognized by standard desktop GUI apps.'
+                )}
+                {config.paste_shortcut === 'CommandV' && (
+                  'Command + V is the standard paste shortcut on macOS.'
                 )}
               </div>
             </ConfigField>
