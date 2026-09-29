@@ -72,7 +72,7 @@ export interface VoiceMacroCommand {
   sound_tts_pitch?: number | null;
 }
 
-export type PasteShortcut = 'ShiftInsert' | 'CtrlV' | 'CtrlShiftV';
+export type PasteShortcut = 'ShiftInsert' | 'CtrlV' | 'CtrlShiftV' | 'CommandV';
 
 export interface Config {
   openai_api_key: string;
@@ -174,7 +174,7 @@ export interface MicVolumePayload {
   is_triggered: boolean;
 }
 
-export interface LinuxPermissions {
+export interface PlatformPermissions {
   audio: boolean;
   shortcuts: boolean;
   input_emulation: boolean;

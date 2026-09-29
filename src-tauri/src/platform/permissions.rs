@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 #[derive(Serialize, Clone, Debug)]
-pub struct LinuxPermissions {
+pub struct PlatformPermissions {
     pub audio: bool,
     pub shortcuts: bool,
     pub input_emulation: bool,
@@ -15,8 +15,8 @@ pub struct LinuxPermissions {
 }
 
 #[cfg(not(target_os = "linux"))]
-pub async fn check_linux_permissions(_config: &crate::config::Config) -> LinuxPermissions {
-    LinuxPermissions {
+pub async fn check_linux_permissions(_config: &crate::config::Config) -> PlatformPermissions {
+    PlatformPermissions {
         audio: true,
         shortcuts: true,
         input_emulation: true,

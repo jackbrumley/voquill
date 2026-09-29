@@ -185,11 +185,15 @@ function App() {
     // readiness (models deleted, mic unplugged, permissions revoked) happen
     // while the app is unfocused.
     onFocus: () => {
-      logUI(`[Focus] Window focused — re-probing permissions, hotkey status, audio devices, and model statuses. ${explainReadiness(readinessInputs, readiness)}`);
-      void audioSetup.checkSetupStatus();
-      void audioSetup.loadMics();
-      void audioSetup.loadSpeakers();
-      void configHook.loadModels();
+      void (async () => {
+        const setup = await audioSetup.checkSetupStatus();
+        void audioSetup.loadMics();
+        void audioSetup.loadSpeakers();
+        void configHook.loadModels();
+        logUI(
+          `[Focus] Re-probed readiness: input simulation=${setup?.perms.input_emulation ? 'ready' : 'not granted'}.`,
+        );
+      })();
     },
     onHashChange: () => {
       const parsed = routeFromHash(window.location.hash);

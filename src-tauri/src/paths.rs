@@ -175,6 +175,7 @@ pub fn migrate_legacy_location() -> Option<String> {
 /// from previous versions of the application (e.g. `org.voquill.app.desktop`,
 /// `org.voquill.foss.desktop`, `Voquill.desktop`).
 pub fn cleanup_legacy_autostart_entries() -> Vec<String> {
+    #[allow(unused_mut)]
     let mut cleaned = Vec::new();
 
     #[cfg(target_os = "linux")]
