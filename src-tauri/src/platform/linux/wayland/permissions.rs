@@ -14,6 +14,7 @@ pub async fn check_linux_permissions(config: &Config) -> LinuxPermissions {
         audio,
         shortcuts,
         input_emulation,
+        input_emulation_restoring: false,
         shortcuts_status: if shortcuts {
             "bound".to_string()
         } else {

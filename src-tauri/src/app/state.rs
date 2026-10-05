@@ -40,7 +40,7 @@ pub struct AppState {
     #[cfg(target_os = "linux")]
     pub wayland_input_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     #[cfg(target_os = "linux")]
-    pub wayland_input_ready: Arc<Mutex<bool>>,
+    pub wayland_input_session: Arc<Mutex<platform::linux::wayland::input::InputSessionState>>,
     #[cfg(target_os = "linux")]
     pub wayland_host_app_registration_error: Arc<Mutex<Option<String>>>,
     pub display_backend: Arc<dyn platform::traits::DisplayBackend>,
@@ -174,7 +174,9 @@ impl Default for AppState {
             #[cfg(target_os = "linux")]
             wayland_input_cancel: Arc::new(Mutex::new(None)),
             #[cfg(target_os = "linux")]
-            wayland_input_ready: Arc::new(Mutex::new(false)),
+            wayland_input_session: Arc::new(Mutex::new(
+                platform::linux::wayland::input::InputSessionState::Inactive,
+            )),
             #[cfg(target_os = "linux")]
             wayland_host_app_registration_error: Arc::new(Mutex::new(None)),
             display_backend: platform::initialize(),
