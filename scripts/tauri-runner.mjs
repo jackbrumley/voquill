@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { logError, run } from "@tauri-apps/cli/main.js";
 
 if (process.platform === "win32") {
@@ -38,8 +41,51 @@ if (process.argv[2] === "build") {
   });
 }
 
+// The deb/rpm desktop template renders a Hidden stub (the real launcher ships
+// as org.voquill.desktop.desktop), and the AppImage reuses that template. The
+// AppImage overrides the stub via bundle.linux.appimage.files, which relies on
+// the bundler's generated filename. Fail the build if that ever drifts and the
+// AppImage's top-level launcher ends up hidden.
+function verifyAppImageLauncher(buildStartedAt) {
+  const targetDir = process.env.CARGO_TARGET_DIR
+    ?? fileURLToPath(new URL("../src-tauri/target", import.meta.url));
+  const appImageBundleDir = join(targetDir, "release", "bundle", "appimage");
+  const appDirs = existsSync(appImageBundleDir)
+    ? readdirSync(appImageBundleDir)
+      .filter((entry) => entry.endsWith(".AppDir"))
+      .map((entry) => join(appImageBundleDir, entry))
+      .filter((appDir) => statSync(appDir).mtimeMs >= buildStartedAt)
+    : [];
+
+  if (appDirs.length === 0) {
+    console.log("AppImage launcher check skipped: no AppImage was bundled in this build.");
+    return;
+  }
+
+  for (const appDir of appDirs) {
+    const launchers = readdirSync(appDir).filter((entry) => entry.endsWith(".desktop"));
+    if (launchers.length === 0) {
+      throw new Error(`AppImage launcher check failed: no top-level .desktop entry in ${appDir}`);
+    }
+    for (const launcher of launchers) {
+      const contents = readFileSync(join(appDir, launcher), "utf8");
+      if (/^Hidden=true$/m.test(contents)) {
+        throw new Error(
+          `AppImage launcher check failed: ${join(appDir, launcher)} is the hidden bundler stub. `
+          + "Update bundle.linux.appimage.files in tauri.conf.json to the bundler's generated desktop filename.",
+        );
+      }
+    }
+    console.log(`AppImage launcher check passed: ${launchers.join(", ")} in ${appDir}`);
+  }
+}
+
 try {
+  const buildStartedAt = Date.now();
   await run(process.argv.slice(2), "tauri");
+  if (process.argv[2] === "build" && process.platform === "linux") {
+    verifyAppImageLauncher(buildStartedAt);
+  }
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   if (typeof logError === "function") logError(message);

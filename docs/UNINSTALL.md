@@ -55,7 +55,7 @@ irm https://voquill.org/uninstall-purge.ps1 | iex
 |----------|--------|---------------------|
 | System package (`voquill`, `org.voquill.desktop`, `org.voquill.app`, `org.voquill.foss`) | Yes | Yes |
 | Binary (`/usr/bin/voquill`, `~/.local/bin/voquill`) | Yes | Yes |
-| Desktop file (`*.desktop`) | Yes | Yes |
+| Desktop file (`org.voquill.desktop.desktop`, legacy `voquill.desktop` / `org.voquill.app.desktop`) | Yes | Yes |
 | Icons (`/usr/share/icons/hicolor/*/apps/voquill.*`) | Yes | Yes |
 | Metainfo (`/usr/share/metainfo/org.voquill.desktop.metainfo.xml`) | Yes | Yes |
 | User data (`~/.config/voquill-app`) | No | Yes |

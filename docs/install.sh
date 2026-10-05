@@ -472,7 +472,15 @@ else
   if [[ -f "${appimage_path}" ]]; then
     log "AppImage installed at ${appimage_path}"
 
-    desktop_file="${desktop_dir}/voquill.desktop"
+    # The launcher must be named after the app ID (org.voquill.desktop) so
+    # Wayland compositors and xdg-desktop-portal can match the running app.
+    desktop_file="${desktop_dir}/org.voquill.desktop.desktop"
+    legacy_desktop_file="${desktop_dir}/voquill.desktop"
+    require_safe_path "$legacy_desktop_file"
+    if [[ -e "$legacy_desktop_file" || -L "$legacy_desktop_file" ]]; then
+      log "Removing legacy desktop launcher: ${legacy_desktop_file}"
+      rm -f "$legacy_desktop_file" 2>/dev/null || true
+    fi
     log "Creating desktop launcher"
     cat > "$desktop_file" <<EOF
 [Desktop Entry]
@@ -482,8 +490,8 @@ Exec=${appimage_path}
 Terminal=false
 Type=Application
 Icon=${BIN_NAME}
-StartupWMClass=voquill
-Categories=Utility;Office;AudioVideo;
+StartupWMClass=org.voquill.desktop
+Categories=Utility;Accessibility;
 StartupNotify=true
 EOF
 
