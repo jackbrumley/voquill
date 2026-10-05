@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { useSignal } from '@preact/signals';
+import { useComputed, useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { TitleBar } from './components/TitleBar.tsx';
@@ -61,7 +61,10 @@ function App() {
   const activeRoute = useSignal<AppRoute>(routeFromHash(window.location.hash));
 
   const gpuHook = useGpuStatus();
-  const startupChecksLoaded = useSignal(false);
+  const startupProbesSettled = useSignal(false);
+  // The launch routing decision waits for a stored input-emulation restore
+  // token to resolve, so a silent portal restore never lands on setup.
+  const startupChecksLoaded = useComputed(() => startupProbesSettled.value && !audioSetup.isInputSessionRestoring.value);
 
   const hotkeySetup = useHotkeySetup({
     showToast,
@@ -118,7 +121,7 @@ function App() {
       historyHook.loadHistory(),
       configHook.loadModels(),
       audioSetup.checkSetupStatus(),
-    ]).then(() => { startupChecksLoaded.value = true; });
+    ]).then(() => { startupProbesSettled.value = true; });
     getVersion().then((v) => { appVersion.value = v; }).catch(err => console.error("Failed to get version:", err));
     updatesHook.checkForUpdates(false);
     autostartHook.loadAutostart();
@@ -177,6 +180,7 @@ function App() {
     onMicVolume: audioSetup.setMicVolume,
     onDownloadProgress: (progress) => { configHook.setDownloadProgress(progress); },
     onPostProcessGpuStatusChanged: () => { void gpuHook.refreshPostProcessGpuStatus(); },
+    onInputSessionStateChanged: () => { void audioSetup.checkSetupStatus(); },
     // Focus is the natural re-probe boundary: external changes that affect
     // readiness (models deleted, mic unplugged, permissions revoked) happen
     // while the app is unfocused.
