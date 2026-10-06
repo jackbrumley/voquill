@@ -248,6 +248,7 @@ Any agent working on this repo should prioritize the following cleanups:
 - **Documentation:** Proactively update `AGENTS.md` or other docs if you introduce a new architectural pattern or a major dependency.
 - **Self-Verification:** Always run `cargo check` and `npm run typecheck` before declaring a task complete.
 - **Git Commits:** Do not perform git commits without explicit user approval. Always ask for confirmation before running `git commit`.
+- **Releases:** Follow `docs/RELEASE.md` exactly. Never improvise the tag, release title, asset names, notes format, or download links: generate notes with `npm run release:notes` and assets with `scripts/package-release.mjs` (both derive names from `scripts/release-assets.mjs`). Create releases as pre-releases and never promote one to latest without the maintainer's explicit instruction.
 
 ### Solo-Scale Guardrails
 - **Prefer Simplicity by Default:** Use the simplest clean solution that meets current requirements and known near-term needs.
