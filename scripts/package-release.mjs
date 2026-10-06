@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 
-import { readFileSync, copyFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ASSET_NAMES, VERSION, assertPlainVersion } from "./release-assets.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const SRC_TAURI = resolve(ROOT, "src-tauri");
 
-const TAURI_CONF = JSON.parse(readFileSync(resolve(SRC_TAURI, "tauri.conf.json"), "utf8"));
-const VERSION = TAURI_CONF.version;
 const OUT_DIR = resolve(ROOT, "release-artifacts");
 
 function globFirst(dir, pattern) {
@@ -60,9 +59,9 @@ function packageLinux() {
   const appimage = globFirstForVersion(resolve(bundleDir, "appimage"), /\.AppImage$/);
 
   let count = 0;
-  if (deb) { copyArtifact(deb, `voquill-${VERSION}-linux-x64.deb`); count++; }
-  if (rpm) { copyArtifact(rpm, `voquill-${VERSION}-linux-x64.rpm`); count++; }
-  if (appimage) { copyArtifact(appimage, `voquill-${VERSION}-linux-x64.AppImage`); count++; }
+  if (deb) { copyArtifact(deb, ASSET_NAMES.linuxDeb); count++; }
+  if (rpm) { copyArtifact(rpm, ASSET_NAMES.linuxRpm); count++; }
+  if (appimage) { copyArtifact(appimage, ASSET_NAMES.linuxAppImage); count++; }
 
   if (count === 0) {
     console.log("  No Linux build artifacts found. Run 'npm run release:linux' first.");
@@ -78,23 +77,13 @@ function packageWindows() {
   const nsis = globFirstForVersion(resolve(bundleDir, "nsis"), /\.exe$/);
 
   let count = 0;
-  if (msi) { copyArtifact(msi, `voquill-${VERSION}-windows-x64.msi`); count++; }
-  if (nsis) { copyArtifact(nsis, `voquill-${VERSION}-windows-x64-setup.exe`); count++; }
+  if (msi) { copyArtifact(msi, ASSET_NAMES.windowsMsi); count++; }
+  if (nsis) { copyArtifact(nsis, ASSET_NAMES.windowsSetup); count++; }
 
   if (count === 0) {
     console.log("  No Windows build artifacts found. Run 'npm run tauri:build' first.");
   }
   return count;
-}
-
-// Asset names are `voquill-<version>-<os>-<arch>[-setup].<ext>`. A plain
-// MAJOR.MINOR.PATCH version keeps them unambiguous (a suffix like `-beta.1`
-// would add hyphens that collide with the separators).
-function assertPlainVersion() {
-  if (!/^\d+\.\d+\.\d+$/.test(VERSION)) {
-    console.error(`Release version '${VERSION}' must be plain MAJOR.MINOR.PATCH (no pre-release or build suffix).`);
-    process.exit(1);
-  }
 }
 
 function main() {
