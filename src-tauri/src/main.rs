@@ -130,8 +130,6 @@ fn main() {
     // Clean up any legacy autostart entries from previous application versions.
     let autostart_cleanup_report = paths::cleanup_legacy_autostart_entries();
 
-    let initial_config = config::load_config().unwrap_or_default();
-
     // Session logging is always enabled. The persistence toggle is available
     // for future use (e.g. a private mode setting).
     app::session_log::set_persistence_enabled(true);
@@ -143,6 +141,13 @@ fn main() {
     for item in autostart_cleanup_report {
         log_info!("Autostart migration: {}", item);
     }
+
+    // Loaded after session logging starts so load errors and migrations are
+    // recorded in the session log.
+    let config::storage::LoadedConfig {
+        config: initial_config,
+        recovery: config_recovery,
+    } = app::bootstrap::load_initial_config();
 
     log_cpu_features();
 
@@ -188,7 +193,9 @@ fn main() {
                 .build(),
         )
         .manage(app_state)
-        .setup(move |app| app::bootstrap::run_setup(app, &initial_config, start_hidden))
+        .setup(move |app| {
+            app::bootstrap::run_setup(app, &initial_config, config_recovery, start_hidden)
+        })
         .invoke_handler(tauri::generate_handler![
             start_recording,
             stop_recording,

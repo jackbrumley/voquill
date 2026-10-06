@@ -169,7 +169,7 @@ pub async fn start_linux_portal_hotkey_engine(
     {
         let mut config = state.config.lock().unwrap();
         config.shortcuts_token = Some("granted".to_string());
-        let _ = crate::config::save_config(&config);
+        let _ = crate::config::storage::save_config(&config);
     }
     crate::set_hotkey_binding_state(&app_handle, true, true, None, Some(active_trigger.clone()));
     let _ = app_handle.emit("config-updated", ());
