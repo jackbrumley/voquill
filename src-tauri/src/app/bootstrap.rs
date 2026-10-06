@@ -19,7 +19,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 #[cfg(target_os = "linux")]
 use crate::platform::linux::detection::is_wayland_session;
 #[cfg(target_os = "linux")]
-use crate::platform::linux::wayland::env::check_wayland_display;
+use crate::platform::linux::wayland::env::{check_wayland_display, APP_ID};
 
 #[cfg(target_os = "linux")]
 fn read_linux_distribution_name() -> Option<String> {
@@ -164,7 +164,7 @@ pub fn run_setup(
         if is_wayland_session() {
             let state = app.state::<AppState>();
             let host_app_registration = tauri::async_runtime::block_on(async {
-                let app_id = AppID::try_from("org.voquill.desktop")
+                let app_id = AppID::try_from(APP_ID)
                     .map_err(|error| format!("Invalid host app id: {error}"))?;
                 register_host_app(app_id)
                     .await

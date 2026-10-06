@@ -118,9 +118,11 @@ BINARY_PATHS=(
 # Known desktop integration files
 DESKTOP_FILES=(
   "/usr/share/applications/voquill.desktop"
+  "/usr/share/applications/org.voquill.voquill.desktop"
   "/usr/share/applications/org.voquill.desktop.desktop"
   "/usr/share/applications/org.voquill.app.desktop"
   "${HOME}/.local/share/applications/voquill.desktop"
+  "${HOME}/.local/share/applications/org.voquill.voquill.desktop"
   "${HOME}/.local/share/applications/org.voquill.desktop.desktop"
   "${HOME}/.local/share/applications/org.voquill.app.desktop"
 )
@@ -131,6 +133,8 @@ ICON_DIRS=(
 )
 
 METAINFO_FILES=(
+  "/usr/share/metainfo/org.voquill.voquill.metainfo.xml"
+  "/usr/share/appdata/org.voquill.voquill.metainfo.xml"
   "/usr/share/metainfo/org.voquill.desktop.metainfo.xml"
   "/usr/share/appdata/org.voquill.desktop.metainfo.xml"
   "/usr/share/metainfo/org.voquill.app.metainfo.xml"
