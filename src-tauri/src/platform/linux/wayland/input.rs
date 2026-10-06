@@ -163,7 +163,7 @@ async fn reconnect_portal_session(
         let state = app_handle.state::<AppState>();
         let mut config = state.config.lock().unwrap();
         config.input_token = Some(token.clone());
-        let _ = crate::config::save_config(&config);
+        let _ = crate::config::storage::save_config(&config);
     }
 
     Ok((remote_desktop, session))
@@ -207,7 +207,7 @@ pub async fn establish_input_session(
         {
             let mut config = state.config.lock().unwrap();
             config.input_token = input_token;
-            let _ = crate::config::save_config(&config);
+            let _ = crate::config::storage::save_config(&config);
         }
         {
             let mut sender_lock = state.wayland_input_sender.lock().unwrap();

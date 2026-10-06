@@ -136,7 +136,7 @@ pub async fn save_config(
         crate::log_info!("Pre-warmed audio device cache");
     }
 
-    if let Err(error) = config::save_config(&merged_config) {
+    if let Err(error) = config::storage::save_config(&merged_config) {
         return Err(format!("Failed to save config: {}", error));
     }
 
@@ -244,7 +244,7 @@ pub async fn reset_application_to_defaults(
     history::clear_history().map_err(|error| error.to_string())?;
 
     let default_config = Config::default();
-    config::save_config(&default_config).map_err(|error| error.to_string())?;
+    config::storage::save_config(&default_config)?;
 
     {
         let mut config_lock = state.config.lock().unwrap();

@@ -136,7 +136,7 @@ pub fn realign_config_to_portal_trigger(
     {
         let mut config = state.config.lock().unwrap();
         config.hotkey = portal_hotkey;
-        let _ = crate::config::save_config(&config);
+        let _ = crate::config::storage::save_config(&config);
     }
     let _ = app_handle.emit("config-updated", ());
 }

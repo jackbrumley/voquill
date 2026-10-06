@@ -6081,6 +6081,7 @@ dependencies = [
  "pulsectl-rs",
  "regex",
  "reqwest",
+ "rfd",
  "ringbuf",
  "rubato",
  "rusqlite",
