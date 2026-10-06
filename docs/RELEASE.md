@@ -105,7 +105,7 @@ npm run --silent release:notes > release-notes.md
 
 stdout is the notes skeleton; the commits since the previous tag are printed to
 the terminal (stderr) as source material. Fill in every `TODO` line, keeping
-this structure (see v1.7.3 and v1.7.4 for complete examples):
+this structure (see v1.7.3 and v1.7.5 for complete examples):
 
 ```markdown
 # Voquill vX.Y.Z
@@ -132,6 +132,10 @@ Voquill vX.Y.Z is a ... release, <one paragraph summarising the headline changes
 ```
 
 Content rules:
+- Cover everything since the last release that was promoted to latest, not just
+  since the previous tag. A pre-release that was never promoted (e.g. v1.7.4)
+  was never offered to users, so its changes belong in these notes too: run
+  `git log --no-merges --format='- %s' vLAST_LATEST..vX.Y.Z` for the full list.
 - Write for users, not developers: describe what changed for them. No commit
   hashes, file paths or internal type names.
 - Group changes into themed `###` sections, separated by `---`. Bullets are
@@ -142,6 +146,8 @@ Content rules:
   change something users see.
 - The Downloads block always lists all five assets, including the Windows ones
   before they are uploaded. Never remove or reorder links.
+- Wrap anything containing angle brackets in backticks (e.g.
+  `` `config.json.invalid-<date>` ``); GitHub otherwise hides `<...>` as HTML.
 - Before publishing, `grep TODO release-notes.md` must return nothing.
 
 ## 5. Create the Pre-Release
