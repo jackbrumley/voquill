@@ -58,8 +58,11 @@ function copyAndChecksum(source, targetName) {
   console.log(`  ${targetName}.sha256  ✓`);
 }
 
+// Linux releases come only from the containerized build (npm run release:linux),
+// never from a host `tauri:build`, so the glibc floor is fixed by the container
+// base image rather than by whichever distro the release machine runs.
 function packageLinux() {
-  const bundleDir = resolve(SRC_TAURI, "target", "release", "bundle");
+  const bundleDir = resolve(SRC_TAURI, "target", "linux-release", "bundle");
   console.log("\nPackaging Linux artifacts...\n");
 
   const deb = globFirstForVersion(resolve(bundleDir, "deb"), /\.deb$/);
@@ -72,7 +75,7 @@ function packageLinux() {
   if (appimage) { copyAndChecksum(appimage, `voquill-${VERSION}-linux-x64.AppImage`); count++; }
 
   if (count === 0) {
-    console.log("  No Linux build artifacts found. Run 'npm run tauri:build' first.");
+    console.log("  No Linux build artifacts found. Run 'npm run release:linux' first.");
   }
   return count;
 }
@@ -110,7 +113,8 @@ function main() {
 
   console.log(`\nDone. ${total} artifact(s) packaged in ${OUT_DIR}`);
   if (total === 0) {
-    console.log("Nothing to do — build the app first with: npm run tauri:build");
+    const buildCommand = process.platform === "win32" ? "npm run tauri:build" : "npm run release:linux";
+    console.log(`Nothing to do — build the app first with: ${buildCommand}`);
     process.exit(1);
   }
 }
