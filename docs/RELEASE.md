@@ -20,10 +20,22 @@ Before building, ensure the version numbers are consistent across the project.
 You will need to build the application on each target platform.
 
 ### Linux (Debian/Ubuntu/RPM/AppImage)
-On a Linux machine:
+On any Linux machine with `podman` installed:
 ```bash
-npm run tauri:build
+npm run release:linux
 ```
+
+This builds inside an Ubuntu 22.04 container (`src-tauri/packaging/linux/Containerfile`).
+Linux binaries link against the glibc of the machine that builds them, and the
+AppImage also bundles that machine's libraries, so a build on a recent distro
+(e.g. Fedora 44, glibc 2.43) will not start on older ones. The container pins the
+floor at glibc 2.35 (Ubuntu 22.04 / Linux Mint 21 / Debian 12 and newer).
+Bundles are written to `src-tauri/target/linux-release/bundle`, the only Linux
+location `package-release.mjs` reads from. A host `npm run tauri:build` is for
+local testing only and is never packaged for release.
+
+The first run builds the image and compiles from scratch; later runs reuse the
+`voquill-linux-release-cache` podman volume (Cargo registry, build target, npm cache).
 
 ### Windows (MSI/EXE)
 On a Windows machine:

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { logError, run } from "@tauri-apps/cli/main.js";
@@ -13,6 +13,18 @@ if (process.platform === "win32") {
   // checks (ggml-vulkan builds vulkan-shaders-gen via ExternalProject), and
   // Ninja builds faster.
   process.env.CMAKE_GENERATOR = "Ninja";
+}
+
+const targetDir = process.env.CARGO_TARGET_DIR
+  ?? fileURLToPath(new URL("../src-tauri/target", import.meta.url));
+const appImageBundleDir = join(targetDir, "release", "bundle", "appimage");
+const isLinuxBuild = process.argv[2] === "build" && process.platform === "linux";
+
+if (process.platform === "linux") {
+  // linuxdeploy ships its own old binutils `strip`, which cannot parse the
+  // `.relr.dyn` sections in current distro libraries and aborts the AppImage.
+  // Distro libraries are already stripped, so skipping the pass costs nothing.
+  process.env.NO_STRIP = "true";
 }
 
 process.env.GGML_NATIVE = "OFF";
@@ -41,20 +53,29 @@ if (process.argv[2] === "build") {
   });
 }
 
+// Tauri reuses the AppImage staging AppDir across builds without emptying it,
+// so files from earlier builds (e.g. desktop entries from old product names)
+// leak into the next AppImage. Start every Linux release build from scratch.
+function removeStaleAppDirs() {
+  if (!existsSync(appImageBundleDir)) return;
+  for (const entry of readdirSync(appImageBundleDir)) {
+    if (!entry.endsWith(".AppDir")) continue;
+    const appDir = join(appImageBundleDir, entry);
+    console.log(`Removing stale AppImage staging directory: ${appDir}`);
+    rmSync(appDir, { recursive: true, force: true });
+  }
+}
+
 // The deb/rpm desktop template renders a Hidden stub (the real launcher ships
 // as org.voquill.desktop.desktop), and the AppImage reuses that template. The
 // AppImage overrides the stub via bundle.linux.appimage.files, which relies on
 // the bundler's generated filename. Fail the build if that ever drifts and the
 // AppImage's top-level launcher ends up hidden.
-function verifyAppImageLauncher(buildStartedAt) {
-  const targetDir = process.env.CARGO_TARGET_DIR
-    ?? fileURLToPath(new URL("../src-tauri/target", import.meta.url));
-  const appImageBundleDir = join(targetDir, "release", "bundle", "appimage");
+function verifyAppImageLauncher() {
   const appDirs = existsSync(appImageBundleDir)
     ? readdirSync(appImageBundleDir)
       .filter((entry) => entry.endsWith(".AppDir"))
       .map((entry) => join(appImageBundleDir, entry))
-      .filter((appDir) => statSync(appDir).mtimeMs >= buildStartedAt)
     : [];
 
   if (appDirs.length === 0) {
@@ -81,10 +102,12 @@ function verifyAppImageLauncher(buildStartedAt) {
 }
 
 try {
-  const buildStartedAt = Date.now();
+  if (isLinuxBuild) {
+    removeStaleAppDirs();
+  }
   await run(process.argv.slice(2), "tauri");
-  if (process.argv[2] === "build" && process.platform === "linux") {
-    verifyAppImageLauncher(buildStartedAt);
+  if (isLinuxBuild) {
+    verifyAppImageLauncher();
   }
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
