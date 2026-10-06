@@ -163,7 +163,9 @@ async fn reconnect_portal_session(
         let state = app_handle.state::<AppState>();
         let mut config = state.config.lock().unwrap();
         config.input_token = Some(token.clone());
-        let _ = crate::config::storage::save_config(&config);
+        if let Err(error) = crate::config::storage::save_config(&config) {
+            crate::log_warn!("Failed to persist portal input restore token: {}", error);
+        }
     }
 
     Ok((remote_desktop, session))
@@ -207,7 +209,9 @@ pub async fn establish_input_session(
         {
             let mut config = state.config.lock().unwrap();
             config.input_token = input_token;
-            let _ = crate::config::storage::save_config(&config);
+            if let Err(error) = crate::config::storage::save_config(&config) {
+                crate::log_warn!("Failed to persist portal input restore token: {}", error);
+            }
         }
         {
             let mut sender_lock = state.wayland_input_sender.lock().unwrap();
