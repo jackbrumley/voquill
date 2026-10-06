@@ -82,7 +82,7 @@ function Fail($Message) {
 function Get-Architecture {
   $arch = $env:PROCESSOR_ARCHITECTURE
   if ($arch -eq "AMD64") { return "x64" }
-  if ($arch -eq "ARM64") { return "arm64" }
+  if ($arch -eq "ARM64") { Fail "ARM64 builds of Voquill are not available yet; only x64 is supported." }
   Fail "Unsupported architecture: $arch"
 }
 
@@ -96,13 +96,16 @@ function Get-LatestReleaseTag {
   }
 }
 
-function Get-AssetDownloadUrl($Tag, $AssetName) {
+# Returns the GitHub release asset, including the SHA-256 `digest` GitHub
+# computes for every uploaded asset. That digest is the single source of truth
+# for verification (no separate .sha256 assets are published).
+function Get-ReleaseAsset($Tag, $AssetName) {
   $apiUrl = "https://api.github.com/repos/$Repo/releases/tags/$Tag"
   try {
     $response = Invoke-RestMethod -Uri $apiUrl -Headers @{ "Accept" = "application/json" } -ErrorAction Stop
     foreach ($asset in $response.assets) {
       if ($asset.name -eq $AssetName) {
-        return $asset.browser_download_url
+        return $asset
       }
     }
   } catch {
@@ -252,14 +255,13 @@ Log "Release: $ReleaseTag"
 Log "Architecture: $Arch"
 Log "Asset: $AssetName"
 
-$DownloadUrl = Get-AssetDownloadUrl -Tag $ReleaseTag -AssetName $AssetName
-$ChecksumUrl = "${DownloadUrl}.sha256"
+$Asset = Get-ReleaseAsset -Tag $ReleaseTag -AssetName $AssetName
+$DownloadUrl = $Asset.browser_download_url
 
 if (Test-Path $TempDir) { Remove-Item -Recurse -Force $TempDir }
 New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
 
 $InstallerPath = Join-Path $TempDir $AssetName
-$ChecksumPath = Join-Path $TempDir "${AssetName}.sha256"
 
 Log "Downloading release artifact"
 try {
@@ -269,25 +271,16 @@ try {
 }
 
 if (-not $InsecureSkipVerify) {
-  Log "Downloading checksum"
-  try {
-    Invoke-WebRequest -Uri $ChecksumUrl -OutFile $ChecksumPath -ErrorAction Stop
-  } catch {
-    Log "WARNING: checksum download failed, skipping verification"
+  $Digest = [string]$Asset.digest
+  if (-not $Digest.StartsWith("sha256:")) {
+    Fail "GitHub did not provide a SHA-256 checksum for $AssetName. Re-run later, or with -InsecureSkipVerify to bypass verification."
   }
-
-  if (Test-Path $ChecksumPath) {
-    $ExpectedHash = (Get-Content $ChecksumPath).Split(' ')[0].Trim()
-    if ([string]::IsNullOrEmpty($ExpectedHash)) {
-      Log "WARNING: checksum file was empty, skipping verification"
-    } else {
-      $ActualHash = Get-Checksum $InstallerPath
-      if ($ExpectedHash -ne $ActualHash) {
-        Fail "Checksum mismatch`n  expected: $ExpectedHash`n  actual:   $ActualHash"
-      }
-      Log "Checksum verified"
-    }
+  $ExpectedHash = $Digest.Substring("sha256:".Length).ToLower()
+  $ActualHash = Get-Checksum $InstallerPath
+  if ($ExpectedHash -ne $ActualHash) {
+    Fail "Checksum mismatch`n  expected: $ExpectedHash`n  actual:   $ActualHash"
   }
+  Log "Checksum verified"
 } else {
   Log "WARNING: checksum verification disabled"
 }
