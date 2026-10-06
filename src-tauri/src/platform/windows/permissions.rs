@@ -4,6 +4,7 @@ pub async fn check_windows_permissions() -> crate::platform::permissions::LinuxP
         audio: true,
         shortcuts: true,
         input_emulation: true,
+        input_emulation_restoring: false,
         shortcuts_status: "ready".to_string(),
         shortcuts_detail: None,
         manual_overlay_offset_supported: true,

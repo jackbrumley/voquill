@@ -178,6 +178,7 @@ export interface LinuxPermissions {
   audio: boolean;
   shortcuts: boolean;
   input_emulation: boolean;
+  input_emulation_restoring: boolean;
   shortcuts_status: string;
   shortcuts_detail?: string;
   manual_overlay_offset_supported?: boolean;

@@ -157,8 +157,10 @@ pub async fn get_linux_setup_status(
     }
     #[cfg(target_os = "linux")]
     if is_wayland_session() {
-        let input_ready = *state.wayland_input_ready.lock().unwrap();
-        permissions.input_emulation = input_ready;
+        use crate::platform::linux::wayland::input::InputSessionState;
+        let input_session = *state.wayland_input_session.lock().unwrap();
+        permissions.input_emulation = input_session == InputSessionState::Ready;
+        permissions.input_emulation_restoring = input_session == InputSessionState::Restoring;
 
         let manual_overlay_offset_supported =
             crate::platform::linux::wayland::overlay::manual_overlay_offset_supported();
@@ -170,11 +172,12 @@ pub async fn get_linux_setup_status(
         };
     }
     crate::log_info!(
-        "Setup readiness: audio={}, shortcuts={} (status={}), input_emulation={}, runtime_hotkey_bound={}, runtime_hotkey_listening={}",
+        "Setup readiness: audio={}, shortcuts={} (status={}), input_emulation={}, input_emulation_restoring={}, runtime_hotkey_bound={}, runtime_hotkey_listening={}",
         permissions.audio,
         permissions.shortcuts,
         permissions.shortcuts_status,
         permissions.input_emulation,
+        permissions.input_emulation_restoring,
         binding_state.bound,
         binding_state.listening
     );

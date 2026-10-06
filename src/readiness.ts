@@ -88,7 +88,11 @@ export function explainReadiness(inputs: ReadinessInputs, status?: ReadinessStat
     } else {
       if (!p.audio) reasons.push('audio access denied');
       if (!p.shortcuts) reasons.push('shortcuts permission denied');
-      if (!p.input_emulation) reasons.push('input emulation permission denied');
+      if (p.input_emulation_restoring) {
+        reasons.push('input emulation session restoring');
+      } else if (!p.input_emulation) {
+        reasons.push('input emulation permission denied');
+      }
     }
   }
 

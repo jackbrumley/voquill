@@ -71,6 +71,10 @@ Pre-built packages are available on the [Releases](https://github.com/jackbrumle
 - `voquill-<version>-windows-x64-setup.exe` — Windows
 - `voquill-<version>-windows-x64.msi` — Windows
 
+Linux packages require glibc 2.35 or newer (Ubuntu 22.04, Linux Mint 21, Debian 12, current Fedora, or later). Only x64 builds are published; ARM64 is not available yet.
+
+Each file's SHA-256 checksum is shown next to it on the release page (GitHub generates it on upload); the install scripts verify downloads against it automatically.
+
 ```bash
 # Fedora / RHEL
 sudo dnf install ./voquill-*.rpm

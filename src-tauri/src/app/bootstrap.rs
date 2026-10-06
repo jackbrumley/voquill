@@ -3,6 +3,7 @@ use crate::app::commands::hotkey::re_register_hotkey;
 use crate::app::commands::platform::is_status_notifier_watcher_available;
 use crate::app::state::AppState;
 use crate::audio;
+use crate::config::storage::{ConfigRecovery, LoadedConfig};
 use crate::config::Config;
 use crate::engine_factory;
 #[cfg(target_os = "linux")]
@@ -13,6 +14,7 @@ use tauri::{
     tray::{TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
+use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 #[cfg(target_os = "linux")]
 use crate::platform::linux::detection::is_wayland_session;
@@ -34,6 +36,44 @@ fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::E
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let open_item = MenuItem::with_id(app, "open", "Open Voquill", true, None::<&str>)?;
     Menu::with_items(app, &[&open_item, &quit_item])
+}
+
+/// Loads `config.json` for startup. A settings file that exists but cannot be
+/// read stops the app: starting on defaults would overwrite the user's
+/// settings on the next save. The error is shown in a native dialog because
+/// no window exists yet (and autostart launches hidden).
+pub fn load_initial_config() -> LoadedConfig {
+    match crate::config::storage::load_config() {
+        Ok(loaded_config) => loaded_config,
+        Err(error) => {
+            crate::log_warn!("Startup aborted: {}", error);
+            rfd::MessageDialog::new()
+                .set_level(rfd::MessageLevel::Error)
+                .set_title("Voquill could not load your settings")
+                .set_description(format!(
+                    "{}\n\nVoquill has not started, so your settings file was left untouched. Close any program that may be using it and try again.",
+                    error
+                ))
+                .set_buttons(rfd::MessageButtons::Ok)
+                .show();
+            std::process::exit(1);
+        }
+    }
+}
+
+/// Tells the user their unparseable settings file was backed up and defaults
+/// are in use. Shown from setup (not before Tauri boots) so the dialog runs on
+/// Tauri's own UI thread.
+fn show_config_recovery_dialog(app: &tauri::App<tauri::Wry>, recovery: &ConfigRecovery) {
+    app.dialog()
+        .message(format!(
+            "Your settings file could not be read, so Voquill has started with default settings.\n\nThe original file was kept at:\n{}\n\nReason: {}",
+            recovery.backup_path.display(),
+            recovery.parse_error
+        ))
+        .title("Voquill settings were reset")
+        .kind(MessageDialogKind::Warning)
+        .show(|_| {});
 }
 
 pub fn build_app_state(initial_config: &Config) -> AppState {
@@ -89,9 +129,14 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
 pub fn run_setup(
     app: &mut tauri::App<tauri::Wry>,
     initial_config: &Config,
+    config_recovery: Option<ConfigRecovery>,
     start_hidden: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     crate::app::status::initialize(app.handle().clone());
+
+    if let Some(recovery) = &config_recovery {
+        show_config_recovery_dialog(app, recovery);
+    }
 
     #[cfg(target_os = "linux")]
     {

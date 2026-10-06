@@ -79,18 +79,19 @@
     },
     "linux": {
       "deb": {
-        "desktopTemplate": "packaging/org.voquill.desktop.desktop.hbs",
+        "desktopTemplate": "packaging/bundler-stub.desktop.hbs",
         "depends": [
           "libgtk-layer-shell0",
           "libpulse0",
           "libappindicator3-1"
         ],
         "files": {
+          "/usr/share/applications/org.voquill.desktop.desktop": "packaging/org.voquill.desktop.desktop",
           "/usr/share/metainfo/org.voquill.desktop.metainfo.xml": "org.voquill.desktop.metainfo.xml"
         }
       },
       "rpm": {
-        "desktopTemplate": "packaging/org.voquill.desktop.desktop.hbs",
+        "desktopTemplate": "packaging/bundler-stub.desktop.hbs",
         "depends": [
           "gtk-layer-shell",
           "webkit2gtk4.1",
@@ -98,12 +99,14 @@
           "libappindicator-gtk3"
         ],
         "files": {
+          "/usr/share/applications/org.voquill.desktop.desktop": "packaging/org.voquill.desktop.desktop",
           "/usr/share/metainfo/org.voquill.desktop.metainfo.xml": "org.voquill.desktop.metainfo.xml"
         }
       },
       "appimage": {
         "bundleMediaFramework": false,
         "files": {
+          "/usr/share/applications/voquill.desktop": "packaging/org.voquill.desktop.desktop",
           "/usr/share/metainfo/org.voquill.desktop.metainfo.xml": "org.voquill.desktop.metainfo.xml",
           "/usr/share/appdata/org.voquill.desktop.appdata.xml": "org.voquill.desktop.metainfo.xml"
         }

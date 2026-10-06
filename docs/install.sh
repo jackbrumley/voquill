@@ -128,7 +128,7 @@ resolve_arch() {
   arch="$(uname -m)"
   case "$arch" in
     x86_64|amd64) printf "x64" ;;
-    aarch64|arm64) printf "arm64" ;;
+    aarch64|arm64) fail "ARM64 builds of Voquill are not available yet; only x64 (x86_64) is supported." ;;
     *) fail "unsupported architecture: $arch" ;;
   esac
 }
@@ -401,14 +401,16 @@ if ! curl -fL --retry 3 --connect-timeout 15 -o "$package_path" "$asset_url"; th
   fail "download failed. No release artifact was found for this target yet.\nTry local development run:\n  git clone https://github.com/${REPO}\n  cd voquill\n  npm install\n  npm run tauri dev"
 fi
 
+# GitHub computes a SHA-256 digest for every uploaded release asset and
+# exposes it via the releases API; that digest is the single source of truth
+# for verification (no separate .sha256 assets are published).
 verify_checksum() {
   local file="$1"
   local asset_name="$2"
   local api_url="https://api.github.com/repos/${REPO}/releases/tags/${release_tag}"
 
   if ! optional_cmd python3; then
-    log "WARNING: python3 not found, skipping checksum verification"
-    return
+    fail "python3 is required to verify the download against GitHub's checksum. Install python3, or re-run with --insecure-skip-verify to bypass verification."
   fi
 
   local digest
@@ -420,8 +422,7 @@ for asset in data.get('assets', []):
         print(asset.get('digest', ''))
 " 2>/dev/null)" || digest=""
   if [[ -z "$digest" ]]; then
-    log "WARNING: could not fetch checksum from GitHub API, skipping verification"
-    return
+    fail "could not fetch the checksum for ${asset_name} from the GitHub API. Re-run later, or with --insecure-skip-verify to bypass verification."
   fi
   local expected="${digest#sha256:}"
   local actual
@@ -472,7 +473,15 @@ else
   if [[ -f "${appimage_path}" ]]; then
     log "AppImage installed at ${appimage_path}"
 
-    desktop_file="${desktop_dir}/voquill.desktop"
+    # The launcher must be named after the app ID (org.voquill.desktop) so
+    # Wayland compositors and xdg-desktop-portal can match the running app.
+    desktop_file="${desktop_dir}/org.voquill.desktop.desktop"
+    legacy_desktop_file="${desktop_dir}/voquill.desktop"
+    require_safe_path "$legacy_desktop_file"
+    if [[ -e "$legacy_desktop_file" || -L "$legacy_desktop_file" ]]; then
+      log "Removing legacy desktop launcher: ${legacy_desktop_file}"
+      rm -f "$legacy_desktop_file" 2>/dev/null || true
+    fi
     log "Creating desktop launcher"
     cat > "$desktop_file" <<EOF
 [Desktop Entry]
@@ -482,8 +491,8 @@ Exec=${appimage_path}
 Terminal=false
 Type=Application
 Icon=${BIN_NAME}
-StartupWMClass=voquill
-Categories=Utility;Office;AudioVideo;
+StartupWMClass=org.voquill.desktop
+Categories=Utility;Accessibility;
 StartupNotify=true
 EOF
 
