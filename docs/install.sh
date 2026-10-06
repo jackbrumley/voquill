@@ -197,6 +197,7 @@ uninstall_existing() {
 
     local user_desktop_files=(
       "${HOME}/.local/share/applications/voquill.desktop"
+      "${HOME}/.local/share/applications/org.voquill.voquill.desktop"
       "${HOME}/.local/share/applications/org.voquill.desktop.desktop"
       "${HOME}/.local/share/applications/org.voquill.app.desktop"
     )
@@ -473,15 +474,16 @@ else
   if [[ -f "${appimage_path}" ]]; then
     log "AppImage installed at ${appimage_path}"
 
-    # The launcher must be named after the app ID (org.voquill.desktop) so
+    # The launcher must be named after the app ID (org.voquill.voquill) so
     # Wayland compositors and xdg-desktop-portal can match the running app.
-    desktop_file="${desktop_dir}/org.voquill.desktop.desktop"
-    legacy_desktop_file="${desktop_dir}/voquill.desktop"
-    require_safe_path "$legacy_desktop_file"
-    if [[ -e "$legacy_desktop_file" || -L "$legacy_desktop_file" ]]; then
-      log "Removing legacy desktop launcher: ${legacy_desktop_file}"
-      rm -f "$legacy_desktop_file" 2>/dev/null || true
-    fi
+    desktop_file="${desktop_dir}/org.voquill.voquill.desktop"
+    for legacy_desktop_file in "${desktop_dir}/voquill.desktop" "${desktop_dir}/org.voquill.desktop.desktop"; do
+      require_safe_path "$legacy_desktop_file"
+      if [[ -e "$legacy_desktop_file" || -L "$legacy_desktop_file" ]]; then
+        log "Removing legacy desktop launcher: ${legacy_desktop_file}"
+        rm -f "$legacy_desktop_file" 2>/dev/null || true
+      fi
+    done
     log "Creating desktop launcher"
     cat > "$desktop_file" <<EOF
 [Desktop Entry]
@@ -491,7 +493,7 @@ Exec=${appimage_path}
 Terminal=false
 Type=Application
 Icon=${BIN_NAME}
-StartupWMClass=org.voquill.desktop
+StartupWMClass=org.voquill.voquill
 Categories=Utility;Accessibility;
 StartupNotify=true
 EOF

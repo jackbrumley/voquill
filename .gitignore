@@ -15,6 +15,7 @@ dist-ssr
 _site/
 *.local
 release-artifacts/
+release-notes.md
 
 # Rust
 target

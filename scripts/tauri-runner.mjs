@@ -67,7 +67,7 @@ function removeStaleAppDirs() {
 }
 
 // The deb/rpm desktop template renders a Hidden stub (the real launcher ships
-// as org.voquill.desktop.desktop), and the AppImage reuses that template. The
+// as org.voquill.voquill.desktop), and the AppImage reuses that template. The
 // AppImage overrides the stub via bundle.linux.appimage.files, which relies on
 // the bundler's generated filename. Fail the build if that ever drifts and the
 // AppImage's top-level launcher ends up hidden.
