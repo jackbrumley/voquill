@@ -111,14 +111,17 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
   const loadConfig = async () => {
     try {
       const savedConfig = await invoke<Config>('get_config');
-      config.value = {
+      const loadedConfig = {
         ...savedConfig,
         typing_speed_interval: Math.round(savedConfig.typing_speed_interval * 1000),
       };
+      // The backend already holds this config, so it becomes the committed
+      // baseline: reloading must never trigger a save on its own.
+      lastCommittedConfig.value = loadedConfig;
+      config.value = loadedConfig;
+      hasLoadedConfig.value = true;
     } catch (error) {
       showToast(`Failed to load config: ${error}`, 'error');
-    } finally {
-      hasLoadedConfig.value = true;
     }
   };
 
@@ -226,25 +229,31 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     updateConfig('output_method', method);
   };
 
-  // Auto-save config with 500ms debounce
+  // Auto-save config with 500ms debounce. Gated on the on-disk config having
+  // loaded: until then `config` holds the in-memory defaults above, and
+  // persisting them would overwrite the user's saved settings.
   useSignalEffect(() => {
     const currentConfig = config.value;
+    if (!hasLoadedConfig.value) {
+      return;
+    }
     const timer = setTimeout(() => {
-      const previousConfig = lastCommittedConfig.value;
-      let hasChanges = false;
-      if (previousConfig) {
-        (Object.keys(currentConfig) as (keyof Config)[]).forEach((key) => {
-          if (JSON.stringify(previousConfig[key]) !== JSON.stringify(currentConfig[key])) {
-            hasChanges = true;
-            const formattedValue = formatConfigValueForLog(key, currentConfig[key]);
-            logUI('Setting changed: ' + key + ' -> ' + formattedValue);
-          }
-        });
+      const previousConfig = lastCommittedConfig.peek();
+      if (!previousConfig) {
+        return;
       }
+      let hasChanges = false;
+      (Object.keys(currentConfig) as (keyof Config)[]).forEach((key) => {
+        if (JSON.stringify(previousConfig[key]) !== JSON.stringify(currentConfig[key])) {
+          hasChanges = true;
+          const formattedValue = formatConfigValueForLog(key, currentConfig[key]);
+          logUI('Setting changed: ' + key + ' -> ' + formattedValue);
+        }
+      });
 
-      lastCommittedConfig.value = { ...currentConfig };
-      if (previousConfig === null || hasChanges) {
-        persistConfig(currentConfig, hasChanges && previousConfig !== null);
+      if (hasChanges) {
+        lastCommittedConfig.value = { ...currentConfig };
+        persistConfig(currentConfig, true);
       }
     }, 500);
     return () => clearTimeout(timer);
@@ -256,7 +265,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
   useSignalEffect(() => {
     const models = availableModels.value;
     const localEngine = config.value.local_engine;
-    if (models.length > 0) {
+    if (hasLoadedConfig.value && models.length > 0) {
       const modelsForEngine = models.filter((model) => model.engine === localEngine);
       if (modelsForEngine.length > 0) {
         const corrected = validModelSizeForEngine(localEngine, config.value.local_model_size);
