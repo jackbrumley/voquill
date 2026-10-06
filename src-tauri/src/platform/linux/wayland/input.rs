@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use ashpd::desktop::remote_desktop::{DeviceType, KeyState, RemoteDesktop};
 use ashpd::desktop::PersistMode;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 use crate::app::state::SessionState;
 use crate::AppState;
@@ -45,6 +45,47 @@ pub enum WaylandInputRequest {
 }
 
 pub type WaylandInputSender = tokio::sync::mpsc::UnboundedSender<WaylandInputRequest>;
+
+/// Emitted on every input session state transition so the UI can re-probe
+/// setup status (the payload-free event mirrors `post-process-gpu-status-changed`).
+pub const INPUT_SESSION_STATE_CHANGED_EVENT: &str = "input-session-state-changed";
+
+/// Lifecycle of the RemoteDesktop portal session that backs input emulation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InputSessionState {
+    Inactive,
+    /// A stored restore token was handed to the portal, which normally
+    /// resumes the session silently (it only prompts if the token is stale).
+    Restoring,
+    /// No restore token was supplied, so the portal is prompting the user.
+    Requesting,
+    Ready,
+}
+
+fn set_input_session_state(app_handle: &tauri::AppHandle, next_state: InputSessionState) {
+    let previous_state = {
+        let state = app_handle.state::<AppState>();
+        let mut session_state = state.wayland_input_session.lock().unwrap();
+        std::mem::replace(&mut *session_state, next_state)
+    };
+
+    if previous_state != next_state {
+        crate::log_info!(
+            "Wayland input session state: {:?} -> {:?}",
+            previous_state,
+            next_state
+        );
+        let _ = app_handle.emit(INPUT_SESSION_STATE_CHANGED_EVENT, ());
+    }
+}
+
+fn pending_state_for(restore_token: Option<&str>) -> InputSessionState {
+    if restore_token.is_some() {
+        InputSessionState::Restoring
+    } else {
+        InputSessionState::Requesting
+    }
+}
 
 async fn create_portal_session(
     restore_token: Option<&str>,
@@ -107,14 +148,24 @@ async fn reconnect_portal_session(
         config.input_token.clone()
     };
 
+    set_input_session_state(app_handle, pending_state_for(stored_token.as_deref()));
     let (remote_desktop, session, new_token) =
-        create_portal_session(stored_token.as_deref()).await?;
+        match create_portal_session(stored_token.as_deref()).await {
+            Ok(created) => created,
+            Err(error) => {
+                set_input_session_state(app_handle, InputSessionState::Inactive);
+                return Err(error);
+            }
+        };
+    set_input_session_state(app_handle, InputSessionState::Ready);
 
     if let Some(ref token) = new_token {
         let state = app_handle.state::<AppState>();
         let mut config = state.config.lock().unwrap();
         config.input_token = Some(token.clone());
-        let _ = crate::config::save_config(&config);
+        if let Err(error) = crate::config::storage::save_config(&config) {
+            crate::log_warn!("Failed to persist portal input restore token: {}", error);
+        }
     }
 
     Ok((remote_desktop, session))
@@ -126,30 +177,29 @@ pub async fn establish_input_session(
 ) -> Result<(), String> {
     teardown_input_session(app_handle).await;
 
-    let requested_restore_token = {
+    // Restore tokens are opaque portal-issued strings (GNOME issues UUIDs,
+    // KDE issues short random strings), so they are passed through untouched.
+    // A stale token is handled by the portal itself, which simply prompts.
+    let requested_restore_token = if force_rebind {
+        None
+    } else {
         let state = app_handle.state::<AppState>();
-        let mut config = state.config.lock().unwrap();
-        if force_rebind {
-            None
-        } else {
-            match config.input_token.clone() {
-                Some(token) if is_valid_restore_token(&token) => Some(token),
-                Some(token) => {
-                    crate::log_warn!(
-                        "Ignoring invalid stored input restore token '{}'; requesting fresh portal session",
-                        token
-                    );
-                    config.input_token = None;
-                    let _ = crate::config::save_config(&config);
-                    None
-                }
-                None => None,
-            }
-        }
+        let config = state.config.lock().unwrap();
+        config.input_token.clone()
     };
 
+    set_input_session_state(
+        app_handle,
+        pending_state_for(requested_restore_token.as_deref()),
+    );
     let (remote_desktop, session, input_token) =
-        create_portal_session(requested_restore_token.as_deref()).await?;
+        match create_portal_session(requested_restore_token.as_deref()).await {
+            Ok(created) => created,
+            Err(error) => {
+                set_input_session_state(app_handle, InputSessionState::Inactive);
+                return Err(error);
+            }
+        };
 
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<WaylandInputRequest>();
     let (cancel_sender, mut cancel_receiver) = tokio::sync::oneshot::channel::<()>();
@@ -159,7 +209,9 @@ pub async fn establish_input_session(
         {
             let mut config = state.config.lock().unwrap();
             config.input_token = input_token;
-            let _ = crate::config::save_config(&config);
+            if let Err(error) = crate::config::storage::save_config(&config) {
+                crate::log_warn!("Failed to persist portal input restore token: {}", error);
+            }
         }
         {
             let mut sender_lock = state.wayland_input_sender.lock().unwrap();
@@ -169,11 +221,8 @@ pub async fn establish_input_session(
             let mut cancel_lock = state.wayland_input_cancel.lock().unwrap();
             *cancel_lock = Some(cancel_sender);
         }
-        {
-            let mut ready_lock = state.wayland_input_ready.lock().unwrap();
-            *ready_lock = true;
-        }
     }
+    set_input_session_state(app_handle, InputSessionState::Ready);
 
     let app_handle_for_task = app_handle.clone();
     tauri::async_runtime::spawn(async move {
@@ -218,21 +267,12 @@ pub async fn establish_input_session(
                                         error
                                     );
 
-                                    {
-                                        let state = app_handle_for_task.state::<AppState>();
-                                        *state.wayland_input_ready.lock().unwrap() = false;
-                                    }
-
                                     let _ = current_session.close().await;
 
                                     match reconnect_portal_session(&app_handle_for_task).await {
                                         Ok((new_rd, new_sess)) => {
                                             current_remote_desktop = new_rd;
                                             current_session = new_sess;
-                                            {
-                                                let state = app_handle_for_task.state::<AppState>();
-                                                *state.wayland_input_ready.lock().unwrap() = true;
-                                            }
                                             crate::log_info!("Wayland input session reconnected. Retrying typing...");
 
                                             send_text_over_portal(
@@ -249,8 +289,6 @@ pub async fn establish_input_session(
                                                 "Failed to reconnect Wayland input session: {}",
                                                 reconnect_error
                                             );
-                                            let state = app_handle_for_task.state::<AppState>();
-                                            *state.wayland_input_ready.lock().unwrap() = false;
                                             Err(format!(
                                                 "Input session expired and reconnection failed: {}",
                                                 reconnect_error
@@ -310,22 +348,11 @@ pub async fn establish_input_session(
             }
         }
 
+        // Shared state is owned by `teardown_input_session`, which is the only
+        // path that ends this loop. Clearing it here would race a newer session
+        // that `establish_input_session` may already have installed.
         if let Err(error) = current_session.close().await {
             crate::log_warn!("Failed to close Wayland input session cleanly: {}", error);
-        }
-
-        let state = app_handle_for_task.state::<AppState>();
-        {
-            let mut sender_lock = state.wayland_input_sender.lock().unwrap();
-            *sender_lock = None;
-        }
-        {
-            let mut cancel_lock = state.wayland_input_cancel.lock().unwrap();
-            *cancel_lock = None;
-        }
-        {
-            let mut ready_lock = state.wayland_input_ready.lock().unwrap();
-            *ready_lock = false;
         }
     });
 
@@ -348,10 +375,7 @@ pub async fn teardown_input_session(app_handle: &tauri::AppHandle) {
         let mut sender_lock = state.wayland_input_sender.lock().unwrap();
         *sender_lock = None;
     }
-    {
-        let mut ready_lock = state.wayland_input_ready.lock().unwrap();
-        *ready_lock = false;
-    }
+    set_input_session_state(app_handle, InputSessionState::Inactive);
 }
 
 pub async fn type_text_hardware(
@@ -879,23 +903,4 @@ async fn send_key_combination_over_portal(
 
     crate::log_info!("[Wayland Portal] Key combination complete");
     Ok(())
-}
-
-fn is_valid_restore_token(token: &str) -> bool {
-    if token.len() != 36 {
-        return false;
-    }
-
-    for (index, character) in token.chars().enumerate() {
-        let is_hyphen_slot = matches!(index, 8 | 13 | 18 | 23);
-        if is_hyphen_slot {
-            if character != '-' {
-                return false;
-            }
-        } else if !character.is_ascii_hexdigit() {
-            return false;
-        }
-    }
-
-    true
 }

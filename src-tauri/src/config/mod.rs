@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::PathBuf;
+
+pub mod storage;
 
 pub const INPUT_SENSITIVITY_MIN: f32 = 0.1;
 pub const INPUT_SENSITIVITY_MAX: f32 = 2.0;
@@ -559,44 +559,6 @@ fn default_voice_macro_activation_threshold() -> f32 {
     0.035
 }
 
-fn normalize_legacy_portal_hotkey(hotkey: &str) -> Option<String> {
-    let trimmed = hotkey.trim();
-    let lower = trimmed.to_lowercase();
-
-    if !lower.starts_with("press <") {
-        return None;
-    }
-
-    let mut modifiers: Vec<&str> = Vec::new();
-    if lower.contains("<control>") {
-        modifiers.push("ctrl");
-    }
-    if lower.contains("<shift>") {
-        modifiers.push("shift");
-    }
-    if lower.contains("<alt>") {
-        modifiers.push("alt");
-    }
-    if lower.contains("<super>") || lower.contains("<logo>") {
-        modifiers.push("super");
-    }
-
-    let key_start_index = lower.rfind('>').map(|index| index + 1).unwrap_or(0);
-    let key = lower[key_start_index..].trim();
-
-    if key.is_empty() {
-        return None;
-    }
-
-    let mut normalized = modifiers
-        .into_iter()
-        .map(ToString::to_string)
-        .collect::<Vec<String>>();
-    normalized.push(key.to_string());
-
-    Some(normalized.join("+"))
-}
-
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -660,76 +622,6 @@ impl Default for Config {
             voice_macros: Vec::new(),
         }
     }
-}
-
-pub fn get_config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    Ok(crate::paths::config_file()?)
-}
-
-pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
-    let config_path = get_config_path()?;
-
-    if config_path.exists() {
-        let config_str = fs::read_to_string(&config_path)?;
-
-        // Migrate legacy linux_portal_hotkey into hotkey, then drop the legacy field
-        let mut config_value: serde_json::Value = serde_json::from_str(&config_str)?;
-        if let Some(portal_hotkey) = config_value
-            .get("linux_portal_hotkey")
-            .and_then(|value| value.as_str())
-        {
-            if !portal_hotkey.trim().is_empty() {
-                config_value["hotkey"] = serde_json::Value::String(portal_hotkey.to_string());
-            }
-        }
-        if let Some(obj) = config_value.as_object_mut() {
-            obj.remove("linux_portal_hotkey");
-
-            if let Some(hotkey) = obj.get("hotkey").and_then(|value| value.as_str()) {
-                if let Some(normalized_hotkey) = normalize_legacy_portal_hotkey(hotkey) {
-                    obj.insert(
-                        "hotkey".to_string(),
-                        serde_json::Value::String(normalized_hotkey),
-                    );
-                }
-            }
-        }
-
-        let mut config = serde_json::from_value::<Config>(config_value)?;
-        config.normalize();
-        // Persist migration to disk to keep config clean
-        save_config(&config)?;
-        Ok(config)
-    } else {
-        // Create default config file
-        let default_config = Config::default();
-        save_config(&default_config)?;
-        Ok(default_config)
-    }
-}
-
-pub fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let config_path = get_config_path()?;
-    log_info!("Attempting to save config to: {:?}", config_path);
-
-    let mut normalized_config = config.clone();
-    normalized_config.normalize();
-    let config_str = serde_json::to_string_pretty(&normalized_config)?;
-    log_info!(
-        "Config summary: mode={:?}, engine={}, model={}, hotkey={}, audio_device={:?}, recording_logs={}, input_sensitivity={:.2}, diarization_cluster_threshold={:.2}",
-        normalized_config.transcription_mode,
-        normalized_config.local_engine,
-        normalized_config.local_model_size,
-        normalized_config.hotkey,
-        normalized_config.audio_device,
-        normalized_config.enable_recording_logs,
-        normalized_config.input_sensitivity,
-        normalized_config.diarization_cluster_threshold
-    );
-
-    fs::write(&config_path, config_str)?;
-    log_info!("Config saved successfully to: {:?}", config_path);
-    Ok(())
 }
 
 #[cfg(test)]

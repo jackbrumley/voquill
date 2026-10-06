@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Voquill
+Comment=Voice dictation app
+Exec=voquill
+Icon=voquill
+Terminal=false
+Categories=Utility;Accessibility;
+StartupWMClass=org.voquill.desktop

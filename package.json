@@ -15,7 +15,8 @@
     "lint": "eslint src/",
     "tauri": "node scripts/tauri-runner.mjs",
     "tauri:dev": "node scripts/tauri-runner.mjs dev",
-    "tauri:build": "node scripts/tauri-runner.mjs build"
+    "tauri:build": "node scripts/tauri-runner.mjs build",
+    "release:linux": "node scripts/build-linux-release.mjs"
   },
   "dependencies": {
     "@preact/signals": "^2.11.0",

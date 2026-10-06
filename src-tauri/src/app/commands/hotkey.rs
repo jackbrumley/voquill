@@ -83,10 +83,10 @@ async fn apply_hotkey_registration(
         Ok(()) => {
             let save_result = {
                 let config = state.config.lock().unwrap();
-                crate::config::save_config(&config)
+                crate::config::storage::save_config(&config)
             };
 
-            let save_error = save_result.err().map(|error| error.to_string());
+            let save_error = save_result.err();
             if let Some(save_error) = save_error {
                 crate::log_warn!(
                     "Failed to persist new hotkey '{}': {}. Restoring previous hotkey '{}'.",
