@@ -46,15 +46,21 @@ npm run tauri:build
 ### Package Release Artifacts
 
 After building on each platform, run the packaging script to rename the build
-outputs to the standard naming convention and generate checksums:
+outputs to the standard naming convention:
 
 ```bash
 node scripts/package-release.mjs
 ```
 
-Renamed artifacts and `.sha256` checksum files are written to `release-artifacts/`
-in the project root. The script skips any stale artifacts whose embedded version
-does not match the current version in `src-tauri/tauri.conf.json`.
+Renamed artifacts are written to `release-artifacts/` in the project root, which
+the script empties first so the folder holds exactly what to upload. It skips any
+stale artifacts whose embedded version does not match the current version in
+`src-tauri/tauri.conf.json`, and refuses versions that are not plain
+`MAJOR.MINOR.PATCH`.
+
+No checksum files are produced or uploaded. GitHub computes a SHA-256 digest for
+every release asset on upload, and `install.sh` / `install.ps1` verify downloads
+against that digest via the GitHub API.
 
 Asset naming convention (automatic):
 - `voquill-<version>-linux-x64.deb`
@@ -94,7 +100,9 @@ Supported Voquill asset names:
 
 Rules:
 - Use lowercase `voquill`.
-- Use SemVer for `<version>` (example: `1.2.6`).
+- Use plain `MAJOR.MINOR.PATCH` for `<version>` (example: `1.2.6`). No pre-release
+  or build suffixes: a `-beta.1` would add hyphens that collide with the name's
+  separators. `package-release.mjs` enforces this.
 - Use OS token values: `linux`, `windows`.
 - Use architecture token value: `x64`.
 - Use the optional `-setup` variant for the Windows installer executable.
@@ -107,8 +115,9 @@ Example for v1.2.6:
 - `voquill-1.2.6-windows-x64.msi`
 
 3. **Upload Assets from `release-artifacts/`**:
-   Upload every file from the `release-artifacts/` directory (artifacts + `.sha256` files)
-   to the GitHub release.
+   Drag every file from the `release-artifacts/` directory into the GitHub release.
+   There is nothing else to upload: GitHub generates each asset's SHA-256 digest
+   automatically.
    The files are already named according to the convention above.
 
 4. **Publish**:
