@@ -6,6 +6,8 @@ use crate::platform::permissions::PlatformPermissions;
 extern "C" {
     fn AXIsProcessTrusted() -> bool;
     fn AXIsProcessTrustedWithOptions(options: *const c_void) -> bool;
+    fn CGPreflightListenEventAccess() -> bool;
+    fn CGRequestListenEventAccess() -> bool;
     static kAXTrustedCheckOptionPrompt: *const c_void;
 }
 
@@ -26,6 +28,18 @@ extern "C" {
 pub fn accessibility_is_trusted() -> bool {
     // SAFETY: This is a side-effect-free macOS accessibility trust query.
     unsafe { AXIsProcessTrusted() }
+}
+
+pub fn input_monitoring_is_trusted() -> bool {
+    // SAFETY: This is a side-effect-free macOS Input Monitoring trust query.
+    unsafe { CGPreflightListenEventAccess() }
+}
+
+pub fn request_input_monitoring_permission() {
+    // SAFETY: macOS owns the permission prompt and returns immediately.
+    unsafe {
+        let _ = CGRequestListenEventAccess();
+    }
 }
 
 pub fn request_accessibility_permission() -> Result<(), String> {
@@ -64,19 +78,28 @@ pub fn request_accessibility_permission() -> Result<(), String> {
     )
 }
 
-pub fn check_macos_permissions() -> PlatformPermissions {
+pub fn check_macos_permissions(config: &crate::config::Config) -> PlatformPermissions {
     let accessibility_trusted = accessibility_is_trusted();
+    let fn_hotkey = config
+        .hotkey
+        .split('+')
+        .any(|part| part.trim().eq_ignore_ascii_case("fn"));
+    let input_monitoring_trusted = input_monitoring_is_trusted();
     crate::log_info!(
-        "macOS permission status: accessibility_trusted={}",
-        accessibility_trusted
+        "macOS permission status: accessibility_trusted={}, input_monitoring_trusted={}",
+        accessibility_trusted,
+        input_monitoring_trusted
     );
     PlatformPermissions {
         // CoreAudio triggers the microphone TCC prompt when the input stream opens.
         audio: true,
-        shortcuts: true,
+        shortcuts: !fn_hotkey || input_monitoring_trusted,
         input_emulation: accessibility_trusted,
+        input_emulation_restoring: false,
         shortcuts_status: "ready".to_string(),
-        shortcuts_detail: None,
+        shortcuts_detail: fn_hotkey.then(|| {
+            "Fn hotkeys require Input Monitoring permission in System Settings.".to_string()
+        }),
         manual_overlay_offset_supported: true,
         overlay_positioning_detail: None,
     }

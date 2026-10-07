@@ -106,6 +106,18 @@ function getWindowsDependencies() {
 function getMacosDependencies() {
   return [
     {
+      name: "xcode-command-line-tools",
+      desc: "Apple Clang and macOS SDK",
+      check: () => runSuccess("xcrun", ["--find", "clang"]),
+      install: "xcode-select --install",
+    },
+    {
+      name: "cmake",
+      desc: "CMake (required for building whisper.cpp)",
+      check: () => commandExists("cmake"),
+      install: "brew install cmake",
+    },
+    {
       name: "vulkan-sdk",
       desc: "Vulkan SDK (required for GPU transcription; set VULKAN_SDK to its macOS directory)",
       check: () => !!process.env.VULKAN_SDK && fs.existsSync(path.join(process.env.VULKAN_SDK, "include", "vulkan", "vulkan.h")),

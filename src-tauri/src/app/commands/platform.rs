@@ -174,6 +174,18 @@ pub async fn get_platform_setup_status(
     #[cfg(target_os = "macos")]
     {
         permissions.audio = state.audio_engine.lock().unwrap().is_some();
+        if config
+            .hotkey
+            .split('+')
+            .any(|part| part.trim().eq_ignore_ascii_case("fn"))
+            && !crate::platform::macos::permissions::input_monitoring_is_trusted()
+        {
+            permissions.shortcuts = false;
+            permissions.shortcuts_status = "input_monitoring_required".to_string();
+            permissions.shortcuts_detail = Some(
+                "Fn hotkeys require Input Monitoring permission in System Settings.".to_string(),
+            );
+        }
     }
     crate::log_info!(
         "Setup readiness: audio={}, shortcuts={} (status={}), input_emulation={}, input_emulation_restoring={}, runtime_hotkey_bound={}, runtime_hotkey_listening={}",
@@ -244,9 +256,18 @@ pub async fn request_input_permission(
     }
     #[cfg(target_os = "macos")]
     {
-        let _ = state;
         let _ = app_handle;
-        crate::platform::macos::permissions::request_accessibility_permission()
+        crate::platform::macos::permissions::request_accessibility_permission()?;
+        if crate::platform::macos::shortcuts::hotkey_uses_fn(&state) {
+            crate::platform::macos::permissions::request_input_monitoring_permission();
+            if !crate::platform::macos::permissions::input_monitoring_is_trusted() {
+                return Err(
+                    "macOS is requesting Input Monitoring permission for Fn hotkeys. Enable Voquill in System Settings, then return to the app."
+                        .to_string(),
+                );
+            }
+        }
+        Ok(())
     }
     #[cfg(all(not(target_os = "linux"), not(target_os = "macos")))]
     {

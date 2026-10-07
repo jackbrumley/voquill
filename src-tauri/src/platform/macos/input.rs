@@ -148,14 +148,18 @@ pub fn send_key_up(key: &str) -> Result<(), String> {
     post_key(parse_key(key)?.code, false)
 }
 
-struct Key {
-    code: u16,
-    modifier: bool,
+pub(super) struct Key {
+    pub(super) code: u16,
+    pub(super) modifier: bool,
 }
 
-fn parse_key(token: &str) -> Result<Key, String> {
+pub(super) fn parse_key(token: &str) -> Result<Key, String> {
     let key = token.trim().to_ascii_lowercase();
-    let (code, modifier) = match key.as_str() {
+    let key = key
+        .strip_prefix("key")
+        .or_else(|| key.strip_prefix("digit"))
+        .unwrap_or(&key);
+    let (code, modifier) = match key {
         "command" | "cmd" | "super" | "win" | "meta" => (55, true),
         "control" | "ctrl" | "lctrl" | "rctrl" => (59, true),
         "option" | "alt" | "lalt" | "ralt" => (58, true),
