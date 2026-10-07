@@ -14,6 +14,8 @@ interface UseHotkeySetupReturn {
   overlayPositioningCapabilities: OverlayPositioningCapabilities;
   portalVersion: number;
   isSystemManagedShortcut: boolean;
+  supportsFnHotkey: boolean;
+  useFnModifier: boolean;
   isRecordingHotkey: boolean;
   isApplyingHotkey: boolean;
   showHotkeyCaptureModal: boolean;
@@ -25,6 +27,7 @@ interface UseHotkeySetupReturn {
   setShowSystemShortcutModal: (show: boolean) => void;
   setShowFactoryResetModal: (show: boolean) => void;
   setIsApplyingHotkey: (applying: boolean) => void;
+  toggleFnModifier: () => void;
   handleConfigureHotkey: () => Promise<void>;
   setRecordingState: (isRecording: boolean) => Promise<void>;
   cancelHotkeyCapture: () => Promise<void>;
@@ -47,8 +50,10 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
   const showHotkeyCaptureModal = useSignal(false);
   const showSystemShortcutModal = useSignal(false);
   const showFactoryResetModal = useSignal(false);
+  const useFnModifier = useSignal(false);
 
   const isSystemManagedShortcut = portalVersion.value >= 1;
+  const supportsFnHotkey = navigator.userAgent.includes('Macintosh');
 
   useEffect(() => {
     invoke<number>('get_wayland_portal_version')
@@ -85,6 +90,7 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
         showHotkeyCaptureModal.value = true;
         isRecordingHotkey.value = true;
         recordedKeys.value = new Set();
+        useFnModifier.value = false;
         showToast('Press your desired key combination in the modal.', 'info');
       } else if (result.outcome === 'system_managed') {
         showSystemShortcutModal.value = true;
@@ -108,6 +114,7 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
       else if (lower === 'shift' || lower === 'shiftleft' || lower === 'shiftright') modifiers.push('Shift');
       else if (lower === 'alt' || lower === 'altleft' || lower === 'altright') modifiers.push('Alt');
       else if (lower === 'meta' || lower === 'metaleft' || lower === 'metaright' || lower === 'osleft' || lower === 'osright') modifiers.push('Super');
+      else if (lower === 'fn') modifiers.push('Fn');
       else if (key.startsWith('Key')) {
         primaryKey = key.slice(3);
       } else if (key === 'Space') {
@@ -132,6 +139,7 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
   const cancelHotkeyCapture = async () => {
     await setRecordingState(false);
     recordedKeys.value = new Set();
+    useFnModifier.value = false;
     showHotkeyCaptureModal.value = false;
     showToast('Hotkey configuration cancelled.', 'info');
   };
@@ -154,17 +162,18 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
     if (e.shiftKey) newKeys.add('Shift');
     if (e.altKey) newKeys.add('Alt');
     if (e.metaKey) newKeys.add('Meta');
+    if (useFnModifier.value || e.getModifierState('Fn')) newKeys.add('Fn');
 
     const code = e.code;
     const modifierCodes = [
       'ControlLeft', 'ControlRight', 'ShiftLeft', 'ShiftRight',
-      'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight', 'OSLeft', 'OSRight',
+      'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight', 'OSLeft', 'OSRight', 'Fn',
     ];
 
     if (!modifierCodes.includes(code)) {
       newKeys.add(code);
       const normalized = normalizeHotkey(newKeys).toLowerCase();
-      if (!normalized || ['ctrl', 'shift', 'alt', 'super'].includes(normalized)) {
+      if (!normalized || ['ctrl', 'shift', 'alt', 'super', 'fn'].includes(normalized)) {
         showToast('Please include a non-modifier key in the shortcut.', 'error');
         recordedKeys.value = newKeys;
         return;
@@ -187,6 +196,8 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
     overlayPositioningCapabilities: overlayPositioningCapabilities.value,
     portalVersion: portalVersion.value,
     isSystemManagedShortcut,
+    supportsFnHotkey,
+    useFnModifier: useFnModifier.value,
     isRecordingHotkey: isRecordingHotkey.value,
     isApplyingHotkey: isApplyingHotkey.value,
     showHotkeyCaptureModal: showHotkeyCaptureModal.value,
@@ -198,6 +209,7 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
     setShowSystemShortcutModal: (show) => { showSystemShortcutModal.value = show; },
     setShowFactoryResetModal: (show) => { showFactoryResetModal.value = show; },
     setIsApplyingHotkey: (applying) => { isApplyingHotkey.value = applying; },
+    toggleFnModifier: () => { useFnModifier.value = !useFnModifier.value; },
     handleConfigureHotkey,
     setRecordingState,
     cancelHotkeyCapture,

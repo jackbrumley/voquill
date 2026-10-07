@@ -76,15 +76,20 @@ impl GlobalShortcutEngine for MacosBackend {
 
 #[async_trait]
 impl PermissionManager for MacosBackend {
-    async fn request_permissions(&self, _app_handle: tauri::AppHandle) -> Result<(), String> {
-        permissions::request_accessibility_permission()
+    async fn request_permissions(&self, app_handle: tauri::AppHandle) -> Result<(), String> {
+        permissions::request_accessibility_permission()?;
+        if crate::platform::macos::shortcuts::hotkey_uses_fn(&app_handle.state::<crate::AppState>())
+        {
+            permissions::request_input_monitoring_permission();
+        }
+        Ok(())
     }
 
     async fn check_permissions(
         &self,
-        _config: &crate::config::Config,
+        config: &crate::config::Config,
     ) -> crate::platform::permissions::PlatformPermissions {
-        permissions::check_macos_permissions()
+        permissions::check_macos_permissions(config)
     }
 }
 

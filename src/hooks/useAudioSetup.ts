@@ -96,8 +96,8 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
       showToast('Input permission granted!', 'success');
     } catch (error) {
       const message = String(error);
-      if (message.includes('Accessibility permission')) {
-        showToast('Grant Accessibility permission in System Settings, then return to Voquill.', 'info');
+      if (message.includes('Accessibility permission') || message.includes('Input Monitoring permission')) {
+        showToast('Grant the requested macOS permission in System Settings, then return to Voquill.', 'info');
       } else {
         showToast(`Failed to get input permission: ${message}`, 'error');
       }

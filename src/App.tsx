@@ -70,9 +70,9 @@ function App() {
     showToast,
     onApplyCapturedHotkey: async (normalized) => {
       hotkeySetup.setIsApplyingHotkey(true);
-      configHook.updateConfig('hotkey', normalized);
       try {
         await invoke('apply_captured_hotkey', { newHotkey: normalized });
+        await configHook.loadConfig();
         showToast('Shortcut configured successfully!', 'success');
         // Registration clears the backend hotkey error; refresh so the
         // readiness gate (and setup row) reflects it immediately.
@@ -382,6 +382,8 @@ function App() {
         showPostProcessGuide={showPostProcessGuide.value}
         isRecordingHotkey={hotkeySetup.isRecordingHotkey}
         isApplyingHotkey={hotkeySetup.isApplyingHotkey}
+        supportsFnHotkey={hotkeySetup.supportsFnHotkey}
+        useFnModifier={hotkeySetup.useFnModifier}
         configHotkey={configHook.config.hotkey}
         systemShortcutContext={hotkeySetup.systemShortcutContext}
         hotkeyBindingState={hotkeySetup.hotkeyBindingState}
@@ -390,6 +392,7 @@ function App() {
         isInstallingUpdate={updatesHook.installingUpdate}
         getLastCheckedLabel={updatesHook.getLastCheckedLabel}
         onCancelHotkeyCapture={() => void hotkeySetup.cancelHotkeyCapture()}
+        onToggleFnModifier={hotkeySetup.toggleFnModifier}
         onCloseSystemShortcut={() => hotkeySetup.setShowSystemShortcutModal(false)}
         onChangedSystemShortcut={() => {
           hotkeySetup.setShowSystemShortcutModal(false);
