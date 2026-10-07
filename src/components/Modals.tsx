@@ -15,6 +15,8 @@ interface ModalsProps {
   showPostProcessGuide: boolean;
   isRecordingHotkey: boolean;
   isApplyingHotkey: boolean;
+  supportsFnHotkey: boolean;
+  useFnModifier: boolean;
   configHotkey: string;
   systemShortcutContext: SystemShortcutContext | null;
   hotkeyBindingState: HotkeyBindingState | null;
@@ -23,6 +25,7 @@ interface ModalsProps {
   isInstallingUpdate?: boolean;
   getLastCheckedLabel: () => string;
   onCancelHotkeyCapture: () => void;
+  onToggleFnModifier: () => void;
   onCloseSystemShortcut: () => void;
   onChangedSystemShortcut: () => void;
   onCloseFactoryReset: () => void;
@@ -54,6 +57,11 @@ export function Modals(props: ModalsProps) {
             <p style={{ ...helperTextStyle, fontSize: tokens.typography.sizeSm }}>
               Press your desired key combination on your keyboard, or press Escape to cancel.
             </p>
+            {props.supportsFnHotkey && (
+              <Button variant={props.useFnModifier ? 'primary' : 'ghost'} pill onClick={props.onToggleFnModifier}>
+                {props.useFnModifier ? 'Fn modifier enabled' : 'Use Fn modifier'}
+              </Button>
+            )}
             <div
               style={{
                 border: '1px solid rgba(88, 101, 242, 0.4)',

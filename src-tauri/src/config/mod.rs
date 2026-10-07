@@ -20,6 +20,7 @@ pub enum PasteShortcut {
     ShiftInsert,
     CtrlV,
     CtrlShiftV,
+    CommandV,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -469,6 +470,12 @@ fn default_output_method() -> OutputMethod {
 fn default_paste_after_copy() -> bool {
     true
 }
+#[cfg(target_os = "macos")]
+fn default_paste_shortcut() -> PasteShortcut {
+    PasteShortcut::CommandV
+}
+
+#[cfg(not(target_os = "macos"))]
 fn default_paste_shortcut() -> PasteShortcut {
     PasteShortcut::ShiftInsert
 }
@@ -688,8 +695,11 @@ mod tests {
     }
 
     #[test]
-    fn paste_shortcut_defaults_to_shift_insert() {
+    fn paste_shortcut_defaults_for_platform() {
         let config: Config = serde_json::from_str("{}").expect("deserialization should succeed");
+        #[cfg(target_os = "macos")]
+        assert_eq!(config.paste_shortcut, PasteShortcut::CommandV);
+        #[cfg(not(target_os = "macos"))]
         assert_eq!(config.paste_shortcut, PasteShortcut::ShiftInsert);
     }
 
@@ -703,6 +713,11 @@ mod tests {
         let config_shift: Config =
             serde_json::from_str(json_shift).expect("deserialization should succeed");
         assert_eq!(config_shift.paste_shortcut, PasteShortcut::CtrlShiftV);
+
+        let json_command = r#"{"paste_shortcut": "CommandV"}"#;
+        let config_command: Config =
+            serde_json::from_str(json_command).expect("deserialization should succeed");
+        assert_eq!(config_command.paste_shortcut, PasteShortcut::CommandV);
     }
 
     #[test]
@@ -712,6 +727,9 @@ mod tests {
         assert_eq!(config.post_process_engine, "Post-Process (GPU)");
         assert_eq!(config.output_method, OutputMethod::Clipboard);
         assert!(config.paste_after_copy);
+        #[cfg(target_os = "macos")]
+        assert_eq!(config.paste_shortcut, PasteShortcut::CommandV);
+        #[cfg(not(target_os = "macos"))]
         assert_eq!(config.paste_shortcut, PasteShortcut::ShiftInsert);
         assert_eq!(config.hotkey_mode, HotkeyMode::Toggle);
         assert_eq!(config.pixels_from_bottom, 50);

@@ -12,20 +12,14 @@ use crate::platform::traits::{
 };
 
 #[derive(Default)]
-pub struct WindowsBackend;
-
-impl WindowsBackend {
-    pub fn new() -> Self {
-        Self
-    }
-}
+pub struct MacosBackend;
 
 pub fn initialize() -> Arc<dyn DisplayBackend> {
-    Arc::new(WindowsBackend::new())
+    Arc::new(MacosBackend)
 }
 
 #[async_trait]
-impl InputSimulation for WindowsBackend {
+impl InputSimulation for MacosBackend {
     async fn type_text_hardware(
         &self,
         app_handle: &tauri::AppHandle,
@@ -34,13 +28,17 @@ impl InputSimulation for WindowsBackend {
         key_press_duration_ms: u64,
     ) -> Result<(), String> {
         let session_state = app_handle.state::<crate::AppState>().session_state.clone();
-        input::type_text_hardware(
-            text,
-            typing_speed_interval,
-            key_press_duration_ms,
-            &session_state,
-        )
-        .map_err(|error| error.to_string())
+        let text = text.to_string();
+        tokio::task::spawn_blocking(move || {
+            input::type_text_hardware(
+                &text,
+                typing_speed_interval,
+                key_press_duration_ms,
+                &session_state,
+            )
+        })
+        .await
+        .map_err(|error| format!("macOS typing task failed: {error}"))?
     }
 
     async fn send_paste_shortcut(
@@ -48,7 +46,7 @@ impl InputSimulation for WindowsBackend {
         _app_handle: &tauri::AppHandle,
         shortcut: crate::config::PasteShortcut,
     ) -> Result<(), String> {
-        input::send_paste_shortcut(shortcut).map_err(|error| error.to_string())
+        input::send_paste_shortcut(shortcut)
     }
 
     async fn send_key_combination(
@@ -58,41 +56,44 @@ impl InputSimulation for WindowsBackend {
         hold_duration_ms: u64,
     ) -> Result<(), String> {
         input::send_key_combination(combination, hold_duration_ms)
-            .map_err(|error| error.to_string())
     }
 
     async fn send_key_down(&self, _app_handle: &tauri::AppHandle, key: &str) -> Result<(), String> {
-        input::send_key_down(key).map_err(|error| error.to_string())
+        input::send_key_down(key)
     }
 
     async fn send_key_up(&self, _app_handle: &tauri::AppHandle, key: &str) -> Result<(), String> {
-        input::send_key_up(key).map_err(|error| error.to_string())
+        input::send_key_up(key)
     }
 }
 
 #[async_trait]
-impl GlobalShortcutEngine for WindowsBackend {
+impl GlobalShortcutEngine for MacosBackend {
     async fn start_engine(&self, app_handle: tauri::AppHandle, _force: bool) -> Result<(), String> {
-        shortcuts::start_windows_hotkey_engine(app_handle).await
+        shortcuts::start_macos_hotkey_engine(app_handle).await
     }
 }
 
 #[async_trait]
-impl PermissionManager for WindowsBackend {
-    async fn request_permissions(&self, _app_handle: tauri::AppHandle) -> Result<(), String> {
+impl PermissionManager for MacosBackend {
+    async fn request_permissions(&self, app_handle: tauri::AppHandle) -> Result<(), String> {
+        permissions::request_accessibility_permission()?;
+        if crate::platform::macos::shortcuts::hotkey_uses_fn(&app_handle.state::<crate::AppState>())
+        {
+            permissions::request_input_monitoring_permission();
+        }
         Ok(())
     }
 
     async fn check_permissions(
         &self,
-        _config: &crate::config::Config,
+        config: &crate::config::Config,
     ) -> crate::platform::permissions::PlatformPermissions {
-        permissions::check_windows_permissions().await
+        permissions::check_macos_permissions(config)
     }
 }
 
-#[async_trait]
-impl WindowManagement for WindowsBackend {
+impl WindowManagement for MacosBackend {
     fn apply_overlay_hints(&self, window: &WebviewWindow) {
         overlay::apply_overlay_hints(window);
     }

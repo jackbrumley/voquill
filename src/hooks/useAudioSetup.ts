@@ -1,9 +1,9 @@
 import { useComputed, useSignal, type ReadonlySignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
-import type { AudioDevice, LinuxPermissions, HotkeyBindingState, MicVolumePayload } from '../types.ts';
+import type { AudioDevice, PlatformPermissions, HotkeyBindingState, MicVolumePayload } from '../types.ts';
 
 interface UseAudioSetupReturn {
-  permissions: LinuxPermissions | null;
+  permissions: PlatformPermissions | null;
   availableMics: AudioDevice[];
   availableSpeakers: AudioDevice[];
   hotkeyError: string | null;
@@ -24,14 +24,14 @@ interface UseAudioSetupReturn {
   stopMicPlayback: () => Promise<void>;
   handleAudioSetup: () => Promise<void>;
   handleInputSetup: () => Promise<void>;
-  checkSetupStatus: () => Promise<{ perms: LinuxPermissions; bindingState: HotkeyBindingState } | undefined>;
+  checkSetupStatus: () => Promise<{ perms: PlatformPermissions; bindingState: HotkeyBindingState } | undefined>;
   setMicTestStatus: (status: 'idle' | 'recording' | 'playing' | 'processing') => void;
   setMicVolume: (payload: MicVolumePayload | number) => void;
   setMicTestPassed: (passed: boolean) => void;
 }
 
 export function useAudioSetup(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseAudioSetupReturn {
-  const permissions = useSignal<LinuxPermissions | null>(null);
+  const permissions = useSignal<PlatformPermissions | null>(null);
   const availableMics = useSignal<AudioDevice[]>([]);
   const availableSpeakers = useSignal<AudioDevice[]>([]);
   const hotkeyError = useSignal<string | null>(null);
@@ -46,7 +46,7 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
 
   const checkSetupStatus = async () => {
     try {
-      const perms = await invoke<LinuxPermissions>('get_linux_setup_status');
+      const perms = await invoke<PlatformPermissions>('get_platform_setup_status');
       permissions.value = perms;
       const bindingState = await invoke<HotkeyBindingState>('get_hotkey_binding_state');
       hotkeyError.value = await invoke<string | null>('check_hotkey_status');
@@ -94,9 +94,15 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
     try {
       await invoke('request_input_permission');
       showToast('Input permission granted!', 'success');
-      await checkSetupStatus();
     } catch (error) {
-      showToast(`Failed to get input permission: ${error}`, 'error');
+      const message = String(error);
+      if (message.includes('Accessibility permission') || message.includes('Input Monitoring permission')) {
+        showToast('Grant the requested macOS permission in System Settings, then return to Voquill.', 'info');
+      } else {
+        showToast(`Failed to get input permission: ${message}`, 'error');
+      }
+    } finally {
+      await checkSetupStatus();
     }
   };
 

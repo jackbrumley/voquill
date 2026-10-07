@@ -162,6 +162,9 @@ fn paste_via_clipboard_shortcut(
     thread::sleep(Duration::from_millis(10));
 
     match shortcut {
+        crate::config::PasteShortcut::CommandV => {
+            return Err("Command+V paste is only supported on macOS".into());
+        }
         crate::config::PasteShortcut::ShiftInsert => {
             let insert_key = resolve_keysym_keycode(keyboard_map, XK_INSERT)
                 .ok_or_else(|| "Failed to resolve keycode for Insert".to_string())?;

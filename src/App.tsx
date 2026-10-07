@@ -70,9 +70,9 @@ function App() {
     showToast,
     onApplyCapturedHotkey: async (normalized) => {
       hotkeySetup.setIsApplyingHotkey(true);
-      configHook.updateConfig('hotkey', normalized);
       try {
         await invoke('apply_captured_hotkey', { newHotkey: normalized });
+        await configHook.loadConfig();
         showToast('Shortcut configured successfully!', 'success');
         // Registration clears the backend hotkey error; refresh so the
         // readiness gate (and setup row) reflects it immediately.
@@ -185,11 +185,15 @@ function App() {
     // readiness (models deleted, mic unplugged, permissions revoked) happen
     // while the app is unfocused.
     onFocus: () => {
-      logUI(`[Focus] Window focused — re-probing permissions, hotkey status, audio devices, and model statuses. ${explainReadiness(readinessInputs, readiness)}`);
-      void audioSetup.checkSetupStatus();
-      void audioSetup.loadMics();
-      void audioSetup.loadSpeakers();
-      void configHook.loadModels();
+      void (async () => {
+        const setup = await audioSetup.checkSetupStatus();
+        void audioSetup.loadMics();
+        void audioSetup.loadSpeakers();
+        void configHook.loadModels();
+        logUI(
+          `[Focus] Re-probed readiness: input simulation=${setup?.perms.input_emulation ? 'ready' : 'not granted'}.`,
+        );
+      })();
     },
     onHashChange: () => {
       const parsed = routeFromHash(window.location.hash);
@@ -378,6 +382,8 @@ function App() {
         showPostProcessGuide={showPostProcessGuide.value}
         isRecordingHotkey={hotkeySetup.isRecordingHotkey}
         isApplyingHotkey={hotkeySetup.isApplyingHotkey}
+        supportsFnHotkey={hotkeySetup.supportsFnHotkey}
+        useFnModifier={hotkeySetup.useFnModifier}
         configHotkey={configHook.config.hotkey}
         systemShortcutContext={hotkeySetup.systemShortcutContext}
         hotkeyBindingState={hotkeySetup.hotkeyBindingState}
@@ -386,6 +392,7 @@ function App() {
         isInstallingUpdate={updatesHook.installingUpdate}
         getLastCheckedLabel={updatesHook.getLastCheckedLabel}
         onCancelHotkeyCapture={() => void hotkeySetup.cancelHotkeyCapture()}
+        onToggleFnModifier={hotkeySetup.toggleFnModifier}
         onCloseSystemShortcut={() => hotkeySetup.setShowSystemShortcutModal(false)}
         onChangedSystemShortcut={() => {
           hotkeySetup.setShowSystemShortcutModal(false);

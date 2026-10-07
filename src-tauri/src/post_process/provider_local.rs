@@ -38,7 +38,7 @@ fn resolve_post_process_threads(threads_setting: &str) -> usize {
 
 impl SidecarPostProcess {
     /// Starts the llama-server sidecar for the given post-process engine. GPU
-    /// engines try the Vulkan build first and fall back to the CPU build,
+    /// engines try the platform GPU build first and fall back to the CPU build,
     /// recording the reason in `last_gpu_error` (the same fallback contract
     /// as whisper GPU transcription).
     pub async fn new(
@@ -222,7 +222,7 @@ impl PostProcessService for SidecarPostProcess {
 }
 
 /// The llama.cpp release archive for this platform and backend. GPU engines
-/// use the Vulkan builds (single archive, no CUDA runtime companion needed).
+/// use the platform GPU builds (single archive, no CUDA runtime companion needed).
 /// Provider-specific release knowledge; download/extract mechanics live in
 /// `crate::sidecar`.
 fn download_spec(use_gpu: bool) -> Result<crate::sidecar::SidecarDownload, PostProcessError> {
@@ -239,9 +239,9 @@ fn download_spec(use_gpu: bool) -> Result<crate::sidecar::SidecarDownload, PostP
 }
 
 fn binary_dir(use_gpu: bool) -> Result<PathBuf, PostProcessError> {
-    // CPU and Vulkan builds extract into separate variant directories so they
+    // CPU and GPU builds extract into separate variant directories so they
     // never overwrite each other.
-    let variant = if use_gpu { "vulkan" } else { "cpu" };
+    let variant = if use_gpu { "gpu" } else { "cpu" };
     let bin_dir = crate::paths::models_dir()
         .map_err(PostProcessError::Api)?
         .join("post-process")
@@ -267,6 +267,9 @@ fn archive_name(use_gpu: bool) -> Result<&'static str, PostProcessError> {
         ("linux", "x86_64", true) => Ok("llama-b10331-bin-ubuntu-vulkan-x64.tar.gz"),
         ("windows", "x86_64", false) => Ok("llama-b10331-bin-win-cpu-x64.zip"),
         ("windows", "x86_64", true) => Ok("llama-b10331-bin-win-vulkan-x64.zip"),
+        // llama.cpp distributes one macOS ARM64 build; it provides the platform
+        // GPU backend when available and accepts `-ngl` like other GPU builds.
+        ("macos", "aarch64", _) => Ok("llama-b10331-bin-macos-arm64.tar.gz"),
         _ => Err(PostProcessError::Api(format!(
             "Unsupported platform for local post-processing: {}-{}",
             std::env::consts::OS,

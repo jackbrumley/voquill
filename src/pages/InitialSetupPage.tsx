@@ -25,7 +25,7 @@ interface ModelInfo {
   recommended: boolean;
 }
 
-interface LinuxPermissions {
+interface PlatformPermissions {
   audio: boolean;
   shortcuts: boolean;
   input_emulation: boolean;
@@ -53,7 +53,7 @@ interface SetupConfig {
 }
 
 interface InitialSetupPageProps {
-  permissions: LinuxPermissions | null;
+  permissions: PlatformPermissions | null;
   config: SetupConfig;
   readiness: ReadinessStatus;
   availableEngines: string[];

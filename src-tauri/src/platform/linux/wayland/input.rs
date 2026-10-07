@@ -723,6 +723,9 @@ async fn send_paste_shortcut_over_portal(
 ) -> Result<(), String> {
     let hold = Duration::from_millis(50);
     match shortcut {
+        crate::config::PasteShortcut::CommandV => {
+            return Err("Command+V paste is only supported on macOS".to_string());
+        }
         crate::config::PasteShortcut::ShiftInsert => {
             crate::log_info!(
                 "[Wayland Portal] send_paste_shortcut_over_portal: starting Shift+Insert sequence"
