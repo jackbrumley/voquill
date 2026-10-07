@@ -80,6 +80,7 @@
       }
     },
     "macOS": {
+      "minimumSystemVersion": "11.0",
       "infoPlist": "Info.plist",
       "frameworks": [
         "packaging/macos/libvulkan.1.dylib",
