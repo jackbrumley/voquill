@@ -85,6 +85,7 @@ export interface Config {
   typing_speed_interval: number;
   key_press_duration_ms: number;
   pixels_from_bottom: number;
+  close_to_tray: boolean;
   audio_device: string | null;
   playback_device?: string | null;
   enable_recording_logs: boolean;

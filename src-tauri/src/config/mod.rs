@@ -191,6 +191,8 @@ pub struct Config {
     pub paste_delay_after_ms: u64,
     #[serde(default = "default_pixels_from_bottom")]
     pub pixels_from_bottom: i32,
+    #[serde(default = "default_close_to_tray")]
+    pub close_to_tray: bool,
     #[serde(default = "default_audio_device")]
     pub audio_device: Option<String>,
     #[serde(default = "default_playback_device")]
@@ -466,6 +468,10 @@ fn default_input_sensitivity() -> f32 {
 fn default_output_method() -> OutputMethod {
     OutputMethod::Clipboard
 }
+fn default_close_to_tray() -> bool {
+    true
+}
+
 fn default_paste_after_copy() -> bool {
     true
 }
@@ -574,6 +580,7 @@ impl Default for Config {
             paste_delay_before_ms: default_paste_delay_before_ms(),
             paste_delay_after_ms: default_paste_delay_after_ms(),
             pixels_from_bottom: default_pixels_from_bottom(),
+            close_to_tray: default_close_to_tray(),
             audio_device: default_audio_device(),
             playback_device: default_playback_device(),
             enable_recording_logs: default_enable_recording_logs(),
@@ -715,6 +722,7 @@ mod tests {
         assert_eq!(config.paste_shortcut, PasteShortcut::ShiftInsert);
         assert_eq!(config.hotkey_mode, HotkeyMode::Toggle);
         assert_eq!(config.pixels_from_bottom, 50);
+        assert!(config.close_to_tray);
         assert_eq!(config.dictionary, vec!["Voquill".to_string()]);
         assert_eq!(config.post_process_threads, "auto");
     }

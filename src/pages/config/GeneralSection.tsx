@@ -97,8 +97,12 @@ export function GeneralSection({
         )}
       </ConfigField>
 
-      <ConfigField label="Launch on System Startup" description="Automatically starts Voquill when you log in.">
+      <ConfigField label="Launch on System Startup" description="Automatically starts Voquill in the system tray when you log in.">
         <Switch name="Launch on System Startup" checked={autostartEnabled} onChange={onToggleAutostart} />
+      </ConfigField>
+
+      <ConfigField label="Close to System Tray" description="Closing the window keeps Voquill running in the system tray so the hotkey stays active. Use Quit in the tray menu to exit.">
+        <Switch name="Close to System Tray" checked={config.close_to_tray} onChange={(checked) => updateConfig('close_to_tray', checked)} />
       </ConfigField>
 
       <ConfigField label="Status Overlay Position (px)" description="Vertical offset for the status overlay from the bottom of the screen.">

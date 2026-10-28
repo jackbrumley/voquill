@@ -215,7 +215,7 @@ fn main() {
             apply_captured_hotkey,
             get_hotkey_binding_state,
             minimize_to_tray_or_taskbar,
-            quit_application,
+            close_main_window,
             get_audio_devices,
             get_output_devices,
             start_mic_test,

@@ -11,14 +11,24 @@ interface UseWindowControlsReturn {
   handleResizeCornerMouseDown: (direction: ResizeDirection) => (event: MouseEvent) => Promise<void>;
 }
 
+/// Where the backend parked the main window (`tray::WindowParking`).
+type WindowParking = 'tray' | 'taskbar';
+
 type ResizeDirection = 'East' | 'North' | 'NorthEast' | 'NorthWest' | 'South' | 'SouthEast' | 'SouthWest' | 'West';
 
 export function useWindowControls(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseWindowControlsReturn {
   const trayFallbackNotified = useSignal(false);
 
+  const notifyIfParkedInTaskbar = (parking: WindowParking | null) => {
+    if (parking === 'taskbar' && !trayFallbackNotified.value) {
+      trayFallbackNotified.value = true;
+      showToast('System tray is unavailable on this desktop. Minimized to taskbar instead.', 'info');
+    }
+  };
+
   const handleClose = async () => {
     try {
-      await invoke('quit_application');
+      notifyIfParkedInTaskbar(await invoke<WindowParking | null>('close_main_window'));
     } catch {
       await getCurrentWindow().close();
     }
@@ -26,11 +36,7 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
 
   const handleMinimize = async () => {
     try {
-      const target = await invoke<string>('minimize_to_tray_or_taskbar');
-      if (target === 'taskbar' && !trayFallbackNotified.value) {
-        trayFallbackNotified.value = true;
-        showToast('System tray is unavailable on this desktop. Minimized to taskbar instead.', 'info');
-      }
+      notifyIfParkedInTaskbar(await invoke<WindowParking>('minimize_to_tray_or_taskbar'));
     } catch {
       await getCurrentWindow().minimize();
     }
