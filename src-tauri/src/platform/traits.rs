@@ -5,6 +5,9 @@ use tauri::{AppHandle, WebviewWindow};
 
 #[async_trait]
 pub trait InputSimulation: Send + Sync {
+    /// Paste shortcuts this backend can emit; the settings UI offers only these.
+    fn supported_paste_shortcuts(&self) -> &'static [PasteShortcut];
+
     async fn type_text_hardware(
         &self,
         app_handle: &AppHandle,
@@ -33,6 +36,9 @@ pub trait InputSimulation: Send + Sync {
 
 #[async_trait]
 pub trait GlobalShortcutEngine: Send + Sync {
+    /// Whether hotkeys may include the Fn modifier (needs a raw key event tap).
+    fn supports_fn_modifier(&self) -> bool;
+
     async fn start_engine(&self, app_handle: AppHandle, force: bool) -> Result<(), String>;
 }
 

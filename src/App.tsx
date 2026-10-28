@@ -16,6 +16,7 @@ import { useHistory } from './hooks/useHistory.ts';
 import { useUpdates } from './hooks/useUpdates.ts';
 import { useAutostart } from './hooks/useAutostart.ts';
 import { useWindowControls } from './hooks/useWindowControls.ts';
+import { useInputCapabilities } from './hooks/useInputCapabilities.ts';
 import { useInitialRoute } from './hooks/useInitialRoute.ts';
 import { useGpuStatus } from './hooks/useGpuStatus.ts';
 import { useDictationStatus } from './hooks/useDictationStatus.ts';
@@ -39,6 +40,7 @@ function App() {
   const updatesHook = useUpdates(showToast);
   const autostartHook = useAutostart(showToast);
   const windowControls = useWindowControls(showToast);
+  const { inputCapabilities } = useInputCapabilities();
   const dictationStatus = useDictationStatus();
 
   const showModelGuide = useSignal(false);
@@ -307,6 +309,7 @@ function App() {
           micVolume={audioSetup.micVolume}
           isMicTriggered={audioSetup.isMicTriggered}
           overlayPositioningCapabilities={hotkeySetup.overlayPositioningCapabilities}
+          supportedPasteShortcuts={inputCapabilities?.paste_shortcuts ?? null}
           checkingUpdates={updatesHook.checkingUpdates}
           autostartEnabled={autostartHook.autostartEnabled}
           history={historyHook.history}
@@ -382,7 +385,7 @@ function App() {
         showPostProcessGuide={showPostProcessGuide.value}
         isRecordingHotkey={hotkeySetup.isRecordingHotkey}
         isApplyingHotkey={hotkeySetup.isApplyingHotkey}
-        supportsFnHotkey={hotkeySetup.supportsFnHotkey}
+        supportsFnHotkey={inputCapabilities?.fn_modifier_supported ?? false}
         useFnModifier={hotkeySetup.useFnModifier}
         configHotkey={configHook.config.hotkey}
         systemShortcutContext={hotkeySetup.systemShortcutContext}

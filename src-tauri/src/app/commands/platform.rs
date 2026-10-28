@@ -67,6 +67,24 @@ pub struct SystemShortcutContext {
 }
 
 #[derive(Serialize)]
+pub struct InputCapabilities {
+    paste_shortcuts: Vec<crate::config::PasteShortcut>,
+    fn_modifier_supported: bool,
+}
+
+/// Input features the active display backend supports, so the UI offers
+/// only options that will work on this platform.
+#[tauri::command]
+pub async fn get_input_capabilities(
+    state: tauri::State<'_, AppState>,
+) -> Result<InputCapabilities, String> {
+    Ok(InputCapabilities {
+        paste_shortcuts: state.display_backend.supported_paste_shortcuts().to_vec(),
+        fn_modifier_supported: state.display_backend.supports_fn_modifier(),
+    })
+}
+
+#[derive(Serialize)]
 pub struct OverlayPositioningCapabilities {
     manual_offset_supported: bool,
     detail: Option<String>,
@@ -172,19 +190,9 @@ pub async fn get_platform_setup_status(
     }
     #[cfg(target_os = "macos")]
     {
+        // The microphone TCC prompt fires when the persistent engine opens
+        // its input stream, so a live engine is the grant signal.
         permissions.audio = state.audio_engine.lock().unwrap().is_some();
-        if config
-            .hotkey
-            .split('+')
-            .any(|part| part.trim().eq_ignore_ascii_case("fn"))
-            && !crate::platform::macos::permissions::input_monitoring_is_trusted()
-        {
-            permissions.shortcuts = false;
-            permissions.shortcuts_status = "input_monitoring_required".to_string();
-            permissions.shortcuts_detail = Some(
-                "Fn hotkeys require Input Monitoring permission in System Settings.".to_string(),
-            );
-        }
     }
     crate::log_info!(
         "Setup readiness: audio={}, shortcuts={} (status={}), input_emulation={}, input_emulation_restoring={}, runtime_hotkey_bound={}, runtime_hotkey_listening={}",
@@ -257,7 +265,8 @@ pub async fn request_input_permission(
     {
         let _ = app_handle;
         crate::platform::macos::permissions::request_accessibility_permission()?;
-        if crate::platform::macos::shortcuts::hotkey_uses_fn(&state) {
+        let hotkey = state.config.lock().unwrap().hotkey.clone();
+        if crate::platform::macos::shortcuts::hotkey_uses_fn(&hotkey) {
             crate::platform::macos::permissions::request_input_monitoring_permission();
             if !crate::platform::macos::permissions::input_monitoring_is_trusted() {
                 return Err(

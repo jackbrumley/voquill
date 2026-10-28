@@ -57,12 +57,8 @@ struct FnListenerContext {
     app_handle: tauri::AppHandle,
 }
 
-pub fn hotkey_uses_fn(state: &crate::AppState) -> bool {
-    state
-        .config
-        .lock()
-        .unwrap()
-        .hotkey
+pub fn hotkey_uses_fn(hotkey: &str) -> bool {
+    hotkey
         .split('+')
         .any(|part| part.trim().eq_ignore_ascii_case("fn"))
 }
@@ -78,7 +74,7 @@ pub async fn start_macos_hotkey_engine(app_handle: tauri::AppHandle) -> Result<(
         return Err("No hotkey configured for macOS.".to_string());
     }
 
-    let fn_shortcut = if hotkey_uses_fn(&app_handle.state::<crate::AppState>()) {
+    let fn_shortcut = if hotkey_uses_fn(&hotkey) {
         Some(parse_fn_hotkey(&hotkey)?)
     } else {
         None

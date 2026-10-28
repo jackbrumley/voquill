@@ -80,11 +80,9 @@ pub fn request_accessibility_permission() -> Result<(), String> {
 
 pub fn check_macos_permissions(config: &crate::config::Config) -> PlatformPermissions {
     let accessibility_trusted = accessibility_is_trusted();
-    let fn_hotkey = config
-        .hotkey
-        .split('+')
-        .any(|part| part.trim().eq_ignore_ascii_case("fn"));
+    let fn_hotkey = super::shortcuts::hotkey_uses_fn(&config.hotkey);
     let input_monitoring_trusted = input_monitoring_is_trusted();
+    let input_monitoring_missing = fn_hotkey && !input_monitoring_trusted;
     crate::log_info!(
         "macOS permission status: accessibility_trusted={}, input_monitoring_trusted={}",
         accessibility_trusted,
@@ -93,11 +91,15 @@ pub fn check_macos_permissions(config: &crate::config::Config) -> PlatformPermis
     PlatformPermissions {
         // CoreAudio triggers the microphone TCC prompt when the input stream opens.
         audio: true,
-        shortcuts: !fn_hotkey || input_monitoring_trusted,
+        shortcuts: !input_monitoring_missing,
         input_emulation: accessibility_trusted,
         input_emulation_restoring: false,
-        shortcuts_status: "ready".to_string(),
-        shortcuts_detail: fn_hotkey.then(|| {
+        shortcuts_status: if input_monitoring_missing {
+            "input_monitoring_required".to_string()
+        } else {
+            "ready".to_string()
+        },
+        shortcuts_detail: input_monitoring_missing.then(|| {
             "Fn hotkeys require Input Monitoring permission in System Settings.".to_string()
         }),
         manual_overlay_offset_supported: true,

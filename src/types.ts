@@ -204,6 +204,11 @@ export interface SystemShortcutContext {
   settings_path: string;
 }
 
+export interface InputCapabilities {
+  paste_shortcuts: PasteShortcut[];
+  fn_modifier_supported: boolean;
+}
+
 export interface OverlayPositioningCapabilities {
   manual_offset_supported: boolean;
   detail?: string;

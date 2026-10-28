@@ -14,7 +14,6 @@ interface UseHotkeySetupReturn {
   overlayPositioningCapabilities: OverlayPositioningCapabilities;
   portalVersion: number;
   isSystemManagedShortcut: boolean;
-  supportsFnHotkey: boolean;
   useFnModifier: boolean;
   isRecordingHotkey: boolean;
   isApplyingHotkey: boolean;
@@ -53,7 +52,6 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
   const useFnModifier = useSignal(false);
 
   const isSystemManagedShortcut = portalVersion.value >= 1;
-  const supportsFnHotkey = navigator.userAgent.includes('Macintosh');
 
   useEffect(() => {
     invoke<number>('get_wayland_portal_version')
@@ -196,7 +194,6 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
     overlayPositioningCapabilities: overlayPositioningCapabilities.value,
     portalVersion: portalVersion.value,
     isSystemManagedShortcut,
-    supportsFnHotkey,
     useFnModifier: useFnModifier.value,
     isRecordingHotkey: isRecordingHotkey.value,
     isApplyingHotkey: isApplyingHotkey.value,

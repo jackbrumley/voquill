@@ -13,22 +13,3 @@ pub struct PlatformPermissions {
     pub manual_overlay_offset_supported: bool,
     pub overlay_positioning_detail: Option<String>,
 }
-
-#[cfg(not(target_os = "linux"))]
-pub async fn check_linux_permissions(_config: &crate::config::Config) -> PlatformPermissions {
-    PlatformPermissions {
-        audio: true,
-        shortcuts: true,
-        input_emulation: true,
-        input_emulation_restoring: false,
-        shortcuts_status: "ready".to_string(),
-        shortcuts_detail: None,
-        manual_overlay_offset_supported: true,
-        overlay_positioning_detail: None,
-    }
-}
-
-#[cfg(not(target_os = "linux"))]
-pub async fn request_linux_permissions(_app_handle: tauri::AppHandle) -> Result<(), String> {
-    Ok(())
-}

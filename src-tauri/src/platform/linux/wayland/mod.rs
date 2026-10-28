@@ -17,6 +17,14 @@ pub struct WaylandBackend;
 
 #[async_trait]
 impl InputSimulation for WaylandBackend {
+    fn supported_paste_shortcuts(&self) -> &'static [crate::config::PasteShortcut] {
+        &[
+            crate::config::PasteShortcut::ShiftInsert,
+            crate::config::PasteShortcut::CtrlV,
+            crate::config::PasteShortcut::CtrlShiftV,
+        ]
+    }
+
     async fn type_text_hardware(
         &self,
         app_handle: &tauri::AppHandle,
@@ -61,6 +69,10 @@ impl InputSimulation for WaylandBackend {
 
 #[async_trait]
 impl GlobalShortcutEngine for WaylandBackend {
+    fn supports_fn_modifier(&self) -> bool {
+        false
+    }
+
     async fn start_engine(&self, app_handle: tauri::AppHandle, force: bool) -> Result<(), String> {
         shortcuts::start_linux_portal_hotkey_engine(app_handle, force).await
     }

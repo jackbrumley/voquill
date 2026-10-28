@@ -26,6 +26,14 @@ pub fn initialize() -> Arc<dyn DisplayBackend> {
 
 #[async_trait]
 impl InputSimulation for WindowsBackend {
+    fn supported_paste_shortcuts(&self) -> &'static [crate::config::PasteShortcut] {
+        &[
+            crate::config::PasteShortcut::ShiftInsert,
+            crate::config::PasteShortcut::CtrlV,
+            crate::config::PasteShortcut::CtrlShiftV,
+        ]
+    }
+
     async fn type_text_hardware(
         &self,
         app_handle: &tauri::AppHandle,
@@ -72,6 +80,10 @@ impl InputSimulation for WindowsBackend {
 
 #[async_trait]
 impl GlobalShortcutEngine for WindowsBackend {
+    fn supports_fn_modifier(&self) -> bool {
+        false
+    }
+
     async fn start_engine(&self, app_handle: tauri::AppHandle, _force: bool) -> Result<(), String> {
         shortcuts::start_windows_hotkey_engine(app_handle).await
     }

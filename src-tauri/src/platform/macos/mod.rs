@@ -20,6 +20,10 @@ pub fn initialize() -> Arc<dyn DisplayBackend> {
 
 #[async_trait]
 impl InputSimulation for MacosBackend {
+    fn supported_paste_shortcuts(&self) -> &'static [crate::config::PasteShortcut] {
+        &[crate::config::PasteShortcut::CommandV]
+    }
+
     async fn type_text_hardware(
         &self,
         app_handle: &tauri::AppHandle,
@@ -69,6 +73,10 @@ impl InputSimulation for MacosBackend {
 
 #[async_trait]
 impl GlobalShortcutEngine for MacosBackend {
+    fn supports_fn_modifier(&self) -> bool {
+        true
+    }
+
     async fn start_engine(&self, app_handle: tauri::AppHandle, _force: bool) -> Result<(), String> {
         shortcuts::start_macos_hotkey_engine(app_handle).await
     }
@@ -78,8 +86,14 @@ impl GlobalShortcutEngine for MacosBackend {
 impl PermissionManager for MacosBackend {
     async fn request_permissions(&self, app_handle: tauri::AppHandle) -> Result<(), String> {
         permissions::request_accessibility_permission()?;
-        if crate::platform::macos::shortcuts::hotkey_uses_fn(&app_handle.state::<crate::AppState>())
-        {
+        let hotkey = app_handle
+            .state::<crate::AppState>()
+            .config
+            .lock()
+            .unwrap()
+            .hotkey
+            .clone();
+        if shortcuts::hotkey_uses_fn(&hotkey) {
             permissions::request_input_monitoring_permission();
         }
         Ok(())
