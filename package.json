@@ -17,7 +17,10 @@
     "tauri:dev": "node scripts/tauri-runner.mjs dev",
     "tauri:build": "node scripts/tauri-runner.mjs build",
     "release:linux": "node scripts/build-linux-release.mjs",
-    "release:notes": "node scripts/release-notes-template.mjs"
+    "release:prepare": "node scripts/prepare-release.mjs",
+    "release:notes": "node scripts/release-notes-template.mjs",
+    "release:verify": "node scripts/verify-release.mjs",
+    "release:promote": "node scripts/promote-release.mjs"
   },
   "dependencies": {
     "@preact/signals": "^2.11.0",

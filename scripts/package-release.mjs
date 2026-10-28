@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -86,6 +87,40 @@ function packageWindows() {
   return count;
 }
 
+// The .app bundle name carries no version, so read the one Tauri embedded in
+// its Info.plist instead. `ditto` keeps the bundle's symlinks, permissions and
+// ad-hoc code signature intact inside the zip.
+function packageMacos() {
+  const appBundle = resolve(SRC_TAURI, "target", "release", "bundle", "macos", "Voquill.app");
+  console.log("\nPackaging macOS artifacts...\n");
+
+  if (!existsSync(appBundle)) {
+    console.log("  No macOS app bundle found. Run 'npm run tauri:build -- --bundles app' first.");
+    return 0;
+  }
+
+  const bundleVersion = execFileSync(
+    "plutil",
+    ["-extract", "CFBundleShortVersionString", "raw", resolve(appBundle, "Contents", "Info.plist")],
+    { encoding: "utf8" },
+  ).trim();
+  if (bundleVersion !== VERSION) {
+    console.log(`  SKIP Voquill.app (embedded version ${bundleVersion} does not match v${VERSION})`);
+    return 0;
+  }
+
+  const zipPath = resolve(OUT_DIR, ASSET_NAMES.macosZip);
+  console.log(`  Voquill.app  →  ${ASSET_NAMES.macosZip}`);
+  execFileSync("ditto", ["-c", "-k", "--keepParent", appBundle, zipPath], { stdio: "inherit" });
+  return 1;
+}
+
+function buildCommandForPlatform() {
+  if (process.platform === "win32") return "npm run tauri:build";
+  if (process.platform === "darwin") return "npm run tauri:build -- --bundles app";
+  return "npm run release:linux";
+}
+
 function main() {
   assertPlainVersion();
   // Start from an empty folder so its whole contents can be uploaded as-is.
@@ -99,14 +134,15 @@ function main() {
 
   if (process.platform === "win32") {
     total += packageWindows();
+  } else if (process.platform === "darwin") {
+    total += packageMacos();
   } else {
     total += packageLinux();
   }
 
   console.log(`\nDone. ${total} artifact(s) packaged in ${OUT_DIR}`);
   if (total === 0) {
-    const buildCommand = process.platform === "win32" ? "npm run tauri:build" : "npm run release:linux";
-    console.log(`Nothing to do — build the app first with: ${buildCommand}`);
+    console.log(`Nothing to do — build the app first with: ${buildCommandForPlatform()}`);
     process.exit(1);
   }
 }

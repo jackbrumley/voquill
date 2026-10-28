@@ -1,0 +1,200 @@
+# Builds every release asset on GitHub and attaches it to a pre-release.
+#
+#   Tag push (vX.Y.Z): creates the pre-release (notes skeleton from
+#     release-notes-template.mjs), builds Linux, Windows and macOS in parallel,
+#     uploads each platform's assets, then verifies the release is complete.
+#     Promotion to latest stays a deliberate step: npm run release:promote.
+#   Manual run (Actions tab or `gh workflow run release.yml --ref <branch>`):
+#     a dry run that builds and packages all platforms and keeps the files as
+#     workflow artifacts, without touching any release.
+#
+# Asset names come only from scripts/release-assets.mjs via package-release.mjs.
+# See docs/RELEASE.md.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PUBLISH: ${{ github.event_name == 'push' }}
+  GH_TOKEN: ${{ github.token }}
+  VULKAN_SDK_VERSION: 1.4.341.1
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Read release version
+        id: version
+        run: |
+          tag="v$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Release version: ${tag}"
+
+      - name: Check tag matches the configured version
+        if: env.PUBLISH == 'true'
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "${{ steps.version.outputs.tag }}" ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match tauri.conf.json version ${{ steps.version.outputs.tag }}. Use npm run release:prepare."
+            exit 1
+          fi
+
+      - name: Create pre-release
+        if: env.PUBLISH == 'true'
+        run: |
+          tag="${{ steps.version.outputs.tag }}"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "Release $tag already exists; reusing it."
+          else
+            npm run --silent release:notes > release-notes.md
+            gh release create "$tag" --verify-tag --prerelease --title "$tag" --notes-file release-notes.md
+          fi
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            runner: ubuntu-24.04
+          - name: Windows
+            runner: windows-2022
+          - name: macOS
+            runner: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Linux builds inside the pinned Ubuntu 22.04 container (glibc floor),
+      # exactly as a local `npm run release:linux` does.
+      - uses: actions/setup-node@v4
+        if: runner.os == 'Linux'
+        with:
+          node-version: 22
+
+      - name: Build Linux bundles
+        if: runner.os == 'Linux'
+        run: npm run release:linux
+
+      - uses: ./.github/actions/setup-build
+        if: runner.os != 'Linux'
+        with:
+          vulkan-sdk-version: ${{ env.VULKAN_SDK_VERSION }}
+
+      - name: Build Windows installers
+        if: runner.os == 'Windows'
+        run: npm run tauri:build
+
+      - name: Build macOS app bundle
+        if: runner.os == 'macOS'
+        run: npm run tauri:build -- --bundles app
+
+      - name: Package release assets
+        shell: bash
+        run: node scripts/package-release.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.name }}
+          path: release-artifacts/*
+          retention-days: 14
+
+      - name: Upload to release
+        if: env.PUBLISH == 'true'
+        shell: bash
+        run: gh release upload "${{ needs.prepare.outputs.tag }}" release-artifacts/* --clobber
+
+  verify:
+    name: Verify release
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/verify-release.mjs
+
+  # Installs the published pre-release with the installer scripts from this
+  # tag (the ones promotion deploys to voquill.org), exactly as users will.
+  install-test:
+    name: Install test ${{ matrix.name }}
+    needs: [prepare, verify]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            runner: ubuntu-24.04
+          - name: Windows
+            runner: windows-2022
+          - name: macOS
+            runner: macos-15
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install .deb (system package)
+        if: runner.os == 'Linux'
+        run: |
+          bash docs/install.sh --version "$TAG" --yes --no-relaunch
+          /usr/bin/voquill --version | grep -F "${TAG#v}"
+
+      - name: Install AppImage (user-local)
+        if: runner.os == 'Linux'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          bash docs/install.sh --version "$TAG" --yes --no-relaunch --appimage
+          "$HOME/.local/bin/voquill" --version | grep -F "${TAG#v}"
+
+      - name: Install setup.exe (user)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./docs/install.ps1 -Version $env:TAG -NoRelaunch
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $installed = Get-ChildItem "$env:LOCALAPPDATA\Programs\Voquill" -Filter voquill.exe -ErrorAction Stop
+          Write-Host "Installed: $($installed.FullName) $($installed.VersionInfo.ProductVersion)"
+
+      - name: Install MSI (system-wide)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./docs/install.ps1 -Version $env:TAG -System -NoRelaunch
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $installed = Get-ChildItem "$env:ProgramFiles\Voquill" -Filter voquill.exe -ErrorAction Stop
+          Write-Host "Installed: $($installed.FullName) $($installed.VersionInfo.ProductVersion)"
+
+      - name: Install app bundle
+        if: runner.os == 'macOS'
+        run: |
+          bash docs/install-macos.sh --version "$TAG" --yes --no-relaunch
+          codesign --verify --deep --strict /Applications/Voquill.app
+          /Applications/Voquill.app/Contents/MacOS/voquill --version | grep -F "${TAG#v}"
