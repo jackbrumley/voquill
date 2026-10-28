@@ -1,6 +1,6 @@
 import { IconChevronLeft } from '@tabler/icons-preact';
 import { useSignal } from '@preact/signals';
-import type { DownloadPhase, GpuStatus, EngineCapabilities, Config, AudioDevice, ModelInfo } from '../types.ts';
+import type { DownloadPhase, GpuStatus, EngineCapabilities, Config, AudioDevice, ModelInfo, PasteShortcut } from '../types.ts';
 import { tokens } from '../design-tokens.ts';
 import { GeneralSection } from './config/GeneralSection.tsx';
 import { AudioSection } from './config/AudioSection.tsx';
@@ -33,6 +33,7 @@ interface ConfigPageProps {
   micVolume: number;
   isMicTriggered?: boolean;
   overlayPositioningCapabilities: { manual_offset_supported: boolean; detail?: string };
+  supportedPasteShortcuts: PasteShortcut[] | null;
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
   testApiKey: () => void;
   downloadModel: (size: string, engine?: string) => void;
@@ -108,6 +109,7 @@ export function ConfigPage(props: ConfigPageProps) {
     micVolume,
     isMicTriggered,
     overlayPositioningCapabilities,
+    supportedPasteShortcuts,
     updateConfig,
     testApiKey,
     downloadModel,
@@ -308,6 +310,7 @@ export function ConfigPage(props: ConfigPageProps) {
               <TypingSection
                 config={config}
                 updateConfig={updateConfig}
+                supportedPasteShortcuts={supportedPasteShortcuts}
               />
             )}
 

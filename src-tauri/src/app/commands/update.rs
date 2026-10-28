@@ -1,3 +1,4 @@
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use std::process::Stdio;
 
 use serde::{Deserialize, Serialize};

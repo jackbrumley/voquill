@@ -7,7 +7,7 @@ import { HistoryPage } from '../pages/HistoryPage.tsx';
 import { UiLabPage } from '../pages/UiLabPage.tsx';
 import { TabBar } from './TabBar.tsx';
 import { appContentStyle } from '../theme/ui-primitives.ts';
-import type { Config, DictationStatus, DownloadPhase, HistoryItem, AudioDevice, EngineCapabilities, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, UpdateCheckResult, AppRoute } from '../types.ts';
+import type { Config, DictationStatus, DownloadPhase, HistoryItem, AudioDevice, EngineCapabilities, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, PasteShortcut, UpdateCheckResult, AppRoute } from '../types.ts';
 
 interface MainLayoutProps {
   activeRoute: AppRoute;
@@ -32,6 +32,7 @@ interface MainLayoutProps {
   micVolume: number;
   isMicTriggered?: boolean;
   overlayPositioningCapabilities: OverlayPositioningCapabilities;
+  supportedPasteShortcuts: PasteShortcut[] | null;
   checkingUpdates: boolean;
   autostartEnabled: boolean;
   history: HistoryItem[];
@@ -134,6 +135,7 @@ export function MainLayout(props: MainLayoutProps) {
             micVolume={props.micVolume}
             isMicTriggered={props.isMicTriggered}
             overlayPositioningCapabilities={props.overlayPositioningCapabilities}
+            supportedPasteShortcuts={props.supportedPasteShortcuts}
             updateConfig={props.onUpdateConfig}
             testApiKey={props.onTestApiKey}
             downloadModel={props.onDownloadModel}

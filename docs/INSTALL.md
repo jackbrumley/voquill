@@ -41,6 +41,29 @@ Installs Voquill system-wide for all users on the machine (requires administrato
 irm https://voquill.org/install-system.ps1 | iex
 ```
 
+## macOS Development (Apple Silicon)
+
+macOS builds currently target Apple Silicon. The install scripts above distribute Linux and Windows releases.
+
+Building requires Apple's command-line compiler tools and macOS SDK, Rust, Node.js, CMake, and the [LunarG Vulkan SDK](https://vulkan.lunarg.com/sdk/home). The full Xcode application is not required. If `xcrun --find clang` succeeds, the Apple compiler tools are already available; otherwise, install them with `xcode-select --install`. Vulkan is required to compile the Whisper GPU backend. Set the SDK environment in every terminal used to build:
+
+```bash
+brew install rust node cmake
+export VULKAN_SDK="$HOME/VulkanSDK/<version>/macOS"
+export PATH="$VULKAN_SDK/bin:$PATH"
+export DYLD_LIBRARY_PATH="$VULKAN_SDK/lib:${DYLD_LIBRARY_PATH:-}"
+export PKG_CONFIG_PATH="$VULKAN_SDK/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+npm ci
+npm run deps:check
+npm run tauri:dev
+```
+
+Build an app bundle with `npm run tauri:build -- --bundles app`. Tauri bundles the Vulkan loader and MoltenVK libraries from `src-tauri/packaging/macos/` into `Contents/Frameworks`; the driver manifest under `Contents/Resources/packaging/macos/` points to that directory. End users of the bundle do not need to install the SDK.
+
+In **System Settings → Privacy & Security**, grant **Microphone** permission when Voquill opens an input stream and **Accessibility** permission for simulated typing and automatic Command+V paste. **Fn shortcuts** additionally require **Input Monitoring** permission. After granting it, return to Voquill and register the shortcut again. Fn shortcuts accept one supported key plus optional Ctrl, Shift, Option/Alt, and Command/Super modifiers; all captured modifiers must be held to trigger the shortcut.
+
+Before submitting macOS changes, run the five checks in [CONTRIBUTING.md](../CONTRIBUTING.md), run the macOS shortcut tests (`cargo test --manifest-path src-tauri/Cargo.toml platform::macos`), and verify permissions, dictation, hotkeys, and GPU initialization in the packaged app. Shared changes also require Linux (Wayland and X11) and Windows verification.
+
 ## Script Options
 
 | Option (Linux) | Option (Windows) | Description |

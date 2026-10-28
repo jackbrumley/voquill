@@ -109,6 +109,9 @@ pub fn send_paste_shortcut(
         std::thread::sleep(std::time::Duration::from_millis(10));
 
         match shortcut {
+            crate::config::PasteShortcut::CommandV => {
+                return Err("Command+V paste is only supported on macOS".into());
+            }
             crate::config::PasteShortcut::ShiftInsert => {
                 emit_vk(VK_SHIFT, true);
                 std::thread::sleep(std::time::Duration::from_millis(15));

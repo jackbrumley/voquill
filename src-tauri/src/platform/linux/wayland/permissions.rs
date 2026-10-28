@@ -1,16 +1,16 @@
 use crate::config::Config;
 use crate::platform::linux::wayland::input;
-use crate::platform::permissions::LinuxPermissions;
+use crate::platform::permissions::PlatformPermissions;
 use ashpd::desktop::camera::Camera;
 use tauri::AppHandle;
 
-pub async fn check_linux_permissions(config: &Config) -> LinuxPermissions {
+pub async fn check_linux_permissions(config: &Config) -> PlatformPermissions {
     let audio = Camera::new().await.is_ok();
     let shortcuts = config.shortcuts_token.is_some();
 
     let input_emulation = config.input_token.is_some();
 
-    LinuxPermissions {
+    PlatformPermissions {
         audio,
         shortcuts,
         input_emulation,

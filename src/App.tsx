@@ -16,6 +16,7 @@ import { useHistory } from './hooks/useHistory.ts';
 import { useUpdates } from './hooks/useUpdates.ts';
 import { useAutostart } from './hooks/useAutostart.ts';
 import { useWindowControls } from './hooks/useWindowControls.ts';
+import { useInputCapabilities } from './hooks/useInputCapabilities.ts';
 import { useInitialRoute } from './hooks/useInitialRoute.ts';
 import { useGpuStatus } from './hooks/useGpuStatus.ts';
 import { useDictationStatus } from './hooks/useDictationStatus.ts';
@@ -39,6 +40,7 @@ function App() {
   const updatesHook = useUpdates(showToast);
   const autostartHook = useAutostart(showToast);
   const windowControls = useWindowControls(showToast);
+  const { inputCapabilities } = useInputCapabilities();
   const dictationStatus = useDictationStatus();
 
   const showModelGuide = useSignal(false);
@@ -70,9 +72,9 @@ function App() {
     showToast,
     onApplyCapturedHotkey: async (normalized) => {
       hotkeySetup.setIsApplyingHotkey(true);
-      configHook.updateConfig('hotkey', normalized);
       try {
         await invoke('apply_captured_hotkey', { newHotkey: normalized });
+        await configHook.loadConfig();
         showToast('Shortcut configured successfully!', 'success');
         // Registration clears the backend hotkey error; refresh so the
         // readiness gate (and setup row) reflects it immediately.
@@ -185,11 +187,15 @@ function App() {
     // readiness (models deleted, mic unplugged, permissions revoked) happen
     // while the app is unfocused.
     onFocus: () => {
-      logUI(`[Focus] Window focused — re-probing permissions, hotkey status, audio devices, and model statuses. ${explainReadiness(readinessInputs, readiness)}`);
-      void audioSetup.checkSetupStatus();
-      void audioSetup.loadMics();
-      void audioSetup.loadSpeakers();
-      void configHook.loadModels();
+      void (async () => {
+        const setup = await audioSetup.checkSetupStatus();
+        void audioSetup.loadMics();
+        void audioSetup.loadSpeakers();
+        void configHook.loadModels();
+        logUI(
+          `[Focus] Re-probed readiness: input simulation=${setup?.perms.input_emulation ? 'ready' : 'not granted'}.`,
+        );
+      })();
     },
     onHashChange: () => {
       const parsed = routeFromHash(window.location.hash);
@@ -303,6 +309,7 @@ function App() {
           micVolume={audioSetup.micVolume}
           isMicTriggered={audioSetup.isMicTriggered}
           overlayPositioningCapabilities={hotkeySetup.overlayPositioningCapabilities}
+          supportedPasteShortcuts={inputCapabilities?.paste_shortcuts ?? null}
           checkingUpdates={updatesHook.checkingUpdates}
           autostartEnabled={autostartHook.autostartEnabled}
           history={historyHook.history}
@@ -378,6 +385,8 @@ function App() {
         showPostProcessGuide={showPostProcessGuide.value}
         isRecordingHotkey={hotkeySetup.isRecordingHotkey}
         isApplyingHotkey={hotkeySetup.isApplyingHotkey}
+        supportsFnHotkey={inputCapabilities?.fn_modifier_supported ?? false}
+        useFnModifier={hotkeySetup.useFnModifier}
         configHotkey={configHook.config.hotkey}
         systemShortcutContext={hotkeySetup.systemShortcutContext}
         hotkeyBindingState={hotkeySetup.hotkeyBindingState}
@@ -386,6 +395,7 @@ function App() {
         isInstallingUpdate={updatesHook.installingUpdate}
         getLastCheckedLabel={updatesHook.getLastCheckedLabel}
         onCancelHotkeyCapture={() => void hotkeySetup.cancelHotkeyCapture()}
+        onToggleFnModifier={hotkeySetup.toggleFnModifier}
         onCloseSystemShortcut={() => hotkeySetup.setShowSystemShortcutModal(false)}
         onChangedSystemShortcut={() => {
           hotkeySetup.setShowSystemShortcutModal(false);

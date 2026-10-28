@@ -61,11 +61,13 @@
       "icons/128x128@2x.png",
       "icons/icon.png",
       "icons/icon.svg",
+      "icons/icon.icns",
       "icons/icon.ico"
     ],
     "targets": "all",
     "resources": [
       "packaging/windows/vulkan-1.dll",
+      "packaging/macos/MoltenVK_icd.json",
       "../python-runner/**/*"
     ],
     "externalBin": [],
@@ -76,6 +78,14 @@
       "nsis": {
         "installerHooks": "packaging/windows/hooks.nsh"
       }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "infoPlist": "Info.plist",
+      "frameworks": [
+        "packaging/macos/libvulkan.1.dylib",
+        "packaging/macos/libMoltenVK.dylib"
+      ]
     },
     "linux": {
       "deb": {

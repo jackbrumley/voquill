@@ -1,10 +1,13 @@
 use crate::config::{Config, PasteShortcut};
-use crate::platform::permissions::LinuxPermissions;
+use crate::platform::permissions::PlatformPermissions;
 use async_trait::async_trait;
 use tauri::{AppHandle, WebviewWindow};
 
 #[async_trait]
 pub trait InputSimulation: Send + Sync {
+    /// Paste shortcuts this backend can emit; the settings UI offers only these.
+    fn supported_paste_shortcuts(&self) -> &'static [PasteShortcut];
+
     async fn type_text_hardware(
         &self,
         app_handle: &AppHandle,
@@ -33,13 +36,16 @@ pub trait InputSimulation: Send + Sync {
 
 #[async_trait]
 pub trait GlobalShortcutEngine: Send + Sync {
+    /// Whether hotkeys may include the Fn modifier (needs a raw key event tap).
+    fn supports_fn_modifier(&self) -> bool;
+
     async fn start_engine(&self, app_handle: AppHandle, force: bool) -> Result<(), String>;
 }
 
 #[async_trait]
 pub trait PermissionManager: Send + Sync {
     async fn request_permissions(&self, app_handle: AppHandle) -> Result<(), String>;
-    async fn check_permissions(&self, config: &Config) -> LinuxPermissions;
+    async fn check_permissions(&self, config: &Config) -> PlatformPermissions;
 }
 
 #[async_trait]

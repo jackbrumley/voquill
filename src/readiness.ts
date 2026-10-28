@@ -1,4 +1,4 @@
-import type { AudioDevice, Config, LinuxPermissions, ModelInfo } from './types.ts';
+import type { AudioDevice, Config, PlatformPermissions, ModelInfo } from './types.ts';
 
 /// Placeholder written by `persistConfig` whenever the API key field is
 /// empty, so an empty key never persists to disk.
@@ -21,7 +21,7 @@ export interface ReadinessStatus {
 }
 
 export interface ReadinessInputs {
-  permissions: LinuxPermissions | null;
+  permissions: PlatformPermissions | null;
   hotkeyError: string | null;
   availableMics: AudioDevice[];
   config: Config;
