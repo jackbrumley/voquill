@@ -156,6 +156,13 @@ All five must pass without warnings. Treat compiler warnings as errors.
 - **App Identifier:** The Tauri identifier, Wayland app_id, desktop file, and metainfo ID are all `org.voquill.voquill` -- one reverse-DNS identity across every surface (namespace owned via the voquill.org domain). In code it is owned by `APP_ID` in `platform/linux/wayland/env.rs`, with a test that keeps it equal to the Tauri `identifier`. The ID must never end in `.desktop` (KDE's kglobalacceld treats such names as desktop-file launch shortcuts and silently drops portal global shortcuts registered under them) or `.app` (collides with macOS bundle names). The previous IDs `org.voquill.desktop` and `org.voquill.app` survive only in legacy-cleanup lists.
 - **Desktop File Ownership:** KWin/Mutter and xdg-desktop-portal resolve the app by `<app_id>.desktop`, so the launcher must be `org.voquill.voquill.desktop`. Tauri's bundler names its generated desktop file after `productName` with no override, so the real entry is `src-tauri/packaging/org.voquill.voquill.desktop`, shipped explicitly via `bundle.linux.deb.files` / `bundle.linux.rpm.files`. The bundler's own output is rendered from `packaging/bundler-stub.desktop.hbs` as a `Hidden=true` stub so it never shows as a second launcher. The AppImage reuses the deb template, so `bundle.linux.appimage.files` overwrites the stub path with the real entry; `scripts/tauri-runner.mjs` fails the build if the AppImage's top-level launcher ever ends up hidden. `docs/install.sh` writes the AppImage launcher as `org.voquill.voquill.desktop` too. Delete the stub once Tauri can name the desktop file directly.
 
+### 4. CI, Releases & Installers
+- **CI Is the Cross-Platform Gate:** `.github/workflows/ci.yml` runs typecheck, lint, and `cargo fmt`/`clippy -D warnings`/`test` on Linux, Windows and macOS (Apple Silicon) for every push to `dev`/`main` and every PR. The maintainer has no Mac and rarely boots Windows, so a red CI job is the only signal that platform code broke; never merge or release over one.
+- **One Build Environment:** `.github/actions/setup-build` owns Node, Rust, the pinned LunarG Vulkan SDK and per-OS toolchains for both CI and release jobs. Keep its Vulkan SDK version in step with `src-tauri/packaging/linux/Containerfile`.
+- **Releases Are Built by GitHub:** `docs/RELEASE.md` is the procedure. `npm run release:prepare -- X.Y.Z` bumps, commits and tags on `dev`; pushing the tag runs `release.yml` (build all platforms → pre-release → `verify-release.mjs` → install test on all three OSes); `npm run release:promote` publishes and fast-forwards `main`. Release identity (asset names, expected asset list, download links) is owned solely by `scripts/release-assets.mjs`.
+- **Branches:** `dev` is where work lands; `main` only moves by `release:promote` and always equals the latest published release. GitHub Pages serves the website and installers from `main:/docs`, so installer changes go live only on promotion.
+- **Installers by Platform:** `docs/install.sh` / `docs/uninstall.sh` (Linux) hand off to `docs/install-macos.sh` / `docs/uninstall-macos.sh` on macOS, so the one-line command is identical; `docs/install.ps1` serves Windows. The macOS scripts must stay bash 3.2 compatible and must not need python3. The in-app updater (`app/commands/update.rs`) re-runs these same installers.
+
 ---
 
 ## Platform Compatibility & Requirements
@@ -164,6 +171,7 @@ All five must pass without warnings. Treat compiler warnings as errors.
 | :--- | :--- | :--- | :--- |
 | **Linux** | Wayland, X11 | ALSA / PulseAudio | Wayland: XDG Portals (`ashpd`), X11: native X11 backends |
 | **Windows** | Desktop | WASAPI | CoreAudio API |
+| **macOS** (Apple Silicon, community-supported) | Quartz | CoreAudio | Accessibility / Input Monitoring (TCC) |
 
 ### Linux Permission Setup
 On Wayland, Voquill triggers standard XDG Portal prompts for microphone, global shortcuts, and remote desktop (input simulation). On X11, equivalent capabilities use native X11 backends and should still surface clear setup/readiness state in the UI.

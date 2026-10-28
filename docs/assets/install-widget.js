@@ -18,6 +18,16 @@
         command: 'curl -sf https://voquill.org/uninstall.sh | bash',
       },
     },
+    macos: {
+      install: {
+        label: 'Install',
+        command: 'curl -sf https://voquill.org/install.sh | bash',
+      },
+      uninstall: {
+        label: 'Uninstall',
+        command: 'curl -sf https://voquill.org/uninstall.sh | bash',
+      },
+    },
     windows: {
       user: {
         label: 'User Install',
@@ -62,6 +72,9 @@
 
       if (plat.indexOf('win') !== -1 || ua.indexOf('windows') !== -1) {
         return 'windows';
+      }
+      if ((plat.indexOf('mac') !== -1 || ua.indexOf('macintosh') !== -1) && ua.indexOf('iphone') === -1 && ua.indexOf('ipad') === -1) {
+        return 'macos';
       }
       if (
         (plat.indexOf('linux') !== -1 || plat.indexOf('x11') !== -1 || ua.indexOf('linux') !== -1 || ua.indexOf('x11') !== -1) &&
@@ -109,6 +122,9 @@
     }
     if (platform === 'linux') {
       return 'Open <strong>Terminal</strong> and run:';
+    }
+    if (platform === 'macos') {
+      return 'Apple Silicon Macs, community-supported. Open <strong>Terminal</strong> and run:';
     }
     return '';
   }

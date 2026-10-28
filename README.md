@@ -57,6 +57,11 @@ irm https://voquill.org/install.ps1 | iex
 curl -sf https://voquill.org/install.sh | bash
 ```
 
+**macOS (Apple Silicon, community-supported):**
+```bash
+curl -sf https://voquill.org/install.sh | bash
+```
+
 > **Prefer a visual installer or AppImage?** Visit **[voquill.org](https://voquill.org)** for automatic platform detection and all package options.
 
 ---
@@ -71,6 +76,9 @@ If you prefer downloading standalone packages directly:
   - **Linux (Debian / Ubuntu):** `.deb`
   - **Linux (Fedora / RHEL):** `.rpm`
   - **Linux (Cross-distro fallback):** `.AppImage`
+  - **macOS (Apple Silicon):** `-macos-arm64.zip` (not notarized; the one-line installer is recommended)
+
+> **About macOS:** macOS support is contributed and tested by the community, and every release is built and install-tested on Apple Silicon automatically. The app is not notarized by Apple; the one-line installer avoids the "unidentified developer" warning that a browser download triggers. Intel Macs are not supported.
 
 ## Getting Started
 
@@ -128,7 +136,7 @@ Prefer direct link: https://youtu.be/yKKyPUwEpDg
 
 1. **Open Terminal in the project folder**
    - On Windows: open PowerShell in the Voquill folder.
-   - On Linux: open your Terminal in the Voquill folder.
+   - On Linux or macOS: open your Terminal in the Voquill folder.
 2. **Install required project files**
    - Run: `npm install`
    - This downloads everything needed to build Voquill.
@@ -136,12 +144,12 @@ Prefer direct link: https://youtu.be/yKKyPUwEpDg
    - Run: `npm run deps:check`
    - If anything is missing, it will print the install commands.
 4. **Build release packages**
-   - Run: `npm run tauri:build`
+   - Run: `npm run tauri:build` (on macOS: `npm run tauri:build -- --bundles app`)
    - This builds production packages for your current platform.
 5. **Find your built files**
-   - Linux location: `src-tauri/target/release/bundle/`
+   - Linux and macOS location: `src-tauri/target/release/bundle/`
    - Windows location: `C:\vb\release\bundle\`
-   - This folder contains installer/package files (such as `.msi`, `.deb`, `.rpm`, `.AppImage`).
+   - This folder contains installer/package files (such as `.msi`, `.deb`, `.rpm`, `.AppImage`, `Voquill.app`).
 6. **Optional: Run in development mode**
    - Run: `npm run tauri:dev`
    - This is for live testing while developing.
