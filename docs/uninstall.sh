@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# macOS removes an app bundle rather than a Linux package, so it has its own
+# uninstaller; forward every option so the one-line command is the same on both.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  curl -fsSL --retry 3 --connect-timeout 10 https://voquill.org/uninstall-macos.sh | bash -s -- "$@"
+  exit 0
+fi
+
 usage() {
   cat <<'EOF'
 Voquill uninstall script

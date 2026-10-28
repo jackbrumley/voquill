@@ -1,4 +1,3 @@
-#[cfg(any(target_os = "linux", target_os = "windows"))]
 use std::process::Stdio;
 
 use serde::{Deserialize, Serialize};
@@ -116,22 +115,35 @@ pub async fn install_update(app_handle: tauri::AppHandle) -> Result<(), String> 
     Ok(())
 }
 
+/// The install command that replaces this installation in place. AppImage
+/// installs must stay AppImage installs rather than switching to a package.
 #[cfg(target_os = "linux")]
-fn spawn_update_process() -> Result<(), String> {
-    use std::os::unix::process::CommandExt;
-
+fn unix_update_command() -> &'static str {
     let is_appimage = std::env::var("APPIMAGE").is_ok()
         || std::env::current_exe()
             .map(|path| path.to_string_lossy().contains(".local/bin"))
             .unwrap_or(false);
 
-    let script_cmd = if is_appimage {
+    if is_appimage {
         "curl -sf https://voquill.org/install.sh | bash -s -- --appimage"
     } else {
         "curl -sf https://voquill.org/install.sh | bash"
-    };
+    }
+}
 
-    crate::log_info!("Spawning Linux update process: {}", script_cmd);
+/// install.sh hands off to the macOS installer, which replaces the app bundle
+/// in /Applications.
+#[cfg(target_os = "macos")]
+fn unix_update_command() -> &'static str {
+    "curl -sf https://voquill.org/install.sh | bash"
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn spawn_update_process() -> Result<(), String> {
+    use std::os::unix::process::CommandExt;
+
+    let script_cmd = unix_update_command();
+    crate::log_info!("Spawning update process: {}", script_cmd);
 
     let log_path = crate::paths::debug_dir()
         .map(|dir| dir.join("update.log"))
@@ -216,7 +228,7 @@ fn spawn_update_process() -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 fn spawn_update_process() -> Result<(), String> {
     Err("In-app updates are not supported on this platform".to_string())
 }
