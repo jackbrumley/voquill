@@ -1,0 +1,70 @@
+# Compiles, lints and tests Voquill on Linux, Windows and macOS (Apple Silicon)
+# for every push to dev/main and every pull request, so platform-specific code
+# is verified without the maintainer switching operating systems. Installers
+# are built only by release.yml.
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  VULKAN_SDK_VERSION: 1.4.341.1
+
+jobs:
+  frontend:
+    name: Frontend (typecheck, lint)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+
+  rust:
+    name: Rust (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            runner: ubuntu-24.04
+          - name: Windows
+            runner: windows-2022
+          - name: macOS
+            runner: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-build
+        with:
+          vulkan-sdk-version: ${{ env.VULKAN_SDK_VERSION }}
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: cargo fmt
+        if: runner.os == 'Linux'
+        working-directory: src-tauri
+        run: cargo fmt --check
+
+      - name: cargo clippy
+        working-directory: src-tauri
+        run: cargo clippy -- -D warnings
+
+      - name: cargo test
+        working-directory: src-tauri
+        run: cargo test
