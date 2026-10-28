@@ -4,6 +4,13 @@ set -euo pipefail
 REPO="jackbrumley/voquill"
 BIN_NAME="voquill"
 
+# macOS installs an app bundle rather than a Linux package, so it has its own
+# installer; forward every option so the one-line command is the same on both.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  curl -fsSL --retry 3 --connect-timeout 10 https://voquill.org/install-macos.sh | bash -s -- "$@"
+  exit 0
+fi
+
 usage() {
   cat <<'EOF'
 Voquill bootstrap installer
