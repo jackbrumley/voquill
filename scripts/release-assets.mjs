@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const TAURI_CONF = JSON.parse(readFileSync(resolve(ROOT, "src-tauri", "tauri.conf.json"), "utf8"));
 
-const REPOSITORY = "jackbrumley/voquill";
+export const REPOSITORY = "jackbrumley/voquill";
 
 export const VERSION = TAURI_CONF.version;
 export const TAG = `v${VERSION}`;
@@ -24,7 +24,12 @@ export const ASSET_NAMES = {
   linuxDeb: `voquill-${VERSION}-linux-x64.deb`,
   linuxRpm: `voquill-${VERSION}-linux-x64.rpm`,
   linuxAppImage: `voquill-${VERSION}-linux-x64.AppImage`,
+  macosZip: `voquill-${VERSION}-macos-arm64.zip`,
 };
+
+// Every asset a complete release must carry. verify-release.mjs checks the
+// published release against this list before it may be promoted.
+export const EXPECTED_ASSETS = Object.values(ASSET_NAMES);
 
 // Order and labels of the Downloads block in every release's notes.
 export const DOWNLOAD_LINKS = [
@@ -33,6 +38,7 @@ export const DOWNLOAD_LINKS = [
   { platform: "Linux (Debian/Ubuntu)", label: ".deb", fileName: ASSET_NAMES.linuxDeb },
   { platform: "Linux (Fedora/RHEL)", label: ".rpm", fileName: ASSET_NAMES.linuxRpm },
   { platform: "Linux (Portable)", label: ".AppImage", fileName: ASSET_NAMES.linuxAppImage },
+  { platform: "macOS (Apple Silicon, community-supported)", label: ".zip", fileName: ASSET_NAMES.macosZip },
 ];
 
 // The tag (with its `v`) is the URL path segment; the file name carries the
@@ -41,7 +47,8 @@ export function downloadUrl(fileName) {
   return `https://github.com/${REPOSITORY}/releases/download/${TAG}/${fileName}`;
 }
 
-// Asset names are `voquill-<version>-<os>-<arch>[-setup].<ext>`. A plain
+// Asset names are `voquill-<version>-<os>-<arch>[-setup].<ext>`, where <arch>
+// is `x64` or `arm64`. A plain
 // MAJOR.MINOR.PATCH version keeps them unambiguous (a suffix like `-beta.1`
 // would add hyphens that collide with the separators).
 export function assertPlainVersion() {

@@ -68,3 +68,16 @@ jobs:
       - name: cargo test
         working-directory: src-tauri
         run: cargo test
+
+      # /bin/bash on macOS is bash 3.2, the version users' installs run under.
+      - name: Check installer script syntax
+        if: runner.os != 'Windows'
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            scripts=(docs/install-macos.sh docs/uninstall-macos.sh)
+          else
+            scripts=(docs/install.sh docs/uninstall.sh)
+          fi
+          for script in "${scripts[@]}"; do
+            /bin/bash -n "$script"
+          done
