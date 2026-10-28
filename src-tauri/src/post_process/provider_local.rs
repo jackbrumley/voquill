@@ -240,8 +240,9 @@ fn download_spec(use_gpu: bool) -> Result<crate::sidecar::SidecarDownload, PostP
 
 fn binary_dir(use_gpu: bool) -> Result<PathBuf, PostProcessError> {
     // CPU and GPU builds extract into separate variant directories so they
-    // never overwrite each other.
-    let variant = if use_gpu { "gpu" } else { "cpu" };
+    // never overwrite each other. The GPU directory keeps its original
+    // `vulkan` name so existing installs reuse their downloaded binaries.
+    let variant = if use_gpu { "vulkan" } else { "cpu" };
     let bin_dir = crate::paths::models_dir()
         .map_err(PostProcessError::Api)?
         .join("post-process")
