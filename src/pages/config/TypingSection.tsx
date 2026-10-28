@@ -10,10 +10,33 @@ import { helperTextStyle, selectWrapperStyle } from '../../theme/ui-primitives.t
 interface TypingSectionProps {
   config: Config;
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
+  /// Paste shortcuts the backend can emit on this platform; null until reported.
+  supportedPasteShortcuts: PasteShortcut[] | null;
 }
 
-export function TypingSection({ config, updateConfig }: TypingSectionProps) {
+const PASTE_SHORTCUT_OPTIONS: { value: PasteShortcut; label: string }[] = [
+  {
+    value: 'ShiftInsert',
+    label: 'Shift + Insert (Universal — Terminal & GUI)',
+  },
+  {
+    value: 'CtrlV',
+    label: 'Ctrl + V (Standard Desktop)',
+  },
+  {
+    value: 'CtrlShiftV',
+    label: 'Ctrl + Shift + V (Terminal Only)',
+  },
+  {
+    value: 'CommandV',
+    label: 'Command + V',
+  },
+];
+
+export function TypingSection({ config, updateConfig, supportedPasteShortcuts }: TypingSectionProps) {
   const hasManuallyToggledPaste = useSignal(false);
+  const offeredPasteShortcuts = supportedPasteShortcuts ?? [config.paste_shortcut];
+  const pasteShortcutOptions = PASTE_SHORTCUT_OPTIONS.filter((option) => offeredPasteShortcuts.includes(option.value));
 
   return (
     <>
@@ -51,20 +74,7 @@ export function TypingSection({ config, updateConfig }: TypingSectionProps) {
               <div style={selectWrapperStyle}>
                 <SelectField
                   value={config.paste_shortcut}
-                  options={[
-                    {
-                      value: 'ShiftInsert',
-                      label: 'Shift + Insert (Universal — Terminal & GUI)',
-                    },
-                    {
-                      value: 'CtrlV',
-                      label: 'Ctrl + V (Standard Desktop)',
-                    },
-                    {
-                      value: 'CtrlShiftV',
-                      label: 'Ctrl + Shift + V (Terminal Only)',
-                    },
-                  ]}
+                  options={pasteShortcutOptions}
                   onChange={(nextShortcut) => updateConfig('paste_shortcut', nextShortcut as PasteShortcut)}
                   ariaLabel="Paste Shortcut"
                 />
@@ -78,6 +88,9 @@ export function TypingSection({ config, updateConfig }: TypingSectionProps) {
                 )}
                 {config.paste_shortcut === 'CtrlShiftV' && (
                   'Ctrl + Shift + V is standard in terminal emulators, but is not recognized by standard desktop GUI apps.'
+                )}
+                {config.paste_shortcut === 'CommandV' && (
+                  'Command + V is the standard paste shortcut on macOS.'
                 )}
               </div>
             </ConfigField>
