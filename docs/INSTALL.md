@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Voquill Install Guide
-description: One-command install of Voquill on Linux and Windows. System package, AppImage, or PowerShell.
+description: One-command install of Voquill on Linux, Windows and macOS. System package, AppImage, PowerShell, or app bundle.
 canonical: https://voquill.org/INSTALL.html
 body_class: centered-page
 container_class: home-container
@@ -41,9 +41,23 @@ Installs Voquill system-wide for all users on the machine (requires administrato
 irm https://voquill.org/install-system.ps1 | iex
 ```
 
+## macOS Installation (Apple Silicon)
+
+macOS support is community-supported (see the [FAQ](faq.html#macos-support)). Open **Terminal** and run:
+```bash
+curl -sf https://voquill.org/install.sh | bash
+```
+
+This installs `Voquill.app` into `/Applications` (an administrator password is requested if your account cannot write there) and launches it. The app is not notarized by Apple; installing with this command avoids the "unidentified developer" warning that a browser download triggers. On first launch, grant **Microphone**, **Accessibility** and (for Fn hotkeys) **Input Monitoring** permission in **System Settings → Privacy & Security**. Intel Macs are not supported.
+
+To uninstall:
+```bash
+curl -sf https://voquill.org/uninstall.sh | bash
+```
+
 ## macOS Development (Apple Silicon)
 
-macOS builds currently target Apple Silicon. The install scripts above distribute Linux and Windows releases.
+macOS builds target Apple Silicon only.
 
 Building requires Apple's command-line compiler tools and macOS SDK, Rust, Node.js, CMake, and the [LunarG Vulkan SDK](https://vulkan.lunarg.com/sdk/home). The full Xcode application is not required. If `xcrun --find clang` succeeds, the Apple compiler tools are already available; otherwise, install them with `xcode-select --install`. Vulkan is required to compile the Whisper GPU backend. Set the SDK environment in every terminal used to build:
 
@@ -66,10 +80,10 @@ Before submitting macOS changes, run the five checks in [CONTRIBUTING.md](../CON
 
 ## Script Options
 
-| Option (Linux) | Option (Windows) | Description |
-|----------------|------------------|-------------|
-| `--appimage` | — | Install AppImage to ~/.local/bin (no sudo) |
-| `--system` | `-System` | Force system-wide install (requires admin / sudo) |
+| Option (Linux / macOS) | Option (Windows) | Description |
+|------------------------|------------------|-------------|
+| `--appimage` | — | Linux only: install AppImage to ~/.local/bin (no sudo) |
+| `--system` | `-System` | Linux / Windows only: force system-wide install (requires admin / sudo) |
 | `--clean` | `-Clean` | Clean cached models/data before installing (keeps config and history) |
 | `--version <tag>` | `-Version <tag>` | Install a specific release tag (e.g. `v1.5.0`) |
 | `--channel <name>` | — | Release channel: `latest` or `stable` (default: `latest`) |
@@ -82,7 +96,7 @@ Before submitting macOS changes, run the five checks in [CONTRIBUTING.md](../CON
 
 | Variable | Description |
 |----------|-------------|
-| `VOQUILL_INSTALL_URL` | Full package URL override (skips GitHub API resolution) |
+| `VOQUILL_INSTALL_URL` | Linux only: full package URL override (skips GitHub API resolution) |
 
 ## Manual Installation
 
