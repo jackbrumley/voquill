@@ -1,7 +1,6 @@
 use crate::app::commands::hotkey::re_register_hotkey;
-#[cfg(target_os = "linux")]
-use crate::app::commands::platform::is_status_notifier_watcher_available;
 use crate::app::state::AppState;
+use crate::app::tray;
 use crate::audio;
 use crate::config::storage::{ConfigRecovery, LoadedConfig};
 use crate::config::Config;
@@ -9,11 +8,7 @@ use crate::engine_factory;
 #[cfg(target_os = "linux")]
 use ashpd::{register_host_app, AppID};
 use std::sync::{Arc, Mutex};
-use tauri::{
-    menu::{Menu, MenuItem},
-    tray::{TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager,
-};
+use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 #[cfg(target_os = "linux")]
@@ -30,12 +25,6 @@ fn read_linux_distribution_name() -> Option<String> {
         }
     }
     None
-}
-
-fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
-    let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let open_item = MenuItem::with_id(app, "open", "Open Voquill", true, None::<&str>)?;
-    Menu::with_items(app, &[&open_item, &quit_item])
 }
 
 /// Loads `config.json` for startup. A settings file that exists but cannot be
@@ -185,13 +174,6 @@ pub fn run_setup(
                     crate::log_warn!("Host app registration failed: {}", error);
                 }
             }
-
-            let tray_watcher_available =
-                tauri::async_runtime::block_on(is_status_notifier_watcher_available());
-            crate::log_info!(
-                "StatusNotifier watcher available: {}",
-                tray_watcher_available
-            );
         }
     }
 
@@ -205,52 +187,18 @@ pub fn run_setup(
     }
     let _ = audio::get_input_devices();
 
-    let menu = create_tray_menu(app.handle())?;
-    let _tray = TrayIconBuilder::with_id("main-tray")
-        .menu(&menu)
-        .icon(app.default_window_icon().unwrap().clone())
-        .on_menu_event(|app_handle, event| match event.id.as_ref() {
-            "quit" => {
-                let state = app_handle.state::<AppState>();
-                state.cleanup();
-                app_handle.exit(0);
-            }
-            "open" => {
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }
-            _ => {}
-        })
-        .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
-                button: tauri::tray::MouseButton::Left,
-                ..
-            } = event
-            {
-                if let Some(window) = tray.app_handle().get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }
-        })
-        .build(app)?;
+    tray::build_tray(app)?;
+    tray::intercept_main_window_close(app);
 
-    if let Some(window) = app.get_webview_window("main") {
-        let window_clone = window.clone();
-        window.on_window_event(move |event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window_clone.hide();
-            }
-        });
+    let tray_available = tauri::async_runtime::block_on(tray::is_tray_available());
+    crate::log_info!("System tray available: {}", tray_available);
+    if start_hidden && !tray_available {
+        crate::log_warn!(
+            "Start hidden requested but no system tray is available; showing the main window so the app stays reachable"
+        );
     }
-
-    if let Some(window) = app.get_webview_window("main") {
-        if !start_hidden {
-            let _ = window.show();
-        }
+    if !start_hidden || !tray_available {
+        tray::show_main_window(app.handle());
     }
 
     let hotkey_string = initial_config.hotkey.clone();

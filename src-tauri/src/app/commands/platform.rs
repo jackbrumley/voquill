@@ -7,7 +7,6 @@ use crate::platform::permissions::LinuxPermissions;
 use crate::PortalDiagnostics;
 use crate::{audio, AppState};
 use serde::Serialize;
-use tauri::Manager;
 
 #[tauri::command]
 pub async fn get_wayland_portal_version() -> Result<u32, String> {
@@ -236,89 +235,6 @@ pub async fn request_input_permission(
 #[tauri::command]
 pub async fn log_ui_event(message: String) {
     crate::log_info!("[UI] {}", message);
-}
-
-#[cfg(target_os = "linux")]
-pub async fn is_status_notifier_watcher_available() -> bool {
-    use zbus::names::BusName;
-
-    let connection = match zbus::Connection::session().await {
-        Ok(connection) => connection,
-        Err(error) => {
-            crate::log_warn!("Failed to open session DBus for tray check: {}", error);
-            return false;
-        }
-    };
-
-    let proxy = match zbus::fdo::DBusProxy::new(&connection).await {
-        Ok(proxy) => proxy,
-        Err(error) => {
-            crate::log_warn!("Failed to create DBus proxy for tray check: {}", error);
-            return false;
-        }
-    };
-
-    let kde_watcher = match BusName::try_from("org.kde.StatusNotifierWatcher") {
-        Ok(name) => name,
-        Err(error) => {
-            crate::log_warn!("Invalid KDE watcher bus name: {}", error);
-            return false;
-        }
-    };
-    let freedesktop_watcher = match BusName::try_from("org.freedesktop.StatusNotifierWatcher") {
-        Ok(name) => name,
-        Err(error) => {
-            crate::log_warn!("Invalid freedesktop watcher bus name: {}", error);
-            return false;
-        }
-    };
-
-    match proxy.name_has_owner(kde_watcher).await {
-        Ok(true) => true,
-        Ok(false) => match proxy.name_has_owner(freedesktop_watcher).await {
-            Ok(value) => value,
-            Err(error) => {
-                crate::log_warn!("Failed to check freedesktop tray watcher: {}", error);
-                false
-            }
-        },
-        Err(error) => {
-            crate::log_warn!("Failed to check KDE tray watcher: {}", error);
-            false
-        }
-    }
-}
-
-#[tauri::command]
-pub async fn minimize_to_tray_or_taskbar(app_handle: tauri::AppHandle) -> Result<String, String> {
-    let window = app_handle
-        .get_webview_window("main")
-        .ok_or_else(|| "Main window not found".to_string())?;
-
-    #[cfg(target_os = "linux")]
-    {
-        if is_status_notifier_watcher_available().await {
-            window.hide().map_err(|error| error.to_string())?;
-            return Ok("tray".to_string());
-        }
-
-        window.minimize().map_err(|error| error.to_string())?;
-        Ok("taskbar".to_string())
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        window.minimize().map_err(|error| error.to_string())?;
-        Ok("taskbar".to_string())
-    }
-}
-
-#[tauri::command]
-pub async fn quit_application(app_handle: tauri::AppHandle) -> Result<(), String> {
-    let state = app_handle.state::<AppState>();
-    state.cleanup();
-    app_handle.exit(0);
-    Ok(())
 }
 
 #[tauri::command]

@@ -35,6 +35,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     typing_speed_interval: 1,
     key_press_duration_ms: 2,
     pixels_from_bottom: 50,
+    close_to_tray: true,
     audio_device: 'default',
     playback_device: 'default',
     enable_recording_logs: false,

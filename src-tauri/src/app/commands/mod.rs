@@ -8,6 +8,7 @@ pub mod recording;
 pub mod transcription;
 pub mod update;
 pub mod voice_macro;
+pub mod window;
 
 pub use config::*;
 pub use diagnostics::*;
@@ -19,3 +20,4 @@ pub use recording::*;
 pub use transcription::*;
 pub use update::*;
 pub use voice_macro::*;
+pub use window::*;
