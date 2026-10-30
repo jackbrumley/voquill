@@ -157,6 +157,8 @@ jobs:
             runner: macos-15
     env:
       TAG: ${{ needs.prepare.outputs.tag }}
+      # Shared runner IPs exhaust GitHub's anonymous API rate limit.
+      VOQUILL_GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
 
@@ -180,7 +182,7 @@ jobs:
         run: |
           ./docs/install.ps1 -Version $env:TAG -NoRelaunch
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          $installed = Get-ChildItem "$env:LOCALAPPDATA\Programs\Voquill" -Filter voquill.exe -ErrorAction Stop
+          $installed = Get-ChildItem "$env:LOCALAPPDATA\Voquill" -Filter voquill.exe -ErrorAction Stop
           Write-Host "Installed: $($installed.FullName) $($installed.VersionInfo.ProductVersion)"
 
       - name: Install MSI (system-wide)
