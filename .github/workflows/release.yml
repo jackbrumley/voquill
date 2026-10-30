@@ -176,15 +176,8 @@ jobs:
           bash docs/install.sh --version "$TAG" --yes --no-relaunch --appimage
           "$HOME/.local/bin/voquill" --version | grep -F "${TAG#v}"
 
-      - name: Install setup.exe (user)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          ./docs/install.ps1 -Version $env:TAG -NoRelaunch
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          $installed = Get-ChildItem "$env:LOCALAPPDATA\Voquill" -Filter voquill.exe -ErrorAction Stop
-          Write-Host "Installed: $($installed.FullName) $($installed.VersionInfo.ProductVersion)"
-
+      # MSI first: Tauri's MSI reuses a previous per-user (setup.exe) install's
+      # folder from the registry, so it would not land in Program Files.
       - name: Install MSI (system-wide)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -192,6 +185,15 @@ jobs:
           ./docs/install.ps1 -Version $env:TAG -System -NoRelaunch
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $installed = Get-ChildItem "$env:ProgramFiles\Voquill" -Filter voquill.exe -ErrorAction Stop
+          Write-Host "Installed: $($installed.FullName) $($installed.VersionInfo.ProductVersion)"
+
+      - name: Install setup.exe (user)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./docs/install.ps1 -Version $env:TAG -NoRelaunch
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $installed = Get-ChildItem "$env:LOCALAPPDATA\Voquill" -Filter voquill.exe -ErrorAction Stop
           Write-Host "Installed: $($installed.FullName) $($installed.VersionInfo.ProductVersion)"
 
       - name: Install app bundle
