@@ -4,6 +4,14 @@ set -euo pipefail
 REPO="jackbrumley/voquill"
 BIN_NAME="voquill"
 
+# GitHub API request headers. VOQUILL_GITHUB_TOKEN is optional: anonymous
+# requests are limited to 60 an hour per IP address, which shared networks
+# (and CI runners) can exhaust.
+GITHUB_API_HEADERS=(-H "Accept: application/vnd.github+json")
+if [[ -n "${VOQUILL_GITHUB_TOKEN:-}" ]]; then
+  GITHUB_API_HEADERS+=(-H "Authorization: Bearer ${VOQUILL_GITHUB_TOKEN}")
+fi
+
 # macOS installs an app bundle rather than a Linux package, so it has its own
 # installer; forward every option so the one-line command is the same on both.
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -162,7 +170,7 @@ resolve_package_ext() {
 fetch_latest_release_tag() {
   local api_url="https://api.github.com/repos/${REPO}/releases/latest"
   local tag
-  tag="$(curl -fL --retry 3 --connect-timeout 10 -s "$api_url" | grep '"tag_name"' | head -n1 | sed 's/.*"tag_name": "\(.*\)",/\1/')"
+  tag="$(curl -fL --retry 3 --connect-timeout 10 -s "${GITHUB_API_HEADERS[@]}" "$api_url" | grep '"tag_name"' | head -n1 | sed 's/.*"tag_name": "\(.*\)",/\1/')"
   [[ -n "$tag" ]] || fail "could not determine latest release tag from GitHub API"
   printf "%s" "$tag"
 }
@@ -422,7 +430,7 @@ verify_checksum() {
   fi
 
   local digest
-  digest="$(curl -sfL --retry 3 --connect-timeout 10 -H "Accept: application/vnd.github+json" "$api_url" | python3 -c "
+  digest="$(curl -sfL --retry 3 --connect-timeout 10 "${GITHUB_API_HEADERS[@]}" "$api_url" | python3 -c "
 import json,sys
 data=json.load(sys.stdin)
 for asset in data.get('assets', []):

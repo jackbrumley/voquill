@@ -42,6 +42,15 @@ if ($Help) {
 }
 
 $Repo = "jackbrumley/voquill"
+
+# GitHub API request headers. VOQUILL_GITHUB_TOKEN is optional: anonymous
+# requests are limited to 60 an hour per IP address, which shared networks
+# (and CI runners) can exhaust.
+$GitHubApiHeaders = @{ "Accept" = "application/vnd.github+json" }
+if ($env:VOQUILL_GITHUB_TOKEN) {
+  $GitHubApiHeaders["Authorization"] = "Bearer $env:VOQUILL_GITHUB_TOKEN"
+}
+
 $AppName = "voquill"
 $TempDir = Join-Path $env:TEMP "voquill-install"
 
@@ -89,7 +98,7 @@ function Get-Architecture {
 function Get-LatestReleaseTag {
   $apiUrl = "https://api.github.com/repos/$Repo/releases/latest"
   try {
-    $response = Invoke-RestMethod -Uri $apiUrl -Headers @{ "Accept" = "application/json" } -ErrorAction Stop
+    $response = Invoke-RestMethod -Uri $apiUrl -Headers $GitHubApiHeaders -ErrorAction Stop
     return $response.tag_name
   } catch {
     Fail "Could not determine latest release tag from GitHub API: $_"
@@ -102,7 +111,7 @@ function Get-LatestReleaseTag {
 function Get-ReleaseAsset($Tag, $AssetName) {
   $apiUrl = "https://api.github.com/repos/$Repo/releases/tags/$Tag"
   try {
-    $response = Invoke-RestMethod -Uri $apiUrl -Headers @{ "Accept" = "application/json" } -ErrorAction Stop
+    $response = Invoke-RestMethod -Uri $apiUrl -Headers $GitHubApiHeaders -ErrorAction Stop
     foreach ($asset in $response.assets) {
       if ($asset.name -eq $AssetName) {
         return $asset
@@ -325,11 +334,8 @@ $ShouldLaunch = -not $NoRelaunch -and ($env:VOQUILL_NO_RELAUNCH -ne "1") -and ($
 if ($ShouldLaunch) {
   Log "Launching Voquill..."
   $possiblePaths = @(
-    (Join-Path $env:LOCALAPPDATA "Programs\Voquill\Voquill.exe"),
-    (Join-Path $env:LOCALAPPDATA "Programs\Voquill\voquill.exe"),
-    (Join-Path $env:ProgramFiles "Voquill\Voquill.exe"),
-    (Join-Path $env:ProgramFiles "Voquill\voquill.exe"),
-    (Join-Path ${env:ProgramFiles(x86)} "Voquill\Voquill.exe")
+    (Join-Path $env:LOCALAPPDATA "Voquill\voquill.exe"),
+    (Join-Path $env:ProgramFiles "Voquill\voquill.exe")
   )
   $started = $false
   foreach ($p in $possiblePaths) {

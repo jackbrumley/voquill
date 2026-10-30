@@ -15,6 +15,14 @@ BIN_NAME="voquill"
 APP_NAME="Voquill.app"
 INSTALL_DIR="/Applications"
 
+# GitHub API request headers. VOQUILL_GITHUB_TOKEN is optional: anonymous
+# requests are limited to 60 an hour per IP address, which shared networks
+# (and CI runners) can exhaust.
+GITHUB_API_HEADERS=(-H "Accept: application/vnd.github+json")
+if [[ -n "${VOQUILL_GITHUB_TOKEN:-}" ]]; then
+  GITHUB_API_HEADERS+=(-H "Authorization: Bearer ${VOQUILL_GITHUB_TOKEN}")
+fi
+
 usage() {
   cat <<'EOF'
 Voquill installer for macOS (Apple Silicon)
@@ -101,7 +109,7 @@ EOF
 fetch_release_json() {
   local release_path="$1"
   local output_file="$2"
-  curl -fsSL --retry 3 --connect-timeout 10 -H "Accept: application/vnd.github+json" \
+  curl -fsSL --retry 3 --connect-timeout 10 "${GITHUB_API_HEADERS[@]}" \
     -o "$output_file" "https://api.github.com/repos/${REPO}/releases/${release_path}" \
     || fail "could not fetch release information from the GitHub API"
 }

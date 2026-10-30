@@ -97,6 +97,7 @@ Before submitting macOS changes, run the five checks in [CONTRIBUTING.md](../CON
 | Variable | Description |
 |----------|-------------|
 | `VOQUILL_INSTALL_URL` | Linux only: full package URL override (skips GitHub API resolution) |
+| `VOQUILL_GITHUB_TOKEN` | Optional GitHub token for the installer's GitHub API requests, for networks that hit the anonymous rate limit (60 requests an hour per IP) |
 
 ## Manual Installation
 
