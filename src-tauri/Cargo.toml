@@ -69,7 +69,10 @@ tauri-plugin-autostart = "2"
 tauri-plugin-single-instance = "2"
 
 # Linux publishes its tray as a StatusNotifierItem (ksni) instead, because
-# Tauri's Linux tray (libappindicator) reports no clicks.
+# Tauri's Linux tray (libappindicator) reports no clicks. tauri-cli reads
+# features from every target table regardless of cfg, so Linux bundling
+# still requires the libayatana-appindicator3 development package and adds
+# it as a package dependency, although the Linux binary never loads it.
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 tauri = { version = "^2", features = ["tray-icon"] }
 
