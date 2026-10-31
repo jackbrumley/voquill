@@ -27,7 +27,6 @@ concurrency:
 env:
   PUBLISH: ${{ github.event_name == 'push' }}
   GH_TOKEN: ${{ github.token }}
-  VULKAN_SDK_VERSION: 1.4.341.1
 
 jobs:
   prepare:
@@ -36,13 +35,13 @@ jobs:
     outputs:
       tag: ${{ steps.version.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .node-version
 
       - name: Read release version
         id: version
@@ -86,14 +85,14 @@ jobs:
           - name: macOS
             runner: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Linux builds inside the pinned Ubuntu 22.04 container (glibc floor),
       # exactly as a local `npm run release:linux` does.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: runner.os == 'Linux'
         with:
-          node-version: 22
+          node-version-file: .node-version
 
       - name: Build Linux bundles
         if: runner.os == 'Linux'
@@ -101,8 +100,6 @@ jobs:
 
       - uses: ./.github/actions/setup-build
         if: runner.os != 'Linux'
-        with:
-          vulkan-sdk-version: ${{ env.VULKAN_SDK_VERSION }}
 
       - name: Build Windows installers
         if: runner.os == 'Windows'
@@ -116,7 +113,7 @@ jobs:
         shell: bash
         run: node scripts/package-release.mjs
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.name }}
           path: release-artifacts/*
@@ -133,10 +130,10 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .node-version
       - run: node scripts/verify-release.mjs
 
   # Installs the published pre-release with the installer scripts from this
@@ -160,7 +157,7 @@ jobs:
       # Shared runner IPs exhaust GitHub's anonymous API rate limit.
       VOQUILL_GITHUB_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install .deb (system package)
         if: runner.os == 'Linux'

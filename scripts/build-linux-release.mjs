@@ -7,7 +7,7 @@
 // Linux source scripts/package-release.mjs packages from.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,6 +20,24 @@ const CACHE_VOLUME = "voquill-linux-release-cache";
 function fail(message) {
   console.error(`\nLinux release build failed: ${message}`);
   process.exit(1);
+}
+
+// The container uses the same pinned toolchain versions as local builds and
+// CI: .node-version, rust-toolchain.toml and packaging/vulkan-sdk.json.
+function readPinnedVersions() {
+  const nodeVersion = readFileSync(resolve(ROOT, ".node-version"), "utf8").trim();
+  const toolchain = readFileSync(resolve(ROOT, "rust-toolchain.toml"), "utf8");
+  const rustVersion = toolchain.match(/^channel\s*=\s*"([^"]+)"/m)?.[1];
+  const vulkanSdk = JSON.parse(readFileSync(resolve(ROOT, "src-tauri", "packaging", "vulkan-sdk.json"), "utf8"));
+  if (!nodeVersion || !rustVersion || !vulkanSdk.version || !vulkanSdk.linuxSha256) {
+    fail("a pinned toolchain version is missing (.node-version, rust-toolchain.toml or vulkan-sdk.json).");
+  }
+  return {
+    NODE_VERSION: nodeVersion,
+    RUST_VERSION: rustVersion,
+    VULKAN_SDK_VERSION: vulkanSdk.version,
+    VULKAN_SDK_SHA256: vulkanSdk.linuxSha256,
+  };
 }
 
 function podman(args) {
@@ -41,7 +59,13 @@ if (spawnSync("podman", ["--version"], { stdio: "ignore" }).status !== 0) {
 
 mkdirSync(OUTPUT_DIR, { recursive: true });
 
-podman(["build", "--tag", IMAGE_TAG, "--file", resolve(CONTAINER_CONTEXT, "Containerfile"), CONTAINER_CONTEXT]);
+podman([
+  "build",
+  "--tag", IMAGE_TAG,
+  ...Object.entries(readPinnedVersions()).flatMap(([name, value]) => ["--build-arg", `${name}=${value}`]),
+  "--file", resolve(CONTAINER_CONTEXT, "Containerfile"),
+  CONTAINER_CONTEXT,
+]);
 
 // label=disable avoids SELinux relabeling the whole repository for the
 // read-only source mount; rootless podman maps container root to the host user,

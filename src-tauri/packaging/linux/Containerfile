@@ -7,12 +7,18 @@
 # Driven by scripts/build-linux-release.mjs; see docs/RELEASE.md.
 FROM docker.io/library/ubuntu:22.04
 
-ARG NODE_VERSION=22.23.1
-ARG RUST_VERSION=1.97.1
-ARG VULKAN_SDK_VERSION=1.4.341.1
-ARG VULKAN_SDK_SHA256=3bf0f762afb6c79bc6a9d9fb5998745ccff928800a29619b501ed9de7fd9789b
+# Set by scripts/build-linux-release.mjs from .node-version,
+# rust-toolchain.toml and src-tauri/packaging/vulkan-sdk.json.
+ARG NODE_VERSION
+ARG RUST_VERSION
+ARG VULKAN_SDK_VERSION
+ARG VULKAN_SDK_SHA256
 
 ENV DEBIAN_FRONTEND=noninteractive
+
+RUN test -n "${NODE_VERSION}" && test -n "${RUST_VERSION}" \
+    && test -n "${VULKAN_SDK_VERSION}" && test -n "${VULKAN_SDK_SHA256}" \
+    || { echo "Build this image with scripts/build-linux-release.mjs, which passes the pinned versions." >&2; exit 1; }
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         appstream \
@@ -63,7 +69,8 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
 RUN curl -fsSL https://sh.rustup.rs \
-        | sh -s -- -y --no-modify-path --profile minimal --default-toolchain "${RUST_VERSION}"
+        | sh -s -- -y --no-modify-path --profile minimal --default-toolchain "${RUST_VERSION}" \
+            --component clippy,rustfmt
 
 # linuxdeploy is itself an AppImage; containers have no FUSE, so let it
 # extract itself instead of mounting.
