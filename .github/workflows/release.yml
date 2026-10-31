@@ -168,6 +168,15 @@ jobs:
           bash docs/install.sh --version "$TAG" --yes --no-relaunch
           /usr/bin/voquill --version | grep -F "${TAG#v}"
 
+      # Before the AppImage step, which replaces the .deb install. The app
+      # needs a display and a session bus (the single-instance guard and the
+      # GTK application both live on it).
+      - name: Single-instance guard (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y --no-install-recommends xvfb
+          dbus-run-session -- xvfb-run -a node scripts/test-single-instance.mjs /usr/bin/voquill
+
       - name: Install AppImage (user-local)
         if: runner.os == 'Linux'
         env:
@@ -202,3 +211,14 @@ jobs:
           bash docs/install-macos.sh --version "$TAG" --yes --no-relaunch
           codesign --verify --deep --strict /Applications/Voquill.app
           /Applications/Voquill.app/Contents/MacOS/voquill --version | grep -F "${TAG#v}"
+
+      - name: Single-instance guard (Windows, macOS)
+        if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            binary="$LOCALAPPDATA/Voquill/voquill.exe"
+          else
+            binary=/Applications/Voquill.app/Contents/MacOS/voquill
+          fi
+          node scripts/test-single-instance.mjs "$binary"

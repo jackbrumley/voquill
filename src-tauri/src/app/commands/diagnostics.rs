@@ -64,48 +64,30 @@ pub async fn get_post_process_gpu_status(
 
 use crate::typing;
 
+/// Opens a file or folder with the desktop's default handler.
+pub(crate) fn open_with_system(path: &std::path::Path) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    let opener = "xdg-open";
+    #[cfg(target_os = "windows")]
+    let opener = "explorer";
+    #[cfg(target_os = "macos")]
+    let opener = "open";
+
+    crate::log_info!("Executing: {} {:?}", opener, path);
+    std::process::Command::new(opener)
+        .arg(path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| {
+            crate::log_warn!("Failed to execute {} for {:?}: {}", opener, path, error);
+            error.to_string()
+        })
+}
+
 #[tauri::command]
 pub async fn open_debug_folder() -> Result<(), String> {
     crate::log_info!("Tauri Command: open_debug_folder invoked");
-    let path = crate::paths::debug_dir()?;
-
-    crate::log_info!("Target debug path: {:?}", path);
-
-    #[cfg(target_os = "linux")]
-    {
-        crate::log_info!("Executing: xdg-open {:?}", path);
-        std::process::Command::new("xdg-open")
-            .arg(&path)
-            .spawn()
-            .map_err(|error| {
-                crate::log_info!("Failed to execute xdg-open: {}", error);
-                error.to_string()
-            })?;
-    }
-    #[cfg(target_os = "windows")]
-    {
-        crate::log_info!("Executing: explorer {:?}", path);
-        std::process::Command::new("explorer")
-            .arg(&path)
-            .spawn()
-            .map_err(|error| {
-                crate::log_info!("Failed to execute explorer: {}", error);
-                error.to_string()
-            })?;
-    }
-    #[cfg(target_os = "macos")]
-    {
-        crate::log_info!("Executing: open {:?}", path);
-        std::process::Command::new("open")
-            .arg(&path)
-            .spawn()
-            .map_err(|error| {
-                crate::log_info!("Failed to execute open: {}", error);
-                error.to_string()
-            })?;
-    }
-
-    Ok(())
+    open_with_system(&crate::paths::debug_dir()?)
 }
 
 #[tauri::command]
@@ -168,43 +150,5 @@ pub async fn clear_recording_logs() -> Result<u32, String> {
 
 #[tauri::command]
 pub async fn open_session_log() -> Result<(), String> {
-    let log_path = crate::resolve_session_log_path()?;
-
-    #[cfg(target_os = "linux")]
-    {
-        crate::log_info!("Executing: xdg-open {:?}", log_path);
-        std::process::Command::new("xdg-open")
-            .arg(&log_path)
-            .spawn()
-            .map_err(|error| {
-                crate::log_info!("Failed to execute xdg-open for session log: {}", error);
-                error.to_string()
-            })?;
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        crate::log_info!("Executing: explorer {:?}", log_path);
-        std::process::Command::new("explorer")
-            .arg(&log_path)
-            .spawn()
-            .map_err(|error| {
-                crate::log_info!("Failed to execute explorer for session log: {}", error);
-                error.to_string()
-            })?;
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        crate::log_info!("Executing: open {:?}", log_path);
-        std::process::Command::new("open")
-            .arg(&log_path)
-            .spawn()
-            .map_err(|error| {
-                crate::log_info!("Failed to execute open for session log: {}", error);
-                error.to_string()
-            })?;
-    }
-
-    Ok(())
+    open_with_system(&crate::resolve_session_log_path()?)
 }

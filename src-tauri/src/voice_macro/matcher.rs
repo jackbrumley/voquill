@@ -1,4 +1,4 @@
-use crate::config::VoiceMacroCommand;
+use crate::config::voice_macro::VoiceMacroCommand;
 
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct MacroMatchResult {
@@ -187,7 +187,7 @@ mod tests {
         id: &str,
         phrase: &str,
         phrases: Vec<&str>,
-        steps: Vec<crate::config::MacroStep>,
+        steps: Vec<crate::config::voice_macro::MacroStep>,
     ) -> VoiceMacroCommand {
         VoiceMacroCommand {
             id: id.to_string(),
@@ -197,7 +197,7 @@ mod tests {
             key_combination: None,
             hold_ms: None,
             delay_after_ms: None,
-            sound_mode: crate::config::MacroSoundMode::Default,
+            sound_mode: crate::config::voice_macro::MacroSoundMode::Default,
             sound_tts_text: None,
             sound_tts_voice: None,
             sound_tts_speed: None,
@@ -219,7 +219,7 @@ mod tests {
                 "1",
                 "airstrike",
                 vec![],
-                vec![crate::config::MacroStep::KeyPress {
+                vec![crate::config::voice_macro::MacroStep::KeyPress {
                     key: "F3".into(),
                     hold_ms: 50,
                 }],
@@ -228,7 +228,7 @@ mod tests {
                 "2",
                 "drop smoke",
                 vec![],
-                vec![crate::config::MacroStep::KeyPress {
+                vec![crate::config::voice_macro::MacroStep::KeyPress {
                     key: "Ctrl+2".into(),
                     hold_ms: 50,
                 }],
@@ -240,7 +240,7 @@ mod tests {
         let steps = matched.unwrap().resolve_steps();
         assert_eq!(
             steps,
-            vec![crate::config::MacroStep::KeyPress {
+            vec![crate::config::voice_macro::MacroStep::KeyPress {
                 key: "F3".into(),
                 hold_ms: 50
             }]
@@ -251,7 +251,7 @@ mod tests {
         let steps_smoke = matched_smoke.unwrap().resolve_steps();
         assert_eq!(
             steps_smoke,
-            vec![crate::config::MacroStep::KeyPress {
+            vec![crate::config::voice_macro::MacroStep::KeyPress {
                 key: "Ctrl+2".into(),
                 hold_ms: 50
             }]
@@ -267,7 +267,7 @@ mod tests {
             "1",
             "airstrike",
             vec![],
-            vec![crate::config::MacroStep::KeyPress {
+            vec![crate::config::voice_macro::MacroStep::KeyPress {
                 key: "F3".into(),
                 hold_ms: 50,
             }],
@@ -280,7 +280,7 @@ mod tests {
         let steps = matched.unwrap().resolve_steps();
         assert_eq!(
             steps,
-            vec![crate::config::MacroStep::KeyPress {
+            vec![crate::config::voice_macro::MacroStep::KeyPress {
                 key: "F3".into(),
                 hold_ms: 50
             }]
@@ -296,7 +296,7 @@ mod tests {
             "1",
             "call airstrike",
             vec![],
-            vec![crate::config::MacroStep::KeyPress {
+            vec![crate::config::voice_macro::MacroStep::KeyPress {
                 key: "F3".into(),
                 hold_ms: 50,
             }],
@@ -315,7 +315,7 @@ mod tests {
             "1",
             "call airstrike",
             vec![],
-            vec![crate::config::MacroStep::KeyPress {
+            vec![crate::config::voice_macro::MacroStep::KeyPress {
                 key: "F3".into(),
                 hold_ms: 50,
             }],
@@ -333,7 +333,7 @@ mod tests {
             "1",
             "call airstrike",
             vec![],
-            vec![crate::config::MacroStep::KeyPress {
+            vec![crate::config::voice_macro::MacroStep::KeyPress {
                 key: "F3".into(),
                 hold_ms: 50,
             }],
@@ -350,7 +350,7 @@ mod tests {
             "1",
             "call airstrike",
             vec!["airstrike", "rain fire", "strike"],
-            vec![crate::config::MacroStep::KeyPress {
+            vec![crate::config::voice_macro::MacroStep::KeyPress {
                 key: "F3".into(),
                 hold_ms: 50,
             }],

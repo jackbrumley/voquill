@@ -1,10 +1,18 @@
+//! Owns the tray icon, tray availability, and every way the main window is
+//! shown, parked or quit. The tray backends differ per platform (Tauri's tray
+//! on Windows/macOS, a StatusNotifierItem on Linux) but share one menu, one
+//! click behavior and one set of actions defined here:
+//! - left click opens the main window;
+//! - right click shows the menu (Open Voquill / Quit).
+
+#[cfg(target_os = "linux")]
+mod status_notifier;
+#[cfg(not(target_os = "linux"))]
+mod system_tray;
+
 use crate::app::state::AppState;
 use serde::Serialize;
-use tauri::{
-    menu::{Menu, MenuItem},
-    tray::{TrayIconBuilder, TrayIconEvent},
-    Manager,
-};
+use tauri::Manager;
 
 /// Where the main window went when it was taken off screen without quitting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -14,32 +22,45 @@ pub enum WindowParking {
     Taskbar,
 }
 
-fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
-    let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let open_item = MenuItem::with_id(app, "open", "Open Voquill", true, None::<&str>)?;
-    Menu::with_items(app, &[&open_item, &quit_item])
+/// The tray menu, in display order. Both tray backends build their menu from
+/// this list and route selections through `handle_menu_item`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TrayMenuItem {
+    Open,
+    Quit,
 }
 
-pub fn build_tray(app: &tauri::App<tauri::Wry>) -> Result<(), tauri::Error> {
-    let menu = create_tray_menu(app.handle())?;
-    TrayIconBuilder::with_id("main-tray")
-        .menu(&menu)
-        .icon(app.default_window_icon().unwrap().clone())
-        .on_menu_event(|app_handle, event| match event.id.as_ref() {
-            "quit" => quit(app_handle),
-            "open" => show_main_window(app_handle),
-            _ => {}
-        })
-        .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
-                button: tauri::tray::MouseButton::Left,
-                ..
-            } = event
-            {
-                show_main_window(tray.app_handle());
-            }
-        })
-        .build(app)?;
+impl TrayMenuItem {
+    const ALL: [Self; 2] = [Self::Open, Self::Quit];
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Open => "Open Voquill",
+            Self::Quit => "Quit",
+        }
+    }
+}
+
+fn handle_menu_item(app_handle: &tauri::AppHandle, item: TrayMenuItem) {
+    match item {
+        TrayMenuItem::Open => show_main_window(app_handle),
+        TrayMenuItem::Quit => quit(app_handle),
+    }
+}
+
+/// Creates the tray icon for this platform.
+pub fn build_tray(app: &tauri::App<tauri::Wry>) -> Result<(), Box<dyn std::error::Error>> {
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .ok_or("Voquill has no bundled icon to show in the system tray")?;
+
+    #[cfg(target_os = "linux")]
+    status_notifier::spawn(app.handle(), &icon);
+
+    #[cfg(not(target_os = "linux"))]
+    system_tray::build(app, icon)?;
+
     Ok(())
 }
 
@@ -71,7 +92,7 @@ pub fn intercept_main_window_close(app: &tauri::App<tauri::Wry>) {
 pub async fn is_tray_available() -> bool {
     #[cfg(target_os = "linux")]
     {
-        is_status_notifier_watcher_available().await
+        status_notifier::is_watcher_available().await
     }
 
     #[cfg(not(target_os = "linux"))]
@@ -122,66 +143,47 @@ pub async fn close_main_window(
     Ok(Some(parking))
 }
 
+/// The single path for bringing Voquill forward: tray click, tray menu, a
+/// second launch, and (on macOS) clicking the Dock icon all end here.
 pub fn show_main_window(app_handle: &tauri::AppHandle) {
-    if let Some(window) = app_handle.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
+    let Some(window) = app_handle.get_webview_window("main") else {
+        crate::log_warn!("Cannot show the main window: window not found");
+        return;
+    };
+    if let Err(error) = window.unminimize() {
+        crate::log_warn!("Failed to unminimize the main window: {}", error);
+    }
+    if let Err(error) = window.show() {
+        crate::log_warn!("Failed to show the main window: {}", error);
+    }
+    if let Err(error) = window.set_focus() {
+        crate::log_warn!("Failed to focus the main window: {}", error);
     }
 }
 
+/// A second launch (start menu, desktop file, autostart) hands its arguments
+/// to this instance and exits. Bring the window forward unless that launch
+/// asked to start hidden.
+pub fn handle_second_launch(app_handle: &tauri::AppHandle, show_window: bool) {
+    if show_window {
+        crate::log_info!("Second launch detected; showing the main window");
+        show_main_window(app_handle);
+    } else {
+        crate::log_info!("Second launch detected with --start-hidden; leaving the window as is");
+    }
+}
+
+/// Exits the app; the `RunEvent::Exit` handler releases its resources.
 pub fn quit(app_handle: &tauri::AppHandle) {
-    app_handle.state::<AppState>().cleanup();
     app_handle.exit(0);
 }
 
-#[cfg(target_os = "linux")]
-async fn is_status_notifier_watcher_available() -> bool {
-    use zbus::names::BusName;
+#[cfg(test)]
+mod tests {
+    use super::TrayMenuItem;
 
-    let connection = match zbus::Connection::session().await {
-        Ok(connection) => connection,
-        Err(error) => {
-            crate::log_warn!("Failed to open session DBus for tray check: {}", error);
-            return false;
-        }
-    };
-
-    let proxy = match zbus::fdo::DBusProxy::new(&connection).await {
-        Ok(proxy) => proxy,
-        Err(error) => {
-            crate::log_warn!("Failed to create DBus proxy for tray check: {}", error);
-            return false;
-        }
-    };
-
-    let kde_watcher = match BusName::try_from("org.kde.StatusNotifierWatcher") {
-        Ok(name) => name,
-        Err(error) => {
-            crate::log_warn!("Invalid KDE watcher bus name: {}", error);
-            return false;
-        }
-    };
-    let freedesktop_watcher = match BusName::try_from("org.freedesktop.StatusNotifierWatcher") {
-        Ok(name) => name,
-        Err(error) => {
-            crate::log_warn!("Invalid freedesktop watcher bus name: {}", error);
-            return false;
-        }
-    };
-
-    match proxy.name_has_owner(kde_watcher).await {
-        Ok(true) => true,
-        Ok(false) => match proxy.name_has_owner(freedesktop_watcher).await {
-            Ok(value) => value,
-            Err(error) => {
-                crate::log_warn!("Failed to check freedesktop tray watcher: {}", error);
-                false
-            }
-        },
-        Err(error) => {
-            crate::log_warn!("Failed to check KDE tray watcher: {}", error);
-            false
-        }
+    #[test]
+    fn menu_lists_open_before_quit() {
+        assert_eq!(TrayMenuItem::ALL, [TrayMenuItem::Open, TrayMenuItem::Quit]);
     }
 }

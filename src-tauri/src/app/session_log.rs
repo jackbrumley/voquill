@@ -117,6 +117,39 @@ fn initialize_session_logging_inner() {
     }
 }
 
+/// Records every panic in the session log (then runs the default hook), so an
+/// unexpected exit always leaves its reason and location behind.
+pub fn install_panic_hook() {
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let payload = info.payload();
+        let message = payload
+            .downcast_ref::<&str>()
+            .map(|message| message.to_string())
+            .or_else(|| payload.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "non-text panic payload".to_string());
+        let location = info
+            .location()
+            .map(|location| format!("{}:{}", location.file(), location.line()))
+            .unwrap_or_else(|| "unknown location".to_string());
+        let thread = std::thread::current();
+        let timestamp = chrono::Local::now()
+            .format("%Y-%m-%d %H:%M:%S%.3f")
+            .to_string();
+        append_session_log(
+            "PANIC",
+            &timestamp,
+            &format!(
+                "thread '{}' panicked at {}: {}",
+                thread.name().unwrap_or("unnamed"),
+                location,
+                message
+            ),
+        );
+        default_hook(info);
+    }));
+}
+
 pub fn append_session_log(level: &str, timestamp: &str, message: &str) {
     if !PERSISTENCE_ENABLED.load(Ordering::Relaxed) {
         return;

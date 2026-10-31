@@ -1,5 +1,6 @@
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use tauri::Manager;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
@@ -20,8 +21,24 @@ const MODIFIER_FLAGS: u64 = EVENT_FLAG_SHIFT
     | EVENT_FLAG_SECONDARY_FN;
 const EVENT_TAP_MASK: u64 = (1 << KEY_DOWN) | (1 << KEY_UP);
 
-static FN_LISTENER_STARTED: tokio::sync::Mutex<bool> = tokio::sync::Mutex::const_new(false);
+/// The running Fn event tap, if any. Held while starting or stopping it so
+/// the two never interleave; the listener thread clears it when its run loop
+/// returns.
+static FN_LISTENER: tokio::sync::Mutex<Option<FnListener>> = tokio::sync::Mutex::const_new(None);
 static FN_HOTKEY_DOWN: AtomicBool = AtomicBool::new(false);
+
+struct FnListener {
+    run_loop: RunLoopRef,
+    stop_requested: Arc<AtomicBool>,
+}
+
+/// The listener thread's CFRunLoop. CFRunLoopStop may be called from any
+/// thread, and the reference stays valid while the listener is registered in
+/// `FN_LISTENER` (the thread deregisters it before exiting).
+struct RunLoopRef(*mut c_void);
+
+// SAFETY: only used to call CFRunLoopStop, which is thread-safe.
+unsafe impl Send for RunLoopRef {}
 
 type CGEventRef = *mut c_void;
 
@@ -47,6 +64,7 @@ extern "C" {
     fn CFRunLoopGetCurrent() -> *mut c_void;
     fn CFRunLoopAddSource(run_loop: *mut c_void, source: *mut c_void, mode: *const c_void);
     fn CFRunLoopRun();
+    fn CFRunLoopStop(run_loop: *mut c_void);
     fn CFRunLoopRemoveSource(run_loop: *mut c_void, source: *mut c_void, mode: *const c_void);
     fn CFMachPortInvalidate(port: *mut c_void);
     fn CFRelease(value: *const c_void);
@@ -87,6 +105,7 @@ pub async fn start_macos_hotkey_engine(app_handle: tauri::AppHandle) -> Result<(
     if fn_shortcut.is_some() {
         start_fn_hotkey_listener(app_handle.clone()).await?;
     } else {
+        stop_fn_hotkey_listener().await;
         let shortcut = crate::hotkey::parse_hotkey_string(&hotkey)
             .map_err(|error| format!("Failed to parse hotkey string: {error}"))?;
         app_handle
@@ -100,26 +119,22 @@ pub async fn start_macos_hotkey_engine(app_handle: tauri::AppHandle) -> Result<(
 }
 
 async fn start_fn_hotkey_listener(app_handle: tauri::AppHandle) -> Result<(), String> {
-    if !super::permissions::input_monitoring_is_trusted() {
-        super::permissions::request_input_monitoring_permission();
-        return Err(
-            "Fn hotkeys require Input Monitoring permission. Enable Voquill in System Settings, then register the hotkey again."
-                .to_string(),
-        );
-    }
+    super::permissions::ensure_input_monitoring_permission()?;
 
-    let mut started = FN_LISTENER_STARTED.lock().await;
-    if *started {
+    let mut listener = FN_LISTENER.lock().await;
+    if listener.is_some() {
         return Ok(());
     }
 
+    let stop_requested = Arc::new(AtomicBool::new(false));
+    let thread_stop_requested = stop_requested.clone();
     let (ready_sender, ready_receiver) = tokio::sync::oneshot::channel();
     std::thread::Builder::new()
         .name("voquill-macos-fn-hotkey".to_string())
         .spawn(move || {
             let mut context = Box::new(FnListenerContext { app_handle });
-            // SAFETY: The listener owns its callback context for the lifetime of
-            // the application, matching the app-wide hotkey listener lifetime.
+            // SAFETY: The callback context is owned by this thread and outlives
+            // the event tap, which is invalidated before the thread returns.
             unsafe {
                 let tap = CGEventTapCreate(
                     1,
@@ -153,21 +168,16 @@ async fn start_fn_hotkey_listener(app_handle: tauri::AppHandle) -> Result<(), St
                     let _ = ready_sender.send(Err(
                         "Failed to enable macOS Fn hotkey event tap".to_string(),
                     ));
-                } else if ready_sender.send(Ok(())).is_ok() {
+                } else if ready_sender.send(Ok(RunLoopRef(run_loop))).is_ok() {
                     crate::log_info!("macOS Fn hotkey listener started");
                     CFRunLoopRun();
-                    *FN_LISTENER_STARTED.blocking_lock() = false;
-                    crate::app::commands::hotkey::set_hotkey_binding_state(
-                        &context.app_handle,
-                        false,
-                        false,
-                        Some("macOS Fn hotkey listener stopped. Register the shortcut again.".to_string()),
-                        None,
-                    );
-                    let state = context.app_handle.state::<crate::AppState>();
-                    *state.hotkey_error.lock().unwrap() = Some(
-                        "macOS Fn hotkey listener stopped. Register the shortcut again.".to_string(),
-                    );
+                    *FN_LISTENER.blocking_lock() = None;
+                    FN_HOTKEY_DOWN.store(false, Ordering::SeqCst);
+                    if thread_stop_requested.load(Ordering::SeqCst) {
+                        crate::log_info!("macOS Fn hotkey listener stopped");
+                    } else {
+                        report_fn_listener_stopped(&context.app_handle);
+                    }
                 }
                 CFRunLoopRemoveSource(run_loop, source, kCFRunLoopCommonModes);
                 CFMachPortInvalidate(tap);
@@ -177,11 +187,42 @@ async fn start_fn_hotkey_listener(app_handle: tauri::AppHandle) -> Result<(), St
         })
         .map_err(|error| format!("Failed to start macOS Fn hotkey listener: {error}"))?;
 
-    ready_receiver
+    let run_loop = ready_receiver
         .await
         .map_err(|error| format!("macOS Fn hotkey listener initialization failed: {error}"))??;
-    *started = true;
+    *listener = Some(FnListener {
+        run_loop,
+        stop_requested,
+    });
     Ok(())
+}
+
+/// Stops the Fn event tap when the hotkey no longer uses Fn, so no tap (and
+/// no Input Monitoring use) outlives the shortcut that needed it.
+async fn stop_fn_hotkey_listener() {
+    let listener = FN_LISTENER.lock().await;
+    if let Some(listener) = listener.as_ref() {
+        listener.stop_requested.store(true, Ordering::SeqCst);
+        // SAFETY: the run loop belongs to the listener thread, which cannot
+        // exit while `FN_LISTENER` (held here) still registers it.
+        unsafe { CFRunLoopStop(listener.run_loop.0) };
+    }
+}
+
+/// The event tap's run loop ended without being asked to (e.g. macOS
+/// disabled the tap): the hotkey no longer works until it is registered again.
+fn report_fn_listener_stopped(app_handle: &tauri::AppHandle) {
+    let message = "macOS Fn hotkey listener stopped. Register the shortcut again.".to_string();
+    crate::log_warn!("{}", message);
+    crate::app::commands::hotkey::set_hotkey_binding_state(
+        app_handle,
+        false,
+        false,
+        Some(message.clone()),
+        None,
+    );
+    let state = app_handle.state::<crate::AppState>();
+    *state.hotkey_error.lock().unwrap() = Some(message);
 }
 
 extern "C" fn handle_fn_hotkey_event(
@@ -194,8 +235,9 @@ extern "C" fn handle_fn_hotkey_event(
         return event;
     }
 
-    // SAFETY: `user_info` is a boxed context held by the listener thread until
-    // application exit; Core Graphics invokes this callback serially.
+    // SAFETY: `user_info` is a boxed context owned by the listener thread for
+    // as long as the event tap exists; Core Graphics invokes this callback
+    // serially.
     let context = unsafe { &*(user_info as *const FnListenerContext) };
     let state = context.app_handle.state::<crate::AppState>();
     let configured_shortcut = {

@@ -26,8 +26,6 @@ macro_rules! log_warn {
     };
 }
 
-#[cfg(not(target_os = "linux"))]
-use serde::Serialize;
 use tauri::Manager;
 
 use clap::Parser;
@@ -42,6 +40,11 @@ struct Cli {
     /// Start hidden in the system tray
     #[arg(short, long)]
     start_hidden: bool,
+
+    /// Set by the in-app updater when it relaunches this version because the
+    /// install failed
+    #[arg(long, hide = true)]
+    update_failed: bool,
 }
 
 mod app;
@@ -77,37 +80,6 @@ pub use app::state::{AppState, HotkeyBindingState};
 #[cfg(target_os = "linux")]
 use platform::linux::wayland::env::configure_linux_session_environment;
 
-#[cfg(not(target_os = "linux"))]
-#[derive(Clone, Debug, Serialize)]
-pub struct PortalDiagnostics {
-    pub available: bool,
-    pub version: u32,
-    pub supports_configure_shortcuts: bool,
-    pub has_record_shortcut: bool,
-    pub active_trigger: Option<String>,
-    pub status: String,
-    pub detail: Option<String>,
-}
-
-/// Logs detected CPU SIMD capabilities to the session log so crash reports
-/// include the reporter's actual hardware feature set (e.g. diagnosing
-/// illegal-instruction crashes from mismatched whisper.cpp builds).
-#[cfg(target_arch = "x86_64")]
-fn log_cpu_features() {
-    log_info!(
-        "CPU features: sse42={} avx={} avx2={} fma={} f16c={} avx512f={}",
-        std::arch::is_x86_feature_detected!("sse4.2"),
-        std::arch::is_x86_feature_detected!("avx"),
-        std::arch::is_x86_feature_detected!("avx2"),
-        std::arch::is_x86_feature_detected!("fma"),
-        std::arch::is_x86_feature_detected!("f16c"),
-        std::arch::is_x86_feature_detected!("avx512f"),
-    );
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-fn log_cpu_features() {}
-
 #[cfg(target_os = "macos")]
 fn configure_bundled_vulkan() {
     let Ok(executable) = std::env::current_exe() else {
@@ -126,10 +98,6 @@ fn configure_bundled_vulkan() {
         unsafe {
             std::env::set_var("VK_ICD_FILENAMES", &manifest);
         }
-        log_info!(
-            "Using bundled MoltenVK driver manifest: {}",
-            manifest.display()
-        );
     }
 }
 
@@ -138,7 +106,10 @@ fn configure_bundled_vulkan() {}
 
 fn main() {
     let cli = Cli::parse();
-    let start_hidden = cli.start_hidden;
+    let launch = app::bootstrap::LaunchOptions {
+        start_hidden: cli.start_hidden,
+        update_failed: cli.update_failed,
+    };
 
     // Third-party Vulkan "implicit layers" (Steam overlay, OBS capture, NVIDIA
     // Optimus switching) get injected into every Vulkan process and can corrupt
@@ -152,34 +123,6 @@ fn main() {
     }
     configure_bundled_vulkan();
 
-    // Migrate legacy data location (%APPDATA%\foss-voquill etc.) to the
-    // unified ~/.config/voquill-app root before anything touches storage.
-    let storage_migration_report = paths::migrate_legacy_location();
-
-    // Clean up any legacy autostart entries from previous application versions.
-    let autostart_cleanup_report = paths::cleanup_legacy_autostart_entries();
-
-    // Session logging is always enabled. The persistence toggle is available
-    // for future use (e.g. a private mode setting).
-    app::session_log::set_persistence_enabled(true);
-    app::session_log::initialize_session_logging();
-
-    if let Some(report) = storage_migration_report {
-        log_info!("Storage migration: {}", report);
-    }
-    for item in autostart_cleanup_report {
-        log_info!("Autostart migration: {}", item);
-    }
-
-    // Loaded after session logging starts so load errors and migrations are
-    // recorded in the session log.
-    let config::storage::LoadedConfig {
-        config: initial_config,
-        recovery: config_recovery,
-    } = app::bootstrap::load_initial_config();
-
-    log_cpu_features();
-
     #[cfg(target_os = "linux")]
     {
         configure_linux_session_environment();
@@ -187,9 +130,16 @@ fn main() {
 
     env_logger::init();
 
-    let app_state = app::bootstrap::build_app_state(&initial_config);
-
+    // Only process-local setup happens above. Everything that touches the
+    // user's files, session log or devices runs in setup, after the
+    // single-instance guard.
     tauri::Builder::default()
+        // Must be the first plugin: a second launch hands its arguments to the
+        // running instance and exits here, before it can rotate that
+        // instance's session log, rewrite its settings or open its devices.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            app::tray::handle_second_launch(app, launch_shows_window(&args));
+        }))
         .plugin(
             tauri_plugin_autostart::Builder::new()
                 .app_name("voquill")
@@ -221,10 +171,7 @@ fn main() {
                 })
                 .build(),
         )
-        .manage(app_state)
-        .setup(move |app| {
-            app::bootstrap::run_setup(app, &initial_config, config_recovery, start_hidden)
-        })
+        .setup(move |app| app::bootstrap::run_setup(app, launch))
         .invoke_handler(tauri::generate_handler![
             start_recording,
             stop_recording,
@@ -270,7 +217,6 @@ fn main() {
             request_input_permission,
             set_configuring_hotkey,
             get_wayland_portal_version,
-            get_portal_diagnostics,
             get_system_shortcut_context,
             get_overlay_positioning_capabilities,
             get_input_capabilities,
@@ -301,15 +247,52 @@ fn main() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app_handle, event| {
-            if let tauri::RunEvent::Exit = event {
-                crate::log_info!("Tauri exit event received — cleaning up background sidecars");
-                let state = app_handle.state::<AppState>();
-                let mut runner = None;
-                if let Ok(mut runner_guard) = state.python_runner.lock() {
-                    runner = runner_guard.take();
+        .run(|app_handle, event| match event {
+            // The single shutdown owner: every exit (tray Quit, update install,
+            // OS logout) passes through here, so child processes and devices
+            // are always released.
+            tauri::RunEvent::Exit => {
+                // Absent only when setup failed before managing the state.
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    state.cleanup();
                 }
-                drop(runner);
             }
+            // Clicking the Dock icon while the window is hidden.
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen { .. } => app::tray::show_main_window(app_handle),
+            _ => {}
         });
+}
+
+/// Whether a launch should show the main window: every launch does, except
+/// autostart's `--start-hidden`. Arguments that fail to parse still show it.
+fn launch_shows_window(args: &[String]) -> bool {
+    Cli::try_parse_from(args)
+        .map(|cli| !cli.start_hidden)
+        .unwrap_or(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::launch_shows_window;
+
+    fn args(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| value.to_string()).collect()
+    }
+
+    #[test]
+    fn plain_launch_shows_window() {
+        assert!(launch_shows_window(&args(&["voquill"])));
+    }
+
+    #[test]
+    fn start_hidden_launch_keeps_window_hidden() {
+        assert!(!launch_shows_window(&args(&["voquill", "--start-hidden"])));
+        assert!(!launch_shows_window(&args(&["voquill", "-s"])));
+    }
+
+    #[test]
+    fn unparseable_launch_shows_window() {
+        assert!(launch_shows_window(&args(&["voquill", "--unknown-flag"])));
+    }
 }

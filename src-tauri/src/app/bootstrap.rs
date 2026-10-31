@@ -1,4 +1,5 @@
 use crate::app::commands::hotkey::re_register_hotkey;
+use crate::app::session_log;
 use crate::app::state::AppState;
 use crate::app::tray;
 use crate::audio;
@@ -27,11 +28,108 @@ fn read_linux_distribution_name() -> Option<String> {
     None
 }
 
+/// Records how Linux launched Voquill (display server, session, desktop,
+/// distro) so every session log carries the environment it ran in.
+#[cfg(target_os = "linux")]
+fn log_linux_launch_context() {
+    crate::log_info!(
+        "Launch context: detected={:?}, XDG_SESSION_TYPE={:?}, WAYLAND_DISPLAY={:?}, DISPLAY={:?}, XDG_CURRENT_DESKTOP={:?}, prgname={:?}",
+        crate::platform::linux::detection::detect_display_server(),
+        std::env::var("XDG_SESSION_TYPE").ok(),
+        std::env::var("WAYLAND_DISPLAY").ok(),
+        std::env::var("DISPLAY").ok(),
+        std::env::var("XDG_CURRENT_DESKTOP").ok(),
+        gtk::glib::prgname()
+    );
+    if let Some(distro_name) = read_linux_distribution_name() {
+        crate::log_info!("Linux distro: {}", distro_name);
+    }
+}
+
+/// Registers Voquill's app ID with the portal host registry, recording any
+/// failure for the setup status the UI shows.
+#[cfg(target_os = "linux")]
+fn register_wayland_host_app(state: &AppState) {
+    let registration = tauri::async_runtime::block_on(async {
+        let app_id =
+            AppID::try_from(APP_ID).map_err(|error| format!("Invalid host app id: {error}"))?;
+        register_host_app(app_id)
+            .await
+            .map_err(|error| format!("Failed to register host app with portal: {error}"))
+    });
+
+    let mut registration_error = state.wayland_host_app_registration_error.lock().unwrap();
+    match registration {
+        Ok(()) => {
+            *registration_error = None;
+            crate::log_info!("Registered host app ID with portal registry");
+        }
+        Err(error) => {
+            crate::log_warn!("Host app registration failed: {}", error);
+            *registration_error = Some(error);
+        }
+    }
+}
+
+/// Logs detected CPU SIMD capabilities to the session log so crash reports
+/// include the reporter's actual hardware feature set (e.g. diagnosing
+/// illegal-instruction crashes from mismatched whisper.cpp builds).
+#[cfg(target_arch = "x86_64")]
+fn log_cpu_features() {
+    crate::log_info!(
+        "CPU features: sse42={} avx={} avx2={} fma={} f16c={} avx512f={}",
+        std::arch::is_x86_feature_detected!("sse4.2"),
+        std::arch::is_x86_feature_detected!("avx"),
+        std::arch::is_x86_feature_detected!("avx2"),
+        std::arch::is_x86_feature_detected!("fma"),
+        std::arch::is_x86_feature_detected!("f16c"),
+        std::arch::is_x86_feature_detected!("avx512f"),
+    );
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+fn log_cpu_features() {}
+
+/// The first startup work that touches the user's files: storage migration,
+/// session logging and the settings load. Runs from setup, after the
+/// single-instance guard has let only one instance through.
+fn initialize_storage_and_logging() -> LoadedConfig {
+    // Migrate legacy data location (%APPDATA%\foss-voquill etc.) to the
+    // unified ~/.config/voquill-app root before anything touches storage.
+    let storage_migration_report = crate::paths::migrate_legacy_location();
+
+    // Clean up any legacy autostart entries from previous application versions.
+    let autostart_cleanup_report = crate::paths::cleanup_legacy_autostart_entries();
+
+    // Session logging is always enabled. The persistence toggle is available
+    // for future use (e.g. a private mode setting).
+    session_log::set_persistence_enabled(true);
+    session_log::initialize_session_logging();
+    session_log::install_panic_hook();
+
+    if let Some(report) = storage_migration_report {
+        crate::log_info!("Storage migration: {}", report);
+    }
+    for item in autostart_cleanup_report {
+        crate::log_info!("Autostart migration: {}", item);
+    }
+
+    #[cfg(target_os = "macos")]
+    if let Ok(manifest) = std::env::var("VK_ICD_FILENAMES") {
+        crate::log_info!("Using bundled MoltenVK driver manifest: {}", manifest);
+    }
+    log_cpu_features();
+
+    // Loaded after session logging starts so load errors and migrations are
+    // recorded in the session log.
+    load_initial_config()
+}
+
 /// Loads `config.json` for startup. A settings file that exists but cannot be
 /// read stops the app: starting on defaults would overwrite the user's
 /// settings on the next save. The error is shown in a native dialog because
-/// no window exists yet (and autostart launches hidden).
-pub fn load_initial_config() -> LoadedConfig {
+/// the main window may be hidden (autostart launches hidden).
+fn load_initial_config() -> LoadedConfig {
     match crate::config::storage::load_config() {
         Ok(loaded_config) => loaded_config,
         Err(error) => {
@@ -65,7 +163,7 @@ fn show_config_recovery_dialog(app: &tauri::App<tauri::Wry>, recovery: &ConfigRe
         .show(|_| {});
 }
 
-pub fn build_app_state(initial_config: &Config) -> AppState {
+fn build_app_state(initial_config: &Config) -> AppState {
     let app_state = AppState {
         config: Arc::new(Mutex::new(initial_config.clone())),
         ..Default::default()
@@ -115,12 +213,24 @@ pub fn build_app_state(initial_config: &Config) -> AppState {
     app_state
 }
 
+/// How this instance was launched (from the command line).
+pub struct LaunchOptions {
+    /// Autostart: stay in the tray.
+    pub start_hidden: bool,
+    /// The in-app updater relaunched this version because the install failed.
+    pub update_failed: bool,
+}
+
 pub fn run_setup(
     app: &mut tauri::App<tauri::Wry>,
-    initial_config: &Config,
-    config_recovery: Option<ConfigRecovery>,
-    start_hidden: bool,
+    launch: LaunchOptions,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let LoadedConfig {
+        config: initial_config,
+        recovery: config_recovery,
+    } = initialize_storage_and_logging();
+    app.manage(build_app_state(&initial_config));
+
     crate::app::status::initialize(app.handle().clone());
 
     if let Some(recovery) = &config_recovery {
@@ -130,50 +240,9 @@ pub fn run_setup(
     #[cfg(target_os = "linux")]
     {
         check_wayland_display();
-        let wayland_display = std::env::var("WAYLAND_DISPLAY").ok();
-        let x11_display = std::env::var("DISPLAY").ok();
-        let session_type = std::env::var("XDG_SESSION_TYPE").ok();
-        let desktop = std::env::var("XDG_CURRENT_DESKTOP").ok();
-        let prg_name = gtk::glib::prgname();
-        let detected = crate::platform::linux::detection::detect_display_server();
-        crate::log_info!(
-            "Launch context: detected={:?}, XDG_SESSION_TYPE={:?}, WAYLAND_DISPLAY={:?}, DISPLAY={:?}, XDG_CURRENT_DESKTOP={:?}, prgname={:?}",
-            detected,
-            session_type,
-            wayland_display,
-            x11_display,
-            desktop,
-            prg_name
-        );
-        crate::log_info!("App version: {}", env!("CARGO_PKG_VERSION"));
-        if let Some(distro_name) = read_linux_distribution_name() {
-            crate::log_info!("Linux distro: {}", distro_name);
-        }
-
+        log_linux_launch_context();
         if is_wayland_session() {
-            let state = app.state::<AppState>();
-            let host_app_registration = tauri::async_runtime::block_on(async {
-                let app_id = AppID::try_from(APP_ID)
-                    .map_err(|error| format!("Invalid host app id: {error}"))?;
-                register_host_app(app_id)
-                    .await
-                    .map_err(|error| format!("Failed to register host app with portal: {error}"))
-            });
-
-            match host_app_registration {
-                Ok(()) => {
-                    let mut registration_error =
-                        state.wayland_host_app_registration_error.lock().unwrap();
-                    *registration_error = None;
-                    crate::log_info!("Registered host app ID with portal registry");
-                }
-                Err(error) => {
-                    let mut registration_error =
-                        state.wayland_host_app_registration_error.lock().unwrap();
-                    *registration_error = Some(error.clone());
-                    crate::log_warn!("Host app registration failed: {}", error);
-                }
-            }
+            register_wayland_host_app(&app.state::<AppState>());
         }
     }
 
@@ -192,13 +261,16 @@ pub fn run_setup(
 
     let tray_available = tauri::async_runtime::block_on(tray::is_tray_available());
     crate::log_info!("System tray available: {}", tray_available);
-    if start_hidden && !tray_available {
+    if launch.start_hidden && !tray_available {
         crate::log_warn!(
             "Start hidden requested but no system tray is available; showing the main window so the app stays reachable"
         );
     }
-    if !start_hidden || !tray_available {
+    if !launch.start_hidden || !tray_available {
         tray::show_main_window(app.handle());
+    }
+    if launch.update_failed {
+        crate::app::commands::update::show_update_failed_dialog(app.handle());
     }
 
     let hotkey_string = initial_config.hotkey.clone();
@@ -231,14 +303,14 @@ pub fn run_setup(
 
     spawn_engine_preload(
         app.state::<AppState>().engine_factory.clone(),
-        initial_config,
+        &initial_config,
     );
     spawn_post_process_warmup(
         app.state::<AppState>().post_process_factory.clone(),
-        initial_config,
+        &initial_config,
         app.handle(),
     );
-    spawn_python_runner_prewarm(app.handle(), initial_config);
+    spawn_python_runner_prewarm(app.handle(), &initial_config);
     crate::voice_macro::sync_voice_macro_listener(app.handle());
 
     Ok(())

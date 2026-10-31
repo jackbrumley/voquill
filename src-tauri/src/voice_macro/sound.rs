@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 use std::time::Duration;
 
 use crate::audio::decode::{decode_compressed_audio, DecodedAudio};
-use crate::config::{MacroSoundMode, VoiceMacroCommand};
+use crate::config::voice_macro::{MacroSoundMode, VoiceMacroCommand};
 use cpal::traits::StreamTrait;
 
 const MACRO_TRIGGER_SOUND_BYTES: &[u8] = include_bytes!("../../sounds/macro_trigger.mp3");

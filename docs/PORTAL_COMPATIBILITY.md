@@ -24,8 +24,8 @@ This document tracks expected behavior for Wayland portal integrations, with emp
 
 ## Verification Checklist
 
-- `get_portal_diagnostics` returns `available=true` on supported Wayland systems.
-- `get_linux_setup_status` reports `shortcuts=true` only when `record` is actually bound.
+- `get_wayland_portal_version` reports the GlobalShortcuts portal version on supported Wayland systems.
+- `get_platform_setup_status` reports `shortcuts=true` only when `record` is actually bound.
 - Initial startup reuses existing shortcut binding when present.
 - Manual bind path triggers portal request and persists trigger description.
 - Press/release emits recording start/stop transitions.

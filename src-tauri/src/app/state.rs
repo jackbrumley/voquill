@@ -61,8 +61,9 @@ pub struct HotkeyBindingState {
 
 impl AppState {
     /// Terminate all child processes and release OS resources synchronously.
-    /// Called before app exit so children (Python runner, llama-server, etc.)
-    /// are killed and their ports freed before the process terminates.
+    /// Called only from the `RunEvent::Exit` handler in `main.rs`, which every
+    /// exit path reaches, so children (Python runner, llama-server, etc.) are
+    /// killed and their ports freed before the process terminates.
     pub fn cleanup(&self) {
         crate::log_info!("AppState: cleaning up child processes");
 

@@ -174,7 +174,8 @@ fn reconcile_engine_warmup(
     merged_config: &Config,
     app_handle: &tauri::AppHandle,
 ) {
-    use crate::config::{PostProcessProvider, TranscriptionMode};
+    use crate::config::post_process::PostProcessProvider;
+    use crate::config::TranscriptionMode;
 
     let was_local_post_process = previous_config.post_process_enabled
         && previous_config.post_process_provider == PostProcessProvider::Local;

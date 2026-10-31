@@ -46,7 +46,6 @@ commands.allow = [
     "request_input_permission",
     "set_configuring_hotkey",
     "get_wayland_portal_version",
-    "get_portal_diagnostics",
     "get_system_shortcut_context",
     "get_overlay_positioning_capabilities",
     "get_input_capabilities",

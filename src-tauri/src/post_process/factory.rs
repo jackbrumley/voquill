@@ -71,12 +71,14 @@ impl PostProcessFactory {
         config: &Config,
     ) -> Result<Arc<dyn PostProcessService + Send + Sync>, String> {
         match config.post_process_provider {
-            crate::config::PostProcessProvider::Api => Ok(Arc::new(APIPostProcessService {
-                api_key: config.post_process_api_key.clone(),
-                api_url: config.post_process_api_url.clone(),
-                model: config.post_process_api_model.clone(),
-            })),
-            crate::config::PostProcessProvider::Local => {
+            crate::config::post_process::PostProcessProvider::Api => {
+                Ok(Arc::new(APIPostProcessService {
+                    api_key: config.post_process_api_key.clone(),
+                    api_url: config.post_process_api_url.clone(),
+                    model: config.post_process_api_model.clone(),
+                }))
+            }
+            crate::config::post_process::PostProcessProvider::Local => {
                 let fingerprint = LocalFingerprint {
                     engine: config.post_process_engine.clone(),
                     model: config.post_process_model.clone(),
@@ -161,7 +163,7 @@ impl PostProcessFactory {
         if !config.post_process_enabled {
             return;
         }
-        if config.post_process_provider != crate::config::PostProcessProvider::Local {
+        if config.post_process_provider != crate::config::post_process::PostProcessProvider::Local {
             return;
         }
         crate::log_info!("Post-process preload: starting llama-server warm-up");
