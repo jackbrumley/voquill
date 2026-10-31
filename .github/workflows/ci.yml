@@ -81,3 +81,21 @@ jobs:
           for script in "${scripts[@]}"; do
             /bin/bash -n "$script"
           done
+
+  # Runs the one-line installer exactly as users and the in-app updater do (no
+  # --version), so the "find the latest release" path is exercised on every
+  # push. release.yml's install tests pin --version and cannot cover it.
+  installer:
+    name: Installer (Linux, latest release)
+    runs-on: ubuntu-24.04
+    env:
+      VOQUILL_GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the latest release
+        run: |
+          bash docs/install.sh --yes --no-relaunch
+          latest=$(gh api repos/${{ github.repository }}/releases/latest --jq .tag_name)
+          /usr/bin/voquill --version | grep -F "${latest#v}"
+        env:
+          GH_TOKEN: ${{ github.token }}
