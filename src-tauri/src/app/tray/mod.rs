@@ -53,6 +53,7 @@ pub fn build_tray(app: &tauri::App<tauri::Wry>) -> Result<(), Box<dyn std::error
     let icon = app
         .default_window_icon()
         .cloned()
+        .map(tauri::image::Image::to_owned)
         .ok_or("Voquill has no bundled icon to show in the system tray")?;
 
     #[cfg(target_os = "linux")]

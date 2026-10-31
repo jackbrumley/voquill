@@ -76,8 +76,10 @@ pub fn spawn(app_handle: &tauri::AppHandle, icon: &tauri::image::Image<'_>) {
 /// StatusNotifierItem pixmaps are ARGB32 in network byte order; Tauri icons
 /// are RGBA.
 fn rgba_to_argb(rgba: &[u8]) -> Vec<u8> {
-    rgba.chunks_exact(4)
-        .flat_map(|pixel| [pixel[3], pixel[0], pixel[1], pixel[2]])
+    let (pixels, _) = rgba.as_chunks::<4>();
+    pixels
+        .iter()
+        .flat_map(|&[red, green, blue, alpha]| [alpha, red, green, blue])
         .collect()
 }
 
