@@ -12,7 +12,10 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const STARTUP_WAIT_MS = 15_000;
+// Startup ends with setup, which logs tray availability. A fresh CI runner can
+// take 20s+ before that (Windows creates the WebView2 window first).
+const STARTUP_TIMEOUT_MS = 120_000;
+const STARTUP_COMPLETE_LINE = "System tray available";
 const SECOND_LAUNCH_TIMEOUT_MS = 30_000;
 const SURVIVAL_WAIT_MS = 5_000;
 const SESSION_LOG = join(homedir(), ".config", "voquill-app", "debug", "session.log");
@@ -39,6 +42,17 @@ function readSessionLog() {
   }
 }
 
+async function waitForStartup(exitedEarly) {
+  const deadline = Date.now() + STARTUP_TIMEOUT_MS;
+  while (Date.now() < deadline && !exitedEarly()) {
+    if (readSessionLog().includes(STARTUP_COMPLETE_LINE)) {
+      return true;
+    }
+    await sleep(500);
+  }
+  return false;
+}
+
 function fail(message) {
   console.error(`FAIL: ${message}`);
   console.error(`--- ${SESSION_LOG} ---\n${readSessionLog()}`);
@@ -48,10 +62,12 @@ function fail(message) {
 const first = launch();
 let firstExit = null;
 first.exited.then((result) => (firstExit = result));
-await sleep(STARTUP_WAIT_MS);
+const started = await waitForStartup(() => firstExit !== null);
 
 if (firstExit) {
   fail(`first instance exited during startup (${JSON.stringify(firstExit)})`);
+} else if (!started) {
+  fail(`first instance did not finish starting within ${STARTUP_TIMEOUT_MS / 1000}s`);
 } else {
   const second = launch();
   const secondExit = await Promise.race([second.exited, sleep(SECOND_LAUNCH_TIMEOUT_MS).then(() => null)]);
