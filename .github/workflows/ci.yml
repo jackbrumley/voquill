@@ -16,17 +16,16 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  VULKAN_SDK_VERSION: 1.4.341.1
 
 jobs:
   frontend:
     name: Frontend (typecheck, lint)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: npm
       - run: npm ci
       - run: npm run typecheck
@@ -47,11 +46,9 @@ jobs:
           - name: macOS
             runner: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: ./.github/actions/setup-build
-        with:
-          vulkan-sdk-version: ${{ env.VULKAN_SDK_VERSION }}
 
       - name: Build frontend
         run: npm run build
@@ -91,7 +88,7 @@ jobs:
     env:
       VOQUILL_GITHUB_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install the latest release
         run: |
           bash docs/install.sh --yes --no-relaunch

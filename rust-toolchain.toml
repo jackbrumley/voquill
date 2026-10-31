@@ -1,0 +1,8 @@
+# The one Rust version for local builds, CI and the Linux release container
+# (scripts/build-linux-release.mjs passes it to the Containerfile). Bump it
+# deliberately: newer clippy releases add lints, and pinning keeps a local
+# `cargo clippy` identical to CI's.
+[toolchain]
+channel = "1.99.1"
+components = ["clippy", "rustfmt"]
+profile = "minimal"

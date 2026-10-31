@@ -1,26 +1,25 @@
 # Shared build environment for CI and release jobs on all three platforms:
 # Node, Rust, the pinned LunarG Vulkan SDK (whisper.cpp's ggml-vulkan backend
 # needs its headers and glslc), and the per-OS native toolchain. Keeping it in
-# one place means CI checks and release builds can never drift apart.
+# one place means CI checks and release builds can never drift apart. Versions
+# come from .node-version, rust-toolchain.toml and
+# src-tauri/packaging/vulkan-sdk.json, which the Linux release container reads
+# too.
 name: Set up Voquill build environment
 description: Installs Node, Rust, the Vulkan SDK and platform build dependencies.
-
-inputs:
-  vulkan-sdk-version:
-    description: LunarG Vulkan SDK version (keep in step with the Linux release Containerfile).
-    required: true
 
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v7
       with:
-        node-version: 22
+        node-version-file: .node-version
         cache: npm
 
-    - uses: dtolnay/rust-toolchain@stable
-      with:
-        components: clippy, rustfmt
+    # Installs the version (and components) pinned in rust-toolchain.toml.
+    - name: Install Rust toolchain
+      shell: bash
+      run: rustup toolchain install
 
     # Mirrors the release Containerfile's package list, so `npm run deps:check`
     # (run by the frontend build) sees the same environment.
@@ -49,9 +48,14 @@ runs:
     - uses: ilammy/msvc-dev-cmd@v1
       if: runner.os == 'Windows'
 
+    - name: Read Vulkan SDK version
+      id: vulkan-sdk
+      shell: bash
+      run: echo "version=$(node -p "require('./src-tauri/packaging/vulkan-sdk.json').version")" >> "$GITHUB_OUTPUT"
+
     - uses: jakoch/install-vulkan-sdk-action@v1.7.0
       with:
-        vulkan_version: ${{ inputs.vulkan-sdk-version }}
+        vulkan_version: ${{ steps.vulkan-sdk.outputs.version }}
         cache: true
 
     - uses: Swatinem/rust-cache@v2
