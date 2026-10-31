@@ -80,8 +80,12 @@ impl GlobalShortcutEngine for X11Backend {
 
 #[async_trait]
 impl PermissionManager for X11Backend {
-    async fn request_permissions(&self, _app_handle: tauri::AppHandle) -> Result<(), String> {
-        // X11 has no implicit portals; we just say "OK"
+    // X11 gates neither the microphone nor input emulation.
+    async fn request_audio_permission(&self, _app_handle: tauri::AppHandle) -> Result<(), String> {
+        Ok(())
+    }
+
+    async fn request_input_permission(&self, _app_handle: tauri::AppHandle) -> Result<(), String> {
         Ok(())
     }
 

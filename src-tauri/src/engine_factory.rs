@@ -416,8 +416,10 @@ mod tests {
             .map(|n| n.get())
             .unwrap_or(4);
 
-        let mut config = Config::default();
-        config.engine_config = None;
+        let mut config = Config {
+            engine_config: None,
+            ..Default::default()
+        };
         assert_eq!(
             resolve_thread_count(&config, "whisper.num_threads"),
             max_cpus

@@ -84,8 +84,22 @@ impl GlobalShortcutEngine for MacosBackend {
 
 #[async_trait]
 impl PermissionManager for MacosBackend {
-    async fn request_permissions(&self, app_handle: tauri::AppHandle) -> Result<(), String> {
-        permissions::request_accessibility_permission()?;
+    /// CoreAudio shows the microphone prompt when an input stream opens, so
+    /// opening the persistent audio engine is the request.
+    async fn request_audio_permission(&self, app_handle: tauri::AppHandle) -> Result<(), String> {
+        let state = app_handle.state::<crate::AppState>();
+        if state.audio_engine.lock().unwrap().is_some() {
+            return Ok(());
+        }
+
+        let config = state.config.lock().unwrap().clone();
+        let device = crate::audio::lookup_device(config.audio_device)?;
+        let engine = crate::audio::PersistentAudioEngine::new(&device, config.input_sensitivity)?;
+        *state.audio_engine.lock().unwrap() = Some(engine);
+        Ok(())
+    }
+
+    async fn request_input_permission(&self, app_handle: tauri::AppHandle) -> Result<(), String> {
         let hotkey = app_handle
             .state::<crate::AppState>()
             .config
@@ -93,10 +107,7 @@ impl PermissionManager for MacosBackend {
             .unwrap()
             .hotkey
             .clone();
-        if shortcuts::hotkey_uses_fn(&hotkey) {
-            permissions::request_input_monitoring_permission();
-        }
-        Ok(())
+        permissions::request_input_permissions(&hotkey)
     }
 
     async fn check_permissions(

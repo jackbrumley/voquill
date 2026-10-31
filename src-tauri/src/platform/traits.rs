@@ -44,7 +44,10 @@ pub trait GlobalShortcutEngine: Send + Sync {
 
 #[async_trait]
 pub trait PermissionManager: Send + Sync {
-    async fn request_permissions(&self, app_handle: AppHandle) -> Result<(), String>;
+    /// Prompts for microphone access where the platform gates it.
+    async fn request_audio_permission(&self, app_handle: AppHandle) -> Result<(), String>;
+    /// Prompts for what typing and the configured hotkey need.
+    async fn request_input_permission(&self, app_handle: AppHandle) -> Result<(), String>;
     async fn check_permissions(&self, config: &Config) -> PlatformPermissions;
 }
 

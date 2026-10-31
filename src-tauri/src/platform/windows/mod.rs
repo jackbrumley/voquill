@@ -91,7 +91,13 @@ impl GlobalShortcutEngine for WindowsBackend {
 
 #[async_trait]
 impl PermissionManager for WindowsBackend {
-    async fn request_permissions(&self, _app_handle: tauri::AppHandle) -> Result<(), String> {
+    // Windows gates neither the microphone (beyond its own privacy prompt)
+    // nor input emulation.
+    async fn request_audio_permission(&self, _app_handle: tauri::AppHandle) -> Result<(), String> {
+        Ok(())
+    }
+
+    async fn request_input_permission(&self, _app_handle: tauri::AppHandle) -> Result<(), String> {
         Ok(())
     }
 

@@ -22,15 +22,15 @@ Be respectful, constructive, and collaborative. This project aims to be a welcom
 ## How to Contribute
 
 1. **Fork** the repository.
-2. **Create a feature branch** from `main`.
+2. **Create a feature branch** from `dev`. Development happens on `dev`; `main` only moves when a release is published.
 3. **Make your changes**, following the conventions in [AGENTS.md](AGENTS.md).
 4. **Run the pre-submit checks**:
    - `cargo fmt`
    - `cargo check`
-   - `cargo clippy`
+   - `cargo clippy --all-targets`
    - `npm run lint`
    - `npm run typecheck`
-5. **Submit a pull request** with a clear description of your changes.
+5. **Submit a pull request** against `dev` with a clear description of your changes. CI builds and tests it on Linux, Windows and macOS.
 
 ## Questions?
 

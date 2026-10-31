@@ -35,14 +35,38 @@ pub fn input_monitoring_is_trusted() -> bool {
     unsafe { CGPreflightListenEventAccess() }
 }
 
-pub fn request_input_monitoring_permission() {
-    // SAFETY: macOS owns the permission prompt and returns immediately.
-    unsafe {
-        let _ = CGRequestListenEventAccess();
+/// Fn hotkeys are read through an event tap, which needs Input Monitoring.
+/// Prompts when it is missing and reports what the user must do.
+pub fn ensure_input_monitoring_permission() -> Result<(), String> {
+    if input_monitoring_is_trusted() {
+        return Ok(());
     }
+    // SAFETY: macOS owns the permission prompt and returns immediately.
+    let granted = unsafe { CGRequestListenEventAccess() };
+    crate::log_info!(
+        "macOS Input Monitoring permission requested: granted={}",
+        granted
+    );
+    if granted {
+        return Ok(());
+    }
+    Err(
+        "Fn hotkeys require Input Monitoring permission. Enable Voquill in System Settings, then return to the app."
+            .to_string(),
+    )
 }
 
-pub fn request_accessibility_permission() -> Result<(), String> {
+/// Everything the configured hotkey and typing need: Accessibility always
+/// (typing), Input Monitoring only for Fn hotkeys.
+pub fn request_input_permissions(hotkey: &str) -> Result<(), String> {
+    request_accessibility_permission()?;
+    if super::shortcuts::hotkey_uses_fn(hotkey) {
+        ensure_input_monitoring_permission()?;
+    }
+    Ok(())
+}
+
+fn request_accessibility_permission() -> Result<(), String> {
     let trusted = accessibility_is_trusted();
     crate::log_info!(
         "macOS Accessibility permission requested: trusted={}",

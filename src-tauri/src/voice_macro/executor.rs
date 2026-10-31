@@ -2,7 +2,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 use crate::app::state::SessionState;
-use crate::config::VoiceMacroCommand;
+use crate::config::voice_macro::VoiceMacroCommand;
 use crate::AppState;
 
 pub async fn execute_macro_command(
@@ -16,7 +16,7 @@ pub async fn execute_macro_command(
 pub async fn execute_macro_steps(
     app_handle: &AppHandle,
     phrase_label: &str,
-    steps: &[crate::config::MacroStep],
+    steps: &[crate::config::voice_macro::MacroStep],
 ) -> Result<(), String> {
     let state = app_handle.state::<AppState>();
     let mut held_keys: Vec<String> = Vec::new();
@@ -60,7 +60,7 @@ pub async fn execute_macro_steps(
 
 async fn execute_macro_steps_inner(
     app_handle: &AppHandle,
-    steps: &[crate::config::MacroStep],
+    steps: &[crate::config::voice_macro::MacroStep],
     held_keys: &mut Vec<String>,
 ) -> Result<(), String> {
     let state = app_handle.state::<AppState>();
@@ -72,7 +72,7 @@ async fn execute_macro_steps_inner(
         }
 
         match step {
-            crate::config::MacroStep::KeyPress { key, hold_ms } => {
+            crate::config::voice_macro::MacroStep::KeyPress { key, hold_ms } => {
                 crate::log_info!(
                     "[Voice Macro Step {}/{}] KeyPress: '{}' (hold: {}ms)",
                     index + 1,
@@ -85,7 +85,7 @@ async fn execute_macro_steps_inner(
                     .send_key_combination(app_handle, key, *hold_ms)
                     .await?;
             }
-            crate::config::MacroStep::KeyDown { key } => {
+            crate::config::voice_macro::MacroStep::KeyDown { key } => {
                 crate::log_info!(
                     "[Voice Macro Step {}/{}] KeyDown: '{}'",
                     index + 1,
@@ -97,7 +97,7 @@ async fn execute_macro_steps_inner(
                     held_keys.push(key.clone());
                 }
             }
-            crate::config::MacroStep::KeyUp { key } => {
+            crate::config::voice_macro::MacroStep::KeyUp { key } => {
                 crate::log_info!(
                     "[Voice Macro Step {}/{}] KeyUp: '{}'",
                     index + 1,
@@ -107,7 +107,7 @@ async fn execute_macro_steps_inner(
                 state.display_backend.send_key_up(app_handle, key).await?;
                 held_keys.retain(|k| k != key);
             }
-            crate::config::MacroStep::Delay { duration_ms } => {
+            crate::config::voice_macro::MacroStep::Delay { duration_ms } => {
                 crate::log_info!(
                     "[Voice Macro Step {}/{}] Delay: {}ms",
                     index + 1,
@@ -118,7 +118,7 @@ async fn execute_macro_steps_inner(
                     tokio::time::sleep(Duration::from_millis(*duration_ms)).await;
                 }
             }
-            crate::config::MacroStep::TypeText { text } => {
+            crate::config::voice_macro::MacroStep::TypeText { text } => {
                 crate::log_info!(
                     "[Voice Macro Step {}/{}] TypeText: '{}'",
                     index + 1,
@@ -130,7 +130,7 @@ async fn execute_macro_steps_inner(
                     .type_text_hardware(app_handle, text, 0.005, 5)
                     .await?;
             }
-            crate::config::MacroStep::RunCommand { command } => {
+            crate::config::voice_macro::MacroStep::RunCommand { command } => {
                 crate::log_info!(
                     "[Voice Macro Step {}/{}] RunCommand: '{}'",
                     index + 1,

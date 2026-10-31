@@ -93,8 +93,7 @@
         "desktopTemplate": "packaging/bundler-stub.desktop.hbs",
         "depends": [
           "libgtk-layer-shell0",
-          "libpulse0",
-          "libappindicator3-1"
+          "libpulse0"
         ],
         "files": {
           "/usr/share/applications/org.voquill.voquill.desktop": "packaging/org.voquill.voquill.desktop",
@@ -106,8 +105,7 @@
         "depends": [
           "gtk-layer-shell",
           "webkit2gtk4.1",
-          "pulseaudio-libs",
-          "libappindicator-gtk3"
+          "pulseaudio-libs"
         ],
         "files": {
           "/usr/share/applications/org.voquill.voquill.desktop": "packaging/org.voquill.voquill.desktop",

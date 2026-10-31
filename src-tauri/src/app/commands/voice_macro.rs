@@ -1,7 +1,7 @@
 use serde::Serialize;
 use tauri::{command, AppHandle, State};
 
-use crate::config::{MacroStep, VoiceMacroCommand};
+use crate::config::voice_macro::{MacroStep, VoiceMacroCommand};
 use crate::AppState;
 
 #[derive(Clone, Debug, Serialize)]
@@ -415,7 +415,7 @@ pub async fn save_custom_voice_preset(
                 .voice_macros
                 .iter()
                 .filter(|m| {
-                    m.sound_mode == crate::config::MacroSoundMode::Tts
+                    m.sound_mode == crate::config::voice_macro::MacroSoundMode::Tts
                         && m.sound_tts_voice.as_deref() == Some(&id)
                         && m.sound_tts_text
                             .as_deref()

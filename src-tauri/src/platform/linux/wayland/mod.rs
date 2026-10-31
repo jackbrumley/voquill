@@ -80,8 +80,12 @@ impl GlobalShortcutEngine for WaylandBackend {
 
 #[async_trait]
 impl PermissionManager for WaylandBackend {
-    async fn request_permissions(&self, app_handle: tauri::AppHandle) -> Result<(), String> {
-        permissions::request_linux_permissions(app_handle).await
+    async fn request_audio_permission(&self, _app_handle: tauri::AppHandle) -> Result<(), String> {
+        permissions::request_microphone_access().await
+    }
+
+    async fn request_input_permission(&self, app_handle: tauri::AppHandle) -> Result<(), String> {
+        input::establish_input_session(&app_handle, true).await
     }
 
     async fn check_permissions(

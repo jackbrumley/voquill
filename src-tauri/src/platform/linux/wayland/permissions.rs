@@ -1,8 +1,6 @@
 use crate::config::Config;
-use crate::platform::linux::wayland::input;
 use crate::platform::permissions::PlatformPermissions;
 use ashpd::desktop::camera::Camera;
-use tauri::AppHandle;
 
 pub async fn check_linux_permissions(config: &Config) -> PlatformPermissions {
     let audio = Camera::new().await.is_ok();
@@ -28,21 +26,18 @@ pub async fn check_linux_permissions(config: &Config) -> PlatformPermissions {
     }
 }
 
-pub async fn request_linux_permissions(app_handle: AppHandle) -> Result<(), String> {
-    // 1. Request Audio (Mic) via Camera Portal
-    let camera = Camera::new().await.map_err(|e| {
+/// Requests device access through the portal's Camera interface, which is
+/// what gates the PipeWire device for the microphone on Wayland.
+pub async fn request_microphone_access() -> Result<(), String> {
+    let camera = Camera::new().await.map_err(|error| {
         format!(
-            "Audio Portal not available: {}. Is xdg-desktop-portal-gtk/kde installed?",
-            e
+            "Audio Portal not available: {}. Is xdg-desktop-portal installed?",
+            error
         )
     })?;
     camera
         .request_access()
         .await
-        .map_err(|e| format!("Audio access denied: {}", e))?;
-
-    // 2. Request Input Emulation via Wayland Remote Desktop Portal
-    input::establish_input_session(&app_handle, true).await?;
-
+        .map_err(|error| format!("Audio access denied: {}", error))?;
     Ok(())
 }

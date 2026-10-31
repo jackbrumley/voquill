@@ -1,10 +1,6 @@
 #[cfg(target_os = "linux")]
 use crate::platform::linux::detection::is_wayland_session;
-#[cfg(target_os = "linux")]
-use crate::platform::linux::wayland::portal::capabilities::PortalDiagnostics;
 use crate::platform::permissions::PlatformPermissions;
-#[cfg(not(target_os = "linux"))]
-use crate::PortalDiagnostics;
 use crate::{audio, AppState};
 use serde::Serialize;
 
@@ -13,39 +9,15 @@ pub async fn get_wayland_portal_version() -> Result<u32, String> {
     #[cfg(target_os = "linux")]
     {
         if is_wayland_session() {
-            use ashpd::desktop::global_shortcuts::GlobalShortcuts;
-            if let Ok(proxy) = GlobalShortcuts::new().await {
-                use std::ops::Deref;
-                if let Ok(version) = proxy.deref().get_property::<u32>("version").await {
-                    return Ok(version);
-                }
-            }
-            return Ok(0);
-        }
-    }
-    Ok(0)
-}
-
-#[tauri::command]
-pub async fn get_portal_diagnostics() -> Result<PortalDiagnostics, String> {
-    #[cfg(target_os = "linux")]
-    {
-        if is_wayland_session() {
             return Ok(
-                crate::platform::linux::wayland::portal::capabilities::collect_global_shortcuts_diagnostics().await,
+                crate::platform::linux::wayland::portal::capabilities::detect_global_shortcuts_capabilities()
+                    .await
+                    .map(|capabilities| capabilities.version)
+                    .unwrap_or(0),
             );
         }
     }
-
-    Ok(PortalDiagnostics {
-        available: false,
-        version: 0,
-        supports_configure_shortcuts: false,
-        has_record_shortcut: false,
-        active_trigger: None,
-        status: "unsupported".to_string(),
-        detail: Some("Portal diagnostics are only available on Linux Wayland.".to_string()),
-    })
+    Ok(0)
 }
 
 #[cfg(target_os = "linux")]
@@ -208,41 +180,15 @@ pub async fn get_platform_setup_status(
 }
 
 #[tauri::command]
-pub async fn request_audio_permission(_state: tauri::State<'_, AppState>) -> Result<(), String> {
+pub async fn request_audio_permission(
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
     crate::log_info!("Tauri Command: request_audio_permission invoked");
-    #[cfg(target_os = "linux")]
-    {
-        use ashpd::desktop::camera::Camera;
-
-        let camera = Camera::new().await.map_err(|error| {
-            format!(
-                "Audio Portal not available: {}. Is xdg-desktop-portal installed?",
-                error
-            )
-        })?;
-        camera
-            .request_access()
-            .await
-            .map_err(|error| format!("Audio access denied: {}", error))?;
-        Ok(())
-    }
-    #[cfg(target_os = "macos")]
-    {
-        if _state.audio_engine.lock().unwrap().is_some() {
-            return Ok(());
-        }
-
-        let config = _state.config.lock().unwrap().clone();
-        let device = audio::lookup_device(config.audio_device)?;
-        let engine = audio::PersistentAudioEngine::new(&device, config.input_sensitivity)?;
-        *_state.audio_engine.lock().unwrap() = Some(engine);
-        Ok(())
-    }
-    #[cfg(all(not(target_os = "linux"), not(target_os = "macos")))]
-    {
-        let _ = _state;
-        Ok(())
-    }
+    state
+        .display_backend
+        .request_audio_permission(app_handle)
+        .await
 }
 
 #[tauri::command]
@@ -251,38 +197,10 @@ pub async fn request_input_permission(
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     crate::log_info!("Tauri Command: request_input_permission invoked");
-    #[cfg(target_os = "linux")]
-    {
-        if is_wayland_session() {
-            crate::platform::linux::wayland::input::establish_input_session(&app_handle, true)
-                .await?;
-        } else {
-            let _ = state;
-        }
-        Ok(())
-    }
-    #[cfg(target_os = "macos")]
-    {
-        let _ = app_handle;
-        crate::platform::macos::permissions::request_accessibility_permission()?;
-        let hotkey = state.config.lock().unwrap().hotkey.clone();
-        if crate::platform::macos::shortcuts::hotkey_uses_fn(&hotkey) {
-            crate::platform::macos::permissions::request_input_monitoring_permission();
-            if !crate::platform::macos::permissions::input_monitoring_is_trusted() {
-                return Err(
-                    "macOS is requesting Input Monitoring permission for Fn hotkeys. Enable Voquill in System Settings, then return to the app."
-                        .to_string(),
-                );
-            }
-        }
-        Ok(())
-    }
-    #[cfg(all(not(target_os = "linux"), not(target_os = "macos")))]
-    {
-        let _ = state;
-        let _ = app_handle;
-        Ok(())
-    }
+    state
+        .display_backend
+        .request_input_permission(app_handle)
+        .await
 }
 
 #[tauri::command]

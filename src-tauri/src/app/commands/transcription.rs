@@ -56,7 +56,7 @@ pub async fn download_model(
     let config = state.config.lock().unwrap().clone();
 
     if config.post_process_enabled
-        && config.post_process_provider == crate::config::PostProcessProvider::Local
+        && config.post_process_provider == crate::config::post_process::PostProcessProvider::Local
         && config.post_process_engine == engine_name
         && config.post_process_model == model_size
     {
