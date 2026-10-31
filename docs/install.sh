@@ -170,7 +170,7 @@ resolve_package_ext() {
 fetch_latest_release_tag() {
   local api_url="https://api.github.com/repos/${REPO}/releases/latest"
   local tag
-  tag="$(curl -fL --retry 3 --connect-timeout 10 -s "${GITHUB_API_HEADERS[@]}" "$api_url" | grep '"tag_name"' | head -n1 | sed 's/.*"tag_name": "\(.*\)",/\1/')"
+  tag="$(curl -fL --retry 3 --connect-timeout 10 -s "${GITHUB_API_HEADERS[@]}" "$api_url" | grep -o '"tag_name": *"[^"]*"' | head -n1 | sed 's/.*"\([^"]*\)"$/\1/')"
   [[ -n "$tag" ]] || fail "could not determine latest release tag from GitHub API"
   printf "%s" "$tag"
 }
