@@ -9,6 +9,12 @@ static SESSION_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
 
 static PERSISTENCE_ENABLED: AtomicBool = AtomicBool::new(true);
 
+/// The current local time as RFC 3339 with milliseconds and offset
+/// (`2026-11-03T19:55:39.123+11:00`), the timestamp on every log line.
+pub fn log_timestamp() -> String {
+    chrono::Local::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, false)
+}
+
 pub fn set_persistence_enabled(enabled: bool) {
     let was_enabled = PERSISTENCE_ENABLED.swap(enabled, Ordering::SeqCst);
     if enabled && !was_enabled && SESSION_LOG_FILE.get().is_none() {
@@ -61,7 +67,7 @@ pub fn truncate_session_log_with_header() -> Result<(), String> {
                 writeln!(
                     file,
                     "[{}] SESSION RESET | version={}",
-                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"),
+                    log_timestamp(),
                     env!("CARGO_PKG_VERSION")
                 )
                 .map_err(|error| error.to_string())?;
@@ -114,7 +120,7 @@ fn initialize_session_logging_inner() {
                 .unwrap_or_else(|error| format!("<unknown: {error}>"));
             let startup_header = format!(
                 "[{}] SESSION START | version={} | build={} | exe={}\n",
-                chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"),
+                log_timestamp(),
                 env!("CARGO_PKG_VERSION"),
                 build_profile,
                 executable
@@ -145,12 +151,9 @@ pub fn install_panic_hook() {
             .map(|location| format!("{}:{}", location.file(), location.line()))
             .unwrap_or_else(|| "unknown location".to_string());
         let thread = std::thread::current();
-        let timestamp = chrono::Local::now()
-            .format("%Y-%m-%d %H:%M:%S%.3f")
-            .to_string();
         append_session_log(
             "PANIC",
-            &timestamp,
+            &log_timestamp(),
             &format!(
                 "thread '{}' panicked at {}: {}",
                 thread.name().unwrap_or("unnamed"),
@@ -181,4 +184,31 @@ pub fn resolve_session_log_path() -> Result<PathBuf, String> {
         .cloned()
         .or_else(|| get_session_log_path().ok())
         .ok_or_else(|| "Session log path unavailable".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::log_timestamp;
+
+    #[test]
+    fn log_timestamp_is_rfc3339_with_milliseconds_and_offset() {
+        let timestamp = log_timestamp();
+        let parsed = chrono::DateTime::parse_from_rfc3339(&timestamp)
+            .unwrap_or_else(|error| panic!("{timestamp} is not RFC 3339: {error}"));
+        assert_eq!(
+            parsed.to_rfc3339_opts(chrono::SecondsFormat::Millis, false),
+            timestamp
+        );
+        let fraction = timestamp
+            .split('.')
+            .nth(1)
+            .unwrap_or_else(|| panic!("{timestamp} has no fractional seconds"));
+        assert!(fraction[..3]
+            .chars()
+            .all(|character| character.is_ascii_digit()));
+        assert!(
+            !timestamp.ends_with('Z'),
+            "{timestamp} should carry a numeric offset"
+        );
+    }
 }

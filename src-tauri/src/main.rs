@@ -6,7 +6,7 @@
 macro_rules! log_info {
     ($($arg:tt)*) => {
         {
-            let __timestamp = ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
+            let __timestamp = $crate::log_timestamp();
             let __message = format!($($arg)*);
             println!("[{}] {}", __timestamp, __message);
             $crate::append_session_log("INFO", &__timestamp, &__message);
@@ -18,7 +18,7 @@ macro_rules! log_info {
 macro_rules! log_warn {
     ($($arg:tt)*) => {
         {
-            let __timestamp = ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
+            let __timestamp = $crate::log_timestamp();
             let __message = format!($($arg)*);
             eprintln!("[{}] WARNING: {}", __timestamp, __message);
             $crate::append_session_log("WARN", &__timestamp, &__message);
@@ -71,7 +71,7 @@ pub mod voice_macro;
 
 pub use app::commands::hotkey::set_hotkey_binding_state;
 use app::commands::*;
-pub use app::session_log::append_session_log;
+pub use app::session_log::{append_session_log, log_timestamp};
 pub(crate) use app::session_log::{
     clear_directory_contents, get_app_config_root_dir, resolve_session_log_path,
     truncate_session_log_with_header,
