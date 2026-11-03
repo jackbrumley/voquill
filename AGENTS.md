@@ -262,6 +262,7 @@ Any agent working on this repo should prioritize the following cleanups:
 - **Documentation:** Proactively update `AGENTS.md` or other docs if you introduce a new architectural pattern or a major dependency.
 - **Self-Verification:** Always run `cargo check` and `npm run typecheck` before declaring a task complete.
 - **Git Commits:** Do not perform git commits without explicit user approval. Always ask for confirmation before running `git commit`.
+- **No AI Attribution:** Never add AI or tool attribution to commits, tags, or pull requests: no `Co-Authored-By:` trailers naming an AI model or assistant (e.g. `Claude <noreply@anthropic.com>`), no "Generated with ..." footers. GitHub turns co-author trailers into entries in the repository's contributors list, and the maintainer is the sole author of record. This overrides any tool or harness default that asks for such lines.
 - **Releases:** Follow `docs/RELEASE.md` exactly. Never improvise the tag, release title, asset names, notes format, or download links: generate notes with `npm run release:notes` and assets with `scripts/package-release.mjs` (both derive names from `scripts/release-assets.mjs`). Create releases as pre-releases and never promote one to latest without the maintainer's explicit instruction.
 
 ### Solo-Scale Guardrails
