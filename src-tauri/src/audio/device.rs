@@ -2,9 +2,6 @@ use cpal::traits::{DeviceTrait, HostTrait};
 use serde::Serialize;
 use std::collections::HashMap;
 
-#[cfg(target_os = "linux")]
-use pulsectl::controllers::DeviceControl;
-
 #[cfg(target_os = "windows")]
 use windows::Win32::Devices::FunctionDiscovery::{
     PKEY_Device_DeviceDesc, PKEY_Device_FriendlyName,
@@ -13,7 +10,7 @@ use windows::Win32::Devices::FunctionDiscovery::{
 use windows::Win32::Foundation::PROPERTYKEY;
 #[cfg(target_os = "windows")]
 use windows::Win32::Media::Audio::{
-    eCapture, eRender, IMMDeviceEnumerator, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
+    eCapture, eRender, EDataFlow, IMMDeviceEnumerator, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
 };
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToStringAlloc};
@@ -30,7 +27,7 @@ pub struct AudioDevice {
     pub id: String,
     pub label: String,
     /// True only for the synthetic "System Default" entry injected by
-    /// `get_input_devices`; real enumerated hardware always reports false.
+    /// `list_devices`; real enumerated hardware always reports false.
     pub is_system_default: bool,
 }
 
@@ -58,8 +55,15 @@ unsafe fn get_string_property(props: &IPropertyStore, key: *const PROPERTYKEY) -
     result.filter(|s| !s.trim().is_empty())
 }
 
+/// Active WASAPI endpoints for `data_flow` (`eCapture` or `eRender`), labelled
+/// from their friendly name and description.
 #[cfg(target_os = "windows")]
-fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
+fn get_windows_audio_devices(data_flow: EDataFlow) -> Result<Vec<AudioDevice>, String> {
+    let flow_label = if data_flow == eCapture {
+        "capture"
+    } else {
+        "render"
+    };
     let mut devices = Vec::new();
     unsafe {
         let hr = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
@@ -72,14 +76,18 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
                 .map_err(|e| format!("Failed to create MMDeviceEnumerator: {}", e))?;
 
         let collection = enumerator
-            .EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE)
+            .EnumAudioEndpoints(data_flow, DEVICE_STATE_ACTIVE)
             .map_err(|e| format!("Failed to enum audio endpoints: {}", e))?;
 
         let count = collection
             .GetCount()
             .map_err(|e| format!("Failed to get device count: {}", e))?;
 
-        crate::log_info!("Windows Audio: Found {} active capture endpoints", count);
+        crate::log_info!(
+            "Windows Audio: Found {} active {} endpoints",
+            count,
+            flow_label
+        );
 
         for i in 0..count {
             if let Ok(device) = collection.Item(i) {
@@ -143,379 +151,326 @@ fn get_windows_audio_devices() -> Result<Vec<AudioDevice>, String> {
     Ok(devices)
 }
 
-#[cfg(target_os = "linux")]
-fn get_linux_pulse_devices() -> Result<Vec<AudioDevice>, String> {
-    let mut devices = Vec::new();
-    let mut handler = pulsectl::controllers::SourceController::create()
-        .map_err(|e| format!("Failed to connect to PulseAudio: {}", e))?;
-    let sources = handler
-        .list_devices()
-        .map_err(|e| format!("Failed to list PulseAudio sources: {}", e))?;
+/// Prefix marking a device ID as a PulseAudio source or sink name
+/// (`pulse:<name>`). These IDs are persisted in `config.json`, so the format
+/// is stable across releases.
+const PULSE_ID_PREFIX: &str = "pulse:";
 
-    for source in sources {
-        let name = source.name.clone().unwrap_or_default();
-        let description = source.description.clone().unwrap_or_default();
-        if name.to_lowercase().contains(".monitor")
-            || description.to_lowercase().contains("monitor")
-        {
-            continue;
-        }
-        devices.push(AudioDevice {
-            id: format!("pulse:{}", name),
-            label: description,
-            is_system_default: false,
-        });
-    }
-    Ok(devices)
+/// ID of the synthetic "System Default" entry; also the persisted value
+/// meaning "follow the audio server's default device".
+const SYSTEM_DEFAULT_ID: &str = "default";
+
+#[derive(Clone, Copy)]
+enum DeviceDirection {
+    Input,
+    Output,
 }
 
-pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
-    let mut final_devices = Vec::new();
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(devices) = get_linux_pulse_devices() {
-            final_devices = devices;
+impl DeviceDirection {
+    fn label(self) -> &'static str {
+        match self {
+            DeviceDirection::Input => "input",
+            DeviceDirection::Output => "output",
         }
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(devices) = get_windows_audio_devices() {
-            final_devices = devices;
-        }
-    }
-
-    if final_devices.is_empty() {
-        let mut seen_labels = HashMap::new();
-        for host_id in cpal::available_hosts() {
-            if let Ok(host) = cpal::host_from_id(host_id) {
-                if let Ok(devices) = host.input_devices() {
-                    for dev in devices {
-                        let id = match dev.id() {
-                            Ok(id) => id.1,
-                            Err(_) => continue,
-                        };
-                        #[cfg(target_os = "linux")]
-                        if !id.starts_with("default:") && id != "pulse" && id != "default" {
-                            continue;
-                        }
-
-                        let mut label = match dev.description() {
-                            Ok(desc) => desc.name().to_string(),
-                            Err(_) => id.clone(),
-                        };
-
-                        let count = seen_labels.entry(label.clone()).or_insert(0);
-                        *count += 1;
-                        if *count > 1 {
-                            label = format!("{} ({})", label, *count);
-                        }
-                        final_devices.push(AudioDevice {
-                            id,
-                            label,
-                            is_system_default: false,
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    final_devices.sort_by(|a, b| a.label.cmp(&b.label));
-    final_devices.insert(
-        0,
-        AudioDevice {
-            id: "default".to_string(),
-            label: "System Default".to_string(),
-            is_system_default: true,
-        },
-    );
-    Ok(final_devices)
-}
-
-pub fn lookup_device(target_id: Option<String>) -> Result<cpal::Device, String> {
-    let host = cpal::default_host();
-    let target = target_id.filter(|id| id != "default");
-
-    fn summarize_input_devices(host: &cpal::Host) -> String {
-        match host.input_devices() {
-            Ok(devices) => devices
-                .map(|device| {
-                    let identifier = device
-                        .id()
-                        .map(|id| id.1)
-                        .unwrap_or_else(|_| "<unknown-id>".to_string());
-                    let label = device
-                        .description()
-                        .map(|description| description.name().to_string())
-                        .unwrap_or_else(|_| "<unknown-name>".to_string());
-                    format!("{} ({})", identifier, label)
-                })
-                .collect::<Vec<String>>()
-                .join(", "),
-            Err(error) => format!("<failed to enumerate input devices: {}>", error),
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    fn summarize_pulse_sources() -> String {
-        let mut controller = match pulsectl::controllers::SourceController::create() {
-            Ok(controller) => controller,
-            Err(error) => return format!("<failed to connect PulseAudio: {}>", error),
+    fn host_devices(self, host: &cpal::Host) -> Result<Vec<cpal::Device>, String> {
+        let devices = match self {
+            DeviceDirection::Input => host.input_devices().map(|devices| devices.collect()),
+            DeviceDirection::Output => host.output_devices().map(|devices| devices.collect()),
         };
-
-        match controller.list_devices() {
-            Ok(sources) => sources
-                .into_iter()
-                .map(|source| {
-                    source
-                        .name
-                        .unwrap_or_else(|| "<unknown-source>".to_string())
-                })
-                .collect::<Vec<String>>()
-                .join(", "),
-            Err(error) => format!("<failed to list PulseAudio sources: {}>", error),
-        }
-    }
-
-    let available_inputs = summarize_input_devices(&host);
-
-    if let Some(name) = target {
-        #[cfg(target_os = "linux")]
-        if let Some(stripped) = name.strip_prefix("pulse:") {
-            std::env::set_var("PULSE_SOURCE", stripped);
-            return host.default_input_device().ok_or_else(|| {
-                let pulse_sources = summarize_pulse_sources();
-                format!(
-                    "Failed to resolve Pulse source '{stripped}': no default input device available after setting PULSE_SOURCE. pulse_sources=[{pulse_sources}], input_devices=[{available_inputs}]"
-                )
-            });
-        }
-
-        if name.starts_with("pulse:") {
-            return host.default_input_device().ok_or_else(|| {
-                format!(
-                    "Failed to resolve device '{name}': no default input device available. input_devices=[{available_inputs}]"
-                )
-            });
-        }
-
-        host.input_devices()
-            .map_err(|e| e.to_string())?
-            .into_iter()
-            .find(|d| d.id().map(|id| id.1 == name).unwrap_or(false))
-            .ok_or_else(|| format!("Device '{name}' not found. input_devices=[{available_inputs}]"))
-    } else {
-        #[cfg(target_os = "linux")]
-        {
-            if let Ok(devices) = host.input_devices() {
-                for dev in devices {
-                    if let Ok(id) = dev.id() {
-                        if id.1 == "pulse" || id.1.starts_with("default") {
-                            return Ok(dev);
-                        }
-                    }
-                }
-            }
-        }
-        host.default_input_device().ok_or_else(|| {
+        devices.map_err(|error| {
             format!(
-                "No input device available. input_devices=[{}]",
-                available_inputs
+                "Failed to enumerate {} devices on the {} host: {}",
+                self.label(),
+                host.id().name(),
+                error
             )
         })
     }
-}
 
-#[cfg(target_os = "linux")]
-fn get_linux_pulse_output_devices() -> Result<Vec<AudioDevice>, String> {
-    let mut devices = Vec::new();
-    let mut handler = pulsectl::controllers::SinkController::create()
-        .map_err(|e| format!("Failed to connect to PulseAudio: {}", e))?;
-    let sinks = handler
-        .list_devices()
-        .map_err(|e| format!("Failed to list PulseAudio sinks: {}", e))?;
-
-    for sink in sinks {
-        let name = sink.name.clone().unwrap_or_default();
-        let description = sink.description.clone().unwrap_or_default();
-        devices.push(AudioDevice {
-            id: format!("pulse:{}", name),
-            label: description,
-            is_system_default: false,
-        });
-    }
-    Ok(devices)
-}
-
-#[cfg(target_os = "windows")]
-fn get_windows_output_audio_devices() -> Result<Vec<AudioDevice>, String> {
-    let mut devices = Vec::new();
-    unsafe {
-        let hr = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
-        if hr.is_err() && hr.0 != 0x00040101 {
-            crate::log_info!("Windows Audio: CoInitializeEx failed: {:?}", hr);
-        }
-
-        let enumerator: IMMDeviceEnumerator =
-            CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
-                .map_err(|e| format!("Failed to create MMDeviceEnumerator: {}", e))?;
-
-        let collection = enumerator
-            .EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE)
-            .map_err(|e| format!("Failed to enum audio endpoints: {}", e))?;
-
-        let count = collection
-            .GetCount()
-            .map_err(|e| format!("Failed to get device count: {}", e))?;
-
-        crate::log_info!("Windows Audio: Found {} active render endpoints", count);
-
-        for i in 0..count {
-            if let Ok(device) = collection.Item(i) {
-                let id_pwstr = match device.GetId() {
-                    Ok(p) => p,
-                    Err(_) => continue,
-                };
-                let id = id_pwstr.to_string().unwrap_or_default();
-                CoTaskMemFree(Some(id_pwstr.0 as *const _));
-
-                if let Ok(props) = device.OpenPropertyStore(STGM_READ) {
-                    let friendly_name = get_string_property(&props, &PKEY_Device_FriendlyName);
-                    let device_desc = get_string_property(&props, &PKEY_Device_DeviceDesc);
-
-                    let friendly = friendly_name.unwrap_or_else(|| "Unknown Device".to_string());
-                    let label = if let Some(desc) = device_desc {
-                        let f_lower = friendly.to_lowercase();
-                        let d_lower = desc.to_lowercase();
-
-                        if f_lower.contains(&d_lower) {
-                            friendly
-                        } else if d_lower.contains(&f_lower) {
-                            desc
-                        } else {
-                            format!("{} - {}", friendly, desc)
-                        }
-                    } else if friendly == "Unknown Device" {
-                        format!("Unknown Device ({})", id)
-                    } else {
-                        friendly
-                    };
-
-                    devices.push(AudioDevice {
-                        id,
-                        label,
-                        is_system_default: false,
-                    });
-                }
-            }
+    fn host_default_device(self, host: &cpal::Host) -> Option<cpal::Device> {
+        match self {
+            DeviceDirection::Input => host.default_input_device(),
+            DeviceDirection::Output => host.default_output_device(),
         }
     }
-    Ok(devices)
+}
+
+pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
+    list_devices(DeviceDirection::Input)
 }
 
 pub fn get_output_devices() -> Result<Vec<AudioDevice>, String> {
-    let mut final_devices = Vec::new();
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(devices) = get_linux_pulse_output_devices() {
-            final_devices = devices;
-        }
+    list_devices(DeviceDirection::Output)
+}
+
+/// A capture device resolved from the configured device ID, together with the
+/// identity of the concrete endpoint it is bound to right now.
+pub struct CaptureEndpoint {
+    pub device: cpal::Device,
+    /// Changes whenever the configured ID would open a different endpoint:
+    /// "System Default" moving to another device, or a device re-plugged.
+    pub identity: String,
+}
+
+/// Resolves the configured input device ID (`None` / `"default"` for the
+/// system default) to the exact endpoint the user selected.
+pub fn resolve_capture_endpoint(target_id: Option<&str>) -> Result<CaptureEndpoint, String> {
+    let device = resolve_device(target_id, DeviceDirection::Input)?;
+    let identity = capture_endpoint_identity(&device)?;
+    Ok(CaptureEndpoint { device, identity })
+}
+
+/// Resolves the configured playback device ID (`None` / `"default"` for the
+/// system default) to the exact device the user selected.
+pub fn lookup_output_device(target_id: Option<String>) -> Result<cpal::Device, String> {
+    resolve_device(target_id.as_deref(), DeviceDirection::Output)
+}
+
+fn list_devices(direction: DeviceDirection) -> Result<Vec<AudioDevice>, String> {
+    let mut devices = list_platform_devices(direction);
+    if devices.is_empty() {
+        devices = list_default_host_devices(direction);
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(devices) = get_windows_output_audio_devices() {
-            final_devices = devices;
-        }
-    }
-
-    if final_devices.is_empty() {
-        let mut seen_labels = HashMap::new();
-        for host_id in cpal::available_hosts() {
-            if let Ok(host) = cpal::host_from_id(host_id) {
-                if let Ok(devices) = host.output_devices() {
-                    for dev in devices {
-                        let id = match dev.id() {
-                            Ok(id) => id.1,
-                            Err(_) => continue,
-                        };
-                        #[cfg(target_os = "linux")]
-                        if !id.starts_with("default:") && id != "pulse" && id != "default" {
-                            continue;
-                        }
-
-                        let mut label = match dev.description() {
-                            Ok(desc) => desc.name().to_string(),
-                            Err(_) => id.clone(),
-                        };
-
-                        let count = seen_labels.entry(label.clone()).or_insert(0);
-                        *count += 1;
-                        if *count > 1 {
-                            label = format!("{} ({})", label, *count);
-                        }
-                        final_devices.push(AudioDevice {
-                            id,
-                            label,
-                            is_system_default: false,
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    final_devices.sort_by(|a, b| a.label.cmp(&b.label));
-    final_devices.insert(
+    devices.sort_by(|a, b| a.label.cmp(&b.label));
+    devices.insert(
         0,
         AudioDevice {
-            id: "default".to_string(),
+            id: SYSTEM_DEFAULT_ID.to_string(),
             label: "System Default".to_string(),
             is_system_default: true,
         },
     );
-    Ok(final_devices)
+    Ok(devices)
 }
 
-pub fn lookup_output_device(target_id: Option<String>) -> Result<cpal::Device, String> {
-    let host = cpal::default_host();
-    let target = target_id.filter(|id| id != "default");
-
-    if let Some(name) = target {
-        #[cfg(target_os = "linux")]
-        if let Some(stripped) = name.strip_prefix("pulse:") {
-            std::env::set_var("PULSE_SINK", stripped);
-            return host.default_output_device().ok_or_else(|| {
-                format!("Failed to resolve Pulse sink '{stripped}': no default output device available.")
-            });
+/// Platform-native enumeration, which yields friendlier labels than cpal's
+/// generic listing. An empty result falls through to the default host.
+#[cfg(target_os = "linux")]
+fn list_platform_devices(direction: DeviceDirection) -> Vec<AudioDevice> {
+    match list_pulse_devices(direction) {
+        Ok(devices) => devices,
+        Err(error) => {
+            crate::log_warn!(
+                "PulseAudio {} device listing unavailable, using the default audio host: {}",
+                direction.label(),
+                error
+            );
+            Vec::new()
         }
-
-        if name.starts_with("pulse:") {
-            return host.default_output_device().ok_or_else(|| {
-                format!("Failed to resolve device '{name}': no default output device available.")
-            });
-        }
-
-        host.output_devices()
-            .map_err(|e| e.to_string())?
-            .into_iter()
-            .find(|d| d.id().map(|id| id.1 == name).unwrap_or(false))
-            .ok_or_else(|| format!("Output device '{name}' not found."))
-    } else {
-        #[cfg(target_os = "linux")]
-        {
-            if let Ok(devices) = host.output_devices() {
-                for dev in devices {
-                    if let Ok(id) = dev.id() {
-                        if id.1 == "pulse" || id.1.starts_with("default") {
-                            return Ok(dev);
-                        }
-                    }
-                }
-            }
-        }
-        host.default_output_device()
-            .ok_or_else(|| "No output device available.".to_string())
     }
+}
+
+#[cfg(target_os = "windows")]
+fn list_platform_devices(direction: DeviceDirection) -> Vec<AudioDevice> {
+    let devices = match direction {
+        DeviceDirection::Input => get_windows_audio_devices(eCapture),
+        DeviceDirection::Output => get_windows_audio_devices(eRender),
+    };
+    devices.unwrap_or_else(|error| {
+        crate::log_warn!(
+            "Windows {} device listing failed, using the default audio host: {}",
+            direction.label(),
+            error
+        );
+        Vec::new()
+    })
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn list_platform_devices(_direction: DeviceDirection) -> Vec<AudioDevice> {
+    Vec::new()
+}
+
+#[cfg(target_os = "linux")]
+fn pulse_host() -> Result<cpal::Host, String> {
+    cpal::host_from_id(cpal::HostId::PulseAudio)
+        .map_err(|error| format!("PulseAudio server is unavailable: {}", error))
+}
+
+#[cfg(target_os = "linux")]
+fn list_pulse_devices(direction: DeviceDirection) -> Result<Vec<AudioDevice>, String> {
+    let host = pulse_host()?;
+    let devices = direction
+        .host_devices(&host)?
+        .into_iter()
+        .filter_map(|device| {
+            let name = device.id().ok()?.id().to_string();
+            let label = device
+                .description()
+                .map(|description| description.name().to_string())
+                .unwrap_or_else(|_| name.clone());
+            let is_monitor = name.to_lowercase().contains(".monitor")
+                || label.to_lowercase().contains("monitor");
+            if matches!(direction, DeviceDirection::Input) && is_monitor {
+                return None;
+            }
+            Some(AudioDevice {
+                id: format!("{PULSE_ID_PREFIX}{name}"),
+                label,
+                is_system_default: false,
+            })
+        })
+        .collect();
+    Ok(devices)
+}
+
+fn list_default_host_devices(direction: DeviceDirection) -> Vec<AudioDevice> {
+    let host = cpal::default_host();
+    let devices = match direction.host_devices(&host) {
+        Ok(devices) => devices,
+        Err(error) => {
+            crate::log_warn!("{}", error);
+            return Vec::new();
+        }
+    };
+
+    let mut seen_labels: HashMap<String, usize> = HashMap::new();
+    devices
+        .into_iter()
+        .filter_map(|device| {
+            let id = device.id().ok()?.id().to_string();
+            #[cfg(target_os = "linux")]
+            if !id.starts_with("default:") && id != "pulse" && id != SYSTEM_DEFAULT_ID {
+                return None;
+            }
+
+            let mut label = device
+                .description()
+                .map(|description| description.name().to_string())
+                .unwrap_or_else(|_| id.clone());
+            let count = seen_labels.entry(label.clone()).or_insert(0);
+            *count += 1;
+            if *count > 1 {
+                label = format!("{} ({})", label, *count);
+            }
+            Some(AudioDevice {
+                id,
+                label,
+                is_system_default: false,
+            })
+        })
+        .collect()
+}
+
+/// Callback period requested from PulseAudio streams.
+#[cfg(target_os = "linux")]
+const PULSE_STREAM_PERIOD_MS: u32 = 20;
+
+/// Buffer size to request for a stream on `device`.
+///
+/// PulseAudio sizes buffers server-side when left to its default: capture
+/// arrives in ~1s fragments (the level meter lags and the tail of a dictation
+/// is still in flight at stop), and a whole playback clip is accepted at once,
+/// so the "finished" callback fires long before the audio is heard. A fixed
+/// 20ms period keeps both live. Other hosts already default to short periods.
+pub(super) fn stream_buffer_size(
+    device: &cpal::Device,
+    config: &cpal::SupportedStreamConfig,
+) -> cpal::BufferSize {
+    #[cfg(target_os = "linux")]
+    {
+        let is_pulse_device = device
+            .id()
+            .map(|device_id| device_id.host() == cpal::HostId::PulseAudio)
+            .unwrap_or(false);
+        if is_pulse_device {
+            let period_frames = config.sample_rate() * PULSE_STREAM_PERIOD_MS / 1000;
+            return match *config.buffer_size() {
+                cpal::SupportedBufferSize::Range { min, max } => {
+                    cpal::BufferSize::Fixed(period_frames.clamp(min, max))
+                }
+                cpal::SupportedBufferSize::Unknown => cpal::BufferSize::Fixed(period_frames),
+            };
+        }
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    let _ = (device, config);
+
+    cpal::BufferSize::Default
+}
+
+/// `host:id`, plus the server index for PulseAudio sources (see
+/// `pulse_server` for why the name alone cannot identify the endpoint).
+fn capture_endpoint_identity(device: &cpal::Device) -> Result<String, String> {
+    let device_id = device
+        .id()
+        .map_err(|error| format!("Input device has no stable ID: {}", error))?;
+    let identity = format!("{}:{}", device_id.host().name(), device_id.id());
+
+    #[cfg(target_os = "linux")]
+    if device_id.host() == cpal::HostId::PulseAudio {
+        let index = super::pulse_server::source_index(device_id.id())?;
+        return Ok(format!("{identity}#{index}"));
+    }
+
+    Ok(identity)
+}
+
+fn resolve_device(
+    target_id: Option<&str>,
+    direction: DeviceDirection,
+) -> Result<cpal::Device, String> {
+    let Some(id) = target_id.filter(|id| *id != SYSTEM_DEFAULT_ID) else {
+        let host = cpal::default_host();
+        return direction.host_default_device(&host).ok_or_else(|| {
+            format!(
+                "No default {} device available on the {} host",
+                direction.label(),
+                host.id().name()
+            )
+        });
+    };
+
+    match id.strip_prefix(PULSE_ID_PREFIX) {
+        Some(pulse_name) => resolve_pulse_device(pulse_name, direction),
+        None => find_host_device(&cpal::default_host(), id, direction),
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn resolve_pulse_device(name: &str, direction: DeviceDirection) -> Result<cpal::Device, String> {
+    find_host_device(&pulse_host()?, name, direction)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn resolve_pulse_device(name: &str, direction: DeviceDirection) -> Result<cpal::Device, String> {
+    Err(format!(
+        "PulseAudio {} device '{}' cannot be opened on this platform",
+        direction.label(),
+        name
+    ))
+}
+
+fn find_host_device(
+    host: &cpal::Host,
+    id: &str,
+    direction: DeviceDirection,
+) -> Result<cpal::Device, String> {
+    let devices = direction.host_devices(host)?;
+    let device_ids: Vec<String> = devices
+        .iter()
+        .filter_map(|device| device.id().ok().map(|device_id| device_id.id().to_string()))
+        .collect();
+
+    devices
+        .into_iter()
+        .find(|device| {
+            device
+                .id()
+                .map(|device_id| device_id.id() == id)
+                .unwrap_or(false)
+        })
+        .ok_or_else(|| {
+            format!(
+                "{} device '{}' not found on the {} host. available=[{}]",
+                direction.label(),
+                id,
+                host.id().name(),
+                device_ids.join(", ")
+            )
+        })
 }

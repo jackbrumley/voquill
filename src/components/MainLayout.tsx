@@ -170,6 +170,7 @@ export function MainLayout(props: MainLayoutProps) {
             onCopyToClipboard={props.onCopyToClipboard}
             onSearch={props.onSearchHistory}
             onDelete={props.onDeleteHistoryItem}
+            showToast={props.onShowToast}
           />
         )}
 

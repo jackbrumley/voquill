@@ -28,10 +28,9 @@ pub struct AppState {
     pub hotkey_error: Arc<Mutex<Option<String>>>,
     pub hotkey_binding_state: Arc<Mutex<HotkeyBindingState>>,
     pub setup_status: Arc<Mutex<Option<String>>>,
-    pub cached_device: Arc<Mutex<Option<cpal::Device>>>,
-    pub playback_stream: Arc<Mutex<Option<cpal::Stream>>>,
-    pub mic_test_samples: Arc<Mutex<Vec<f32>>>,
+    /// Owned by `app::capture`; everything else only reads from it.
     pub audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
+    pub audio_player: Arc<audio::AudioPlayer>,
     #[cfg(target_os = "linux")]
     pub hotkey_engine_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     #[cfg(target_os = "linux")]
@@ -87,13 +86,8 @@ impl AppState {
             }
         }
 
-        // 4. Stop any playback stream.
-        {
-            let mut guard = self.playback_stream.lock().unwrap();
-            if guard.take().is_some() {
-                crate::log_info!("Playback stream stopped");
-            }
-        }
+        // 4. Stop all playback.
+        self.audio_player.stop_all();
 
         // 5. Cancel any in-flight dictation session.
         {
@@ -122,6 +116,19 @@ impl AppState {
         }
 
         crate::log_info!("AppState: cleanup complete");
+    }
+
+    /// Plays `clip` on the configured playback device. The single place that
+    /// applies `playback_device`, so a new selection takes effect for the next
+    /// sound everywhere.
+    pub fn play_audio(
+        &self,
+        slot: audio::PlaybackSlot,
+        clip: audio::AudioClip,
+        on_end: impl FnOnce() + Send + 'static,
+    ) -> Result<(), String> {
+        let playback_device = self.config.lock().unwrap().playback_device.clone();
+        self.audio_player.play(slot, clip, playback_device, on_end)
     }
 
     /// Retrieve the running Python runner instance, starting it if not already active.
@@ -164,10 +171,8 @@ impl Default for AppState {
             hotkey_error: Arc::new(Mutex::new(None)),
             hotkey_binding_state: Arc::new(Mutex::new(HotkeyBindingState::default())),
             setup_status: Arc::new(Mutex::new(None)),
-            cached_device: Arc::new(Mutex::new(None)),
-            playback_stream: Arc::new(Mutex::new(None)),
-            mic_test_samples: Arc::new(Mutex::new(Vec::new())),
             audio_engine: Arc::new(Mutex::new(None)),
+            audio_player: Arc::new(audio::AudioPlayer::default()),
             #[cfg(target_os = "linux")]
             hotkey_engine_cancel: Arc::new(Mutex::new(None)),
             #[cfg(target_os = "linux")]

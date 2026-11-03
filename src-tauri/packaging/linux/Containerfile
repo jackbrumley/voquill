@@ -36,7 +36,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libfuse2 \
         libgtk-3-dev \
         libgtk-layer-shell-dev \
-        libpulse-dev \
         librsvg2-dev \
         libssl-dev \
         libudev-dev \

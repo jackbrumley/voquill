@@ -1,7 +1,6 @@
-import { useEffect } from 'preact/hooks';
 import { IconCopy, IconPlayerPause, IconPlayerPlay, IconSearch, IconTrash, IconX } from '@tabler/icons-preact';
 import { useSignal } from '@preact/signals';
-import { invoke } from '@tauri-apps/api/core';
+import { useHistoryPlayback } from '../hooks/useHistoryPlayback.ts';
 import { tokens } from '../design-tokens.ts';
 import type { HistoryItem } from '../types.ts';
 import { getSpeakerColor } from '../speakerColors.ts';
@@ -13,6 +12,7 @@ interface HistoryPageProps {
   onCopyToClipboard: (text: string) => void;
   onSearch: (query: string) => void;
   onDelete?: (id: number) => void;
+  showToast?: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void;
 }
 
 interface HighlightSegment {
@@ -159,19 +159,9 @@ function renderItemText(item: HistoryItem, searchQuery: string, isRaw: boolean) 
   return text;
 }
 
-export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipboard, onSearch, onDelete }: HistoryPageProps) {
+export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipboard, onSearch, onDelete, showToast }: HistoryPageProps) {
   const showRaw = useSignal<Set<number>>(new Set());
-  const playingAudioId = useSignal<number | null>(null);
-  const currentAudio = useSignal<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (currentAudio.value) {
-        currentAudio.value.pause();
-        currentAudio.value = null;
-      }
-    };
-  }, []);
+  const historyPlayback = useHistoryPlayback(showToast);
 
   const toggleRaw = (id: number) => {
     const next = new Set(showRaw.value);
@@ -181,51 +171,6 @@ export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipb
       next.add(id);
     }
     showRaw.value = next;
-  };
-
-  const togglePlayAudio = async (item: HistoryItem) => {
-    if (!item.audio_file) return;
-
-    if (playingAudioId.value === item.id) {
-      if (currentAudio.value) {
-        currentAudio.value.pause();
-        currentAudio.value = null;
-      }
-      playingAudioId.value = null;
-      return;
-    }
-
-    try {
-      if (currentAudio.value) {
-        currentAudio.value.pause();
-        currentAudio.value = null;
-      }
-
-      const rawBytes = await invoke<number[]>('get_history_audio', { fileName: item.audio_file });
-      const u8 = new Uint8Array(rawBytes);
-      const blob = new Blob([u8], { type: 'audio/wav' });
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-
-      audio.onended = () => {
-        playingAudioId.value = null;
-        currentAudio.value = null;
-        URL.revokeObjectURL(url);
-      };
-      audio.onerror = () => {
-        playingAudioId.value = null;
-        currentAudio.value = null;
-        URL.revokeObjectURL(url);
-      };
-
-      await audio.play();
-      playingAudioId.value = item.id;
-      currentAudio.value = audio;
-    } catch (err) {
-      console.error('Failed to play history audio:', err);
-      playingAudioId.value = null;
-      currentAudio.value = null;
-    }
   };
 
   const displayItems = searchQuery.trim() ? searchResults : history;
@@ -304,7 +249,7 @@ export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipb
               const isRaw = showRaw.value.has(item.id);
               const displayText = isRaw && item.raw_text ? item.raw_text : (item.text || item.error_message || '');
               const statusBadge = getStatusBadge(item.status);
-              const isPlaying = playingAudioId.value === item.id;
+              const isPlaying = historyPlayback.playingItemId === item.id;
               return (
                 <div key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
                   <div style={{ color: '#f1f4f8', fontSize: tokens.typography.sizeSm, lineHeight: 1.45 }}>
@@ -354,7 +299,7 @@ export function HistoryPage({ history, searchQuery, searchResults, onCopyToClipb
                     )}
                     {item.audio_file && (
                       <button
-                        onClick={() => void togglePlayAudio(item)}
+                        onClick={() => void historyPlayback.togglePlayback(item)}
                         title={isPlaying ? 'Pause audio' : 'Play recorded audio'}
                         style={{
                           padding: '2px 8px',

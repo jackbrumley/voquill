@@ -183,6 +183,13 @@ function App() {
     onDownloadProgress: (progress) => { configHook.setDownloadProgress(progress); },
     onPostProcessGpuStatusChanged: () => { void gpuHook.refreshPostProcessGpuStatus(); },
     onInputSessionStateChanged: () => { void audioSetup.checkSetupStatus(); },
+    // The capture engine moved, failed or its device disappeared: refresh
+    // device lists and readiness now rather than on the next window focus.
+    onAudioDevicesChanged: () => {
+      void audioSetup.checkSetupStatus();
+      void audioSetup.loadMics();
+      void audioSetup.loadSpeakers();
+    },
     // Focus is the natural re-probe boundary: external changes that affect
     // readiness (models deleted, mic unplugged, permissions revoked) happen
     // while the app is unfocused.

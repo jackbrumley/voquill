@@ -140,7 +140,6 @@ function getMacosDependencies() {
 
 function getFedoraDependencies() {
   return [
-    ["libpulse", "PulseAudio development headers", () => checkPkgConfig("libpulse"), "sudo dnf install -y pulseaudio-libs-devel"],
     ["libgtk-layer-shell", "GTK Layer Shell development headers", () => checkPkgConfig("gtk-layer-shell-0"), "sudo dnf install -y gtk-layer-shell-devel"],
     ["cmake", "CMake build system", () => commandExists("cmake"), "sudo dnf install -y cmake"],
     ["pkg-config", "Package configuration tool", () => commandExists("pkg-config"), "sudo dnf install -y pkgconf-pkg-config"],
@@ -171,7 +170,6 @@ function getFedoraDependencies() {
 
 function getDebianDependencies() {
   return [
-    ["libpulse", "PulseAudio development headers", () => checkDeb("libpulse-dev"), "sudo apt install -y libpulse-dev"],
     ["libgtk-layer-shell", "GTK Layer Shell development headers", () => checkDeb("libgtk-layer-shell-dev"), "sudo apt install -y libgtk-layer-shell-dev"],
     ["cmake", "CMake build system", () => commandExists("cmake"), "sudo apt install -y cmake"],
     ["pkg-config", "Package configuration tool", () => commandExists("pkg-config"), "sudo apt install -y pkg-config"],
@@ -205,7 +203,6 @@ function getDebianDependencies() {
 
 function getArchDependencies() {
   return [
-    ["libpulse", "PulseAudio development headers", () => checkPacman("libpulse"), "sudo pacman -S --noconfirm libpulse"],
     ["libgtk-layer-shell", "GTK Layer Shell development headers", () => checkPacman("gtk-layer-shell"), "sudo pacman -S --noconfirm gtk-layer-shell"],
     ["cmake", "CMake build system", () => commandExists("cmake"), "sudo pacman -S --noconfirm cmake"],
     ["pkg-config", "Package configuration tool", () => commandExists("pkg-config"), "sudo pacman -S --noconfirm pkgconf"],

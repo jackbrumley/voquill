@@ -87,16 +87,12 @@ impl PermissionManager for MacosBackend {
     /// CoreAudio shows the microphone prompt when an input stream opens, so
     /// opening the persistent audio engine is the request.
     async fn request_audio_permission(&self, app_handle: tauri::AppHandle) -> Result<(), String> {
-        let state = app_handle.state::<crate::AppState>();
-        if state.audio_engine.lock().unwrap().is_some() {
-            return Ok(());
-        }
-
-        let config = state.config.lock().unwrap().clone();
-        let device = crate::audio::lookup_device(config.audio_device)?;
-        let engine = crate::audio::PersistentAudioEngine::new(&device, config.input_sensitivity)?;
-        *state.audio_engine.lock().unwrap() = Some(engine);
-        Ok(())
+        let settings = {
+            let state = app_handle.state::<crate::AppState>();
+            let config = state.config.lock().unwrap();
+            crate::app::capture::CaptureSettings::from_config(&config)
+        };
+        crate::app::capture::ensure_capture_engine(&app_handle, &settings)
     }
 
     async fn request_input_permission(&self, app_handle: tauri::AppHandle) -> Result<(), String> {

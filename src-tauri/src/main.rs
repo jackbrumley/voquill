@@ -184,7 +184,6 @@ fn main() {
             search_history,
             clear_history,
             delete_history_item,
-            get_history_audio,
             check_hotkey_status,
             manual_register_hotkey,
             configure_hotkey,

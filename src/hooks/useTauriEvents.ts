@@ -15,6 +15,8 @@ interface UseTauriEventsOptions {
   onDownloadProgress: (progress: ModelDownloadProgress) => void;
   onPostProcessGpuStatusChanged: () => void;
   onInputSessionStateChanged: () => void;
+  /// The backend started, replaced or tore down the capture engine.
+  onAudioDevicesChanged: () => void;
   onFocus: () => void;
   onHashChange: () => void;
 }
@@ -58,6 +60,10 @@ export function useTauriEvents(options: UseTauriEventsOptions) {
       latest.value.onInputSessionStateChanged();
     });
 
+    const unlistenAudioDevicesChanged = listen('audio-devices-changed', () => {
+      latest.value.onAudioDevicesChanged();
+    });
+
     const onFocus = () => latest.value.onFocus();
     const onHashChange = () => latest.value.onHashChange();
     window.addEventListener('focus', onFocus);
@@ -77,6 +83,7 @@ export function useTauriEvents(options: UseTauriEventsOptions) {
       unlistenDownloadProgress.then((fn) => fn());
       unlistenPostProcessGpuStatus.then((fn) => fn());
       unlistenInputSessionState.then((fn) => fn());
+      unlistenAudioDevicesChanged.then((fn) => fn());
     };
   }, []);
 }

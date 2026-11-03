@@ -78,39 +78,9 @@ async fn run_voice_macro_listener_loop(
 
     {
         let state = app_handle.state::<AppState>();
+        // The capture owner (`app::capture`) starts the engine and re-syncs
+        // this listener whenever it replaces it; the listener only attaches.
         let mut audio_guard = state.audio_engine.lock().unwrap();
-
-        if audio_guard.is_none() {
-            let requested_device = state.config.lock().unwrap().audio_device.clone();
-            let resolved_device = match crate::audio::lookup_device(requested_device.clone()) {
-                Ok(dev) => Some(dev),
-                Err(e) => {
-                    crate::log_warn!(
-                        "Voice Macro listener: Failed to resolve audio device '{}': {}",
-                        requested_device.unwrap_or_else(|| "default".to_string()),
-                        e
-                    );
-                    None
-                }
-            };
-            if let Some(dev) = resolved_device {
-                let sensitivity = state.config.lock().unwrap().input_sensitivity;
-                match crate::audio::PersistentAudioEngine::new(&dev, sensitivity) {
-                    Ok(new_engine) => {
-                        *audio_guard = Some(new_engine);
-                        crate::log_info!(
-                            "Voice Macro listener: Persistent audio engine initialized on-demand"
-                        );
-                    }
-                    Err(e) => {
-                        crate::log_warn!(
-                            "Voice Macro listener: Failed to initialize audio engine on-demand: {}",
-                            e
-                        );
-                    }
-                }
-            }
-        }
 
         match audio_guard.as_mut() {
             Some(engine) => {
@@ -284,14 +254,13 @@ async fn run_voice_macro_listener_loop(
                     continue;
                 }
 
-                let (enabled, trigger_word, commands, sound_feedback, playback_dev) = {
+                let (enabled, trigger_word, commands, sound_feedback) = {
                     let config = state.config.lock().unwrap();
                     (
                         config.voice_macros_enabled,
                         config.voice_macro_trigger_word.clone(),
                         config.voice_macros.clone(),
                         config.voice_macro_sound_feedback,
-                        config.playback_device.clone(),
                     )
                 };
 
@@ -354,7 +323,7 @@ async fn run_voice_macro_listener_loop(
                                         steps.len()
                                     );
 
-                                    play_macro_sound(&matched_cmd, playback_dev, sound_feedback);
+                                    play_macro_sound(&state, &matched_cmd, sound_feedback);
 
                                     let exec_start = Instant::now();
                                     if let Err(e) = execute_macro_command(&app_handle, &matched_cmd).await {

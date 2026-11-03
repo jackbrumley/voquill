@@ -92,8 +92,7 @@
       "deb": {
         "desktopTemplate": "packaging/bundler-stub.desktop.hbs",
         "depends": [
-          "libgtk-layer-shell0",
-          "libpulse0"
+          "libgtk-layer-shell0"
         ],
         "files": {
           "/usr/share/applications/org.voquill.voquill.desktop": "packaging/org.voquill.voquill.desktop",
@@ -104,8 +103,7 @@
         "desktopTemplate": "packaging/bundler-stub.desktop.hbs",
         "depends": [
           "gtk-layer-shell",
-          "webkit2gtk4.1",
-          "pulseaudio-libs"
+          "webkit2gtk4.1"
         ],
         "files": {
           "/usr/share/applications/org.voquill.voquill.desktop": "packaging/org.voquill.voquill.desktop",

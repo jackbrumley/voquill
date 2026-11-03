@@ -164,53 +164,10 @@ fn show_config_recovery_dialog(app: &tauri::App<tauri::Wry>, recovery: &ConfigRe
 }
 
 fn build_app_state(initial_config: &Config) -> AppState {
-    let app_state = AppState {
+    AppState {
         config: Arc::new(Mutex::new(initial_config.clone())),
         ..Default::default()
-    };
-
-    {
-        let mut cached_device = app_state.cached_device.lock().unwrap();
-        let device = match audio::lookup_device(initial_config.audio_device.clone()) {
-            Ok(device) => Some(device),
-            Err(error) => {
-                crate::log_warn!(
-                    "Initial audio device pre-warm failed (requested_device='{}'): {}",
-                    initial_config
-                        .audio_device
-                        .clone()
-                        .unwrap_or_else(|| "default".to_string()),
-                    error
-                );
-                None
-            }
-        };
-        *cached_device = device.clone();
-
-        if let Some(device) = device {
-            match audio::PersistentAudioEngine::new(&device, initial_config.input_sensitivity) {
-                Ok(engine) => {
-                    let mut engine_guard = app_state.audio_engine.lock().unwrap();
-                    *engine_guard = Some(engine);
-                    crate::log_info!("Persistent audio engine initialized");
-                }
-                Err(error) => {
-                    crate::log_warn!(
-                        "Initial persistent audio engine initialization failed (requested_device='{}', sensitivity={:.2}): {}",
-                        initial_config
-                            .audio_device
-                            .clone()
-                            .unwrap_or_else(|| "default".to_string()),
-                        initial_config.input_sensitivity,
-                        error
-                    );
-                }
-            }
-        }
-        crate::log_info!("Initial pre-warm of audio device cache complete");
     }
-
-    app_state
 }
 
 /// How this instance was launched (from the command line).
@@ -311,7 +268,8 @@ pub fn run_setup(
         app.handle(),
     );
     spawn_python_runner_prewarm(app.handle(), &initial_config);
-    crate::voice_macro::sync_voice_macro_listener(app.handle());
+    // Starting the capture engine also attaches the voice macro listener.
+    crate::app::capture::start(app.handle());
 
     Ok(())
 }

@@ -1,4 +1,5 @@
 pub mod bootstrap;
+pub mod capture;
 pub mod commands;
 pub mod hotkey_handler;
 pub mod recording_flow;

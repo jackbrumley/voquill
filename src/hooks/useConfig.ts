@@ -15,13 +15,22 @@ interface UseConfigReturn {
   loadModels: () => Promise<void>;
   downloadModel: (size: string, engine?: string) => Promise<void>;
   setDownloadProgress: (val: ModelDownloadProgress) => void;
-  persistConfig: (configToPersist: Config, showSavedConfirmation?: boolean) => Promise<void>;
+  /// Resolves to whether the backend accepted the config.
+  persistConfig: (configToPersist: Config, showSavedConfirmation?: boolean) => Promise<boolean>;
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
   toggleOutputMethod: (method: 'Typewriter' | 'Clipboard') => void;
   formatConfigValueForLog: (key: keyof Config, value: Config[keyof Config]) => string;
   hasLoadedConfig: boolean;
   hasLoadedModels: boolean;
 }
+
+/// Device selections take effect the moment they are picked, so a mic test or
+/// dictation started right after the change already uses the new device.
+const IMMEDIATE_SAVE_KEYS: ReadonlySet<keyof Config> = new Set<keyof Config>(['audio_device', 'playback_device']);
+
+/// Debounce for every other setting, so typing or dragging a slider does not
+/// save on every keystroke or tick.
+const DEBOUNCED_SAVE_DELAY_MS = 500;
 
 export function useConfig(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void, logUI: (msg: string) => void): UseConfigReturn {
   const config = useSignal<Config>({
@@ -180,8 +189,10 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
       if (showSavedConfirmation) {
         showToast('Saved', 'saved');
       }
+      return true;
     } catch (error) {
       showToast(`Failed to save: ${error}`, 'error');
+      return false;
     }
   };
 
@@ -230,33 +241,42 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     updateConfig('output_method', method);
   };
 
-  // Auto-save config with 500ms debounce. Gated on the on-disk config having
-  // loaded: until then `config` holds the in-memory defaults above, and
-  // persisting them would overwrite the user's saved settings.
+  const commitConfig = async (configToCommit: Config, changedKeys: (keyof Config)[]) => {
+    changedKeys.forEach((key) => {
+      logUI('Setting changed: ' + key + ' -> ' + formatConfigValueForLog(key, configToCommit[key]));
+    });
+    lastCommittedConfig.value = { ...configToCommit };
+    const saved = await persistConfig(configToCommit, true);
+    if (!saved) {
+      // The backend rejected the change and still runs its previous config;
+      // reload it so the UI never shows a selection that is not in effect.
+      await loadConfig();
+    }
+  };
+
+  // Auto-save config changes. Gated on the on-disk config having loaded:
+  // until then `config` holds the in-memory defaults above, and persisting
+  // them would overwrite the user's saved settings. Typed and dragged values
+  // are debounced; device selections save at once.
   useSignalEffect(() => {
     const currentConfig = config.value;
     if (!hasLoadedConfig.value) {
       return;
     }
+    const previousConfig = lastCommittedConfig.peek();
+    if (!previousConfig) {
+      return;
+    }
+    const changedKeys = (Object.keys(currentConfig) as (keyof Config)[]).filter(
+      (key) => JSON.stringify(previousConfig[key]) !== JSON.stringify(currentConfig[key]),
+    );
+    if (changedKeys.length === 0) {
+      return;
+    }
+    const saveDelayMs = changedKeys.some((key) => IMMEDIATE_SAVE_KEYS.has(key)) ? 0 : DEBOUNCED_SAVE_DELAY_MS;
     const timer = setTimeout(() => {
-      const previousConfig = lastCommittedConfig.peek();
-      if (!previousConfig) {
-        return;
-      }
-      let hasChanges = false;
-      (Object.keys(currentConfig) as (keyof Config)[]).forEach((key) => {
-        if (JSON.stringify(previousConfig[key]) !== JSON.stringify(currentConfig[key])) {
-          hasChanges = true;
-          const formattedValue = formatConfigValueForLog(key, currentConfig[key]);
-          logUI('Setting changed: ' + key + ' -> ' + formattedValue);
-        }
-      });
-
-      if (hasChanges) {
-        lastCommittedConfig.value = { ...currentConfig };
-        persistConfig(currentConfig, true);
-      }
-    }, 500);
+      void commitConfig(currentConfig, changedKeys);
+    }, saveDelayMs);
     return () => clearTimeout(timer);
   });
 

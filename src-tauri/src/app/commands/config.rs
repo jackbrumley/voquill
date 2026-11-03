@@ -1,6 +1,7 @@
+use crate::app::capture::{ensure_capture_engine, CaptureSettings};
 use crate::app::commands::hotkey::re_register_hotkey;
 use crate::config::Config;
-use crate::{audio, config, history, AppState};
+use crate::{config, history, AppState};
 use tauri::Emitter;
 
 #[tauri::command]
@@ -18,12 +19,8 @@ pub async fn save_config(
     let mut normalized_config = new_config;
     normalized_config.normalize();
 
-    let is_mic_test_active = *state.is_mic_test_active.lock().unwrap();
-
-    let (restart_engine, hotkey_changed, previous_config, merged_config) = {
+    let (hotkey_changed, previous_config, merged_config) = {
         let config_guard = state.config.lock().unwrap();
-        let audio_changed = config_guard.audio_device != normalized_config.audio_device
-            || config_guard.input_sensitivity != normalized_config.input_sensitivity;
         let hotkey_changed = config_guard.hotkey != normalized_config.hotkey;
         let previous_config = config_guard.clone();
 
@@ -35,105 +32,14 @@ pub async fn save_config(
             merged_config.input_token = config_guard.input_token.clone();
         }
 
-        (
-            audio_changed,
-            hotkey_changed,
-            previous_config,
-            merged_config,
-        )
+        (hotkey_changed, previous_config, merged_config)
     };
 
-    let mut prepared_device: Option<cpal::Device> = None;
-    let mut prepared_engine: Option<audio::PersistentAudioEngine> = None;
-
-    if restart_engine {
-        if is_mic_test_active {
-            let selected_device = merged_config
-                .audio_device
-                .clone()
-                .unwrap_or_else(|| "default".to_string());
-            crate::log_warn!(
-                "Audio config change rejected while mic test is active (requested_device='{}', sensitivity={:.2})",
-                selected_device,
-                merged_config.input_sensitivity
-            );
-            return Err(
-                "Cannot change audio settings while mic test is active. Stop mic test and try again."
-                    .to_string(),
-            );
-        }
-
-        let selected_device = merged_config.audio_device.clone();
-        let resolved_device = audio::lookup_device(selected_device.clone()).map_err(|error| {
-            format!(
-                "Failed to resolve input device '{}': {}",
-                selected_device.unwrap_or_else(|| "default".to_string()),
-                error
-            )
-        })?;
-
-        crate::log_info!(
-            "Audio config changed, validating persistent engine restart (requested_device='{}', sensitivity={:.2})",
-            merged_config
-                .audio_device
-                .clone()
-                .unwrap_or_else(|| "default".to_string()),
-            merged_config.input_sensitivity
-        );
-
-        let new_engine = audio::PersistentAudioEngine::new(
-            &resolved_device,
-            merged_config.input_sensitivity,
-        )
-        .map_err(|error| {
-            format!(
-                "Failed to initialize persistent audio engine for device '{}' (sensitivity {:.2}): {}",
-                merged_config
-                    .audio_device
-                    .clone()
-                    .unwrap_or_else(|| "default".to_string()),
-                merged_config.input_sensitivity,
-                error
-            )
-        })?;
-
-        prepared_device = Some(resolved_device);
-        prepared_engine = Some(new_engine);
-    }
+    apply_audio_input_config(&app_handle, &state, &previous_config, &merged_config)?;
 
     {
         let mut config_guard = state.config.lock().unwrap();
         *config_guard = merged_config.clone();
-    }
-
-    if restart_engine {
-        {
-            let mut cached_device = state.cached_device.lock().unwrap();
-            *cached_device = prepared_device;
-        }
-        {
-            let mut engine_guard = state.audio_engine.lock().unwrap();
-            *engine_guard = prepared_engine;
-        }
-        crate::log_info!("Persistent engine restarted");
-    } else {
-        let cached = match audio::lookup_device(merged_config.audio_device.clone()) {
-            Ok(device) => Some(device),
-            Err(error) => {
-                crate::log_warn!(
-                    "Failed to pre-warm audio device cache (requested_device='{}'): {}",
-                    merged_config
-                        .audio_device
-                        .clone()
-                        .unwrap_or_else(|| "default".to_string()),
-                    error
-                );
-                None
-            }
-        };
-        let mut cached_device = state.cached_device.lock().unwrap();
-        *cached_device = cached;
-        crate::log_info!("Pre-warmed audio device cache");
     }
 
     if let Err(error) = config::storage::save_config(&merged_config) {
@@ -162,6 +68,42 @@ pub async fn save_config(
     crate::voice_macro::sync_voice_macro_listener(&app_handle);
 
     Ok(())
+}
+
+/// Applies a changed input device or sensitivity before the config is stored,
+/// so an unusable selection is rejected instead of saved.
+///
+/// The mic-test lock is held while the capture engine is rebuilt.
+/// `start_mic_test` takes the same lock before it touches the engine, so a
+/// test started during a device change waits for it and records from the new
+/// device, and a device change requested mid-test is rejected rather than
+/// swapping the engine underneath the running test.
+fn apply_audio_input_config(
+    app_handle: &tauri::AppHandle,
+    state: &AppState,
+    previous_config: &Config,
+    next_config: &Config,
+) -> Result<(), String> {
+    let input_changed = previous_config.audio_device != next_config.audio_device
+        || previous_config.input_sensitivity != next_config.input_sensitivity;
+    if !input_changed {
+        return Ok(());
+    }
+
+    let is_mic_test_active = state.is_mic_test_active.lock().unwrap();
+    if *is_mic_test_active {
+        crate::log_warn!(
+            "Audio config change rejected while mic test is active (requested_device='{}', sensitivity={:.2})",
+            next_config.audio_device.as_deref().unwrap_or("default"),
+            next_config.input_sensitivity
+        );
+        return Err(
+            "Cannot change audio settings while mic test is active. Stop mic test and try again."
+                .to_string(),
+        );
+    }
+
+    ensure_capture_engine(app_handle, &CaptureSettings::from_config(next_config))
 }
 
 /// Reconciles engine warm-up state with a freshly saved config. The local
@@ -253,18 +195,19 @@ pub async fn reset_application_to_defaults(
     }
 
     {
-        let mut cached_device = state.cached_device.lock().unwrap();
-        *cached_device = None;
-    }
-
-    {
         let mut mic_test_active = state.is_mic_test_active.lock().unwrap();
         *mic_test_active = false;
     }
 
+    state.audio_player.stop_all();
+
+    if let Err(error) =
+        ensure_capture_engine(&app_handle, &CaptureSettings::from_config(&default_config))
     {
-        let mut playback_stream = state.playback_stream.lock().unwrap();
-        *playback_stream = None;
+        crate::log_warn!(
+            "Factory reset: capture engine not started on the default device: {}",
+            error
+        );
     }
 
     {

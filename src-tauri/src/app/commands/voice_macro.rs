@@ -15,11 +15,7 @@ pub struct SpokenMacroTestResult {
 
 #[command]
 pub async fn test_voice_macro_sound(state: State<'_, AppState>) -> Result<(), String> {
-    let playback_device = {
-        let config = state.config.lock().unwrap();
-        config.playback_device.clone()
-    };
-    crate::voice_macro::play_macro_trigger_sound(playback_device);
+    crate::voice_macro::play_macro_trigger_sound(&state);
     Ok(())
 }
 
@@ -183,14 +179,9 @@ pub async fn preview_tts_voice(
         .synthesize_tts(&text, &voice_id, speed, effect.as_deref(), pitch, None)
         .await?;
 
-    let playback_device = {
-        let config = state.config.lock().unwrap();
-        config.playback_device.clone()
-    };
-
     let path = std::path::PathBuf::from(&res.output_path);
     if path.exists() {
-        let _ = crate::voice_macro::play_macro_sound_file(&path, playback_device);
+        let _ = crate::voice_macro::play_macro_sound_file(&state, &path);
     }
 
     Ok(res)
@@ -252,16 +243,11 @@ pub async fn play_macro_sound_preview(
     state: State<'_, AppState>,
     macro_id: String,
 ) -> Result<(), String> {
-    let playback_device = {
-        let config = state.config.lock().unwrap();
-        config.playback_device.clone()
-    };
-
     let path = crate::voice_macro::macro_sound_path(&macro_id)?;
     if path.exists() {
-        crate::voice_macro::play_macro_sound_file(&path, playback_device)
+        crate::voice_macro::play_macro_sound_file(&state, &path)
     } else {
-        crate::voice_macro::play_macro_trigger_sound(playback_device);
+        crate::voice_macro::play_macro_trigger_sound(&state);
         Ok(())
     }
 }
@@ -280,8 +266,8 @@ pub async fn clone_macro_sound(
 }
 
 #[command]
-pub async fn stop_macro_sound_playback() -> Result<(), String> {
-    crate::voice_macro::sound::stop_macro_sound_playback();
+pub async fn stop_macro_sound_playback(state: State<'_, AppState>) -> Result<(), String> {
+    crate::voice_macro::sound::stop_macro_sound_playback(&state);
     Ok(())
 }
 
@@ -325,18 +311,13 @@ pub async fn preview_custom_tts_voice(
         e
     })?;
 
-    let playback_device = {
-        let config = state.config.lock().unwrap();
-        config.playback_device.clone()
-    };
-
     let path = std::path::PathBuf::from(&res.output_path);
     if path.exists() {
         crate::log_info!(
             "Playing generated custom TTS audio file: {}",
             path.display()
         );
-        crate::voice_macro::play_macro_sound_file(&path, playback_device).map_err(|e| {
+        crate::voice_macro::play_macro_sound_file(&state, &path).map_err(|e| {
             crate::log_warn!("Failed to play custom TTS audio file: {}", e);
             e
         })?;
