@@ -16,13 +16,13 @@ Voquill supports a one-command install flow from the website, matching the unins
 ### Native Package (.deb / .rpm) — Recommended
 Auto-detects `apt` or `dnf` and installs system-wide (prompts for sudo if required):
 ```bash
-curl -sf https://voquill.org/install.sh | bash
+curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash
 ```
 
 ### AppImage (User-Local / Standalone)
 Installs AppImage to `~/.local/bin` without requiring sudo or admin privileges:
 ```bash
-curl -sf https://voquill.org/install.sh | bash -s -- --appimage
+curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash -s -- --appimage
 ```
 
 ## Windows Installation
@@ -45,14 +45,14 @@ irm https://voquill.org/install-system.ps1 | iex
 
 macOS support is community-supported (see the [FAQ](faq.html#macos-support)). Open **Terminal** and run:
 ```bash
-curl -sf https://voquill.org/install.sh | bash
+curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash
 ```
 
 This installs `Voquill.app` into `/Applications` (an administrator password is requested if your account cannot write there) and launches it. The app is not notarized by Apple; installing with this command avoids the "unidentified developer" warning that a browser download triggers. On first launch, grant **Microphone**, **Accessibility** and (for Fn hotkeys) **Input Monitoring** permission in **System Settings → Privacy & Security**. Intel Macs are not supported.
 
 To uninstall:
 ```bash
-curl -sf https://voquill.org/uninstall.sh | bash
+curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/uninstall.sh | bash
 ```
 
 ## macOS Development (Apple Silicon)

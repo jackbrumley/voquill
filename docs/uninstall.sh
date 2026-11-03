@@ -25,8 +25,8 @@ Options:
   -h, --help    Show this help message
 
 Examples:
-  curl -sf https://voquill.org/uninstall.sh | bash
-  curl -sf https://voquill.org/uninstall.sh | bash -s -- --purge-data --yes
+  curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/uninstall.sh | bash
+  curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/uninstall.sh | bash -s -- --purge-data --yes
 EOF
 }
 

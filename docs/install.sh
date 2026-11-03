@@ -47,9 +47,9 @@ Environment overrides:
   VOQUILL_NO_RELAUNCH     Set to 1 to disable auto-launching Voquill after install
 
 Examples:
-  curl -sf https://voquill.org/install.sh | bash
-  curl -sf https://voquill.org/install.sh | bash -s -- --appimage
-  curl -sf https://voquill.org/install.sh | sudo bash -s -- --yes --clean
+  curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash
+  curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash -s -- --appimage
+  curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | sudo bash -s -- --yes --clean
 EOF
 }
 

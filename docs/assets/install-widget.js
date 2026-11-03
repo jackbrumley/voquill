@@ -7,25 +7,25 @@
     linux: {
       system: {
         label: 'System Install',
-        command: 'curl -sf https://voquill.org/install.sh | bash',
+        command: 'curl --proto \'=https\' --tlsv1.2 -sSf https://voquill.org/install.sh | bash',
       },
       appimage: {
         label: 'AppImage',
-        command: 'curl -sf https://voquill.org/install.sh | bash -s -- --appimage',
+        command: 'curl --proto \'=https\' --tlsv1.2 -sSf https://voquill.org/install.sh | bash -s -- --appimage',
       },
       uninstall: {
         label: 'Uninstall',
-        command: 'curl -sf https://voquill.org/uninstall.sh | bash',
+        command: 'curl --proto \'=https\' --tlsv1.2 -sSf https://voquill.org/uninstall.sh | bash',
       },
     },
     macos: {
       install: {
         label: 'Install',
-        command: 'curl -sf https://voquill.org/install.sh | bash',
+        command: 'curl --proto \'=https\' --tlsv1.2 -sSf https://voquill.org/install.sh | bash',
       },
       uninstall: {
         label: 'Uninstall',
-        command: 'curl -sf https://voquill.org/uninstall.sh | bash',
+        command: 'curl --proto \'=https\' --tlsv1.2 -sSf https://voquill.org/uninstall.sh | bash',
       },
     },
     windows: {

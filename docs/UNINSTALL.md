@@ -18,7 +18,7 @@ Leaves your user data (`~/.config/voquill-app`) intact so you don't lose models 
 
 **Linux:**
 ```bash
-curl -sf https://voquill.org/uninstall.sh | bash
+curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/uninstall.sh | bash
 ```
 
 **Windows (PowerShell):**
@@ -33,7 +33,7 @@ Removes Voquill and wipes all user data — models, config, history, logs, and t
 
 **Linux:**
 ```bash
-curl -sf https://voquill.org/uninstall.sh | bash -s -- --purge-data --yes
+curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/uninstall.sh | bash -s -- --purge-data --yes
 ```
 
 **Windows (PowerShell):**

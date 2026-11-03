@@ -54,12 +54,12 @@ irm https://voquill.org/install.ps1 | iex
 
 **Linux (Debian, Ubuntu, Fedora, Arch, etc.):**
 ```bash
-curl -sf https://voquill.org/install.sh | bash
+curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash
 ```
 
 **macOS (Apple Silicon, community-supported):**
 ```bash
-curl -sf https://voquill.org/install.sh | bash
+curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash
 ```
 
 > **Prefer a visual installer or AppImage?** Visit **[voquill.org](https://voquill.org)** for automatic platform detection and all package options.

@@ -120,9 +120,9 @@ fn unix_update_command() -> &'static str {
             .unwrap_or(false);
 
     if is_appimage {
-        "curl -sf https://voquill.org/install.sh | bash -s -- --appimage"
+        "curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash -s -- --appimage"
     } else {
-        "curl -sf https://voquill.org/install.sh | bash"
+        "curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash"
     }
 }
 
@@ -130,7 +130,7 @@ fn unix_update_command() -> &'static str {
 /// in /Applications.
 #[cfg(target_os = "macos")]
 fn unix_update_command() -> &'static str {
-    "curl -sf https://voquill.org/install.sh | bash"
+    "curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash"
 }
 
 /// The updater's output, and what the update-failed dialog opens.
