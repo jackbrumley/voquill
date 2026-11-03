@@ -263,6 +263,10 @@ the in-app updater here, check whether the standard (and the other apps)
 should change too, and say so; when Voquill and the standard disagree, fix
 whichever is wrong so they agree again.
 
+It is also the reference for the shared
+[App Standard](https://github.com/jackbrumley/jackbrumley.github.io/blob/main/APP_STANDARD.md)
+(window, logging, diagnostics, settings, CI and repository conventions).
+
 ## Interaction Guidelines for Agents
 
 - **Look for Improvement:** Don't just implement the request. Analyze the surrounding code for "mess" and offer to tidy it up.
