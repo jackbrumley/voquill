@@ -140,13 +140,16 @@ fn update_log_path() -> std::path::PathBuf {
         .unwrap_or_else(|_| std::env::temp_dir().join("voquill-update.log"))
 }
 
-/// A fresh update log, as the updater's stdout and stderr.
+/// A fresh update log, as the updater's stdout and stderr. Emptied first, then
+/// opened in append mode: install.sh also appends its own lines to this file,
+/// and a plain write handle would write over them at its own offset.
 fn update_log_outputs() -> Result<(Stdio, Stdio), String> {
+    let log_path = update_log_path();
+    std::fs::write(&log_path, b"")
+        .map_err(|error| format!("Failed to reset update log file: {error}"))?;
     let log_file = std::fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(update_log_path())
+        .append(true)
+        .open(&log_path)
         .map_err(|error| format!("Failed to open update log file: {error}"))?;
     let log_file_err = log_file
         .try_clone()
