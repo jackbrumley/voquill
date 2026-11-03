@@ -253,6 +253,16 @@ Any agent working on this repo should prioritize the following cleanups:
 
 ---
 
+## Release and Update Standard
+
+Voquill is the reference implementation of the shared
+[Release and Update Standard](https://github.com/jackbrumley/jackbrumley.github.io/blob/main/RELEASE_STANDARD.md)
+that Rusty G6, SomeDrive and Yambuck also follow. The procedure is
+`docs/RELEASE.md`. When you change release tooling, the installer scripts or
+the in-app updater here, check whether the standard (and the other apps)
+should change too, and say so; when Voquill and the standard disagree, fix
+whichever is wrong so they agree again.
+
 ## Interaction Guidelines for Agents
 
 - **Look for Improvement:** Don't just implement the request. Analyze the surrounding code for "mess" and offer to tidy it up.
