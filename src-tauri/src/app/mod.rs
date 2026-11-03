@@ -6,4 +6,5 @@ pub mod recording_flow;
 pub mod session_log;
 pub mod state;
 pub mod status;
+pub mod system_info;
 pub mod tray;

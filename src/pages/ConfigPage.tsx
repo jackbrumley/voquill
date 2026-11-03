@@ -46,7 +46,6 @@ interface ConfigPageProps {
   startMicTest: () => void;
   stopMicTest: () => void;
   stopMicPlayback: () => void;
-  openDebugFolder: () => void;
   onReopenInitialSetup: () => void;
   onFactoryReset: () => void;
   checkingUpdates: boolean;
@@ -121,7 +120,6 @@ export function ConfigPage(props: ConfigPageProps) {
     startMicTest,
     stopMicTest,
     stopMicPlayback,
-    openDebugFolder,
     onReopenInitialSetup,
     onFactoryReset,
     checkingUpdates,
@@ -318,7 +316,6 @@ export function ConfigPage(props: ConfigPageProps) {
               <DebugSection
                 config={config}
                 updateConfig={updateConfig}
-                openDebugFolder={openDebugFolder}
                 onReopenInitialSetup={onReopenInitialSetup}
                 onFactoryReset={onFactoryReset}
                 onOpenUiLab={onOpenUiLab}

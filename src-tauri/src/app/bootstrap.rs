@@ -17,19 +17,8 @@ use crate::platform::linux::detection::is_wayland_session;
 #[cfg(target_os = "linux")]
 use crate::platform::linux::wayland::env::{check_wayland_display, APP_ID};
 
-#[cfg(target_os = "linux")]
-fn read_linux_distribution_name() -> Option<String> {
-    let contents = std::fs::read_to_string("/etc/os-release").ok()?;
-    for line in contents.lines() {
-        if let Some(value) = line.strip_prefix("PRETTY_NAME=") {
-            return Some(value.trim_matches('"').to_string());
-        }
-    }
-    None
-}
-
-/// Records how Linux launched Voquill (display server, session, desktop,
-/// distro) so every session log carries the environment it ran in.
+/// Records how Linux launched Voquill (display server and the variables that
+/// chose it) beside the system info in the session header.
 #[cfg(target_os = "linux")]
 fn log_linux_launch_context() {
     crate::log_info!(
@@ -41,9 +30,6 @@ fn log_linux_launch_context() {
         std::env::var("XDG_CURRENT_DESKTOP").ok(),
         gtk::glib::prgname()
     );
-    if let Some(distro_name) = read_linux_distribution_name() {
-        crate::log_info!("Linux distro: {}", distro_name);
-    }
 }
 
 /// Registers Voquill's app ID with the portal host registry, recording any

@@ -20,17 +20,6 @@ pub async fn get_wayland_portal_version() -> Result<u32, String> {
     Ok(0)
 }
 
-#[cfg(target_os = "linux")]
-fn read_linux_distribution_name() -> Option<String> {
-    let contents = std::fs::read_to_string("/etc/os-release").ok()?;
-    for line in contents.lines() {
-        if let Some(value) = line.strip_prefix("PRETTY_NAME=") {
-            return Some(value.trim_matches('"').to_string());
-        }
-    }
-    None
-}
-
 #[derive(Serialize)]
 pub struct SystemShortcutContext {
     distro: Option<String>,
@@ -96,7 +85,7 @@ pub async fn get_overlay_positioning_capabilities() -> Result<OverlayPositioning
 pub async fn get_system_shortcut_context() -> Result<SystemShortcutContext, String> {
     #[cfg(target_os = "linux")]
     {
-        let distro = read_linux_distribution_name();
+        let distro = crate::app::system_info::distribution_name();
         let desktop = std::env::var("XDG_CURRENT_DESKTOP")
             .ok()
             .and_then(|value| value.split(':').next().map(|segment| segment.to_string()));

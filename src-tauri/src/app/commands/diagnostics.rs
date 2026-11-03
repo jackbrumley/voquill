@@ -1,3 +1,4 @@
+use crate::app::system_info::SystemInfo;
 use crate::AppState;
 use serde::Serialize;
 
@@ -84,22 +85,30 @@ pub(crate) fn open_with_system(path: &std::path::Path) -> Result<(), String> {
         })
 }
 
+/// Opens the debug folder (session log, last-session log, update log and
+/// recording logs).
 #[tauri::command]
-pub async fn open_debug_folder() -> Result<(), String> {
-    crate::log_info!("Tauri Command: open_debug_folder invoked");
+pub async fn open_log_folder() -> Result<(), String> {
+    crate::log_info!("Tauri Command: open_log_folder invoked");
     open_with_system(&crate::paths::debug_dir()?)
 }
 
 #[tauri::command]
-pub async fn get_session_log_text() -> Result<String, String> {
+pub async fn copy_session_log() -> Result<(), String> {
     let log_path = crate::resolve_session_log_path()?;
-    std::fs::read_to_string(&log_path).map_err(|error| error.to_string())
+    let log_text = std::fs::read_to_string(&log_path).map_err(|error| error.to_string())?;
+    typing::copy_to_clipboard(&log_text).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub async fn copy_session_log_to_clipboard() -> Result<(), String> {
-    let logs = get_session_log_text().await?;
-    typing::copy_to_clipboard(&logs).map_err(|error| error.to_string())
+pub async fn get_system_info() -> Result<SystemInfo, String> {
+    Ok(SystemInfo::collect())
+}
+
+/// The System info block's copy button, for bug reports.
+#[tauri::command]
+pub async fn copy_system_info() -> Result<(), String> {
+    typing::copy_to_clipboard(&SystemInfo::collect().summary()).map_err(|error| error.to_string())
 }
 
 #[tauri::command]

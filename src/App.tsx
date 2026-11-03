@@ -344,7 +344,6 @@ function App() {
           onStartMicTest={audioSetup.startMicTest}
           onStopMicTest={audioSetup.stopMicTest}
           onStopMicPlayback={audioSetup.stopMicPlayback}
-          onOpenDebugFolder={() => void invoke('open_debug_folder').catch(() => showToast('Failed to open debug folder', 'error'))}
           onReopenInitialSetup={() => { setSetupTouched(true); navigate('setup'); }}
           onFactoryReset={() => hotkeySetup.setShowFactoryResetModal(true)}
           onCheckForUpdates={() => void updatesHook.checkForUpdates(true)}

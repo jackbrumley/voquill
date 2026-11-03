@@ -247,6 +247,18 @@ export interface UpdateCheckResult {
   notesUrl?: string;
 }
 
+// Mirrors `app::system_info::SystemInfo`.
+export interface SystemInfo {
+  app_version: string;
+  build_profile: string;
+  executable: string;
+  os: string;
+  distribution: string;
+  architecture: string;
+  desktop: string;
+  session_type: string;
+}
+
 export interface GpuStatus {
   tested: boolean;
   available: boolean;

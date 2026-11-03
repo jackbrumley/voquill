@@ -57,7 +57,6 @@ interface MainLayoutProps {
   onStartMicTest: () => void;
   onStopMicTest: () => void;
   onStopMicPlayback: () => void;
-  onOpenDebugFolder: () => void;
   onReopenInitialSetup: () => void;
   onFactoryReset: () => void;
   onCheckForUpdates: () => void;
@@ -149,7 +148,6 @@ export function MainLayout(props: MainLayoutProps) {
             startMicTest={props.onStartMicTest}
             stopMicTest={props.onStopMicTest}
             stopMicPlayback={props.onStopMicPlayback}
-            openDebugFolder={props.onOpenDebugFolder}
             onReopenInitialSetup={props.onReopenInitialSetup}
             onFactoryReset={props.onFactoryReset}
             checkingUpdates={props.checkingUpdates}
