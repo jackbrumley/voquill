@@ -29,14 +29,20 @@ function tagExists(tag) {
 // HEAD; it starts at the nearest earlier tag.
 function releaseRange() {
   const end = tagExists(TAG) ? TAG : "HEAD";
-  const previousTag = git("describe", "--tags", "--abbrev=0", `${end}^`);
+  let previousTag = null;
+  try {
+    previousTag = git("describe", "--tags", "--abbrev=0", `${end}^`);
+  } catch {
+    // First release: there is no earlier tag, so the range is all history.
+  }
   return { previousTag, end };
 }
 
 function printCommitsSincePreviousRelease() {
   const { previousTag, end } = releaseRange();
-  const subjects = git("log", "--no-merges", "--format=- %s", `${previousTag}..${end}`);
-  console.error(`Commits in ${previousTag}..${end} (source material, not part of the notes):\n`);
+  const range = previousTag ? `${previousTag}..${end}` : end;
+  const subjects = git("log", "--no-merges", "--format=- %s", range);
+  console.error(`Commits in ${range} (source material, not part of the notes):\n`);
   console.error(`${subjects}\n`);
 }
 
