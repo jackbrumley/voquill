@@ -115,10 +115,12 @@ Before marking any task as complete, run each check as a separate command (never
 1. `cargo fmt` (Formatting)
 2. `cargo check` (Compilation check -- zero warnings required)
 3. `cargo clippy --all-targets` (Static analysis, tests included -- zero warnings required)
-4. `npm run lint` (Frontend lint -- pre-existing warnings are acceptable, new code must not introduce additional warnings)
-5. `npm run typecheck` (TypeScript integrity)
+4. `cargo test` (Rust unit tests)
+5. `npm run lint` (Frontend lint -- pre-existing warnings are acceptable, new code must not introduce additional warnings)
+6. `npm run typecheck` (TypeScript integrity)
+7. `npm run check:structure` (File size budget -- see below)
 
-All five must pass without warnings. Treat compiler warnings as errors.
+All seven must pass without warnings. Treat compiler warnings as errors.
 
 ---
 
@@ -224,6 +226,7 @@ To keep files focused and maintainable:
 
 - **Soft Limit (600 lines):** A signal of architectural decay. At 600 lines, stop and plan a structural extraction (sub-modules, helper utilities, or dedicated service layers).
 - **Hard Limit (1000 lines):** A critical build error. Files at or above 1000 lines must be structurally refactored before any further changes are made to them.
+- **Enforced:** `npm run check:structure` (`scripts/check-file-lines.mjs`, also run by CI) fails on any file in `src/` or `src-tauri/src/` at or above the hard limit and lists how many are over the soft limit.
 - **Anti-Compression Rule:** Do NOT reduce line counts by compressing style blocks onto single lines, merging multiline statements, deleting blank lines, or collapsing logical blocks. The only acceptable reduction is a proper structural extraction.
 
 ### Domain-Driven Extraction (Mandatory)
