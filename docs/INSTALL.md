@@ -1,10 +1,10 @@
 ---
-layout: default
+layout: prose
+stylesheets:
+  - /assets/prose.css
 title: Voquill Install Guide
 description: One-command install of Voquill on Linux, Windows and macOS. System package, AppImage, PowerShell, or app bundle.
 canonical: https://voquill.org/INSTALL.html
-body_class: centered-page
-container_class: home-container
 ---
 
 # Voquill Install Guide

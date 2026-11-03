@@ -5,29 +5,40 @@ description: FOSS, truly free & open-source offline dictation that types into an
 canonical: https://voquill.org/screenshots.html
 stylesheets:
   - /assets/screenshots.css
-container_class: screenshots-container
 ---
-<a href="{{ '/index.html' | relative_url }}" class="btn btn-secondary back-link">Back to Home</a>
-<h1>Screenshots</h1>
+<header class="hero hero-compact">
+  <div class="hero-inner">
+    <div class="hero-copy">
+      <nav class="crumb" aria-label="Breadcrumb">
+        <a href="{{ '/index.html' | relative_url }}">&larr; Back to Home</a>
+      </nav>
+      <h1>Screenshots</h1>
+    </div>
+    {% include hero-art.html %}
+  </div>
+</header>
 
+<main class="page page-overlap">
 <div class="gallery">
   <div class="screenshot-card">
-    <img src="{{ '/screenshots/screenshot-1.png' | relative_url }}" alt="Voquill Home View">
+    <img src="{{ '/screenshots/screenshot-1.png' | relative_url }}" alt="Voquill Home View" width="400" height="600">
     <p>Main dictation interface and audio file transcription.</p>
   </div>
   <div class="screenshot-card">
-    <img src="{{ '/screenshots/screenshot-2.png' | relative_url }}" alt="Voquill History View">
+    <img src="{{ '/screenshots/screenshot-2.png' | relative_url }}" alt="Voquill History View" width="400" height="600">
     <p>Local history with audio playback, original/cleaned toggle, and metadata.</p>
   </div>
   <div class="screenshot-card">
-    <img src="{{ '/screenshots/screenshot-3.png' | relative_url }}" alt="Voquill Settings">
+    <img src="{{ '/screenshots/screenshot-3.png' | relative_url }}" alt="Voquill Settings" width="400" height="600" loading="lazy" decoding="async">
     <p>Comprehensive settings for engines, audio devices, hotkeys, and AI post-processing.</p>
   </div>
   <div class="screenshot-card">
-    <img src="{{ '/screenshots/screenshot-4.png' | relative_url }}" alt="Voquill Help">
+    <img src="{{ '/screenshots/screenshot-4.png' | relative_url }}" alt="Voquill Help" width="400" height="600" loading="lazy" decoding="async">
     <p>Integrated user guide, shortcuts, and usage tips.</p>
   </div>
 </div>
+
+</main>
 
 <div class="lightbox-overlay" id="lightbox">
   <div id="lightbox-container"></div>
@@ -54,6 +65,7 @@ container_class: screenshots-container
       } else {
         const img = document.createElement('img');
         img.src = media.src;
+        img.alt = media.alt;
         img.className = 'lightbox-content';
         lightboxContainer.appendChild(img);
       }

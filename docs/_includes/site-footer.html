@@ -1,15 +1,61 @@
 <footer class="site-footer">
-  {% if page.provenance %}
-  <p class="provenance">{{ page.provenance }}</p>
-  {% endif %}
-  <nav class="site-footer-links" aria-label="Footer Navigation">
-    <a href="{{ '/' | relative_url }}">Home</a>
-    <a href="{{ '/faq.html' | relative_url }}">FAQ</a>
-    <a href="{{ '/screenshots.html' | relative_url }}">Screenshots</a>
-    <a href="{{ '/donate.html' | relative_url }}">Support</a>
-    <a href="https://github.com/jackbrumley/voquill" target="_blank" rel="noopener noreferrer">GitHub</a>
-  </nav>
-  <div class="site-footer-license">
-    <p>&copy; {{ site.copyright_year }} {{ site.project_name }}. {{ site.license_label }} Licensed.</p>
+  <div class="site-footer-inner">
+    {% unless page.url == '/donate.html' %}
+    <section class="support-band" aria-label="Support Voquill">
+      <div class="support-copy">
+        <p class="support-title">Support Voquill</p>
+        <p>Donations are optional and do not unlock features. FOSS Voquill remains free and GNU AGPLv3 licensed.</p>
+      </div>
+      <a class="btn btn-primary" href="{{ '/donate.html' | relative_url }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C1 8.6 3 5 6.5 5c2 0 3.5 1.1 4.5 2.6C12 6.1 13.5 5 15.5 5 19 5 21 8.6 19.6 11.8 17.5 16.4 12 21 12 21z"/></svg>
+        Donate
+      </a>
+    </section>
+    {% endunless %}
+
+    <section class="other-apps" aria-label="Other apps by Jack Brumley">
+      <p class="other-apps-title">Other apps</p>
+      <ul class="app-tiles">
+        <li>
+          <a class="app-tile" href="{{ '/' | relative_url }}" aria-current="true" style="--app: #5865f2; --app-2: #c43991;">
+            <span class="tile"><img src="{{ '/assets/icons/voquill.png' | relative_url }}" alt="" width="40" height="40"></span>
+            <span class="app-tile-name">Voquill</span>
+          </a>
+        </li>
+        <li>
+          <a class="app-tile" href="https://brumley.info/rusty-g6/" style="--app: #e5483f; --app-2: #ff8a3d;">
+            <span class="tile"><img src="{{ '/assets/icons/rusty-g6.png' | relative_url }}" alt="" width="40" height="40"></span>
+            <span class="app-tile-name">Rusty G6</span>
+          </a>
+        </li>
+        <li>
+          <a class="app-tile" href="https://brumley.info/somedrive/" style="--app: #1677d2; --app-2: #22c1c3;">
+            <span class="tile"><img src="{{ '/assets/icons/somedrive.svg' | relative_url }}" alt="" width="40" height="40"></span>
+            <span class="app-tile-name">SomeDrive</span>
+          </a>
+        </li>
+        <li>
+          <a class="app-tile" href="https://yambuck.com/" style="--app: #1f8f9c; --app-2: #5ce0d2;">
+            <span class="tile"><img src="{{ '/assets/icons/yambuck.svg' | relative_url }}" alt="" width="40" height="40"></span>
+            <span class="app-tile-name">Yambuck</span>
+          </a>
+        </li>
+      </ul>
+      <a class="all-apps" href="https://brumley.info/">All apps &rarr;</a>
+    </section>
+
+    <div class="site-footer-bottom">
+      {% if page.provenance %}
+      <p class="provenance">{{ page.provenance }}</p>
+      {% endif %}
+      <nav class="site-footer-links" aria-label="Footer Navigation">
+        <a href="{{ '/' | relative_url }}">Home</a>
+        <a href="{{ '/faq.html' | relative_url }}">FAQ</a>
+        <a href="{{ '/screenshots.html' | relative_url }}">Screenshots</a>
+        <a href="{{ '/donate.html' | relative_url }}">Support</a>
+        <a href="https://github.com/jackbrumley/voquill" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+      <p class="site-footer-license">&copy; {{ site.copyright_year }} {{ site.project_name }}. {{ site.license_label }} Licensed.</p>
+    </div>
   </div>
 </footer>

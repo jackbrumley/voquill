@@ -1,10 +1,10 @@
 ---
-layout: default
+layout: prose
+stylesheets:
+  - /assets/prose.css
 title: Voquill Uninstall Guide
 description: One-command uninstall of Voquill on Linux and Windows. Safe default or full purge.
 canonical: https://voquill.org/UNINSTALL.html
-body_class: centered-page
-container_class: home-container
 ---
 
 # Voquill Uninstall Guide

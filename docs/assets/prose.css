@@ -1,0 +1,104 @@
+/* Guide pages written in Markdown (INSTALL.md, UNINSTALL.md) */
+
+.prose { padding: 36px 40px 40px; }
+
+.prose h1 {
+  margin: 0 0 16px;
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.prose h2 { margin: 44px 0 14px; }
+
+.prose h3 {
+  margin: 28px 0 8px;
+  font-size: 1.08rem;
+  font-weight: 600;
+}
+
+.prose p,
+.prose ul { margin: 0 0 14px; }
+
+.prose li { margin-bottom: 4px; }
+
+.prose code {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  overflow-wrap: anywhere;
+}
+
+.prose pre {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--code-border);
+  border-radius: 10px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.prose pre code {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+  overflow-wrap: normal;
+}
+
+.prose div.highlight { background: none; }
+
+.prose kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface-soft);
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+.prose table {
+  display: block;
+  width: 100%;
+  margin: 0 0 18px;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.prose th,
+.prose td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose td code {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.prose td:last-child { min-width: 14rem; }
+
+.prose th {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .prose { padding: 26px 18px 24px; }
+}

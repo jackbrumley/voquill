@@ -5,19 +5,22 @@ description: Answers to common questions about FOSS Voquill, including privacy, 
 canonical: https://voquill.org/faq.html
 stylesheets:
   - /assets/faq.css
-body_class: centered-page
-container_class: faq-container
 provenance: Founded July 2025 by Jack Brumley
 ---
-<div class="faq-nav-bar">
-  <a href="{{ '/' | relative_url }}" class="btn btn-secondary btn-compact">&larr; Back to Home</a>
-</div>
-
-<header class="faq-header">
-  <h1>Frequently Asked Questions</h1>
-  <p class="tagline">Everything you need to know about FOSS Voquill, privacy, local AI models, and offline dictation.</p>
+<header class="hero hero-compact">
+  <div class="hero-inner">
+    <div class="hero-copy">
+      <nav class="crumb" aria-label="Breadcrumb">
+        <a href="{{ '/' | relative_url }}">&larr; Back to Home</a>
+      </nav>
+      <h1>Frequently Asked Questions</h1>
+      <p class="tagline">Everything you need to know about FOSS Voquill, privacy, local AI models, and offline dictation.</p>
+    </div>
+    {% include hero-art.html %}
+  </div>
 </header>
 
+<main class="page page-narrow page-overlap">
 <div class="faq-list">
 
   <article class="faq-item" id="is-voquill-free">
@@ -180,3 +183,4 @@ provenance: Founded July 2025 by Jack Brumley
 <div class="faq-back-action">
   <a href="{{ '/' | relative_url }}" class="btn btn-secondary">Back to Home</a>
 </div>
+</main>

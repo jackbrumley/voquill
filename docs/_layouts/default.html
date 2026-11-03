@@ -3,10 +3,9 @@
 <head>
   {% include site-head.html %}
 </head>
-<body class="{{ page.body_class }}">
-  <div class="container {{ page.container_class }}">
-    {{ content }}
-    {% include site-footer.html %}
-  </div>
+<body>
+  {% include site-bar.html %}
+  {{ content }}
+  {% include site-footer.html %}
 </body>
 </html>

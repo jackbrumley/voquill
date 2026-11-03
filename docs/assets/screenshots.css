@@ -1,75 +1,61 @@
-.container.screenshots-container {
-  max-width: 1200px;
-  padding: 4rem 1rem;
-}
-
-h1 {
-  font-size: 2.5rem;
-  font-weight: 300;
-  margin-bottom: 2rem;
-}
-
-.back-link {
-  align-self: center;
-  margin-bottom: 2rem;
-}
+/* Screenshots page */
 
 .gallery {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 400px));
   justify-content: center;
-  gap: 2.5rem;
-  max-width: 1100px;
-  margin: 0 auto 2rem;
+  gap: 36px 32px;
 }
 
 .screenshot-card {
-  width: 400px;
-  max-width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  cursor: pointer;
+  margin: 0;
+  cursor: zoom-in;
 }
 
-.screenshot-card img,
-.screenshot-card video {
-  width: 400px;
-  height: 600px;
-  max-width: 100%;
-  height: auto;
-  border-radius: 12px;
+.screenshot-card img {
   display: block;
-  background: rgba(0, 0, 0, 0.2);
-  pointer-events: none;
-  image-rendering: -webkit-optimize-contrast;
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shot-shadow);
+  transition: transform 0.2s ease;
 }
+
+.screenshot-card:hover img { transform: translateY(-4px); }
 
 .screenshot-card p {
-  margin-top: 0.8rem;
-  color: #ffffff;
-  font-size: 0.9rem;
-  line-height: 1.4;
-  min-height: 3em;
-  display: flex;
+  margin: 14px 4px 0;
+  color: var(--muted);
+  font-size: 0.93rem;
+  text-align: center;
+}
+
+/* Lightbox */
+
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
+  padding: 16px;
+  background: rgba(8, 9, 14, 0.85);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  cursor: zoom-out;
 }
 
-.site-footer {
-  margin-top: auto;
-  padding: 2rem;
-}
+.lightbox-overlay.active { display: flex; }
 
-@media (max-width: 900px) {
-  .gallery {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .gallery {
-    grid-template-columns: 1fr;
-  }
+.lightbox-content {
+  width: 100%;
+  max-width: 400px;
+  max-height: 90vh;
+  height: auto;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.7);
+  background: #000000;
 }

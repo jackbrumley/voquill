@@ -10,234 +10,227 @@ canonical: https://voquill.org/
 stylesheets:
   - /assets/index.css
 is_home: true
-body_class: centered-page
-container_class: home-container
 ---
-<header>
-  <div class="hero-brand-row">
-    <div class="hero-orb-wrapper" aria-label="Voquill Animated Logo">
-      <div class="hero-orb-aura"></div>
-      <div class="hero-orb-ring">
-        <div class="hero-orb-inner">
-          <div class="hero-orb-pulse"></div>
-          <div class="hero-orb-vignette"></div>
-          <div class="hero-orb-content">
-            <div class="hero-audio-wave">
-              <div class="hero-audio-bar"></div>
-              <div class="hero-audio-bar"></div>
-              <div class="hero-audio-bar"></div>
-              <div class="hero-audio-bar"></div>
-              <div class="hero-audio-bar"></div>
-              <div class="hero-audio-bar"></div>
-              <div class="hero-audio-bar"></div>
+<header class="hero">
+  <div class="hero-inner">
+    <div class="hero-copy">
+      <div class="hero-orb-wrapper" aria-label="Voquill Animated Logo">
+        <div class="hero-orb-aura"></div>
+        <div class="hero-orb-ring">
+          <div class="hero-orb-inner">
+            <div class="hero-orb-pulse"></div>
+            <div class="hero-orb-vignette"></div>
+            <div class="hero-orb-content">
+              <div class="hero-audio-wave">
+                <div class="hero-audio-bar"></div>
+                <div class="hero-audio-bar"></div>
+                <div class="hero-audio-bar"></div>
+                <div class="hero-audio-bar"></div>
+                <div class="hero-audio-bar"></div>
+                <div class="hero-audio-bar"></div>
+                <div class="hero-audio-bar"></div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="hero-title-block">
       <h1>FOSS Voquill</h1>
       <p class="tagline">Truly free &amp; open-source offline dictation for Windows and Linux. Your voice never leaves your computer.</p>
     </div>
+    {% include hero-art.html %}
   </div>
-  <div class="platform-row">
+</header>
+
+<main class="page page-overlap">
+  <section class="panel install" aria-label="Install">
     <div class="platform-labels" id="platform-labels">
       <button type="button" class="platform-label" data-platform="linux">Linux</button>
       <button type="button" class="platform-label" data-platform="windows">Windows</button>
       <button type="button" class="platform-label" data-platform="macos">macOS</button>
       <div class="platform-tab-indicator" id="platform-tab-indicator"></div>
     </div>
-  </div>
 
-  <p class="install-hint" id="install-hint" aria-live="polite"></p>
+    <p class="install-hint" id="install-hint" aria-live="polite"></p>
 
-  <div class="install-code-wrapper">
-    <pre class="install-code-block" id="install-code"></pre>
-    <button class="install-copy-btn" id="install-copy-btn" aria-label="Copy to clipboard">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-      </svg>
-    </button>
-  </div>
-  <div class="install-variants" id="install-variants"></div>
-</header>
+    <div class="install-code-wrapper">
+      <pre class="install-code-block" id="install-code"></pre>
+      <button type="button" class="install-copy-btn" id="install-copy-btn" aria-label="Copy to clipboard"></button>
+    </div>
+    <div class="install-variants" id="install-variants"></div>
 
-<div class="download-section">
-  <div class="download-primary-row">
-    <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn">
-      <img src="{{ '/download.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
-      <span class="btn-text">
+    <div class="install-manual">
+      <a href="https://github.com/jackbrumley/voquill/releases/latest" class="btn btn-secondary btn-small">
+        <img src="{{ '/download.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
         <span class="btn-title">Manual Download</span>
-      </span>
-    </a>
-  </div>
-</div>
-
-<section class="capabilities-section">
-  <div class="capability-pills">
-    <span class="capability-pill capability-pill-highlight">On-Device AI Post-Processing</span>
-    <span class="capability-pill">Voice Macro Automation</span>
-    <span class="capability-pill">Works in Any Application</span>
-    <span class="capability-pill capability-pill-primary">100% Local &amp; Private</span>
-    <span class="capability-pill">AI Voice Feedback</span>
-    <span class="capability-pill">Separate Multiple Voices</span>
-    <span class="capability-pill">Push-to-Talk or Toggle Mode</span>
-    <span class="capability-pill">Full Wayland Support</span>
-    <span class="capability-pill">Transcribe Audio Files</span>
-    <span class="capability-pill capability-pill-pink">Truly FOSS</span>
-  </div>
-</section>
-
-<p class="how-it-works">
-  Voquill turns your voice into text right where your cursor is. Use hold-to-talk or toggle mode to dictate, and it types into any app — emails, docs, browsers, editors. Free and open source with Windows and Linux support, it runs entirely on your device so your voice stays private.
-</p>
-
-<div class="download-secondary-row">
-    <a href="{{ '/faq.html' | relative_url }}" class="btn btn-secondary">
-      <img src="{{ '/message-question.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
-      <span class="btn-text">
-        <span class="btn-title">FAQ</span>
-        <span class="btn-subtitle">Questions answered</span>
-      </span>
-    </a>
-    <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">
-      <img src="{{ '/brand-github.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
-      <span class="btn-text">
-        <span class="btn-title">GitHub</span>
-        <span class="btn-subtitle">Forever FOSS</span>
-      </span>
-    </a>
-    <a href="{{ '/donate.html' | relative_url }}" class="btn btn-secondary btn-support">
-      <img src="{{ '/heart.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
-      <span class="btn-text">
-        <span class="btn-title">Support</span>
-        <span class="btn-subtitle">Donate optional</span>
-      </span>
-    </a>
-  </div>
-
-<div class="press-quote-card">
-  <span class="press-source">WIRED</span>
-  <blockquote class="press-quote-text">&ldquo;...the best free Windows and Linux option I've found without any annoying upselling.&rdquo;</blockquote>
-  <a href="https://www.wired.com/story/do-you-actually-need-to-pay-for-transcription-software" target="_blank" rel="noopener noreferrer" class="press-quote-link">Read on WIRED &rarr;</a>
-</div>
-
-<div class="hero-screenshots-grid">
-  <a href="{{ '/screenshots.html' | relative_url }}" class="hero-screenshot-card">
-    <img src="{{ '/screenshots/screenshot-1.png' | relative_url }}" alt="Voquill Dictation Interface" loading="eager">
-  </a>
-  <a href="{{ '/screenshots.html' | relative_url }}" class="hero-screenshot-card">
-    <img src="{{ '/screenshots/screenshot-2.png' | relative_url }}" alt="Voquill History & Playback Interface" loading="eager">
-  </a>
-</div>
-
-<div class="gallery-action">
-  <a href="{{ '/screenshots.html' | relative_url }}" class="btn btn-secondary">View All Screenshots</a>
-</div>
-
-<section class="workflows-section">
-  <h2 class="section-heading">Three Core Workflows</h2>
-  <div class="workflows-grid">
-    <div class="workflow-card">
-      <div class="workflow-badge">1. Dictate</div>
-      <h3>Speak &rarr; Text Everywhere</h3>
-      <p>Press your global shortcut, speak, and text appears directly at your cursor in any application—web browsers, email, word processors, notes, or messaging apps.</p>
+      </a>
     </div>
-    <div class="workflow-card">
-      <div class="workflow-badge">2. Transcribe</div>
-      <h3>Audio &rarr; Transcript &amp; Diarization</h3>
-      <p>Import voice recordings (WAV, MP3, M4A, FLAC). Automatically identify different speakers (`Speaker 1`, `Speaker 2`) and review transcripts with built-in audio playback.</p>
+  </section>
+
+  <section class="capabilities-section">
+    <div class="capability-pills">
+      <span class="capability-pill capability-pill-highlight">On-Device AI Post-Processing</span>
+      <span class="capability-pill">Voice Macro Automation</span>
+      <span class="capability-pill">Works in Any Application</span>
+      <span class="capability-pill capability-pill-primary">100% Local &amp; Private</span>
+      <span class="capability-pill">AI Voice Feedback</span>
+      <span class="capability-pill">Separate Multiple Voices</span>
+      <span class="capability-pill">Push-to-Talk or Toggle Mode</span>
+      <span class="capability-pill">Full Wayland Support</span>
+      <span class="capability-pill">Transcribe Audio Files</span>
+      <span class="capability-pill capability-pill-pink">Truly FOSS</span>
     </div>
-    <div class="workflow-card">
-      <div class="workflow-badge">3. Refine</div>
-      <h3>Speech &rarr; Finished Writing</h3>
-      <p>Instant filler-word removal plus built-in <strong>local AI post-processing</strong>. Transforms rough spoken thoughts into clean emails, formatted notes, or custom writing styles—100% offline without sending text to any cloud service.</p>
+  </section>
+
+  <p class="how-it-works">
+    Voquill turns your voice into text right where your cursor is. Use hold-to-talk or toggle mode to dictate, and it types into any app — emails, docs, browsers, editors. Free and open source with Windows and Linux support, it runs entirely on your device so your voice stays private.
+  </p>
+
+  <nav class="link-row" aria-label="Project links">
+      <a href="{{ '/faq.html' | relative_url }}" class="btn btn-secondary">
+        <img src="{{ '/message-question.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
+        <span class="btn-text">
+          <span class="btn-title">FAQ</span>
+          <span class="btn-subtitle">Questions answered</span>
+        </span>
+      </a>
+      <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">
+        <img src="{{ '/brand-github.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
+        <span class="btn-text">
+          <span class="btn-title">GitHub</span>
+          <span class="btn-subtitle">Forever FOSS</span>
+        </span>
+      </a>
+      <a href="{{ '/donate.html' | relative_url }}" class="btn btn-secondary btn-support">
+        <img src="{{ '/heart.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
+        <span class="btn-text">
+          <span class="btn-title">Support</span>
+          <span class="btn-subtitle">Donate optional</span>
+        </span>
+      </a>
+  </nav>
+
+  <div class="press-quote-card">
+    <span class="press-source">WIRED</span>
+    <blockquote class="press-quote-text">&ldquo;...the best free Windows and Linux option I've found without any annoying upselling.&rdquo;</blockquote>
+    <a href="https://www.wired.com/story/do-you-actually-need-to-pay-for-transcription-software" target="_blank" rel="noopener noreferrer" class="press-quote-link">Read on WIRED &rarr;</a>
+  </div>
+
+  <div class="hero-screenshots-grid">
+    <a href="{{ '/screenshots.html' | relative_url }}" class="hero-screenshot-card">
+      <img src="{{ '/screenshots/screenshot-1.png' | relative_url }}" alt="Voquill Dictation Interface" width="400" height="600" loading="lazy" decoding="async">
+    </a>
+    <a href="{{ '/screenshots.html' | relative_url }}" class="hero-screenshot-card">
+      <img src="{{ '/screenshots/screenshot-2.png' | relative_url }}" alt="Voquill History &amp; Playback Interface" width="400" height="600" loading="lazy" decoding="async">
+    </a>
+  </div>
+
+  <div class="gallery-action">
+    <a href="{{ '/screenshots.html' | relative_url }}" class="btn btn-secondary">View All Screenshots</a>
+  </div>
+
+  <section class="workflows-section">
+    <h2 class="section-heading">Three Core Workflows</h2>
+    <div class="workflows-grid">
+      <div class="workflow-card">
+        <div class="workflow-badge">1. Dictate</div>
+        <h3>Speak &rarr; Text Everywhere</h3>
+        <p>Press your global shortcut, speak, and text appears directly at your cursor in any application—web browsers, email, word processors, notes, or messaging apps.</p>
+      </div>
+      <div class="workflow-card">
+        <div class="workflow-badge">2. Transcribe</div>
+        <h3>Audio &rarr; Transcript &amp; Diarization</h3>
+        <p>Import voice recordings (WAV, MP3, M4A, FLAC). Automatically identify different speakers (`Speaker 1`, `Speaker 2`) and review transcripts with built-in audio playback.</p>
+      </div>
+      <div class="workflow-card">
+        <div class="workflow-badge">3. Refine</div>
+        <h3>Speech &rarr; Finished Writing</h3>
+        <p>Instant filler-word removal plus built-in <strong>local AI post-processing</strong>. Transforms rough spoken thoughts into clean emails, formatted notes, or custom writing styles—100% offline without sending text to any cloud service.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="feature-list">
+    <h2 class="feature-list-heading">Full Platform Capabilities</h2>
+    <ul>
+      <li>
+        <strong>Hands-Free Voice Macros &amp; Key Automation</strong>
+        <span class="feature-desc">Trigger multi-step key sequences, app shortcuts, and native system commands hands-free using spoken trigger words with Voice Activation Thresholds.</span>
+      </li>
+      <li>
+        <strong>Local AI Voice Feedback &amp; Voice Studio</strong>
+        <span class="feature-desc">Instant spoken confirmations powered by on-device neural TTS with authentic tactical radio, cockpit AI, and sci-fi acoustic effects.</span>
+      </li>
+      <li>
+        <strong>On-Device AI &amp; Local LLM Post-Processing</strong>
+        <span class="feature-desc">Runs full AI language models (LLMs like Qwen &amp; Llama) directly on your computer to fix grammar, reformat notes, or rephrase rough dictation into clean text—100% offline with zero cloud fees.</span>
+      </li>
+      <li>
+        <strong>Custom AI Prompts &amp; Style Presets</strong>
+        <span class="feature-desc">Choose or create custom AI prompts to shape your voice output: switch between professional emails, structured notes, or create custom writing styles.</span>
+      </li>
+      <li>
+        <strong>Custom Dictionary &amp; Technical Words</strong>
+        <span class="feature-desc">Add unique names, jargon, acronyms, and specialized terminology to your personal dictionary so names and technical terms are recognized more reliably.</span>
+      </li>
+      <li>
+        <strong>Instant Filler-Word Stripping</strong>
+        <span class="feature-desc">Instant deterministic removal strips "uh", "um", "like", and "you know" before text reaches your cursor, without needing a full AI model pass.</span>
+      </li>
+      <li>
+        <strong>100% Private &amp; Offline</strong>
+        <span class="feature-desc">Speech recognition and AI models run locally on your computer. Your voice and text stay private on your device with no accounts or telemetry.</span>
+      </li>
+      <li>
+        <strong>Works in Any Application</strong>
+        <span class="feature-desc">Type directly into any email, document, browser, editor, or chat window on Windows and Linux using customizable global hotkeys.</span>
+      </li>
+      <li>
+        <strong>Differentiate Voices &amp; Transcribe Files</strong>
+        <span class="feature-desc">Detect and label distinct speakers (`Speaker 1`, `Speaker 2`) in live dictations or drag-and-drop audio files (WAV, MP3, M4A, FLAC, OGG).</span>
+      </li>
+      <li>
+        <strong>Searchable Recording History &amp; Playback</strong>
+        <span class="feature-desc">Search past dictations instantly with full-text search, listen back to original voice recordings with built-in audio playback, and compare raw vs. AI-cleaned text.</span>
+      </li>
+    </ul>
+  </section>
+
+  <div class="faq-teaser-card">
+    <h3>Got Questions About Privacy, Local AI Models, or Features?</h3>
+    <p>Read our full Frequently Asked Questions page to learn how Voquill runs 100% locally with zero telemetry, no accounts, and no subscriptions.</p>
+    <a href="{{ '/faq.html' | relative_url }}" class="btn btn-secondary">Read Full FAQ &rarr;</a>
+  </div>
+
+  <section class="philosophy-grid">
+    <div class="card">
+      <h3>Truly Free</h3>
+      <p>GNU AGPLv3 licensed. No subscriptions, no paywalls, no accounts, and no "Pro" tiers—just a powerful open-source tool for everyone.</p>
+    </div>
+    <div class="card">
+      <h3>100% Private &amp; Local</h3>
+      <p>Private by default. On-device speech recognition powered by Whisper.cpp &amp; Parakeet with zero telemetry. Optional cloud APIs if you choose.</p>
+    </div>
+    <div class="card">
+      <h3>Native &amp; Cross-Platform</h3>
+      <p>First-class Linux support (Wayland XDG Portals, X11, .deb, .rpm, AppImage) and native Windows WASAPI audio. Native keyboard simulation.</p>
+    </div>
+  </section>
+
+  <div class="video-section">
+    <h3 class="video-heading">Walkthrough Video</h3>
+    <div class="video-frame">
+      <iframe
+        src="https://www.youtube-nocookie.com/embed/yKKyPUwEpDg"
+        title="FOSS Voquill promo video"
+        loading="lazy"
+        allow="picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allowfullscreen
+      ></iframe>
     </div>
   </div>
-</section>
 
-<section class="feature-list">
-  <h2 class="feature-list-heading">Full Platform Capabilities</h2>
-  <ul>
-    <li>
-      <strong>Hands-Free Voice Macros &amp; Key Automation</strong>
-      <span class="feature-desc">Trigger multi-step key sequences, app shortcuts, and native system commands hands-free using spoken trigger words with Voice Activation Thresholds.</span>
-    </li>
-    <li>
-      <strong>Local AI Voice Feedback &amp; Voice Studio</strong>
-      <span class="feature-desc">Instant spoken confirmations powered by on-device neural TTS with authentic tactical radio, cockpit AI, and sci-fi acoustic effects.</span>
-    </li>
-    <li>
-      <strong>On-Device AI &amp; Local LLM Post-Processing</strong>
-      <span class="feature-desc">Runs full AI language models (LLMs like Qwen &amp; Llama) directly on your computer to fix grammar, reformat notes, or rephrase rough dictation into clean text—100% offline with zero cloud fees.</span>
-    </li>
-    <li>
-      <strong>Custom AI Prompts &amp; Style Presets</strong>
-      <span class="feature-desc">Choose or create custom AI prompts to shape your voice output: switch between professional emails, structured notes, or create custom writing styles.</span>
-    </li>
-    <li>
-      <strong>Custom Dictionary &amp; Technical Words</strong>
-      <span class="feature-desc">Add unique names, jargon, acronyms, and specialized terminology to your personal dictionary so names and technical terms are recognized more reliably.</span>
-    </li>
-    <li>
-      <strong>Instant Filler-Word Stripping</strong>
-      <span class="feature-desc">Instant deterministic removal strips "uh", "um", "like", and "you know" before text reaches your cursor, without needing a full AI model pass.</span>
-    </li>
-    <li>
-      <strong>100% Private &amp; Offline</strong>
-      <span class="feature-desc">Speech recognition and AI models run locally on your computer. Your voice and text stay private on your device with no accounts or telemetry.</span>
-    </li>
-    <li>
-      <strong>Works in Any Application</strong>
-      <span class="feature-desc">Type directly into any email, document, browser, editor, or chat window on Windows and Linux using customizable global hotkeys.</span>
-    </li>
-    <li>
-      <strong>Differentiate Voices &amp; Transcribe Files</strong>
-      <span class="feature-desc">Detect and label distinct speakers (`Speaker 1`, `Speaker 2`) in live dictations or drag-and-drop audio files (WAV, MP3, M4A, FLAC, OGG).</span>
-    </li>
-    <li>
-      <strong>Searchable Recording History &amp; Playback</strong>
-      <span class="feature-desc">Search past dictations instantly with full-text search, listen back to original voice recordings with built-in audio playback, and compare raw vs. AI-cleaned text.</span>
-    </li>
-  </ul>
-</section>
-
-<div class="faq-teaser-card">
-  <h3>Got Questions About Privacy, Local AI Models, or Features?</h3>
-  <p>Read our full Frequently Asked Questions page to learn how Voquill runs 100% locally with zero telemetry, no accounts, and no subscriptions.</p>
-  <a href="{{ '/faq.html' | relative_url }}" class="btn btn-secondary">Read Full FAQ &rarr;</a>
-</div>
-
-<section class="philosophy-grid">
-  <div class="card">
-    <h3>Truly Free</h3>
-    <p>GNU AGPLv3 licensed. No subscriptions, no paywalls, no accounts, and no "Pro" tiers—just a powerful open-source tool for everyone.</p>
-  </div>
-  <div class="card">
-    <h3>100% Private &amp; Local</h3>
-    <p>Private by default. On-device speech recognition powered by Whisper.cpp &amp; Parakeet with zero telemetry. Optional cloud APIs if you choose.</p>
-  </div>
-  <div class="card">
-    <h3>Native &amp; Cross-Platform</h3>
-    <p>First-class Linux support (Wayland XDG Portals, X11, .deb, .rpm, AppImage) and native Windows WASAPI audio. Native keyboard simulation.</p>
-  </div>
-</section>
-
-<div class="hero-container video-section">
-  <h3 class="video-heading">Walkthrough Video</h3>
-  <div class="hero-media">
-    <iframe
-      src="https://www.youtube-nocookie.com/embed/yKKyPUwEpDg"
-      title="FOSS Voquill promo video"
-      loading="lazy"
-      allow="picture-in-picture; web-share"
-      referrerpolicy="strict-origin-when-cross-origin"
-      allowfullscreen
-    ></iframe>
-  </div>
-</div>
-
-<p class="provenance home-provenance">FOSS Voquill is the original project, first published in July 2025 by Jack Brumley and built to give back to the open-source community.</p>
+  <p class="provenance home-provenance">FOSS Voquill is the original project, first published in July 2025 by Jack Brumley and built to give back to the open-source community.</p>
+</main>
 
 <script src="{{ '/assets/install-widget.js' | relative_url }}" defer></script>

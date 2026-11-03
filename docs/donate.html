@@ -5,33 +5,37 @@ description: Support FOSS Voquill, a truly free & open-source offline dictation 
 canonical: https://voquill.org/donate.html
 stylesheets:
   - /assets/donate.css
-body_class: centered-page
-container_class: donate-container
 provenance: Founded July 2025 by Jack Brumley
 ---
-<header>
-  <img src="{{ '/logo.png' | relative_url }}" alt="Voquill Logo" class="logo">
-  <h1>Support Voquill</h1>
-  <p class="tagline">
-    Voquill is a personal project I build in my spare time. Donations do not unlock features and this will remain free and open source. Support simply shows me this work is valuable, and helps me justify continuing to invest my time in it.
-  </p>
+<header class="hero hero-compact">
+  <div class="hero-inner">
+    <div class="hero-copy">
+      <span class="hero-tile"><img src="{{ '/logo.png' | relative_url }}" alt="Voquill Logo" class="logo" width="64" height="64"></span>
+      <h1>Support Voquill</h1>
+      <p class="tagline">
+        Voquill is a personal project I build in my spare time. Donations do not unlock features and this will remain free and open source. Support simply shows me this work is valuable, and helps me justify continuing to invest my time in it.
+      </p>
+    </div>
+    {% include hero-art.html %}
+  </div>
 </header>
 
-<section class="card">
+<main class="page page-narrow page-overlap">
+<section class="panel donate-panel">
   <h2>Donate via PayPal (AUD)</h2>
   <p>Use the button below to choose an amount, or scan the QR code on a mobile device.</p>
 
   <div class="donate-actions">
     <div class="donate-primary-row">
       <a
-        class="btn"
+        class="btn btn-primary"
         href="https://www.paypal.com/donate/?business=NQLJU7FJPRFB4&no_recurring=0&item_name=Support+development+and+maintenance+of+FOSS+Voquill%2C+a+free+and+open-source+offline+dictation+tool.&currency_code=AUD"
         target="_blank"
         rel="noopener noreferrer"
       >Donate with PayPal</a>
     </div>
     <div class="donate-secondary-row">
-      <a class="btn btn-secondary btn-compact" href="{{ '/' | relative_url }}">Back to Home</a>
+      <a class="btn btn-secondary" href="{{ '/' | relative_url }}">Back to Home</a>
     </div>
   </div>
 
@@ -42,11 +46,12 @@ provenance: Founded July 2025 by Jack Brumley
       rel="noopener noreferrer"
       aria-label="Open PayPal donate link"
     >
-      <img class="qr" src="{{ '/paypal-donate-qr-code.png' | relative_url }}" alt="PayPal donate QR code">
+      <img class="qr" src="{{ '/paypal-donate-qr-code.png' | relative_url }}" alt="PayPal donate QR code" width="128" height="128">
     </a>
   </div>
 
-  <p style="margin-top: 1rem; font-size: 0.9rem;">
+  <p class="donate-note">
     Donations are optional and do not unlock features. FOSS Voquill remains free and GNU AGPLv3 licensed.
   </p>
 </section>
+</main>
