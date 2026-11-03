@@ -1,5 +1,5 @@
 import { IconAlertCircle, IconBrandGithub, IconHeart, IconUpload, IconCopy, IconUser } from '@tabler/icons-preact';
-import { open } from '@tauri-apps/plugin-shell';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
@@ -409,7 +409,7 @@ export function HomePage({
           <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center' }}>
             <button
               type="button"
-              onClick={() => open('https://github.com/jackbrumley/voquill')}
+              onClick={() => openUrl('https://github.com/jackbrumley/voquill')}
               onMouseEnter={() => { hoveredFooterIcon.value = 'github'; }}
               onMouseLeave={() => { hoveredFooterIcon.value = null; }}
               title="GitHub Repository"
@@ -431,7 +431,7 @@ export function HomePage({
             </button>
             <button
               type="button"
-              onClick={() => open('https://voquill.org/donate')}
+              onClick={() => openUrl('https://voquill.org/donate')}
               onMouseEnter={() => { hoveredFooterIcon.value = 'heart'; }}
               onMouseLeave={() => { hoveredFooterIcon.value = null; }}
               title="Support the project"

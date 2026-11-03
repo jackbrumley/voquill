@@ -14,7 +14,7 @@ tauri-build = { version = "^2", features = [] }
 
 [dependencies]
 tauri = { version = "^2", features = [] }
-tauri-plugin-shell = "2"
+tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 # Startup-fatal dialogs shown before Tauri boots (same rfd as tauri-plugin-dialog).
 rfd = { version = "0.16", default-features = false, features = ["gtk3"] }

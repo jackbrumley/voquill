@@ -18,7 +18,7 @@
     "core:event:default",
     "core:tray:default",
     "core:app:allow-version",
-    "shell:default",
+    "opener:default",
     "global-shortcut:default",
     "autostart:allow-enable",
     "autostart:allow-disable",

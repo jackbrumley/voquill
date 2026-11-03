@@ -1,6 +1,6 @@
 import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-shell';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import type { UpdateCheckResult } from '../types.ts';
 
 interface UseUpdatesReturn {
@@ -64,7 +64,7 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
   const openLatestReleasePage = async () => {
     const releaseUrl = updateResult.value?.releaseUrl || 'https://github.com/jackbrumley/voquill/releases/latest';
     try {
-      await open(releaseUrl);
+      await openUrl(releaseUrl);
     } catch (error) {
       showToast(`Failed to open release page: ${error}`, 'error');
     }
