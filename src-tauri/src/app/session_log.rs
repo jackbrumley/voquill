@@ -102,10 +102,22 @@ fn initialize_session_logging_inner() {
         .open(&log_path)
     {
         Ok(mut file) => {
+            // Build profile and executable path tell a dev build apart from an
+            // installed package of the same version.
+            let build_profile = if cfg!(debug_assertions) {
+                "debug"
+            } else {
+                "release"
+            };
+            let executable = std::env::current_exe()
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|error| format!("<unknown: {error}>"));
             let startup_header = format!(
-                "[{}] SESSION START | version={}\n",
+                "[{}] SESSION START | version={} | build={} | exe={}\n",
                 chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"),
-                env!("CARGO_PKG_VERSION")
+                env!("CARGO_PKG_VERSION"),
+                build_profile,
+                executable
             );
             let _ = file.write_all(startup_header.as_bytes());
             let _ = SESSION_LOG_PATH.set(log_path);
