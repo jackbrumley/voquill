@@ -1,8 +1,10 @@
 import { useSignal } from '@preact/signals';
+import { useEffect } from 'preact/hooks';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 interface UseWindowControlsReturn {
+  isMaximized: boolean;
   handleClose: () => Promise<void>;
   handleMinimize: () => Promise<void>;
   toggleWindowMaximize: () => Promise<void>;
@@ -18,6 +20,30 @@ type ResizeDirection = 'East' | 'North' | 'NorthEast' | 'NorthWest' | 'South' | 
 
 export function useWindowControls(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseWindowControlsReturn {
   const trayFallbackNotified = useSignal(false);
+  const isMaximized = useSignal(false);
+
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+
+    const syncMaximizeState = async () => {
+      try {
+        isMaximized.value = await appWindow.isMaximized();
+      } catch (err) {
+        console.error('Failed to read maximize state:', err);
+      }
+    };
+
+    void syncMaximizeState();
+    const unlistenPromise = appWindow.onResized(() => {
+      void syncMaximizeState();
+    });
+
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten()).catch((err) => {
+        console.error('Failed to stop listening for window resizes:', err);
+      });
+    };
+  }, []);
 
   const notifyIfParkedInTaskbar = (parking: WindowParking | null) => {
     if (parking === 'taskbar' && !trayFallbackNotified.value) {
@@ -50,6 +76,7 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
       } else {
         await win.maximize();
       }
+      isMaximized.value = await win.isMaximized();
     } catch {
       // no-op if maximize is unavailable
     }
@@ -79,11 +106,12 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
   };
 
   const handleResizeCornerMouseDown = (direction: ResizeDirection) => async (event: MouseEvent) => {
-    if (event.buttons !== 1) {
+    if (event.buttons !== 1 || isMaximized.value) {
       return;
     }
 
     event.preventDefault();
+    event.stopPropagation();
 
     try {
       await getCurrentWindow().startResizeDragging(direction);
@@ -92,5 +120,5 @@ export function useWindowControls(showToast: (message: string, type: 'success' |
     }
   };
 
-  return { handleClose, handleMinimize, toggleWindowMaximize, handleTitleBarMouseDown, handleTitleBarDoubleClick, handleResizeCornerMouseDown };
+  return { isMaximized: isMaximized.value, handleClose, handleMinimize, toggleWindowMaximize, handleTitleBarMouseDown, handleTitleBarDoubleClick, handleResizeCornerMouseDown };
 }

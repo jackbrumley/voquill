@@ -222,6 +222,7 @@ function App() {
   return (
     <div style={appShellStyle}>
       <TitleBar
+        isMaximized={windowControls.isMaximized}
         onMinimize={windowControls.handleMinimize}
         onMaximize={() => void windowControls.toggleWindowMaximize()}
         onClose={windowControls.handleClose}

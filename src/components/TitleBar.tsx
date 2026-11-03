@@ -1,8 +1,9 @@
-import { IconMinus, IconSquare, IconX } from '@tabler/icons-preact';
+import { IconCopy, IconMinus, IconSquare, IconX } from '@tabler/icons-preact';
 import { Button } from './Button.tsx';
 import { titleBarStyle, titleBarTitleStyle, titleBarControlsStyle } from '../theme/ui-primitives.ts';
 
 interface TitleBarProps {
+  isMaximized: boolean;
   onMinimize: () => void;
   onMaximize: () => void;
   onClose: () => void;
@@ -10,7 +11,7 @@ interface TitleBarProps {
   onDoubleClick: (event: MouseEvent) => void;
 }
 
-export function TitleBar({ onMinimize, onMaximize, onClose, onMouseDown, onDoubleClick }: TitleBarProps) {
+export function TitleBar({ isMaximized, onMinimize, onMaximize, onClose, onMouseDown, onDoubleClick }: TitleBarProps) {
   return (
     <div
       data-tauri-drag-region
@@ -23,13 +24,17 @@ export function TitleBar({ onMinimize, onMaximize, onClose, onMouseDown, onDoubl
         Voquill
       </div>
       <div style={titleBarControlsStyle}>
-        <Button variant="titlebarIcon" onClick={onMinimize}>
+        <Button variant="titlebarIcon" onClick={onMinimize} ariaLabel="Minimize window">
           <IconMinus size={14} />
         </Button>
-        <Button variant="titlebarIcon" onClick={onMaximize}>
-          <IconSquare size={12} />
+        <Button
+          variant="titlebarIcon"
+          onClick={onMaximize}
+          ariaLabel={isMaximized ? 'Restore window' : 'Maximize window'}
+        >
+          {isMaximized ? <IconCopy size={12} /> : <IconSquare size={12} />}
         </Button>
-        <Button variant="titlebarClose" onClick={onClose}>
+        <Button variant="titlebarClose" onClick={onClose} ariaLabel="Close window">
           <IconX size={14} />
         </Button>
       </div>

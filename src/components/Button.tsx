@@ -11,6 +11,7 @@ interface ButtonProps {
   disabled?: boolean;
   className?: string;
   title?: string;
+  ariaLabel?: string;
   type?: 'button' | 'submit' | 'reset';
   style?: Record<string, string | number>;
   logLabel?: string;
@@ -48,6 +49,7 @@ export const Button = ({
   disabled = false,
   className = '',
   title,
+  ariaLabel,
   type = 'button',
   style,
   logLabel,
@@ -191,7 +193,7 @@ export const Button = ({
 
   const handleClick = (e: MouseEvent) => {
     if (!disableClickLog) {
-      const label = logLabel || title || extractText(children) || 'Unnamed Button';
+      const label = logLabel || title || ariaLabel || extractText(children) || 'Unnamed Button';
       invoke('log_ui_event', { message: `[Button clicked] ${label}` }).catch(() => {});
     }
     onClick?.(e);
@@ -204,6 +206,7 @@ export const Button = ({
       onClick={handleClick}
       disabled={disabled}
       title={title}
+      aria-label={ariaLabel}
       style={resolvedStyle}
       onMouseEnter={() => { hovered.value = true; }}
       onMouseLeave={() => {

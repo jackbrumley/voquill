@@ -174,7 +174,7 @@ export const resizeCornerOverlayStyle: Style = {
   pointerEvents: 'none',
 };
 
-const cornerSize = 40;
+const cornerSize = 36;
 
 function cornerStyle(top: number | string, right: number | string, bottom: number | string, left: number | string): Style {
   return {
