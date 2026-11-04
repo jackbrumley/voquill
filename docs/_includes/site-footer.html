@@ -13,49 +13,54 @@
     </section>
     {% endunless %}
 
-    <section class="other-apps" aria-label="Other apps by Jack Brumley">
-      <p class="other-apps-title">Other apps</p>
+    <nav class="other-apps" aria-label="Other apps by Jack Brumley">
+      <div class="other-apps-head">
+        <p class="section-title">Other apps</p>
+        <a class="all-apps" href="https://brumley.info/">All apps &rarr;</a>
+      </div>
       <ul class="app-tiles">
         <li>
-          <a class="app-tile" href="{{ '/' | relative_url }}" aria-current="true" style="--app: #5865f2; --app-2: #c43991;">
-            <span class="tile"><img src="{{ '/assets/icons/voquill.png' | relative_url }}" alt="" width="40" height="40"></span>
-            <span class="app-tile-name">Voquill</span>
+          <a class="app-tile is-current" href="https://voquill.org/" aria-current="page" style="--app: #5865f2; --app-2: #c43991;">
+            <span class="tile"><img src="{{ '/assets/icons/' | relative_url }}voquill.png" alt="" width="34" height="34" /></span>
+            <span class="app-name">Voquill</span>
           </a>
         </li>
         <li>
           <a class="app-tile" href="https://brumley.info/rusty-g6/" style="--app: #e5483f; --app-2: #ff8a3d;">
-            <span class="tile"><img src="{{ '/assets/icons/rusty-g6.png' | relative_url }}" alt="" width="40" height="40"></span>
-            <span class="app-tile-name">Rusty G6</span>
+            <span class="tile"><img src="{{ '/assets/icons/' | relative_url }}rusty-g6.png" alt="" width="34" height="34" /></span>
+            <span class="app-name">Rusty G6</span>
           </a>
         </li>
         <li>
           <a class="app-tile" href="https://brumley.info/somedrive/" style="--app: #1677d2; --app-2: #22c1c3;">
-            <span class="tile"><img src="{{ '/assets/icons/somedrive.svg' | relative_url }}" alt="" width="40" height="40"></span>
-            <span class="app-tile-name">SomeDrive</span>
+            <span class="tile"><img src="{{ '/assets/icons/' | relative_url }}somedrive.svg" alt="" width="34" height="34" /></span>
+            <span class="app-name">SomeDrive</span>
           </a>
         </li>
         <li>
           <a class="app-tile" href="https://yambuck.com/" style="--app: #1f8f9c; --app-2: #5ce0d2;">
-            <span class="tile"><img src="{{ '/assets/icons/yambuck.svg' | relative_url }}" alt="" width="40" height="40"></span>
-            <span class="app-tile-name">Yambuck</span>
+            <span class="tile"><img src="{{ '/assets/icons/' | relative_url }}yambuck.svg" alt="" width="34" height="34" /></span>
+            <span class="app-name">Yambuck</span>
           </a>
         </li>
       </ul>
-      <a class="all-apps" href="https://brumley.info/">All apps &rarr;</a>
-    </section>
+    </nav>
 
-    <div class="site-footer-bottom">
-      {% if page.provenance %}
-      <p class="provenance">{{ page.provenance }}</p>
-      {% endif %}
-      <nav class="site-footer-links" aria-label="Footer Navigation">
-        <a href="{{ '/' | relative_url }}">Home</a>
-        <a href="{{ '/faq.html' | relative_url }}">FAQ</a>
-        <a href="{{ '/screenshots.html' | relative_url }}">Screenshots</a>
-        <a href="{{ '/donate.html' | relative_url }}">Support</a>
-        <a href="https://github.com/jackbrumley/voquill" target="_blank" rel="noopener noreferrer">GitHub</a>
-      </nav>
-      <p class="site-footer-license">&copy; {{ site.copyright_year }} {{ site.project_name }}. {{ site.license_label }} Licensed.</p>
-    </div>
+    {% if page.provenance %}
+    <p class="provenance">{{ page.provenance }}</p>
+    {% endif %}
+    <p class="footer-meta">
+      <span>&copy; Jack Brumley</span>
+      <span aria-hidden="true">&middot;</span>
+      <a href="https://github.com/jackbrumley/voquill">Source on GitHub</a>
+      <span aria-hidden="true">&middot;</span>
+      <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPLv3</a>
+      <span aria-hidden="true">&middot;</span>
+      <a href="{{ '/faq.html' | relative_url }}">FAQ</a>
+      <span aria-hidden="true">&middot;</span>
+      <a href="{{ '/screenshots.html' | relative_url }}">Screenshots</a>
+      <span aria-hidden="true">&middot;</span>
+      <a href="{{ '/donate.html' | relative_url }}">Support</a>
+    </p>
   </div>
 </footer>

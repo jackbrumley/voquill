@@ -107,6 +107,19 @@
     --icon-glow: 1;
     --icon-filter: brightness(0) invert(1);
   }
+  /* Hero art blocks (front and side faces), pre-blended into the dark hero. */
+  .hero-art .vqf-a0 { stop-color: #4f9ab8; }
+  .hero-art .vqf-a1 { stop-color: #211c43; }
+  .hero-art .vqs-a0 { stop-color: #376980; }
+  .hero-art .vqs-a1 { stop-color: #201c43; }
+  .hero-art .vqf-b0 { stop-color: #515bdb; }
+  .hero-art .vqf-b1 { stop-color: #33193e; }
+  .hero-art .vqs-b0 { stop-color: #383f97; }
+  .hero-art .vqs-b1 { stop-color: #30183a; }
+  .hero-art .vqf-c0 { stop-color: #a63280; }
+  .hero-art .vqf-c1 { stop-color: #2a1739; }
+  .hero-art .vqs-c0 { stop-color: #72245a; }
+  .hero-art .vqs-c1 { stop-color: #2b1738; }
 }
 
 * { box-sizing: border-box; }
@@ -138,11 +151,12 @@ h2 {
   position: absolute;
   inset: 0 0 auto 0;
   z-index: 2;
-  padding: 18px 16px 0;
+  padding: 28px 16px 0;
+  line-height: 1.55;
 }
 
 .site-bar-inner {
-  max-width: 1040px;
+  max-width: 960px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -150,40 +164,29 @@ h2 {
   gap: 16px;
 }
 
-.site-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  text-decoration: none;
-}
-
-.site-brand img { border-radius: 8px; }
-
+.site-back,
 .site-byline {
   color: var(--muted);
   font-size: 0.9rem;
   text-decoration: none;
 }
 
-.site-brand:hover,
-.site-byline:hover { color: var(--link); }
+.site-back:hover,
+.site-byline:hover { color: var(--text); }
 
 /* Hero */
 
 .hero {
   background: var(--hero-wash);
   clip-path: polygon(0 0, 100% 0, 100% 80%, 26% 100%, 0 90%);
-  padding: 100px 16px 160px;
+  padding: calc(28px + 0.9rem * 1.55 + 40px) 16px 150px;
   overflow: hidden;
 }
 
 .hero-compact { padding-bottom: 140px; }
 
 .hero-inner {
-  max-width: 1040px;
+  max-width: 960px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -194,17 +197,22 @@ h2 {
 
 .hero-band .hero-inner { justify-content: flex-end; }
 
+/* Top-aligned with a fixed offset, so the tile and heading sit in the same
+   place on every app page however long the description is. */
+.hero:not(.hero-compact) .hero-inner { align-items: flex-start; }
+.hero:not(.hero-compact) .hero-copy { padding-top: 9px; }
+
 .hero-copy {
-  max-width: 600px;
+  max-width: 540px;
   position: relative;
   z-index: 1;
 }
 
 .hero h1 {
   margin: 22px 0 0;
-  font-size: clamp(2.5rem, 7vw, 3.8rem);
+  font-size: clamp(2.6rem, 7vw, 3.8rem);
   font-weight: 300;
-  line-height: 1.04;
+  line-height: 1.02;
   letter-spacing: -0.03em;
 }
 
@@ -215,14 +223,14 @@ h2 {
 .tagline {
   margin: 16px 0 0;
   color: var(--muted);
-  font-size: 1.12rem;
+  font-size: 1.1rem;
 }
 
 .hero-art {
   flex: none;
-  width: 340px;
+  width: 360px;
   height: auto;
-  margin-right: -10px;
+  margin-right: -20px;
 }
 
 .hero-compact .hero-art { width: 250px; }
@@ -260,7 +268,7 @@ h2 {
 
 .page {
   width: 100%;
-  max-width: 1072px; /* 1040px of content, matching .hero-inner, plus side padding */
+  max-width: 992px; /* 960px of content, matching .hero-inner, plus side padding */
   margin: 0 auto;
   padding: 0 16px 24px;
   position: relative;
@@ -360,41 +368,15 @@ h2 {
   filter: var(--icon-filter);
 }
 
-/* App icon tile (footer "Other apps") */
-
-.tile {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 60px;
-  height: 60px;
-  border-radius: 16px;
-  background: linear-gradient(145deg,
-    color-mix(in srgb, var(--app) var(--tile-mix), var(--tile-base)),
-    color-mix(in srgb, var(--app-2) calc(var(--tile-mix) * 0.6), var(--tile-base)));
-  box-shadow:
-    inset 0 0 0 1px var(--tile-rim),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 6px 18px color-mix(in srgb, var(--app) calc(var(--icon-glow) * 30%), transparent);
-}
-
-.tile img {
-  width: 40px;
-  height: 40px;
-  filter: drop-shadow(0 0 calc(var(--icon-glow) * 6px) color-mix(in srgb, var(--app) 55%, transparent));
-}
-
 /* Footer */
 
 .site-footer {
-  margin-top: 56px;
-  padding: 0 16px 40px;
-  color: var(--muted);
-  font-size: 0.9rem;
+  margin-top: 72px;
+  padding: 0 16px 48px;
 }
 
 .site-footer-inner {
-  max-width: 1040px;
+  max-width: 960px;
   margin: 0 auto;
 }
 
@@ -424,113 +406,116 @@ h2 {
 
 .support-band .btn { flex: none; }
 
-.other-apps {
+/* Same gap as between Yambuck's support section and its footer. */
+.support-band + .other-apps { margin-top: 72px; }
+
+/* Footer: "Other apps" and the footer line, shared by every app page. */
+
+.other-apps-head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 14px 24px;
-  margin-top: 40px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
 }
 
-.other-apps-title {
+.section-title {
   margin: 0;
-  flex-basis: 100%;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: var(--muted);
 }
 
+.all-apps { color: var(--accent); font-size: 0.9rem; font-weight: 400; text-decoration: none; }
+
+.all-apps:hover { text-decoration: underline; }
+
 .app-tiles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
+  list-style: none;
   margin: 0;
   padding: 0;
-  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .app-tile {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  width: 78px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  text-decoration: none;
-  transition: transform 0.2s ease, color 0.2s ease;
-}
-
-.app-tile:hover,
-.app-tile:focus-visible {
+  gap: 12px;
+  height: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
   color: var(--text);
-  transform: translateY(-3px);
-}
-
-.app-tile[aria-current] { color: var(--text); font-weight: 600; }
-
-.app-tile[aria-current] .tile {
-  outline: 2px solid color-mix(in srgb, var(--app) 60%, transparent);
-  outline-offset: 3px;
-}
-
-.all-apps {
-  margin-left: auto;
-  color: var(--link);
   font-weight: 600;
   text-decoration: none;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.all-apps:hover { text-decoration: underline; }
+.app-tile:hover {
+  color: var(--text);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--app) 45%, var(--border));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--app) 18%, transparent);
+}
 
-.site-footer-bottom {
+.app-tile.is-current { border-color: color-mix(in srgb, var(--app) 55%, var(--border)); }
+
+.tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--app) var(--tile-mix), var(--tile-base)),
+    color-mix(in srgb, var(--app-2) calc(var(--tile-mix) * 0.6), var(--tile-base)));
+  box-shadow: inset 0 0 0 1px var(--tile-rim), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.tile img { width: 34px; height: 34px; }
+
+.footer-meta {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px 24px;
-  margin-top: 28px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-}
-
-.site-footer-bottom p { margin: 0; }
-
-.site-footer-bottom .provenance { flex-basis: 100%; }
-
-.site-footer-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-}
-
-.site-footer-links a {
+  gap: 8px;
+  margin: 32px 0 0;
+  font-size: 0.85rem;
   color: var(--muted);
-  text-decoration: none;
 }
 
-.site-footer-links a:hover { color: var(--link); text-decoration: underline; }
+.footer-meta a { color: var(--muted); }
+
+.footer-meta a:hover { color: var(--accent); }
+
+.provenance { flex-basis: 100%; }
 
 .provenance {
+  margin: 32px 0 0;
   color: var(--text);
   font-weight: 500;
 }
 
 @media (max-width: 760px) {
-  .hero { padding: 84px 16px 140px; }
+  .hero { padding: calc(28px + 0.9rem * 1.55 + 28px) 16px 140px; }
+  .hero:not(.hero-compact) .hero-copy { padding-top: 0; }
   .hero-compact { padding-bottom: 130px; }
   .hero-art,
   .hero-compact .hero-art {
     position: absolute;
     right: -110px;
-    top: -40px;
+    top: -30px;
     width: 280px;
     opacity: 0.4;
   }
   .panel { padding: 22px 16px 18px; }
   .support-band { flex-direction: column; align-items: flex-start; padding: 22px; }
-  .all-apps { margin-left: 0; }
+  .app-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

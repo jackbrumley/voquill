@@ -597,3 +597,33 @@
   .press-quote-text { font-size: 1.1rem; }
   .feature-list ul { grid-template-columns: 1fr; }
 }
+
+/* The animated bars inside the family app tile.
+   Layers, back to front: aura glow, tile (::before), bars. */
+.hero-orb-wrapper.is-tiled { isolation: isolate; }
+.hero-orb-wrapper.is-tiled::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 24px;
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--accent) var(--tile-mix), var(--tile-base)),
+    color-mix(in srgb, var(--accent-2) calc(var(--tile-mix) * 0.6), var(--tile-base)));
+  box-shadow:
+    inset 0 0 0 1px var(--tile-rim),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 10px 26px rgba(88, 101, 242, 0.22);
+}
+.hero-orb-wrapper.is-tiled .hero-orb-aura { z-index: -1; }
+.hero-orb-wrapper.is-tiled .hero-orb-ring {
+  z-index: 1;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+.hero-orb-wrapper.is-tiled .hero-orb-inner { background: none; }
+.hero-orb-wrapper.is-tiled .hero-orb-pulse,
+.hero-orb-wrapper.is-tiled .hero-orb-vignette { display: none; }
+.hero-orb-wrapper.is-tiled .hero-audio-wave { height: 60px; gap: 4px; }
+.hero-orb-wrapper.is-tiled .hero-audio-bar { width: 6px; }
