@@ -1,6 +1,7 @@
 use cpal::traits::{DeviceTrait, HostTrait};
 use serde::Serialize;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[cfg(target_os = "windows")]
 use windows::Win32::Devices::FunctionDiscovery::{
@@ -180,6 +181,10 @@ impl DeviceDirection {
             DeviceDirection::Output => host.output_devices().map(|devices| devices.collect()),
         };
         devices.map_err(|error| {
+            #[cfg(target_os = "linux")]
+            if host.id() == cpal::HostId::PulseAudio {
+                super::pulse_server::discard_host_if_disconnected(&error);
+            }
             format!(
                 "Failed to enumerate {} devices on the {} host: {}",
                 self.label(),
@@ -284,15 +289,30 @@ fn list_platform_devices(_direction: DeviceDirection) -> Vec<AudioDevice> {
     Vec::new()
 }
 
+/// The host for devices not addressed by a platform-specific ID: on Linux the
+/// shared PulseAudio connection, or ALSA when no Pulse server answers.
+///
+/// Never call `cpal::default_host()` on Linux: it opens a new PulseAudio
+/// connection on every call, and those are never closed (see `pulse_server`).
 #[cfg(target_os = "linux")]
-fn pulse_host() -> Result<cpal::Host, String> {
-    cpal::host_from_id(cpal::HostId::PulseAudio)
-        .map_err(|error| format!("PulseAudio server is unavailable: {}", error))
+fn default_host() -> Result<Arc<cpal::Host>, String> {
+    super::pulse_server::host().or_else(|pulse_error| {
+        cpal::host_from_id(cpal::HostId::Alsa)
+            .map(Arc::new)
+            .map_err(|alsa_error| {
+                format!("No audio host available ({pulse_error}; ALSA: {alsa_error})")
+            })
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+fn default_host() -> Result<Arc<cpal::Host>, String> {
+    Ok(Arc::new(cpal::default_host()))
 }
 
 #[cfg(target_os = "linux")]
 fn list_pulse_devices(direction: DeviceDirection) -> Result<Vec<AudioDevice>, String> {
-    let host = pulse_host()?;
+    let host = super::pulse_server::host()?;
     let devices = direction
         .host_devices(&host)?
         .into_iter()
@@ -318,7 +338,13 @@ fn list_pulse_devices(direction: DeviceDirection) -> Result<Vec<AudioDevice>, St
 }
 
 fn list_default_host_devices(direction: DeviceDirection) -> Vec<AudioDevice> {
-    let host = cpal::default_host();
+    let host = match default_host() {
+        Ok(host) => host,
+        Err(error) => {
+            crate::log_warn!("{}", error);
+            return Vec::new();
+        }
+    };
     let devices = match direction.host_devices(&host) {
         Ok(devices) => devices,
         Err(error) => {
@@ -415,25 +441,34 @@ fn resolve_device(
     direction: DeviceDirection,
 ) -> Result<cpal::Device, String> {
     let Some(id) = target_id.filter(|id| *id != SYSTEM_DEFAULT_ID) else {
-        let host = cpal::default_host();
-        return direction.host_default_device(&host).ok_or_else(|| {
-            format!(
-                "No default {} device available on the {} host",
-                direction.label(),
-                host.id().name()
-            )
-        });
+        return resolve_default_device(direction);
     };
 
     match id.strip_prefix(PULSE_ID_PREFIX) {
         Some(pulse_name) => resolve_pulse_device(pulse_name, direction),
-        None => find_host_device(&cpal::default_host(), id, direction),
+        None => find_host_device(&*default_host()?, id, direction),
     }
+}
+
+fn resolve_default_device(direction: DeviceDirection) -> Result<cpal::Device, String> {
+    let host = default_host()?;
+    if let Some(device) = direction.host_default_device(&host) {
+        return Ok(device);
+    }
+
+    // cpal discards the reason a default-device lookup failed. Enumerating
+    // reports it, and replaces the PulseAudio connection if it has dropped.
+    direction.host_devices(&host)?;
+    Err(format!(
+        "No default {} device available on the {} host",
+        direction.label(),
+        host.id().name()
+    ))
 }
 
 #[cfg(target_os = "linux")]
 fn resolve_pulse_device(name: &str, direction: DeviceDirection) -> Result<cpal::Device, String> {
-    find_host_device(&pulse_host()?, name, direction)
+    find_host_device(&*super::pulse_server::host()?, name, direction)
 }
 
 #[cfg(not(target_os = "linux"))]
