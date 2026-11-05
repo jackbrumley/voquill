@@ -65,11 +65,11 @@
       "icons/icon.ico"
     ],
     "targets": "all",
-    "resources": [
-      "packaging/windows/vulkan-1.dll",
-      "packaging/macos/MoltenVK_icd.json",
-      "../python-runner/**/*"
-    ],
+    "resources": {
+      "packaging/windows/vulkan-1.dll": "packaging/windows/vulkan-1.dll",
+      "packaging/macos/MoltenVK_icd.json": "packaging/macos/MoltenVK_icd.json",
+      "../python-runner": "python-runner"
+    },
     "externalBin": [],
     "windows": {
       "certificateThumbprint": null,
