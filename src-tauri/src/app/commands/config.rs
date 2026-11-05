@@ -147,7 +147,14 @@ fn reconcile_engine_warmup(
     let transcription_changed = previous_config.transcription_mode
         != merged_config.transcription_mode
         || previous_config.local_engine != merged_config.local_engine
-        || previous_config.local_model_size != merged_config.local_model_size;
+        || previous_config.local_model_size != merged_config.local_model_size
+        || previous_config.engine_config != merged_config.engine_config;
+
+    if transcription_changed {
+        // A running Parakeet sidecar belongs to the previous engine/model; the
+        // preload below starts a new one if Parakeet is still selected.
+        state.engine_factory.invalidate_parakeet();
+    }
 
     if transcription_changed && merged_config.transcription_mode == TranscriptionMode::Local {
         crate::app::bootstrap::spawn_engine_preload(state.engine_factory.clone(), merged_config);
@@ -161,9 +168,11 @@ pub async fn reset_application_to_defaults(
 ) -> Result<(), String> {
     crate::log_info!("Factory reset requested");
 
-    // Stop the cached post-process sidecar first so its process releases the
-    // model/binary file locks before the models directory is deleted.
+    // Stop the cached sidecars and unload models first so their processes
+    // release the model/binary file locks before the models directory is
+    // deleted.
     state.post_process_factory.invalidate_local();
+    state.engine_factory.unload_all();
 
     let root_dir = crate::get_app_config_root_dir()?;
 

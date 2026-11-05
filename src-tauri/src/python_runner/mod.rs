@@ -6,7 +6,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tauri::Manager;
 use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 const RUNNER_PORT_START: u16 = 6201;
@@ -36,7 +35,8 @@ impl PythonRunner {
         ensure_venv(&runner_dir).await?;
         ensure_deps(&runner_dir).await?;
 
-        let port = find_free_port().await?;
+        let port = crate::sidecar::find_free_port(RUNNER_PORT_START, RUNNER_PORT_END)
+            .map_err(|e| e.to_string())?;
         let mut process = spawn_server(&runner_dir, port).await?;
         let base_url = format!("http://127.0.0.1:{}", port);
 
@@ -369,21 +369,6 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
         }
     }
     Ok(())
-}
-
-async fn find_free_port() -> Result<u16, String> {
-    for port in RUNNER_PORT_START..=RUNNER_PORT_END {
-        if TcpStream::connect(format!("127.0.0.1:{}", port))
-            .await
-            .is_err()
-        {
-            return Ok(port);
-        }
-    }
-    Err(format!(
-        "No free ports in range {}-{}",
-        RUNNER_PORT_START, RUNNER_PORT_END
-    ))
 }
 
 fn collect_requirements(runner_dir: &Path) -> Result<String, String> {

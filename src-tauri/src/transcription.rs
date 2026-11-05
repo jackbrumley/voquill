@@ -32,6 +32,12 @@ pub trait TranscriptionService {
     fn service_name(&self) -> &'static str;
 }
 
+/// Longest piece of audio uploaded in one API request. OpenAI-compatible
+/// endpoints reject uploads over 25 MB; 600 s of 16 kHz mono 16-bit WAV is
+/// about 19 MB, so longer recordings are split at pauses into pieces of at
+/// most this length.
+const API_MAX_PIECE_SECONDS: f32 = 600.0;
+
 pub struct APITranscriptionService {
     pub api_key: String,
     pub api_url: String,
@@ -52,12 +58,45 @@ impl TranscriptionService for APITranscriptionService {
             ));
         }
 
+        let pieces = split_wav_for_upload(audio_data)?;
+        if pieces.len() > 1 {
+            crate::log_info!(
+                "API transcription: uploading long audio in {} pieces of at most {}s",
+                pieces.len(),
+                API_MAX_PIECE_SECONDS
+            );
+        }
+
+        let mut piece_texts = Vec::with_capacity(pieces.len());
+        for piece in pieces {
+            let piece_text = self.request_transcription(piece, language, prompt).await?;
+            let piece_text = piece_text.trim();
+            if !piece_text.is_empty() {
+                piece_texts.push(piece_text.to_string());
+            }
+        }
+        Ok(piece_texts.join(" "))
+    }
+
+    fn service_name(&self) -> &'static str {
+        "API Transcription"
+    }
+}
+
+impl APITranscriptionService {
+    /// Uploads one WAV (within the API's size limit) and returns its text.
+    async fn request_transcription(
+        &self,
+        wav: Vec<u8>,
+        language: Option<&str>,
+        prompt: Option<&str>,
+    ) -> Result<String, TranscriptionError> {
         let client = reqwest::Client::new();
 
         let mut form = multipart::Form::new()
             .part(
                 "file",
-                multipart::Part::bytes(audio_data.to_vec())
+                multipart::Part::bytes(wav)
                     .file_name("audio.wav")
                     .mime_str("audio/wav")
                     .map_err(|e| TranscriptionError::Audio(e.to_string()))?,
@@ -100,10 +139,36 @@ impl TranscriptionService for APITranscriptionService {
 
         Ok(text)
     }
+}
 
-    fn service_name(&self) -> &'static str {
-        "API Transcription"
+/// Splits a 16 kHz mono 16-bit WAV into WAVs short enough to upload. Audio
+/// that already fits is passed through untouched.
+fn split_wav_for_upload(wav: &[u8]) -> Result<Vec<Vec<u8>>, TranscriptionError> {
+    let mut reader = hound::WavReader::new(std::io::Cursor::new(wav))
+        .map_err(|e| TranscriptionError::Audio(e.to_string()))?;
+    let spec = reader.spec();
+    let duration_seconds = reader.duration() as f32 / spec.sample_rate as f32;
+    if duration_seconds <= API_MAX_PIECE_SECONDS {
+        return Ok(vec![wav.to_vec()]);
     }
+    if spec.channels != 1 || spec.sample_rate != 16000 || spec.bits_per_sample != 16 {
+        return Err(TranscriptionError::Audio(format!(
+            "Cannot split {}ch {}Hz {}-bit audio for upload; expected 16 kHz mono 16-bit WAV",
+            spec.channels, spec.sample_rate, spec.bits_per_sample
+        )));
+    }
+
+    let samples: Vec<i16> = reader
+        .samples::<i16>()
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| TranscriptionError::Audio(e.to_string()))?;
+    crate::audio::chunking::split_at_pauses(&samples, spec.sample_rate, API_MAX_PIECE_SECONDS)
+        .into_iter()
+        .map(|piece| {
+            crate::audio::conversion::write_whisper_wav(&samples[piece])
+                .map_err(|e| TranscriptionError::Audio(e.to_string()))
+        })
+        .collect()
 }
 
 pub async fn test_api_key(

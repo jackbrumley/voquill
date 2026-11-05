@@ -1,3 +1,4 @@
+pub mod chunking;
 pub mod conversion;
 pub mod decode;
 pub mod device;

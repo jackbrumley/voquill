@@ -10,7 +10,6 @@
 use anyhow::{bail, Context};
 use std::path::PathBuf;
 use std::process::Stdio;
-use tokio::net::TcpStream;
 use tokio::process::{Child, Command};
 
 /// Describes a downloadable sidecar release archive. Callers own their
@@ -123,18 +122,30 @@ async fn download_and_extract(
     Ok(())
 }
 
-/// Returns the first TCP port in `[start, end]` with nothing listening on
-/// localhost.
-pub async fn find_free_port(start: u16, end: u16) -> anyhow::Result<u16> {
+/// Returns the first TCP port in `[start, end]` that nothing is bound to.
+pub fn find_free_port(start: u16, end: u16) -> anyhow::Result<u16> {
     for port in start..=end {
-        if TcpStream::connect(format!("127.0.0.1:{}", port))
-            .await
-            .is_err()
-        {
+        if port_is_free(port) {
             return Ok(port);
         }
     }
     bail!("No free ports available ({}-{})", start, end)
+}
+
+/// Whether `port` can be bound on both loopback and all interfaces right now.
+///
+/// Bind-probing answers instantly on every platform. A `connect()` probe does
+/// not: Windows retries a refused loopback connection for about 2 s before
+/// failing, so every free port cost 2 s. Both addresses are probed because
+/// platforms disagree on whether a listener on one blocks a bind on the
+/// other. The sockets are closed without listening, so no firewall prompt
+/// appears.
+fn port_is_free(port: u16) -> bool {
+    [[127, 0, 0, 1], [0, 0, 0, 0]].into_iter().all(|address| {
+        tokio::net::TcpSocket::new_v4()
+            .and_then(|socket| socket.bind(std::net::SocketAddr::from((address, port))))
+            .is_ok()
+    })
 }
 
 /// Spawns a sidecar server process with consistent behavior: stdout/stdin

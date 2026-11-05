@@ -1,3 +1,7 @@
+mod cache;
+
+pub use cache::ParakeetSidecarCache;
+
 use crate::transcription::{TranscriptionError, TranscriptionService};
 use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
@@ -13,14 +17,21 @@ const PORT_START: u16 = 6006;
 const PORT_END: u16 = 6080;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 const TRANSCRIBE_TIMEOUT: Duration = Duration::from_secs(300);
+const SAMPLE_RATE: u32 = 16000;
+/// Longest piece of audio sent to the sidecar in one request. The
+/// sherpa-onnx server rejects anything over its `--max-utterance-length`
+/// (300 s by default) by dropping the connection, and memory use grows with
+/// length, so longer recordings are split at pauses into pieces of at most
+/// this length.
+const MAX_PIECE_SECONDS: f32 = 60.0;
 
 /// Manages a sherpa-onnx-ws sidecar process and provides offline transcription
-/// via WebSocket.
+/// via WebSocket. Clones share the same process, which is killed when the last
+/// clone is dropped.
+#[derive(Clone)]
 pub struct ParakeetService {
     port: u16,
-    #[allow(dead_code)]
     process: Arc<Mutex<Option<Child>>>,
-    #[allow(dead_code)]
     model_size: String,
 }
 
@@ -32,7 +43,6 @@ impl ParakeetService {
     ) -> Result<Self, TranscriptionError> {
         let binary_path = resolve_or_download_binary().await?;
         let port = crate::sidecar::find_free_port(PORT_START, PORT_END)
-            .await
             .map_err(|e| TranscriptionError::Model(e.to_string()))?;
 
         let args = vec![
@@ -85,35 +95,35 @@ impl ParakeetService {
             }
         }
     }
-}
 
-#[async_trait]
-impl TranscriptionService for ParakeetService {
-    async fn transcribe(
-        &self,
-        audio_data: &[u8],
-        _language: Option<&str>,
-        _prompt: Option<&str>,
-    ) -> Result<String, TranscriptionError> {
-        let start_time = std::time::Instant::now();
-        let samples = wav_to_float32(audio_data)?;
-
-        if is_silent(&samples) {
-            crate::log_info!("Parakeet: audio is silent, skipping transcription");
-            return Ok(String::new());
+    /// Whether the sherpa-onnx sidecar process is still running, so a cached
+    /// service whose process crashed or was killed is not reused.
+    pub async fn is_alive(&self) -> bool {
+        let mut process = self.process.lock().await;
+        match process.as_mut() {
+            Some(child) => matches!(child.try_wait(), Ok(None)),
+            None => false,
         }
+    }
 
+    /// Whether `other` is a clone of this service, i.e. drives the same process.
+    pub fn shares_process_with(&self, other: &ParakeetService) -> bool {
+        Arc::ptr_eq(&self.process, &other.process)
+    }
+
+    /// Transcribes one piece of audio (at most `MAX_PIECE_SECONDS`) over its
+    /// own WebSocket connection.
+    async fn transcribe_piece(&self, samples: &[f32]) -> Result<String, TranscriptionError> {
         let url = format!("ws://127.0.0.1:{}", self.port);
         let (mut ws, _) = connect_async(&url)
             .await
             .map_err(|e| TranscriptionError::Network(format!("WebSocket connect failed: {}", e)))?;
 
-        let sample_rate: i32 = 16000;
         let num_bytes = (samples.len() * 4) as i32;
         let mut msg = Vec::with_capacity(8 + samples.len() * 4);
-        msg.extend_from_slice(&sample_rate.to_le_bytes());
+        msg.extend_from_slice(&(SAMPLE_RATE as i32).to_le_bytes());
         msg.extend_from_slice(&num_bytes.to_le_bytes());
-        for &sample in &samples {
+        for &sample in samples {
             msg.extend_from_slice(&sample.to_le_bytes());
         }
 
@@ -143,15 +153,57 @@ impl TranscriptionService for ParakeetService {
         .await
         .map_err(|_| TranscriptionError::Model("Transcription timed out".into()))??;
 
-        let trimmed = parse_offline_result(&result);
+        Ok(parse_offline_result(&result))
+    }
+}
+
+#[async_trait]
+impl TranscriptionService for ParakeetService {
+    async fn transcribe(
+        &self,
+        audio_data: &[u8],
+        _language: Option<&str>,
+        _prompt: Option<&str>,
+    ) -> Result<String, TranscriptionError> {
+        let start_time = std::time::Instant::now();
+        let samples = wav_to_float32(audio_data)?;
+
+        if is_silent(&samples) {
+            crate::log_info!("Parakeet: audio is silent, skipping transcription");
+            return Ok(String::new());
+        }
+
+        let pieces =
+            crate::audio::chunking::split_at_pauses(&samples, SAMPLE_RATE, MAX_PIECE_SECONDS);
+        if pieces.len() > 1 {
+            crate::log_info!(
+                "Parakeet: splitting {:.1}s of audio into {} pieces of at most {}s",
+                samples.len() as f32 / SAMPLE_RATE as f32,
+                pieces.len(),
+                MAX_PIECE_SECONDS
+            );
+        }
+
+        let mut piece_texts = Vec::with_capacity(pieces.len());
+        for piece in pieces {
+            let piece_samples = &samples[piece];
+            if is_silent(piece_samples) {
+                continue;
+            }
+            let piece_text = self.transcribe_piece(piece_samples).await?;
+            if !piece_text.is_empty() {
+                piece_texts.push(piece_text);
+            }
+        }
+        let text = piece_texts.join(" ");
         let elapsed = start_time.elapsed();
         crate::log_info!(
             "Transcription ({}, engine=Parakeet): inference={:?}, chars={}",
             self.model_size,
             elapsed,
-            trimmed.len()
+            text.len()
         );
-        Ok(trimmed)
+        Ok(text)
     }
 
     fn service_name(&self) -> &'static str {
@@ -247,7 +299,7 @@ fn wav_to_float32(wav_bytes: &[u8]) -> Result<Vec<f32>, TranscriptionError> {
     let mut reader = hound::WavReader::new(std::io::Cursor::new(wav_bytes))
         .map_err(|e| TranscriptionError::Audio(e.to_string()))?;
     let spec = reader.spec();
-    if spec.channels != 1 || spec.sample_rate != 16000 {
+    if spec.channels != 1 || spec.sample_rate != SAMPLE_RATE {
         return Err(TranscriptionError::Audio(format!(
             "Unsupported audio format: {} channels, {}Hz. Expected 1 channel, 16000Hz.",
             spec.channels, spec.sample_rate

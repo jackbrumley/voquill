@@ -18,6 +18,8 @@ pub struct EngineFactory {
     /// config save, download completion) never double-load a model alongside
     /// an awaited preload requested by the frontend.
     preload_lock: Arc<tokio::sync::Mutex<()>>,
+    /// The warm Parakeet sherpa-onnx sidecar, reused across dictations.
+    parakeet_sidecar: parakeet::ParakeetSidecarCache,
 }
 
 /// Generates dropdown options for CPU thread allocation, placing Auto at the top
@@ -116,6 +118,7 @@ impl EngineFactory {
             whisper_last_gpu_error: Arc::new(Mutex::new(None)),
             gpu_tested: AtomicBool::new(false),
             preload_lock: Arc::new(tokio::sync::Mutex::new(())),
+            parakeet_sidecar: parakeet::ParakeetSidecarCache::new(),
         }
     }
 
@@ -222,9 +225,10 @@ impl EngineFactory {
                                 config.local_model_size
                             )));
                         }
-                        let service =
-                            parakeet::ParakeetService::new(model_dir, &config.local_model_size, num_threads)
-                                .await?;
+                        let service = self
+                            .parakeet_sidecar
+                            .service(model_dir, &config.local_model_size, num_threads)
+                            .await?;
                         Ok(Box::new(service))
                     }
                     other => Err(TranscriptionError::Model(format!(
@@ -322,17 +326,40 @@ impl EngineFactory {
                 }
             }
             "Parakeet" => {
-                crate::log_info!(
-                    "Engine preload: Parakeet model {} verified on disk",
-                    config.local_model_size
-                );
+                let num_threads = resolve_thread_count(config, "parakeet.num_threads");
+                match self
+                    .parakeet_sidecar
+                    .service(model_path, &config.local_model_size, num_threads)
+                    .await
+                {
+                    Ok(_) => crate::log_info!(
+                        "Engine preload: Parakeet sidecar running (model {})",
+                        config.local_model_size
+                    ),
+                    Err(e) => crate::log_warn!(
+                        "Engine preload: Parakeet sidecar failed to start ({}): {}",
+                        config.local_model_size,
+                        e
+                    ),
+                }
             }
             _ => {}
         }
     }
 
+    /// Unloads every cached transcription engine: the Whisper model and the
+    /// Parakeet sidecar.
     pub fn unload_all(&self) {
         local_whisper::unload_model(&self.whisper_cache);
+        self.invalidate_parakeet();
+    }
+
+    /// Stops the warm Parakeet sidecar. Called when the transcription engine,
+    /// model or engine settings change, so the old process never serves the
+    /// new configuration and its memory is released when Parakeet is
+    /// deselected.
+    pub fn invalidate_parakeet(&self) {
+        self.parakeet_sidecar.invalidate();
     }
 }
 

@@ -79,7 +79,6 @@ impl SidecarPostProcess {
         .await
         .map_err(|e| PostProcessError::Api(e.to_string()))?;
         let port = crate::sidecar::find_free_port(PORT_START, PORT_END)
-            .await
             .map_err(|e| PostProcessError::Api(e.to_string()))?;
 
         let mgr = ModelManager::new()
