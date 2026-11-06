@@ -24,7 +24,7 @@ usage() {
 Voquill bootstrap installer
 
 Usage:
-  install.sh [--appimage] [--system] [--version <tag>] [--channel latest|stable] [--yes] [--no-relaunch] [--insecure-skip-verify]
+  install.sh [--appimage] [--system] [--clean] [--version <tag>] [--yes] [--no-relaunch] [--insecure-skip-verify]
 
 Default: system-wide install via apt/dnf (requires sudo/pkexec). Falls back to AppImage
 if no supported package manager or root authentication is unavailable.
@@ -33,9 +33,8 @@ Options:
   --appimage              Install AppImage to ~/.local/bin (user-local, no sudo)
   --system                Force system-wide install via package manager (requires root)
   --clean                 Remove old packages and purge cached data (models, python-runner, debug)
-                          before installing. Keeps config.json and history.db.
+                          before installing. Keeps settings.json and history.db.
   --version <tag>         Install specific release tag (e.g. v1.5.0)
-  --channel <name>        Release channel (default: latest)
   --yes                   Skip interactive confirmation prompts
   --no-relaunch           Do not launch Voquill after installation (launches by default)
   --relaunch              Explicitly launch Voquill after installation (default behavior)
@@ -240,7 +239,7 @@ clean_user_data() {
     return
   fi
 
-  log "Cleaning cached user data (keeping config.json and history.db)"
+  log "Cleaning cached user data (keeping settings.json and history.db)"
 
   for dir in "models" "python-runner" "debug"; do
     local target="${config_dir}/${dir}"
@@ -263,7 +262,6 @@ if [[ "${VOQUILL_NO_RELAUNCH:-}" == "1" || "${VOQUILL_NO_RELAUNCH:-}" == "true" 
   relaunch=false
 fi
 version=""
-channel="latest"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -285,11 +283,6 @@ while [[ $# -gt 0 ]]; do
     --version)
       [[ $# -ge 2 ]] || fail "--version requires a value"
       version="$2"
-      shift
-      ;;
-    --channel)
-      [[ $# -ge 2 ]] || fail "--channel requires a value"
-      channel="$2"
       shift
       ;;
     --yes)
@@ -319,11 +312,7 @@ arch="$(resolve_arch)"
 os="linux"
 
 if [[ -z "$version" ]]; then
-  if [[ "$channel" == "latest" || "$channel" == "stable" ]]; then
-    version="latest"
-  else
-    fail "unsupported channel: $channel"
-  fi
+  version="latest"
 fi
 
 # Resolve install mode: default to system if package manager + root/sudo/polkit available
@@ -471,7 +460,16 @@ if [[ "$install_system" == true ]]; then
   if [[ "$pm" == "dnf" ]]; then
     run_as_root dnf install -y "$package_path"
   elif [[ "$pm" == "apt" ]]; then
-    run_as_root apt install -y "$package_path"
+    # A stale package list names dependency versions the mirror has since
+    # removed (404), so refresh it first. An unrelated broken repository can
+    # make the refresh fail; the install is still worth trying then. One
+    # run_as_root call, so a pkexec (in-app update) install asks only once.
+    # shellcheck disable=SC2016 # $1 expands in the root shell.
+    run_as_root bash -c '
+      apt-get update \
+        || echo "[voquill] WARNING: apt-get update failed; installing with the existing package list" >&2
+      apt-get install -y "$1"
+    ' bash "$package_path"
   fi
 
   log "System installation complete via ${pm}"

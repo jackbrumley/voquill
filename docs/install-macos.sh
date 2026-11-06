@@ -34,9 +34,8 @@ Installs Voquill.app into /Applications.
 
 Options:
   --clean                 Remove cached data (models, python-runner, debug) before installing.
-                          Keeps config.json and history.db.
+                          Keeps settings.json and history.db.
   --version <tag>         Install specific release tag (e.g. v1.8.0)
-  --channel <name>        Release channel (default: latest)
   --yes                   Skip interactive confirmation prompts
   --no-relaunch           Do not launch Voquill after installation (launches by default)
   --relaunch              Explicitly launch Voquill after installation (default behavior)
@@ -129,7 +128,7 @@ clean_user_data() {
     log "No user data directory found, skipping cleanup"
     return
   fi
-  log "Cleaning cached user data (keeping config.json and history.db)"
+  log "Cleaning cached user data (keeping settings.json and history.db)"
   local dir
   for dir in models python-runner debug; do
     if [[ -d "${config_dir}/${dir}" ]]; then
@@ -147,7 +146,6 @@ if [[ "${VOQUILL_NO_RELAUNCH:-}" == "1" || "${VOQUILL_NO_RELAUNCH:-}" == "true" 
   relaunch=false
 fi
 version=""
-channel="latest"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -162,11 +160,6 @@ while [[ $# -gt 0 ]]; do
       version="$2"
       shift
       ;;
-    --channel)
-      [[ $# -ge 2 ]] || fail "--channel requires a value"
-      channel="$2"
-      shift
-      ;;
     --yes) non_interactive=true ;;
     --insecure-skip-verify) skip_verify=true ;;
     -h|--help)
@@ -177,10 +170,6 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
-
-if [[ "$channel" != "latest" && "$channel" != "stable" ]]; then
-  fail "unsupported channel: $channel"
-fi
 
 need_cmd curl
 need_cmd ditto

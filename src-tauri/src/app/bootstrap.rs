@@ -6,6 +6,7 @@ use crate::audio;
 use crate::config::storage::{ConfigRecovery, LoadedConfig};
 use crate::config::Config;
 use crate::engine_factory;
+use crate::paths::SettingsFileMigration;
 #[cfg(target_os = "linux")]
 use ashpd::{register_host_app, AppID};
 use std::sync::{Arc, Mutex};
@@ -13,9 +14,11 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 #[cfg(target_os = "linux")]
+use crate::app::identity::APP_ID;
+#[cfg(target_os = "linux")]
 use crate::platform::linux::detection::is_wayland_session;
 #[cfg(target_os = "linux")]
-use crate::platform::linux::wayland::env::{check_wayland_display, APP_ID};
+use crate::platform::linux::wayland::env::check_wayland_display;
 
 /// Records how Linux launched Voquill (display server and the variables that
 /// chose it) beside the system info in the session header.
@@ -83,6 +86,8 @@ fn initialize_storage_and_logging() -> LoadedConfig {
     // Migrate legacy data location (%APPDATA%\foss-voquill etc.) to the
     // unified ~/.config/voquill-app root before anything touches storage.
     let storage_migration_report = crate::paths::migrate_legacy_location();
+    // Then rename the settings file older versions wrote (`config.json`) to `settings.json`.
+    let settings_migration_report = crate::paths::migrate_legacy_settings_file();
 
     // Clean up any legacy autostart entries from previous application versions.
     let autostart_cleanup_report = crate::paths::cleanup_legacy_autostart_entries();
@@ -95,6 +100,15 @@ fn initialize_storage_and_logging() -> LoadedConfig {
 
     if let Some(report) = storage_migration_report {
         crate::log_info!("Storage migration: {}", report);
+    }
+    match settings_migration_report {
+        Some(SettingsFileMigration::Renamed(report)) => {
+            crate::log_info!("Settings migration: {}", report);
+        }
+        Some(SettingsFileMigration::Warning(report)) => {
+            crate::log_warn!("Settings migration: {}", report);
+        }
+        None => {}
     }
     for item in autostart_cleanup_report {
         crate::log_info!("Autostart migration: {}", item);
@@ -111,7 +125,7 @@ fn initialize_storage_and_logging() -> LoadedConfig {
     load_initial_config()
 }
 
-/// Loads `config.json` for startup. A settings file that exists but cannot be
+/// Loads `settings.json` for startup. A settings file that exists but cannot be
 /// read stops the app: starting on defaults would overwrite the user's
 /// settings on the next save. The error is shown in a native dialog because
 /// the main window may be hidden (autostart launches hidden).

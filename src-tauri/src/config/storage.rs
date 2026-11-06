@@ -1,4 +1,4 @@
-//! On-disk persistence for `config.json`: loading (with legacy-field
+//! On-disk persistence for `settings.json`: loading (with legacy-field
 //! migration), atomic saving, and recovery from a file that cannot be parsed.
 //!
 //! Loading never silently discards the user's settings. A file that exists
@@ -28,7 +28,7 @@ pub struct ConfigRecovery {
 }
 
 pub fn load_config() -> Result<LoadedConfig, String> {
-    let config_path = crate::paths::config_file()?;
+    let config_path = crate::paths::settings_file()?;
 
     let config_bytes = match fs::read(&config_path) {
         Ok(bytes) => bytes,
@@ -75,7 +75,7 @@ pub fn load_config() -> Result<LoadedConfig, String> {
 }
 
 pub fn save_config(config: &Config) -> Result<(), String> {
-    let config_path = crate::paths::config_file()?;
+    let config_path = crate::paths::settings_file()?;
     log_info!("Attempting to save config to: {:?}", config_path);
 
     let mut normalized_config = config.clone();
@@ -181,11 +181,11 @@ fn normalize_legacy_portal_hotkey(hotkey: &str) -> Option<String> {
     Some(normalized.join("+"))
 }
 
-/// Moves an unparseable config file to `config.json.invalid-<timestamp>` so
+/// Moves an unparseable settings file to `settings.json.invalid-<timestamp>` so
 /// the user's settings survive for manual repair instead of being overwritten.
 fn move_aside_invalid_config(config_path: &Path, parse_error: &str) -> Result<PathBuf, String> {
     let timestamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
-    let backup_path = config_path.with_file_name(format!("config.json.invalid-{}", timestamp));
+    let backup_path = config_path.with_file_name(format!("settings.json.invalid-{}", timestamp));
     fs::rename(config_path, &backup_path).map_err(|error| {
         format!(
             "Settings file {} could not be parsed ({}), and moving it aside to {} failed: {}",
@@ -246,13 +246,13 @@ mod tests {
             uuid::Uuid::new_v4()
         ));
         fs::create_dir_all(&directory).unwrap();
-        let target_path = directory.join("config.json");
+        let target_path = directory.join("settings.json");
         fs::write(&target_path, b"old").unwrap();
 
         write_atomically(&target_path, b"new").unwrap();
 
         assert_eq!(fs::read(&target_path).unwrap(), b"new");
-        assert!(!directory.join("config.json.tmp").exists());
+        assert!(!directory.join("settings.json.tmp").exists());
         fs::remove_dir_all(&directory).unwrap();
     }
 }

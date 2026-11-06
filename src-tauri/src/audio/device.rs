@@ -153,7 +153,7 @@ fn get_windows_audio_devices(data_flow: EDataFlow) -> Result<Vec<AudioDevice>, S
 }
 
 /// Prefix marking a device ID as a PulseAudio source or sink name
-/// (`pulse:<name>`). These IDs are persisted in `config.json`, so the format
+/// (`pulse:<name>`). These IDs are persisted in `settings.json`, so the format
 /// is stable across releases.
 const PULSE_ID_PREFIX: &str = "pulse:";
 

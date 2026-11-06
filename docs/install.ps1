@@ -8,7 +8,7 @@
 .PARAMETER System
   Install system-wide via MSI (requires administrator privileges).
 .PARAMETER Clean
-  Remove cached data (models, python-runner, debug) before installing. Keeps config.json and history.db.
+  Remove cached data (models, python-runner, debug) before installing. Keeps settings.json and history.db.
 .PARAMETER Version
   Install a specific release tag (e.g. "v1.5.0").
 .PARAMETER InsecureSkipVerify
@@ -223,7 +223,7 @@ function Clean-UserData {
   if (-not (Test-Path $UserDataDir)) {
     return
   }
-  Log "Cleaning cached user data (keeping config.json and history.db)"
+  Log "Cleaning cached user data (keeping settings.json and history.db)"
   foreach ($dir in @("models", "python-runner", "debug")) {
     $target = Join-Path $UserDataDir $dir
     if (Test-Path $target) {

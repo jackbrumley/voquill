@@ -38,7 +38,7 @@ Each individual macro can be assigned its own feedback personality:
 All macro audio artifacts reside inside Voquill's unified storage root (`paths.rs`):
 ```
 ~/.config/voquill-app/
-├── config.json
+├── settings.json
 ├── history.db
 ├── models/
 │   ├── transcription/
