@@ -3,14 +3,16 @@ use std::sync::{mpsc, Arc, Mutex};
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::SampleFormat;
 use ringbuf::traits::*;
-use ringbuf::{CachingCons, HeapRb};
+use ringbuf::HeapRb;
 
 /// Always-on mono capture stream feeding the pre-roll buffer, dictation and
 /// the voice macro listener. Created and replaced only by
 /// `app::capture::ensure_capture_engine`.
 pub struct PersistentAudioEngine {
     _stream: cpal::Stream,
-    pub pre_roll_consumer: Arc<Mutex<CachingCons<Arc<HeapRb<f32>>>>>,
+    /// The most recent ~200 ms of audio, oldest samples overwritten first, so
+    /// a dictation keeps the speech that began just before the hotkey press.
+    pre_roll: Arc<Mutex<HeapRb<f32>>>,
     pub recording_tx: Arc<Mutex<Option<mpsc::SyncSender<f32>>>>,
     pub macro_tx: Arc<Mutex<Option<mpsc::SyncSender<f32>>>>,
     pub sample_rate: u32,
@@ -22,6 +24,15 @@ pub struct PersistentAudioEngine {
 }
 
 impl PersistentAudioEngine {
+    /// Sends every sample captured from now on to `recording_tx` and returns
+    /// the pre-roll captured just before, so the two join without a gap.
+    pub fn begin_recording(&self, recording_tx: mpsc::SyncSender<f32>) -> Vec<f32> {
+        let mut pre_roll = self.pre_roll.lock().unwrap();
+        let samples: Vec<f32> = pre_roll.pop_iter().collect();
+        *self.recording_tx.lock().unwrap() = Some(recording_tx);
+        samples
+    }
+
     pub fn new(endpoint: &super::CaptureEndpoint, sensitivity: f32) -> Result<Self, String> {
         let device = &endpoint.device;
         let candidates = candidate_capture_configs(device);
@@ -75,8 +86,8 @@ impl PersistentAudioEngine {
         );
 
         let pre_roll_size = (sample_rate as f32 * 0.2) as usize;
-        let pre_roll_rb = HeapRb::<f32>::new(pre_roll_size);
-        let (mut pre_roll_prod, pre_roll_cons) = pre_roll_rb.split();
+        let pre_roll = Arc::new(Mutex::new(HeapRb::<f32>::new(pre_roll_size)));
+        let pre_roll_clone = pre_roll.clone();
 
         let recording_tx = Arc::new(Mutex::new(None::<mpsc::SyncSender<f32>>));
         let recording_tx_clone = recording_tx.clone();
@@ -102,9 +113,13 @@ impl PersistentAudioEngine {
         stream_config.buffer_size = super::device::stream_buffer_size(device, &config);
         let channels_usize = channels as usize;
 
-        let mut audio_callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
-            // Lock recording_tx and macro_tx ONCE per callback buffer (~512 samples / ~11ms)
-            // instead of per-sample, to eliminate lock contention on the audio thread.
+        let audio_callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
+            // Lock pre_roll, recording_tx and macro_tx ONCE per callback buffer
+            // (~512 samples / ~11ms) instead of per-sample, to eliminate lock
+            // contention on the audio thread. pre_roll is locked first, matching
+            // `begin_recording`, so a buffer lands either in the pre-roll it
+            // drains or in the recording it arms.
+            let mut pre_roll_guard = pre_roll_clone.try_lock();
             let guard = recording_tx_clone.try_lock();
             let recording_tx_ref = guard.as_ref().ok().and_then(|g| g.as_ref());
 
@@ -115,7 +130,9 @@ impl PersistentAudioEngine {
                 let sample_raw: f32 = frame.iter().sum::<f32>() / channels_usize as f32;
                 let sample = sample_raw * sensitivity;
 
-                let _ = pre_roll_prod.try_push(sample);
+                if let Ok(pre_roll) = pre_roll_guard.as_mut() {
+                    pre_roll.push_overwrite(sample);
+                }
                 if let Some(tx) = recording_tx_ref {
                     let _ = tx.try_send(sample);
                 }
@@ -149,7 +166,7 @@ impl PersistentAudioEngine {
 
         Ok(Self {
             _stream: stream,
-            pre_roll_consumer: Arc::new(Mutex::new(pre_roll_cons)),
+            pre_roll,
             recording_tx,
             macro_tx,
             sample_rate,

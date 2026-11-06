@@ -1,7 +1,5 @@
 use std::sync::{mpsc, Arc, Mutex};
 
-use ringbuf::traits::Consumer;
-
 use crate::app::state::SessionState;
 
 use super::conversion::finalize_captured_audio_for_whisper;
@@ -15,24 +13,15 @@ pub async fn record_audio_while_flag(
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     crate::log_info!("record_audio_while_flag: enter");
     let (tx, rx) = mpsc::sync_channel::<f32>(65536);
-    let mut samples = Vec::new();
-    let sample_rate;
-    {
-        let mut guard = engine.lock().unwrap();
-        let eng = guard.as_mut().ok_or("Audio engine not initialized")?;
-        sample_rate = eng.sample_rate;
-        // Drain pre-roll samples accumulated before recording started
-        if let Ok(mut cons) = eng.pre_roll_consumer.lock() {
-            while let Some(s) = cons.try_pop() {
-                samples.push(s);
-            }
-        }
-        *eng.recording_tx.lock().unwrap() = Some(tx);
-    }
+    let (sample_rate, pre_roll) = {
+        let guard = engine.lock().unwrap();
+        let eng = guard.as_ref().ok_or("Audio engine not initialized")?;
+        (eng.sample_rate, eng.begin_recording(tx))
+    };
 
     let (data_tx, data_rx) = mpsc::channel::<Vec<f32>>();
     std::thread::spawn(move || {
-        let mut all = samples;
+        let mut all = pre_roll;
         while let Ok(s) = rx.recv() {
             all.push(s);
         }
