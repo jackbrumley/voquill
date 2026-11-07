@@ -18,32 +18,9 @@
         <p class="section-title">Other apps</p>
         <a class="all-apps" href="https://brumley.info/">All apps &rarr;</a>
       </div>
-      <ul class="app-tiles">
-        <li>
-          <a class="app-tile is-current" href="https://voquill.org/" aria-current="page" style="--app: #5865f2; --app-2: #c43991;">
-            <span class="tile"><img src="{{ '/assets/icons/' | relative_url }}voquill.png" alt="" width="34" height="34" /></span>
-            <span class="app-name">Voquill</span>
-          </a>
-        </li>
-        <li>
-          <a class="app-tile" href="https://brumley.info/rusty-g6/" style="--app: #e5483f; --app-2: #ff8a3d;">
-            <span class="tile"><img src="{{ '/assets/icons/' | relative_url }}rusty-g6.png" alt="" width="34" height="34" /></span>
-            <span class="app-name">Rusty G6</span>
-          </a>
-        </li>
-        <li>
-          <a class="app-tile" href="https://somedrive.org/" style="--app: #1677d2; --app-2: #22c1c3;">
-            <span class="tile"><img src="{{ '/assets/icons/' | relative_url }}somedrive.svg" alt="" width="34" height="34" /></span>
-            <span class="app-name">SomeDrive</span>
-          </a>
-        </li>
-        <li>
-          <a class="app-tile" href="https://yambuck.com/" style="--app: #1f8f9c; --app-2: #5ce0d2;">
-            <span class="tile"><img src="{{ '/assets/icons/' | relative_url }}yambuck.svg" alt="" width="34" height="34" /></span>
-            <span class="app-name">Yambuck</span>
-          </a>
-        </li>
-      </ul>
+      <ul class="app-tiles" data-other-apps data-current="voquill"></ul>
+      <script src="https://brumley.info/shared/v1/apps.js" defer></script>
+      <script src="https://brumley.info/shared/v1/other-apps.js" defer></script>
     </nav>
 
     {% if page.provenance %}
