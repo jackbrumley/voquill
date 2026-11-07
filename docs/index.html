@@ -233,4 +233,62 @@ is_home: true
   <p class="provenance home-provenance">FOSS Voquill is the original project, first published in July 2025 by Jack Brumley and built to give back to the open-source community.</p>
 </main>
 
-<script src="{{ '/assets/install-widget.js' | relative_url }}" defer></script>
+<script type="application/json" id="install-config">
+{
+  "linux": {
+    "system": {
+      "label": "System Install",
+      "command": "curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash",
+      "hint": "Open <strong>Terminal</strong> and run:",
+      "note": ""
+    },
+    "appimage": {
+      "label": "AppImage",
+      "command": "curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash -s -- --appimage",
+      "hint": "Open <strong>Terminal</strong> and run:",
+      "note": ""
+    },
+    "uninstall": {
+      "label": "Uninstall",
+      "command": "curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/uninstall.sh | bash",
+      "hint": "Open <strong>Terminal</strong> and run:",
+      "note": ""
+    }
+  },
+  "macos": {
+    "install": {
+      "label": "Install",
+      "command": "curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash",
+      "hint": "Apple Silicon Macs, community-supported. Open <strong>Terminal</strong> and run:",
+      "note": ""
+    },
+    "uninstall": {
+      "label": "Uninstall",
+      "command": "curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/uninstall.sh | bash",
+      "hint": "Apple Silicon Macs, community-supported. Open <strong>Terminal</strong> and run:",
+      "note": ""
+    }
+  },
+  "windows": {
+    "user": {
+      "label": "User Install",
+      "command": "irm https://voquill.org/install.ps1 | iex",
+      "hint": "Open <strong>PowerShell</strong> or <strong>Windows Terminal</strong> and run:",
+      "note": ""
+    },
+    "system": {
+      "label": "System Wide",
+      "command": "irm https://voquill.org/install-system.ps1 | iex",
+      "hint": "Open <strong>PowerShell as Administrator</strong> and run:",
+      "note": ""
+    },
+    "uninstall": {
+      "label": "Uninstall",
+      "command": "irm https://voquill.org/uninstall.ps1 | iex",
+      "hint": "Open <strong>PowerShell</strong> and run:",
+      "note": ""
+    }
+  }
+}
+</script>
+<script src="https://brumley.info/shared/v1/install-widget.js" defer></script>
