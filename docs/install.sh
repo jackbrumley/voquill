@@ -397,6 +397,9 @@ fi
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
+# apt reads a local .deb as its sandbox user (_apt), which can't enter
+# mktemp's private folder; without this apt falls back to root with a notice.
+chmod 0755 "$tmp_dir"
 
 package_path="${tmp_dir}/${BIN_NAME}.${package_ext:-AppImage}"
 
