@@ -263,7 +263,10 @@ pub enum SettingsFileMigration {
 /// wins and the old one is left untouched. Returns `None` when there was
 /// nothing to migrate.
 pub fn migrate_legacy_settings_file() -> Option<SettingsFileMigration> {
-    let root = app_root().ok()?;
+    migrate_settings_file_in(&app_root().ok()?)
+}
+
+fn migrate_settings_file_in(root: &Path) -> Option<SettingsFileMigration> {
     let legacy_path = root.join(LEGACY_SETTINGS_FILE_NAME);
     if !legacy_path.exists() {
         return None;
@@ -436,6 +439,55 @@ mod tests {
         assert!(legacy_root.join("config.json").exists());
         assert!(!new_root.join("config.json").exists());
         fs::remove_dir_all(&scratch).unwrap();
+    }
+
+    #[test]
+    fn legacy_settings_file_is_renamed_with_its_contents() {
+        let root = scratch_dir();
+        fs::write(root.join("config.json"), b"legacy settings").unwrap();
+
+        let outcome = migrate_settings_file_in(&root);
+
+        assert!(matches!(outcome, Some(SettingsFileMigration::Renamed(_))));
+        assert!(!root.join("config.json").exists());
+        assert_eq!(
+            fs::read(root.join("settings.json")).unwrap(),
+            b"legacy settings"
+        );
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn existing_settings_file_wins_and_legacy_file_is_left_untouched() {
+        let root = scratch_dir();
+        fs::write(root.join("config.json"), b"legacy settings").unwrap();
+        fs::write(root.join("settings.json"), b"new settings").unwrap();
+
+        let outcome = migrate_settings_file_in(&root);
+
+        assert!(matches!(outcome, Some(SettingsFileMigration::Warning(_))));
+        assert_eq!(
+            fs::read(root.join("settings.json")).unwrap(),
+            b"new settings"
+        );
+        assert_eq!(
+            fs::read(root.join("config.json")).unwrap(),
+            b"legacy settings"
+        );
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn nothing_to_migrate_without_a_legacy_settings_file() {
+        let root = scratch_dir();
+        fs::write(root.join("settings.json"), b"new settings").unwrap();
+
+        assert!(migrate_settings_file_in(&root).is_none());
+        assert_eq!(
+            fs::read(root.join("settings.json")).unwrap(),
+            b"new settings"
+        );
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
