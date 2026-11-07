@@ -66,54 +66,18 @@ is_home: true
     </div>
   </section>
 
-  <section class="capabilities-section">
-    <div class="capability-pills">
-      <span class="capability-pill capability-pill-highlight">On-Device AI Post-Processing</span>
-      <span class="capability-pill">Voice Macro Automation</span>
-      <span class="capability-pill">Works in Any Application</span>
-      <span class="capability-pill capability-pill-primary">100% Local &amp; Private</span>
-      <span class="capability-pill">AI Voice Feedback</span>
-      <span class="capability-pill">Separate Multiple Voices</span>
-      <span class="capability-pill">Push-to-Talk or Toggle Mode</span>
-      <span class="capability-pill">Full Wayland Support</span>
-      <span class="capability-pill">Transcribe Audio Files</span>
-      <span class="capability-pill capability-pill-pink">Truly FOSS</span>
-    </div>
+  <section class="features" aria-labelledby="features-title">
+    <h2 id="features-title">What it does</h2>
+    <p class="features-lead">Voquill turns your voice into text right where your cursor is. Hold a key to talk, or toggle, and it types into any app: emails, docs, browsers, editors. It's a free, open-source alternative to paid cloud dictation: everything runs on your own computer, so your voice never leaves it.</p>
+    <ul>
+      <li>Works in any app: emails, documents, browsers, editors and chat, with a global hotkey</li>
+      <li>100% local and private: speech recognition and AI run on your computer, with no accounts or telemetry</li>
+      <li>On-device AI cleans up your dictation: grammar, formatting and your own writing styles</li>
+      <li>Voice macros run key sequences, shortcuts and commands from spoken trigger words</li>
+      <li>Transcribes audio files and tells different speakers apart</li>
+      <li>Truly free: GNU AGPLv3, with no subscriptions, paywalls or "Pro" tier</li>
+    </ul>
   </section>
-
-  <p class="how-it-works">
-    Voquill turns your voice into text right where your cursor is. Use hold-to-talk or toggle mode to dictate, and it types into any app — emails, docs, browsers, editors. Free and open source with Windows and Linux support, it runs entirely on your device so your voice stays private.
-  </p>
-
-  <nav class="link-row" aria-label="Project links">
-      <a href="{{ '/faq.html' | relative_url }}" class="btn btn-secondary">
-        <img src="{{ '/message-question.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
-        <span class="btn-text">
-          <span class="btn-title">FAQ</span>
-          <span class="btn-subtitle">Questions answered</span>
-        </span>
-      </a>
-      <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">
-        <img src="{{ '/brand-github.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
-        <span class="btn-text">
-          <span class="btn-title">GitHub</span>
-          <span class="btn-subtitle">Forever FOSS</span>
-        </span>
-      </a>
-      <a href="{{ '/donate.html' | relative_url }}" class="btn btn-secondary btn-support">
-        <img src="{{ '/heart.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
-        <span class="btn-text">
-          <span class="btn-title">Support</span>
-          <span class="btn-subtitle">Donate optional</span>
-        </span>
-      </a>
-  </nav>
-
-  <div class="press-quote-card">
-    <span class="press-source">WIRED</span>
-    <blockquote class="press-quote-text">&ldquo;...the best free Windows and Linux option I've found without any annoying upselling.&rdquo;</blockquote>
-    <a href="https://www.wired.com/story/do-you-actually-need-to-pay-for-transcription-software" target="_blank" rel="noopener noreferrer" class="press-quote-link">Read on WIRED &rarr;</a>
-  </div>
 
   <div class="hero-screenshots-grid">
     <a href="{{ '/screenshots.html' | relative_url }}" class="hero-screenshot-card">
@@ -126,6 +90,12 @@ is_home: true
 
   <div class="gallery-action">
     <a href="{{ '/screenshots.html' | relative_url }}" class="btn btn-secondary">View All Screenshots</a>
+  </div>
+
+  <div class="press-quote-card">
+    <span class="press-source">WIRED</span>
+    <blockquote class="press-quote-text">&ldquo;...the best free Windows and Linux option I've found without any annoying upselling.&rdquo;</blockquote>
+    <a href="https://www.wired.com/story/do-you-actually-need-to-pay-for-transcription-software" target="_blank" rel="noopener noreferrer" class="press-quote-link">Read on WIRED &rarr;</a>
   </div>
 
   <section class="workflows-section">
@@ -195,12 +165,6 @@ is_home: true
     </ul>
   </section>
 
-  <div class="faq-teaser-card">
-    <h3>Got Questions About Privacy, Local AI Models, or Features?</h3>
-    <p>Read our full Frequently Asked Questions page to learn how Voquill runs 100% locally with zero telemetry, no accounts, and no subscriptions.</p>
-    <a href="{{ '/faq.html' | relative_url }}" class="btn btn-secondary">Read Full FAQ &rarr;</a>
-  </div>
-
   <section class="philosophy-grid">
     <div class="card">
       <h3>Truly Free</h3>
@@ -215,6 +179,36 @@ is_home: true
       <p>First-class Linux support (Wayland XDG Portals, X11, .deb, .rpm, AppImage) and native Windows WASAPI audio. Native keyboard simulation.</p>
     </div>
   </section>
+
+  <div class="faq-teaser-card">
+    <h3>Got Questions About Privacy, Local AI Models, or Features?</h3>
+    <p>Read our full Frequently Asked Questions page to learn how Voquill runs 100% locally with zero telemetry, no accounts, and no subscriptions.</p>
+    <a href="{{ '/faq.html' | relative_url }}" class="btn btn-secondary">Read Full FAQ &rarr;</a>
+  </div>
+
+  <nav class="link-row" aria-label="Project links">
+      <a href="{{ '/faq.html' | relative_url }}" class="btn btn-secondary">
+        <img src="{{ '/message-question.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
+        <span class="btn-text">
+          <span class="btn-title">FAQ</span>
+          <span class="btn-subtitle">Questions answered</span>
+        </span>
+      </a>
+      <a href="https://github.com/jackbrumley/voquill" class="btn btn-secondary">
+        <img src="{{ '/brand-github.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
+        <span class="btn-text">
+          <span class="btn-title">GitHub</span>
+          <span class="btn-subtitle">Forever FOSS</span>
+        </span>
+      </a>
+      <a href="{{ '/donate.html' | relative_url }}" class="btn btn-secondary btn-support">
+        <img src="{{ '/heart.svg' | relative_url }}" alt="" class="btn-icon" aria-hidden="true">
+        <span class="btn-text">
+          <span class="btn-title">Support</span>
+          <span class="btn-subtitle">Donate optional</span>
+        </span>
+      </a>
+  </nav>
 
   <div class="video-section">
     <h3 class="video-heading">Walkthrough Video</h3>
