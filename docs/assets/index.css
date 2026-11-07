@@ -258,53 +258,6 @@
 
 .page > .install { margin-top: 0; }
 
-/* Capability pills */
-
-.capability-pills {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.55rem;
-  max-width: 880px;
-  margin: 0 auto;
-}
-
-.capability-pill {
-  --pill: var(--accent);
-  --pill-2: var(--accent);
-  padding: 0.4rem 0.9rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.82rem;
-  font-weight: 500;
-}
-
-.capability-pill-highlight,
-.capability-pill-primary,
-.capability-pill-pink {
-  border-color: color-mix(in srgb, var(--pill) 45%, var(--border));
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--pill) 14%, var(--surface)),
-    color-mix(in srgb, var(--pill-2) 14%, var(--surface)));
-  font-weight: 600;
-}
-
-.capability-pill-highlight { --pill: #c43991; --pill-2: #7b78a3; }
-.capability-pill-primary { --pill: #5ab7d6; --pill-2: #5865f2; }
-.capability-pill-pink { --pill: #c43991; --pill-2: #9c5a88; }
-
-.how-it-works {
-  max-width: 820px;
-  margin-left: auto;
-  margin-right: auto;
-  color: var(--muted);
-  font-size: 1.08rem;
-  line-height: 1.65;
-  text-align: center;
-}
-
 /* FAQ / GitHub / Support links */
 
 .page > .link-row {
@@ -402,6 +355,50 @@
 .page > .gallery-action {
   margin-top: 28px;
   text-align: center;
+}
+
+/* What it does: the same section as every app page (App Standard, Install Page;
+   rules copied from brumley.info/shared/v1/app-page.css). */
+
+.features { margin-top: 64px; }
+
+/* "What it does": one paragraph (what it is, what it does, why it exists),
+   then the cards (App Standard, Install Page). */
+.features .features-lead {
+  max-width: 72ch;
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.features ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.features li {
+  position: relative;
+  padding: 14px 16px 14px 40px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+}
+
+.features li::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  top: 21px;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  transform: rotate(45deg);
 }
 
 /* Workflows */
