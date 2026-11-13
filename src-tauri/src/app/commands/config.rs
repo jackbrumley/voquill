@@ -159,6 +159,12 @@ fn reconcile_engine_warmup(
     if transcription_changed && merged_config.transcription_mode == TranscriptionMode::Local {
         crate::app::bootstrap::spawn_engine_preload(state.engine_factory.clone(), merged_config);
     }
+
+    if !crate::app::bootstrap::python_runner_needed(previous_config)
+        && crate::app::bootstrap::python_runner_needed(merged_config)
+    {
+        crate::app::bootstrap::spawn_python_runner_prewarm(app_handle, merged_config);
+    }
 }
 
 #[tauri::command]

@@ -304,16 +304,22 @@ pub fn spawn_post_process_warmup(
     });
 }
 
-/// Pre-warms the Python runner for diarization when diarization is enabled.
-/// Spawned asynchronously at startup so it's ready before the user's first
-/// file import, avoiding the ~2s lazy-start delay on first use.
+/// Whether an enabled feature runs in the Python runner: file diarization,
+/// or noise reduction (applied to every dictation).
+pub fn python_runner_needed(config: &Config) -> bool {
+    config.diarization_enabled_files || config.noise_reduction_enabled
+}
+
+/// Pre-warms the Python runner when an enabled feature needs it, so the first
+/// file import or dictation does not wait ~2-3 s for it to start. Fired at
+/// startup and re-armed by `save_config` when such a feature is turned on.
 pub fn spawn_python_runner_prewarm(app_handle: &tauri::AppHandle, config: &Config) {
-    if !config.diarization_enabled_files {
+    if !python_runner_needed(config) {
         return;
     }
     let app_handle = app_handle.clone();
     tauri::async_runtime::spawn(async move {
-        crate::log_info!("Pre-warming Python runner for diarization...");
+        crate::log_info!("Pre-warming Python runner...");
         let state = app_handle.state::<AppState>();
         match state.get_or_start_python_runner(&app_handle).await {
             Ok(_) => {
