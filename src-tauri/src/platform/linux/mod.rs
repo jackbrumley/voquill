@@ -1,4 +1,5 @@
 pub mod detection;
+pub mod keysym;
 pub mod wayland;
 pub mod x11;
 

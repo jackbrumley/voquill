@@ -13,7 +13,7 @@ const XK_INSERT: u32 = 0xFF63;
 const XK_RETURN: u32 = 0xFF0D;
 const XK_TAB: u32 = 0xFF09;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct ResolvedKey {
     keycode: u8,
     needs_shift: bool,
@@ -25,15 +25,6 @@ struct KeyboardMap {
     keysyms: Vec<u32>,
     shift_keycode: u8,
     ctrl_keycode: u8,
-}
-
-fn char_to_keysym(character: char) -> Option<u32> {
-    match character {
-        '\n' => Some(XK_RETURN),
-        '\t' => Some(XK_TAB),
-        _ if character.is_ascii() => Some(character as u32),
-        _ => Some(0x0100_0000 + character as u32),
-    }
 }
 
 fn load_keyboard_map(
@@ -94,11 +85,14 @@ fn resolve_keysym_keycode(keyboard_map: &KeyboardMap, target: u32) -> Option<Res
         .chunks(keyboard_map.keysyms_per_keycode)
         .enumerate()
     {
-        for (column, keysym) in chunk.iter().enumerate() {
+        // Only the first two columns (unshifted and Shift) can be typed with
+        // Shift alone; later columns need AltGr or another group, so a match
+        // there would type the wrong character.
+        for (column, keysym) in chunk.iter().take(2).enumerate() {
             if *keysym == target {
                 return Some(ResolvedKey {
                     keycode: keyboard_map.min_keycode.saturating_add(index as u8),
-                    needs_shift: column % 2 == 1,
+                    needs_shift: column == 1,
                 });
             }
         }
@@ -115,11 +109,7 @@ fn resolve_text_keys(
     let mut unsupported = Vec::new();
 
     for character in text.chars() {
-        let Some(keysym) = char_to_keysym(character) else {
-            unsupported.push(character);
-            continue;
-        };
-
+        let keysym = crate::platform::linux::keysym::keysym_for_char(character);
         let Some(key) = resolve_keysym_keycode(keyboard_map, keysym) else {
             unsupported.push(character);
             continue;
@@ -491,4 +481,63 @@ pub fn send_key_up(key: &str) -> Result<(), Box<dyn std::error::Error + Send + S
     send_key_event(&connection, keycode, false)?;
     connection.flush()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Two keys of a German core keyboard map, laid out the way the X server
+    /// reports it: unshifted, Shift, the same pair again, then AltGr levels.
+    fn german_keyboard_map() -> KeyboardMap {
+        const AT: u32 = 0x40;
+        const UDIAERESIS: u32 = 0xFC;
+        const UPPER_UDIAERESIS: u32 = 0xDC;
+        KeyboardMap {
+            keysyms_per_keycode: 6,
+            min_keycode: 24,
+            keysyms: vec![
+                'q' as u32,
+                'Q' as u32,
+                'q' as u32,
+                'Q' as u32,
+                AT,
+                0,
+                UDIAERESIS,
+                UPPER_UDIAERESIS,
+                UDIAERESIS,
+                UPPER_UDIAERESIS,
+                0,
+                0,
+            ],
+            shift_keycode: 50,
+            ctrl_keycode: 37,
+        }
+    }
+
+    #[test]
+    fn umlauts_resolve_to_their_key_on_a_german_layout() {
+        let keys = resolve_text_keys("üÜ", &german_keyboard_map()).unwrap();
+        assert_eq!(
+            keys,
+            vec![
+                ResolvedKey {
+                    keycode: 25,
+                    needs_shift: false
+                },
+                ResolvedKey {
+                    keycode: 25,
+                    needs_shift: true
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn altgr_characters_are_unsupported_instead_of_typed_as_the_base_key() {
+        assert_eq!(
+            resolve_text_keys("q@", &german_keyboard_map()),
+            Err(vec!['@'])
+        );
+    }
 }
