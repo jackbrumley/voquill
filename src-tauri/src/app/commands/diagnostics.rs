@@ -63,6 +63,14 @@ pub async fn get_post_process_gpu_status(
     }
 }
 
+/// Why noise reduction last failed, or `None` if it worked (or has not run).
+#[tauri::command]
+pub async fn get_noise_reduction_error(
+    state: tauri::State<'_, AppState>,
+) -> Result<Option<String>, String> {
+    Ok(state.noise_reduction_error.lock().unwrap().clone())
+}
+
 use crate::typing;
 
 /// Opens a file or folder with the desktop's default handler.

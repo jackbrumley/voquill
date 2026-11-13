@@ -1,4 +1,4 @@
-import { IconRefresh } from '@tabler/icons-preact';
+import { IconInfoCircle, IconRefresh } from '@tabler/icons-preact';
 import { ConfigField } from '../../components/ConfigField.tsx';
 import { Switch } from '../../components/Switch.tsx';
 import { Button } from '../../components/Button.tsx';
@@ -8,6 +8,7 @@ import { SelectField } from '../../components/SelectField.tsx';
 import type { AudioDevice, Config } from '../../types.ts';
 import { selectWrapperStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
+import { useNoiseReductionError } from '../../hooks/useNoiseReductionError.ts';
 
 interface AudioSectionProps {
   config: Config;
@@ -38,6 +39,8 @@ export function AudioSection({
   stopMicTest,
   stopMicPlayback,
 }: AudioSectionProps) {
+  const { noiseReductionError } = useNoiseReductionError();
+
   return (
     <>
       <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
@@ -101,6 +104,24 @@ export function AudioSection({
                 ariaLabel="Noise reduction strength"
                 style={{ margin: `${tokens.spacing.sm} 0` }}
               />
+              {noiseReductionError && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '11px',
+                  color: '#f1c40f',
+                  padding: '6px 8px',
+                  background: 'rgba(241, 196, 15, 0.08)',
+                  borderRadius: '6px',
+                  textAlign: 'left',
+                }}>
+                  <IconInfoCircle size={14} style={{ flexShrink: 0 }} />
+                  <span>
+                    Noise reduction failed on the last recording, so it was transcribed without it: {noiseReductionError}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>

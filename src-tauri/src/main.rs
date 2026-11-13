@@ -224,6 +224,7 @@ fn main() {
             install_update,
             get_gpu_status,
             get_post_process_gpu_status,
+            get_noise_reduction_error,
             get_engine_capabilities,
             unload_model,
             test_voice_macro_sound,

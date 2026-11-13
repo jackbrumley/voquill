@@ -47,6 +47,9 @@ pub struct AppState {
     pub post_process_factory: Arc<PostProcessFactory>,
     pub python_runner: Arc<Mutex<Option<crate::python_runner::PythonRunner>>>,
     pub python_runner_init_lock: Arc<tokio::sync::Mutex<()>>,
+    /// Why the most recent noise reduction attempt failed, or `None` after a
+    /// success. Owned by `recording_flow::audio_processing::run_noise_reduction`.
+    pub noise_reduction_error: Arc<Mutex<Option<String>>>,
     pub voice_macro_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
 }
 
@@ -190,6 +193,7 @@ impl Default for AppState {
             post_process_factory: Arc::new(PostProcessFactory::new()),
             python_runner: Arc::new(Mutex::new(None)),
             python_runner_init_lock: Arc::new(tokio::sync::Mutex::new(())),
+            noise_reduction_error: Arc::new(Mutex::new(None)),
             voice_macro_cancel: Arc::new(Mutex::new(None)),
         }
     }

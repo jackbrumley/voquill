@@ -1,5 +1,5 @@
 use crate::diarization::DiarizationResult;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 pub fn validate_audio_duration(
     audio_data: &[u8],
@@ -73,8 +73,35 @@ pub async fn run_diarization_for_recording(
     runner.diarize(&path_str, cluster_threshold).await
 }
 
-/// Run noise reduction on captured audio via the Python runner.
+pub const NOISE_REDUCTION_STATUS_CHANGED_EVENT: &str = "noise-reduction-status-changed";
+
+/// Run noise reduction on captured audio via the Python runner, and record
+/// the outcome in `AppState::noise_reduction_error` so Settings can show why
+/// noise reduction is not being applied (callers fall back to raw audio).
 pub async fn run_noise_reduction(
+    app_handle: &tauri::AppHandle,
+    audio_data: &[u8],
+    noise_reduction_strength: f32,
+) -> Result<Vec<u8>, String> {
+    let result = enhance_audio(app_handle, audio_data, noise_reduction_strength).await;
+    record_noise_reduction_outcome(app_handle, result.as_ref().err().cloned());
+    result
+}
+
+fn record_noise_reduction_outcome(app_handle: &tauri::AppHandle, error: Option<String>) {
+    let app_state = app_handle.state::<crate::AppState>();
+    let changed = {
+        let mut current = app_state.noise_reduction_error.lock().unwrap();
+        let changed = *current != error;
+        *current = error;
+        changed
+    };
+    if changed {
+        let _ = app_handle.emit(NOISE_REDUCTION_STATUS_CHANGED_EVENT, ());
+    }
+}
+
+async fn enhance_audio(
     app_handle: &tauri::AppHandle,
     audio_data: &[u8],
     noise_reduction_strength: f32,
