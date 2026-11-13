@@ -78,6 +78,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     paste_shortcut: 'ShiftInsert',
     noise_reduction_enabled: false,
     noise_reduction_strength: 0.7,
+    other_audio_while_recording: 'Keep',
     history_limit: 500,
     log_level: 'info',
     diarization_enabled_files: false,

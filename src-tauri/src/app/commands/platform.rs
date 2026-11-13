@@ -46,6 +46,20 @@ pub async fn get_input_capabilities(
 }
 
 #[derive(Serialize)]
+pub struct AudioCapabilities {
+    other_audio_control_supported: bool,
+}
+
+/// Audio features this platform supports, so the UI offers only options that
+/// will work here.
+#[tauri::command]
+pub async fn get_audio_capabilities() -> Result<AudioCapabilities, String> {
+    Ok(AudioCapabilities {
+        other_audio_control_supported: audio::other_audio::is_supported(),
+    })
+}
+
+#[derive(Serialize)]
 pub struct OverlayPositioningCapabilities {
     manual_offset_supported: bool,
     detail: Option<String>,

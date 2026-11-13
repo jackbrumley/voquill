@@ -220,6 +220,7 @@ fn main() {
             get_system_shortcut_context,
             get_overlay_positioning_capabilities,
             get_input_capabilities,
+            get_audio_capabilities,
             check_for_updates,
             install_update,
             get_gpu_status,

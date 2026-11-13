@@ -40,6 +40,15 @@ pub enum HotkeyMode {
     Toggle,
 }
 
+/// What happens to other applications' audio while a dictation records.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub enum OtherAudioWhileRecording {
+    #[default]
+    Keep,
+    Lower,
+    Mute,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default = "default_api_key")]
@@ -130,6 +139,8 @@ pub struct Config {
     pub noise_reduction_enabled: bool,
     #[serde(default = "default_noise_reduction_strength")]
     pub noise_reduction_strength: f32,
+    #[serde(default)]
+    pub other_audio_while_recording: OtherAudioWhileRecording,
     #[serde(default)]
     pub append_trailing_space: bool,
     #[serde(default)]
@@ -397,6 +408,7 @@ impl Default for Config {
             custom_filler_words: Vec::new(),
             noise_reduction_enabled: false,
             noise_reduction_strength: default_noise_reduction_strength(),
+            other_audio_while_recording: OtherAudioWhileRecording::Keep,
             append_trailing_space: false,
             auto_submit: false,
             paste_after_copy: default_paste_after_copy(),

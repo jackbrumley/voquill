@@ -3,6 +3,7 @@ pub mod conversion;
 pub mod decode;
 pub mod device;
 pub mod engine;
+pub mod other_audio;
 pub mod playback;
 #[cfg(target_os = "linux")]
 mod pulse_server;

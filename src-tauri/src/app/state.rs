@@ -98,6 +98,9 @@ impl AppState {
             *guard = None;
         }
 
+        // 5b. Give other applications back the audio a recording lowered.
+        audio::other_audio::restore();
+
         // 6. Cancel Voice Macro listener.
         {
             let mut guard = self.voice_macro_cancel.lock().unwrap();
