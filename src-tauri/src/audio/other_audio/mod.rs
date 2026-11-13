@@ -39,7 +39,9 @@ pub enum Adjustment {
 }
 
 /// Linear amplitude factor applied by `Adjustment::Lower` (about -14 dB):
-/// clearly in the background, still audible.
+/// clearly in the background, still audible. Only the backends that can
+/// change volume use it.
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 pub const LOWERED_VOLUME_FACTOR: f32 = 0.2;
 
 /// The streams the current recording adjusted, waiting to be restored.
