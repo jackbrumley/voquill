@@ -1,5 +1,6 @@
 pub mod audio_processing;
 pub mod output;
+mod transcription;
 
 use crate::app::state::SessionState;
 use crate::config::Config;
@@ -51,63 +52,6 @@ async fn finish_session(
     *state.active_session.lock().unwrap() = None;
     *session_state.lock().unwrap() = SessionState::Idle;
     crate::app::status::emit_status_to_frontend("Ready").await;
-}
-
-struct SessionContext<'a> {
-    session_uuid: &'a str,
-    saved_audio_file: Option<&'a str>,
-    duration_secs: f64,
-    lang_code_str: &'a str,
-    prompt_name: Option<&'a str>,
-    history_limit: usize,
-}
-
-async fn transcribe_full_audio(
-    service: &(dyn crate::transcription::TranscriptionService + Send + Sync),
-    audio_data: &[u8],
-    lang_code: Option<&str>,
-    prompt_hint: Option<&str>,
-    ctx: &SessionContext<'_>,
-    app_handle: &AppHandle,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    match service.transcribe(audio_data, lang_code, prompt_hint).await {
-        Ok(text) => {
-            crate::log_info!(
-                "[session:{}] Transcription received ({}): \"{}\"",
-                &ctx.session_uuid[..8],
-                service.service_name(),
-                text
-            );
-            Ok(text)
-        }
-        Err(error) => {
-            crate::log_info!(
-                "[session:{}] Transcription failed ({}): {}",
-                &ctx.session_uuid[..8],
-                service.service_name(),
-                error
-            );
-            let _ = crate::history::add_history_item(&crate::history::NewHistoryItem {
-                session_uuid: ctx.session_uuid,
-                status: "failed",
-                text: "",
-                raw_text: None,
-                error_message: Some(&format!("Transcription failed: {}", error)),
-                segments: None,
-                audio_file: ctx.saved_audio_file,
-                duration_secs: Some(ctx.duration_secs),
-                engine: Some(service.service_name()),
-                source: Some("mic"),
-                language: Some(ctx.lang_code_str),
-                prompt_name: ctx.prompt_name,
-                limit: Some(ctx.history_limit),
-            });
-            if let Some(window) = app_handle.get_webview_window("main") {
-                let _ = window.emit("history-updated", ());
-            }
-            Err(error.into())
-        }
-    }
 }
 
 async fn record_and_transcribe_inner(
@@ -367,7 +311,7 @@ async fn record_and_transcribe_inner(
         }
     };
 
-    let session_ctx = SessionContext {
+    let session_ctx = transcription::SessionContext {
         session_uuid: &session_uuid,
         saved_audio_file: saved_audio_file.as_deref(),
         duration_secs,
@@ -376,152 +320,20 @@ async fn record_and_transcribe_inner(
         history_limit,
     };
 
-    // ── Transcription: per-segment or full-file ──
-    let mut diar_segments: Vec<crate::diarization::Segment> = Vec::new();
-    let text = if current_config.diarization_enabled_recording {
-        // Save the recorded audio to a temp file for diarization
-        let temp_dir = crate::paths::temp_dir();
-        let _ = std::fs::create_dir_all(&temp_dir);
-        let temp_path = temp_dir.join(format!(
-            "recording_{}.wav",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos()
-        ));
-        if let Err(e) = std::fs::write(&temp_path, &audio_data) {
-            crate::log_warn!("Failed to save temp audio for diarization: {}", e);
-            // Fall back to full-file transcription
-            transcribe_full_audio(
-                service.as_ref(),
-                &audio_data,
-                lang_code,
-                prompt_hint.as_deref(),
-                &session_ctx,
-                app_handle,
-            )
-            .await?
-        } else {
-            let diar_result = audio_processing::run_diarization_for_recording(
-                app_handle,
-                &temp_path,
-                current_config.diarization_cluster_threshold,
-            )
-            .await;
-            let _ = std::fs::remove_file(&temp_path);
-
-            match diar_result {
-                Ok(diar) if !diar.segments.is_empty() => {
-                    crate::log_info!(
-                        "Diarization returned {} segments from {}",
-                        diar.segments.len(),
-                        diar.provider
-                    );
-
-                    let mut segment_pairs: Vec<(Option<String>, String)> = Vec::new();
-
-                    for seg in &diar.segments {
-                        let start = seg.start_sec.unwrap_or(0.0);
-                        let end = seg.end_sec.unwrap_or(1000000.0);
-
-                        let seg_wav = match audio::extract_segment_wav(&audio_data, start, end) {
-                            Ok(w) => w,
-                            Err(e) => {
-                                crate::log_warn!("Failed to extract segment, skipping: {}", e);
-                                continue;
-                            }
-                        };
-
-                        let seg_text = match service
-                            .transcribe(&seg_wav, lang_code, prompt_hint.as_deref())
-                            .await
-                        {
-                            Ok(t) => t,
-                            Err(e) => {
-                                crate::log_warn!("Segment transcription failed, skipping: {}", e);
-                                continue;
-                            }
-                        };
-                        crate::log_info!(
-                            "Segment [{}]: \"{}\"",
-                            seg.speaker.as_deref().unwrap_or("?"),
-                            seg_text
-                        );
-                        segment_pairs.push((seg.speaker.clone(), seg_text));
-                    }
-
-                    if segment_pairs.is_empty() {
-                        String::new()
-                    } else {
-                        let unique_speakers: std::collections::HashSet<Option<&str>> =
-                            segment_pairs.iter().map(|(s, _)| s.as_deref()).collect();
-
-                        if unique_speakers.len() <= 1 {
-                            segment_pairs
-                                .iter()
-                                .map(|(_, t)| t.as_str())
-                                .collect::<Vec<_>>()
-                                .join(" ")
-                        } else {
-                            diar_segments = segment_pairs
-                                .iter()
-                                .map(|(s, t)| crate::diarization::Segment {
-                                    speaker: s.clone(),
-                                    text: t.clone(),
-                                    start_sec: None,
-                                    end_sec: None,
-                                })
-                                .collect();
-
-                            segment_pairs
-                                .iter()
-                                .map(|(s, t)| {
-                                    format!("[{}] {}", s.as_deref().unwrap_or("Speaker"), t)
-                                })
-                                .collect::<Vec<_>>()
-                                .join("\n")
-                        }
-                    }
-                }
-                Ok(_) => {
-                    crate::log_warn!(
-                        "Diarization returned 0 segments — transcribing full recording"
-                    );
-                    transcribe_full_audio(
-                        service.as_ref(),
-                        &audio_data,
-                        lang_code,
-                        prompt_hint.as_deref(),
-                        &session_ctx,
-                        app_handle,
-                    )
-                    .await?
-                }
-                Err(e) => {
-                    crate::log_warn!("Diarization failed, transcribing full recording: {}", e);
-                    transcribe_full_audio(
-                        service.as_ref(),
-                        &audio_data,
-                        lang_code,
-                        prompt_hint.as_deref(),
-                        &session_ctx,
-                        app_handle,
-                    )
-                    .await?
-                }
-            }
-        }
-    } else {
-        transcribe_full_audio(
-            service.as_ref(),
-            &audio_data,
-            lang_code,
-            prompt_hint.as_deref(),
-            &session_ctx,
-            app_handle,
-        )
-        .await?
-    };
+    let transcript = transcription::transcribe_recording(
+        service.as_ref(),
+        &audio_data,
+        lang_code,
+        prompt_hint.as_deref(),
+        current_config
+            .diarization_enabled_recording
+            .then_some(current_config.diarization_cluster_threshold),
+        &session_ctx,
+        app_handle,
+    )
+    .await?;
+    let text = transcript.text;
+    let diar_segments = transcript.speaker_segments;
 
     // Apply regex-based filler word removal, works without LLM post-processing
     let text = crate::text_cleanup::clean_transcription(

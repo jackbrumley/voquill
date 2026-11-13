@@ -3,6 +3,7 @@ pub mod input;
 pub mod overlay;
 pub mod permissions;
 pub mod portal;
+mod portal_keyboard;
 pub mod shortcuts;
 
 use async_trait::async_trait;
