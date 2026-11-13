@@ -151,15 +151,6 @@ pub async fn get_available_tts_voices(
 }
 
 #[command]
-pub async fn download_tts_voice_model(
-    app_handle: AppHandle,
-    voice_or_model_id: String,
-) -> Result<(), String> {
-    crate::python_runner::download_tts_model(&app_handle, &voice_or_model_id).await?;
-    Ok(())
-}
-
-#[command]
 #[allow(clippy::too_many_arguments)]
 pub async fn preview_tts_voice(
     app_handle: AppHandle,

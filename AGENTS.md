@@ -130,6 +130,7 @@ All seven must pass without warnings. Treat compiler warnings as errors.
 - **Async Flow:** Use `tokio` or `tauri::async_runtime` for all I/O, network, and audio operations. Never block the main thread.
 - **Error Handling:** Use `anyhow` for internal propagation to maintain context.
 - **Command Safety:** Return `Result<T, String>` for all `#[tauri::command]` functions. The error string is what the frontend `Promise.reject` receives.
+- **Command Allow-List:** Every command registered in `main.rs` must be listed in `src-tauri/permissions/app.toml` (`commands.allow`), and nothing else may be. A registered but unlisted command is rejected at runtime by Tauri's ACL with no compile error; the sync test in `app::commands` catches it in `cargo test` and CI.
 - **State Management:** Use `AppState` (managed by Tauri) to hold shared resources like `Config`, `AudioStream`, or `RecordingState`.
 - **Dictation Session Lifecycle:** `SessionState` (`Idle` / `Recording` / `Transcribing` / `Typing`) in `AppState` is the authoritative session guard; a new session may only start from `Idle`. Each session carries a cancel token in `AppState.active_session` so a cancelled pipeline can never clobber a newer session's state or status.
 - **Hotkey Gestures:** All press/release semantics (hold-to-talk, toggle mode, press-to-cancel) live in `app/hotkey_handler.rs`. Platform backends (the Wayland portal loop, the X11/Windows plugin handler in `main.rs`) only feed it events; never implement gesture logic inside a backend.
@@ -194,7 +195,7 @@ On Wayland, Voquill triggers standard XDG Portal prompts for microphone, global 
 When adding a new feature, follow this sequence:
 1.  **Analyze Environment:** Check for platform-specific constraints (Wayland and X11 where relevant).
 2.  **Scaffold Backend:** Implement the logic in a new or existing Rust module.
-3.  **Expose Command:** Create a `#[tauri::command]` and register it in `main.rs`.
+3.  **Expose Command:** Create a `#[tauri::command]`, register it in `main.rs`, and add it to `commands.allow` in `src-tauri/permissions/app.toml`. Tauri rejects any command missing from that allow-list, so the frontend call fails while the code compiles and runs; `app::commands::tests` fails `cargo test` whenever the two lists differ.
 4.  **Implement UI:** Create the Preact component and hook it up to the command using `invoke`.
 5.  **Verify Integrity:** Run `cargo clippy`, `npm run typecheck`, and `npm run lint`.
 6.  **Test Platform Parity:** Verify the feature works on Linux (Wayland and X11) and Windows.
