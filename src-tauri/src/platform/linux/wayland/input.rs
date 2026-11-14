@@ -691,7 +691,7 @@ async fn send_text_over_portal(
             send_key(remote_desktop, session, base as i32, KeyState::Released).await?;
             release_shift(remote_desktop, session).await?;
         } else {
-            let keysym = keysym_for_char(ch);
+            let keysym = crate::platform::linux::keysym::keysym_for_char(ch);
             send_key(remote_desktop, session, keysym as i32, KeyState::Pressed).await?;
             tokio::time::sleep(Duration::from_millis(hold_ms)).await;
             send_key(remote_desktop, session, keysym as i32, KeyState::Released).await?;
@@ -706,14 +706,6 @@ async fn send_text_over_portal(
 
     crate::log_info!("Wayland portal typing complete");
     Ok(())
-}
-
-fn keysym_for_char(ch: char) -> u32 {
-    match ch {
-        '\n' | '\r' => 0xff0d,
-        '\t' => 0xff09,
-        _ => ch as u32,
-    }
 }
 
 async fn send_paste_shortcut_over_portal(

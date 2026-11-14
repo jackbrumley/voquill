@@ -74,6 +74,8 @@ export interface VoiceMacroCommand {
 
 export type PasteShortcut = 'ShiftInsert' | 'CtrlV' | 'CtrlShiftV' | 'CommandV';
 
+export type OtherAudioWhileRecording = 'Keep' | 'Lower' | 'Mute';
+
 export interface Config {
   openai_api_key: string;
   api_url: string;
@@ -119,6 +121,7 @@ export interface Config {
   paste_shortcut: PasteShortcut;
   noise_reduction_enabled: boolean;
   noise_reduction_strength: number;
+  other_audio_while_recording: OtherAudioWhileRecording;
   history_limit: number;
   log_level: string;
   diarization_enabled_files: boolean;
@@ -207,6 +210,10 @@ export interface SystemShortcutContext {
 export interface InputCapabilities {
   paste_shortcuts: PasteShortcut[];
   fn_modifier_supported: boolean;
+}
+
+export interface AudioCapabilities {
+  other_audio_control_supported: boolean;
 }
 
 export interface OverlayPositioningCapabilities {

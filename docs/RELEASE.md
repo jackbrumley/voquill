@@ -135,7 +135,7 @@ Content rules:
   change something users see.
 - The Downloads block always lists all six assets. Never remove or reorder links.
 - Wrap anything containing angle brackets in backticks (e.g.
-  `` `config.json.invalid-<date>` ``); GitHub otherwise hides `<...>` as HTML.
+  `` `settings.json.invalid-<date>` ``); GitHub otherwise hides `<...>` as HTML.
 
 ## 3. Promote
 

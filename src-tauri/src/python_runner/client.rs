@@ -31,9 +31,11 @@ struct EnhanceRequest<'a> {
     noise_reduction_strength: f32,
 }
 
+/// Mirrors `EnhanceResponse` in `python-runner/enhancement/schemas.py`.
+/// The contract test below fails if the two sides drift apart.
 #[derive(serde::Deserialize)]
 struct EnhanceResponse {
-    output_path: String,
+    enhanced_path: String,
 }
 
 #[allow(dead_code)]
@@ -151,7 +153,7 @@ pub async fn enhance(
         .await
         .map_err(|e| format!("Failed to parse enhancement response: {}", e))?;
 
-    Ok(raw.output_path)
+    Ok(raw.enhanced_path)
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -348,4 +350,50 @@ pub async fn synthesize_custom_tts(
         .map_err(|e| format!("Failed to parse custom TTS response: {}", e))?;
 
     Ok(raw)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ENHANCEMENT_SCHEMA: &str = include_str!("../../../python-runner/enhancement/schemas.py");
+
+    #[test]
+    fn enhance_response_parses_the_python_runner_payload() {
+        let payload = r#"{"enhanced_path": "/tmp/a_enhanced.wav", "provider": "noisereduce"}"#;
+        let parsed: EnhanceResponse = serde_json::from_str(payload).unwrap();
+        assert_eq!(parsed.enhanced_path, "/tmp/a_enhanced.wav");
+    }
+
+    #[test]
+    fn enhance_response_matches_the_python_schema() {
+        let response_class = ENHANCEMENT_SCHEMA
+            .split("class EnhanceResponse(BaseModel):")
+            .nth(1)
+            .expect("python-runner schema declares EnhanceResponse");
+        assert!(
+            response_class.contains("enhanced_path: str"),
+            "python-runner EnhanceResponse no longer declares `enhanced_path`"
+        );
+    }
+
+    #[test]
+    fn enhance_request_matches_the_python_schema() {
+        let request_class = ENHANCEMENT_SCHEMA
+            .split("class EnhanceRequest(BaseModel):")
+            .nth(1)
+            .and_then(|rest| rest.split("class ").next())
+            .expect("python-runner schema declares EnhanceRequest");
+        let request = serde_json::to_value(EnhanceRequest {
+            audio_path: "a.wav",
+            noise_reduction_strength: 0.5,
+        })
+        .unwrap();
+        for field in request.as_object().unwrap().keys() {
+            assert!(
+                request_class.contains(&format!("{field}:")),
+                "python-runner EnhanceRequest has no `{field}` field"
+            );
+        }
+    }
 }

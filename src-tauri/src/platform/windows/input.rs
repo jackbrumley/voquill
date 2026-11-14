@@ -4,47 +4,27 @@ use std::thread;
 use std::time::Duration;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 
-fn char_to_vks(ch: char) -> (Vec<VIRTUAL_KEY>, bool) {
-    match ch {
-        'a'..='z' => (vec![VIRTUAL_KEY(ch.to_ascii_uppercase() as u16)], false),
-        'A'..='Z' => (vec![VIRTUAL_KEY(ch as u16)], true),
-        '0'..='9' => (vec![VIRTUAL_KEY(ch as u16)], false),
-        ' ' => (vec![VK_SPACE], false),
-        '.' => (vec![VK_OEM_PERIOD], false),
-        ',' => (vec![VK_OEM_COMMA], false),
-        ';' => (vec![VK_OEM_1], false),
-        '/' => (vec![VK_OEM_2], false),
-        '[' => (vec![VK_OEM_4], false),
-        ']' => (vec![VK_OEM_6], false),
-        '\\' => (vec![VK_OEM_5], false),
-        '-' => (vec![VK_OEM_MINUS], false),
-        '=' => (vec![VK_OEM_PLUS], false),
-        '!' => (vec![VIRTUAL_KEY('1' as u16)], true),
-        '@' => (vec![VIRTUAL_KEY('2' as u16)], true),
-        '#' => (vec![VIRTUAL_KEY('3' as u16)], true),
-        '$' => (vec![VIRTUAL_KEY('4' as u16)], true),
-        '%' => (vec![VIRTUAL_KEY('5' as u16)], true),
-        '^' => (vec![VIRTUAL_KEY('6' as u16)], true),
-        '&' => (vec![VIRTUAL_KEY('7' as u16)], true),
-        '*' => (vec![VIRTUAL_KEY('8' as u16)], true),
-        '(' => (vec![VIRTUAL_KEY('9' as u16)], true),
-        ')' => (vec![VIRTUAL_KEY('0' as u16)], true),
-        '_' => (vec![VK_OEM_MINUS], true),
-        '+' => (vec![VK_OEM_PLUS], true),
-        '{' => (vec![VK_OEM_4], true),
-        '}' => (vec![VK_OEM_6], true),
-        '|' => (vec![VK_OEM_5], true),
-        ':' => (vec![VK_OEM_1], true),
-        '"' => (vec![VK_OEM_7], true),
-        '<' => (vec![VK_OEM_COMMA], true),
-        '>' => (vec![VK_OEM_PERIOD], true),
-        '?' => (vec![VK_OEM_2], true),
-        '~' => (vec![VK_OEM_3], true),
-        '`' => (vec![VK_OEM_3], false),
-        '\'' => (vec![VK_OEM_7], false),
-        '\n' => (vec![VK_RETURN], false),
-        '\t' => (vec![VK_TAB], false),
-        _ => (vec![VK_SPACE], false),
+/// How one character of dictated text is sent to the focused window.
+#[derive(Debug, PartialEq)]
+enum Keystroke {
+    /// A real key press, for characters that are actions rather than text.
+    Key(VIRTUAL_KEY),
+    /// The character's UTF-16 code units, sent with `KEYEVENTF_UNICODE`.
+    /// Windows delivers them as text whatever the keyboard layout is, so
+    /// umlauts, accents and punctuation arrive exactly as transcribed.
+    Text(Vec<u16>),
+}
+
+fn keystroke_for(character: char) -> Option<Keystroke> {
+    match character {
+        '\n' => Some(Keystroke::Key(VK_RETURN)),
+        '\t' => Some(Keystroke::Key(VK_TAB)),
+        // A "\r\n" line break is one Enter press, sent for the '\n'.
+        '\r' => None,
+        _ => {
+            let mut units = [0u16; 2];
+            Some(Keystroke::Text(character.encode_utf16(&mut units).to_vec()))
+        }
     }
 }
 
@@ -71,20 +51,21 @@ pub fn type_text_hardware(
             break;
         }
 
-        let (vk_codes, needs_shift) = char_to_vks(ch);
+        let Some(keystroke) = keystroke_for(ch) else {
+            continue;
+        };
         unsafe {
-            if needs_shift {
-                emit_vk(VK_SHIFT, true);
-            }
-            for vk in &vk_codes {
-                emit_vk(*vk, true);
-            }
-            thread::sleep(hold_duration);
-            for vk in &vk_codes {
-                emit_vk(*vk, false);
-            }
-            if needs_shift {
-                emit_vk(VK_SHIFT, false);
+            match &keystroke {
+                Keystroke::Key(vk) => {
+                    emit_vk(*vk, true);
+                    thread::sleep(hold_duration);
+                    emit_vk(*vk, false);
+                }
+                Keystroke::Text(units) => {
+                    emit_unicode(units, true);
+                    thread::sleep(hold_duration);
+                    emit_unicode(units, false);
+                }
             }
         }
         if interval_ms > 0 {
@@ -356,9 +337,59 @@ unsafe fn emit_vk(vk: VIRTUAL_KEY, is_down: bool) {
     SendInput(&[input], std::mem::size_of::<INPUT>() as i32);
 }
 
+/// Sends one character as text: a key event per UTF-16 code unit (two for a
+/// surrogate pair), in one `SendInput` call so nothing can interleave.
+unsafe fn emit_unicode(units: &[u16], is_down: bool) {
+    let mut dw_flags = KEYEVENTF_UNICODE;
+    if !is_down {
+        dw_flags |= KEYEVENTF_KEYUP;
+    }
+    let inputs: Vec<INPUT> = units
+        .iter()
+        .map(|unit| {
+            let mut input = INPUT {
+                r#type: INPUT_KEYBOARD,
+                ..Default::default()
+            };
+            input.Anonymous.ki = KEYBDINPUT {
+                wVk: VIRTUAL_KEY(0),
+                wScan: *unit,
+                dwFlags: dw_flags,
+                time: 0,
+                dwExtraInfo: 0,
+            };
+            input
+        })
+        .collect();
+    SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn line_breaks_and_tabs_are_key_presses() {
+        assert_eq!(keystroke_for('\n'), Some(Keystroke::Key(VK_RETURN)));
+        assert_eq!(keystroke_for('\t'), Some(Keystroke::Key(VK_TAB)));
+        assert_eq!(keystroke_for('\r'), None);
+    }
+
+    #[test]
+    fn text_is_sent_as_layout_independent_unicode() {
+        assert_eq!(keystroke_for('ü'), Some(Keystroke::Text(vec![0x00FC])));
+        assert_eq!(keystroke_for('?'), Some(Keystroke::Text(vec![0x003F])));
+        assert_eq!(keystroke_for('€'), Some(Keystroke::Text(vec![0x20AC])));
+        assert_eq!(keystroke_for(' '), Some(Keystroke::Text(vec![0x0020])));
+    }
+
+    #[test]
+    fn characters_outside_the_basic_plane_send_a_surrogate_pair() {
+        assert_eq!(
+            keystroke_for('😀'),
+            Some(Keystroke::Text(vec![0xD83D, 0xDE00]))
+        );
+    }
 
     #[test]
     fn test_is_extended_key() {

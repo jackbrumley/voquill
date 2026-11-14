@@ -384,7 +384,7 @@ mod tests {
 
     #[test]
     fn history_recording_path_rejects_anything_but_a_file_name() {
-        for name in ["../config.json", "sub/dir.wav", "/etc/passwd", "..", ""] {
+        for name in ["../settings.json", "sub/dir.wav", "/etc/passwd", "..", ""] {
             let error = history_recording_path(name).unwrap_err();
             assert!(
                 error.starts_with("Invalid recording file name"),

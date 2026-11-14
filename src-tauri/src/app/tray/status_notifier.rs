@@ -6,7 +6,7 @@
 //! `Activate` on left click, matching Windows and macOS.
 
 use super::{handle_menu_item, show_main_window, TrayMenuItem};
-use crate::platform::linux::wayland::env::APP_ID;
+use crate::app::identity::APP_ID;
 use ksni::menu::StandardItem;
 use ksni::{Icon, MenuItem, Tray, TrayMethods};
 

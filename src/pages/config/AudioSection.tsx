@@ -1,13 +1,21 @@
-import { IconRefresh } from '@tabler/icons-preact';
+import { IconInfoCircle, IconRefresh } from '@tabler/icons-preact';
 import { ConfigField } from '../../components/ConfigField.tsx';
 import { Switch } from '../../components/Switch.tsx';
 import { Button } from '../../components/Button.tsx';
 import { SliderField } from '../../components/SliderField.tsx';
 import { MicSetupPanel } from '../../components/MicSetupPanel.tsx';
 import { SelectField } from '../../components/SelectField.tsx';
-import type { AudioDevice, Config } from '../../types.ts';
+import type { AudioDevice, Config, OtherAudioWhileRecording } from '../../types.ts';
 import { selectWrapperStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
+import { useNoiseReductionError } from '../../hooks/useNoiseReductionError.ts';
+import { useAudioCapabilities } from '../../hooks/useAudioCapabilities.ts';
+
+const otherAudioOptions: { value: OtherAudioWhileRecording; label: string }[] = [
+  { value: 'Keep', label: 'Keep playing' },
+  { value: 'Lower', label: 'Lower volume' },
+  { value: 'Mute', label: 'Mute' },
+];
 
 interface AudioSectionProps {
   config: Config;
@@ -38,6 +46,9 @@ export function AudioSection({
   stopMicTest,
   stopMicPlayback,
 }: AudioSectionProps) {
+  const { noiseReductionError } = useNoiseReductionError();
+  const { audioCapabilities } = useAudioCapabilities();
+
   return (
     <>
       <ConfigField label="Microphone" description="Choose the input device for recording your voice.">
@@ -67,6 +78,19 @@ export function AudioSection({
           </Button>
         </div>
       </ConfigField>
+
+      {audioCapabilities?.other_audio_control_supported && (
+        <ConfigField label="Other Audio While Recording" description="Lower or mute music and videos from other apps while you dictate. They return to how they were when the recording stops.">
+          <div style={selectWrapperStyle}>
+            <SelectField
+              value={config.other_audio_while_recording}
+              options={otherAudioOptions}
+              onChange={(nextSetting) => updateConfig('other_audio_while_recording', nextSetting as OtherAudioWhileRecording)}
+              ariaLabel="Other Audio While Recording"
+            />
+          </div>
+        </ConfigField>
+      )}
 
       <ConfigField label="Mic Test & Sensitivity" description="Adjust capture gain and verify your microphone playback.">
         <MicSetupPanel
@@ -101,6 +125,24 @@ export function AudioSection({
                 ariaLabel="Noise reduction strength"
                 style={{ margin: `${tokens.spacing.sm} 0` }}
               />
+              {noiseReductionError && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '11px',
+                  color: '#f1c40f',
+                  padding: '6px 8px',
+                  background: 'rgba(241, 196, 15, 0.08)',
+                  borderRadius: '6px',
+                  textAlign: 'left',
+                }}>
+                  <IconInfoCircle size={14} style={{ flexShrink: 0 }} />
+                  <span>
+                    Noise reduction failed on the last recording, so it was transcribed without it: {noiseReductionError}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -138,13 +138,25 @@ async fn record_and_transcribe_inner(
     let prompt_hint = current_config.resolve_prompt_hint();
     let prompt_name = current_config.resolve_post_process_prompt_name();
 
+    // Lowering other audio runs beside the capture so it never delays it.
+    let other_audio_setting = current_config.other_audio_while_recording;
+    let other_audio_adjustment = tokio::task::spawn_blocking(move || {
+        audio::other_audio::adjust_for_recording(other_audio_setting)
+    });
+
     let audio_data = audio::record_audio_while_flag(
         session_state,
         audio_engine,
         post_roll_ms,
         max_recording_duration,
     )
-    .await?;
+    .await;
+
+    // Capture has ended (whether it succeeded or not): give other
+    // applications their audio back before anything else happens.
+    let _ = other_audio_adjustment.await;
+    let _ = tokio::task::spawn_blocking(audio::other_audio::restore).await;
+    let audio_data = audio_data?;
 
     // Capture has ended, however it ended (release, toggle stop, cancel, or
     // the max-duration auto-stop): the recording phase is over.

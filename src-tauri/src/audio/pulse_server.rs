@@ -9,7 +9,7 @@
 //! desktop. A cached connection is replaced only once it has failed, when its
 //! reactor has already exited and released the socket.
 //!
-//! Two connections are kept:
+//! Three connections are kept:
 //! - the cpal host, through which devices are listed, resolved and opened;
 //! - an endpoint client for the details cpal does not expose. cpal opens a
 //!   stream on a source's server index but only reports the source *name* as
@@ -17,9 +17,16 @@
 //!   yet gets a new index, and PipeWire leaves a stream whose source
 //!   disappeared on the fallback device instead of moving it back. The capture
 //!   engine therefore records the index it was opened on, read here, so a
-//!   re-plugged device is recognised as a different endpoint.
+//!   re-plugged device is recognised as a different endpoint;
+//! - a control connection for other applications' playback streams (sink
+//!   inputs), which the `pulseaudio` client does not expose. It speaks the
+//!   crate's public protocol layer over a plain socket that we own, so
+//!   dropping it closes it; it is still kept and reused like the others.
 
+use pulseaudio::protocol;
 use std::ffi::CString;
+use std::io::BufReader;
+use std::os::unix::net::UnixStream;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
@@ -29,6 +36,11 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 static HOST: Mutex<Option<Arc<cpal::Host>>> = Mutex::new(None);
 
 static ENDPOINT_CLIENT: Mutex<Option<pulseaudio::Client>> = Mutex::new(None);
+
+static CONTROL_CONNECTION: Mutex<Option<ControlConnection>> = Mutex::new(None);
+
+/// How long one control request may wait for the server's reply.
+const CONTROL_REPLY_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// The shared cpal PulseAudio host, connecting on first use.
 pub fn host() -> Result<Arc<cpal::Host>, String> {
@@ -99,4 +111,154 @@ fn endpoint_client() -> Result<pulseaudio::Client, String> {
 
     *client_slot = Some(client.clone());
     Ok(client)
+}
+
+/// Every application's playback stream (sink input), Voquill's own included.
+pub fn playback_streams() -> Result<Vec<protocol::SinkInputInfo>, String> {
+    with_control_connection("list playback streams", |connection| {
+        connection.request::<protocol::SinkInputInfoList>(protocol::Command::GetSinkInputInfoList)
+    })
+}
+
+pub fn set_playback_stream_volume(
+    index: u32,
+    volume: protocol::ChannelVolume,
+) -> Result<(), String> {
+    with_control_connection("set a playback stream's volume", |connection| {
+        connection.request_ack(protocol::Command::SetSinkInputVolume(
+            protocol::SetStreamVolumeParams { index, volume },
+        ))
+    })
+}
+
+pub fn set_playback_stream_mute(index: u32, mute: bool) -> Result<(), String> {
+    with_control_connection("mute or unmute a playback stream", |connection| {
+        connection.request_ack(protocol::Command::SetSinkInputMute(
+            protocol::SetStreamMuteParams { index, mute },
+        ))
+    })
+}
+
+/// Runs `operation` on the shared control connection, connecting first if
+/// needed. A failure other than the server rejecting the request means the
+/// connection is broken, so it is dropped and the next call reconnects.
+fn with_control_connection<T>(
+    description: &str,
+    operation: impl FnOnce(&mut ControlConnection) -> Result<T, protocol::ProtocolError>,
+) -> Result<T, String> {
+    let mut connection_slot = CONTROL_CONNECTION.lock().unwrap();
+    if connection_slot.is_none() {
+        *connection_slot = Some(ControlConnection::connect()?);
+    }
+    let connection = connection_slot.as_mut().expect("connection was just set");
+
+    operation(connection).map_err(|error| {
+        if !matches!(error, protocol::ProtocolError::ServerError(_)) {
+            *connection_slot = None;
+        }
+        format!("Failed to {description} on the PulseAudio server: {error}")
+    })
+}
+
+struct ControlConnection {
+    socket: BufReader<UnixStream>,
+    protocol_version: u16,
+    next_sequence: u32,
+}
+
+impl ControlConnection {
+    fn connect() -> Result<Self, String> {
+        let socket_path = pulseaudio::socket_path_from_env()
+            .ok_or_else(|| "PulseAudio server socket not found".to_string())?;
+        let socket = UnixStream::connect(&socket_path).map_err(|error| {
+            format!(
+                "Failed to connect to the PulseAudio server at {}: {error}",
+                socket_path.display()
+            )
+        })?;
+        for timeout_result in [
+            socket.set_read_timeout(Some(CONTROL_REPLY_TIMEOUT)),
+            socket.set_write_timeout(Some(CONTROL_REPLY_TIMEOUT)),
+        ] {
+            timeout_result
+                .map_err(|error| format!("Failed to set PulseAudio socket timeout: {error}"))?;
+        }
+
+        let mut connection = Self {
+            socket: BufReader::new(socket),
+            protocol_version: protocol::MAX_VERSION,
+            next_sequence: 0,
+        };
+        connection
+            .handshake()
+            .map_err(|error| format!("PulseAudio control handshake failed: {error}"))?;
+        crate::log_info!("Connected the PulseAudio control connection");
+        Ok(connection)
+    }
+
+    fn handshake(&mut self) -> Result<(), protocol::ProtocolError> {
+        let cookie = pulseaudio::cookie_path_from_env()
+            .and_then(|path| std::fs::read(path).ok())
+            .unwrap_or_default();
+        let auth_reply =
+            self.request::<protocol::AuthReply>(protocol::Command::Auth(protocol::AuthParams {
+                version: protocol::MAX_VERSION,
+                supports_shm: false,
+                supports_memfd: false,
+                cookie,
+            }))?;
+        self.protocol_version = protocol::MAX_VERSION.min(auth_reply.version);
+
+        let mut props = protocol::Props::new();
+        props.set(
+            protocol::Prop::ApplicationName,
+            CString::new(format!("voquill-control-{}", std::process::id()))
+                .expect("client name has no NUL bytes"),
+        );
+        props.set(
+            protocol::Prop::ApplicationProcessId,
+            CString::new(std::process::id().to_string()).expect("a number has no NUL bytes"),
+        );
+        self.request::<protocol::SetClientNameReply>(protocol::Command::SetClientName(props))?;
+        Ok(())
+    }
+
+    fn send(&mut self, command: protocol::Command) -> Result<u32, protocol::ProtocolError> {
+        let sequence = self.next_sequence;
+        self.next_sequence = self.next_sequence.wrapping_add(1);
+        protocol::write_command_message(
+            self.socket.get_mut(),
+            sequence,
+            &command,
+            self.protocol_version,
+        )?;
+        Ok(sequence)
+    }
+
+    fn request<R: protocol::CommandReply>(
+        &mut self,
+        command: protocol::Command,
+    ) -> Result<R, protocol::ProtocolError> {
+        let sequence = self.send(command)?;
+        let (reply_sequence, reply) =
+            protocol::read_reply_message::<R>(&mut self.socket, self.protocol_version)?;
+        expect_sequence(sequence, reply_sequence)?;
+        Ok(reply)
+    }
+
+    fn request_ack(&mut self, command: protocol::Command) -> Result<(), protocol::ProtocolError> {
+        let sequence = self.send(command)?;
+        let reply_sequence = protocol::read_ack_message(&mut self.socket)?;
+        expect_sequence(sequence, reply_sequence)
+    }
+}
+
+fn expect_sequence(sent: u32, received: u32) -> Result<(), protocol::ProtocolError> {
+    if sent == received {
+        Ok(())
+    } else {
+        Err(protocol::ProtocolError::Invalid(format!(
+            "reply for request {received} arrived while waiting for {sent}"
+        )))
+    }
 }

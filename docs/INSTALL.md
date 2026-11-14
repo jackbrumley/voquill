@@ -84,9 +84,8 @@ Before submitting macOS changes, run the five checks in [CONTRIBUTING.md](../CON
 |------------------------|------------------|-------------|
 | `--appimage` | — | Linux only: install AppImage to ~/.local/bin (no sudo) |
 | `--system` | `-System` | Linux / Windows only: force system-wide install (requires admin / sudo) |
-| `--clean` | `-Clean` | Clean cached models/data before installing (keeps config and history) |
+| `--clean` | `-Clean` | Clean cached models/data before installing (keeps settings.json and history.db) |
 | `--version <tag>` | `-Version <tag>` | Install a specific release tag (e.g. `v1.5.0`) |
-| `--channel <name>` | — | Release channel: `latest` or `stable` (default: `latest`) |
 | `--yes` | — | Run non-interactively (skip confirmation prompts) |
 | `--relaunch` | `-Relaunch` | Launch Voquill after successful installation |
 | `--insecure-skip-verify` | `-InsecureSkipVerify` | Skip checksum verification (not recommended) |
