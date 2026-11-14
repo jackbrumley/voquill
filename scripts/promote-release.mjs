@@ -19,6 +19,29 @@ function fail(message) {
   process.exit(1);
 }
 
+/// Checked before anything is published: if main has commits the tag lacks
+/// (a site-only update that never reached dev), the push below would be
+/// rejected after the release was already marked latest, leaving main behind
+/// the published release.
+function assertMainFastForwards() {
+  execFileSync("git", ["fetch", "--quiet", "origin", "main"], { stdio: "inherit" });
+  const mainOnlyCommits = execFileSync(
+    "git",
+    ["log", "--oneline", `${TAG}^{commit}..FETCH_HEAD`],
+    { encoding: "utf8" },
+  ).trim();
+  if (mainOnlyCommits) {
+    fail(
+      `main cannot fast-forward to ${TAG}; these commits are on main but not in the tag:\n` +
+        mainOnlyCommits
+          .split("\n")
+          .map((line) => `  ${line}`)
+          .join("\n") +
+        `\nBring them onto dev (git cherry-pick -x <commit>), then tag again before promoting.`,
+    );
+  }
+}
+
 function run(command, args) {
   console.log(`$ ${command} ${args.join(" ")}`);
   execFileSync(command, args, { stdio: "inherit" });
@@ -38,6 +61,8 @@ if (/\bTODO\b/.test(release.body ?? "")) {
 if (problems.length > 0) {
   fail(`${TAG} is not ready:\n${problems.map((problem) => `  - ${problem}`).join("\n")}`);
 }
+
+assertMainFastForwards();
 
 run("gh", ["release", "edit", TAG, "--prerelease=false", "--latest"]);
 // A plain (non-force) push only succeeds as a fast-forward, so main can never

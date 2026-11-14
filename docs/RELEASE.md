@@ -45,7 +45,10 @@ fast-forwards `main` to the release tag, so `main` always equals the latest
 published release. GitHub Pages serves the website and install scripts from
 `main:/docs`, so promotion is also what deploys installer changes.
 
-Never commit to `main` directly; it only moves by promotion.
+Never commit to `main` directly; it only moves by promotion or a site-only
+update. A site-only update (including edits made in GitHub's web editor) must
+also land on `dev`: merge `main` into `dev` right after it, so `main` stays an
+ancestor of `dev` and the next promotion can fast-forward.
 
 ## 1. Prepare and Tag
 
@@ -144,7 +147,8 @@ Once the workflow is green and the notes are written:
 npm run release:promote
 ```
 
-`release:promote` refuses unless the pre-release carries all six assets with
+`release:promote` refuses unless `main` can fast-forward to the tag (it lists
+any commits only `main` has) and the pre-release carries all six assets with
 digests and its notes contain no `TODO`. It then marks the release as latest
 and fast-forwards `main` to the tag, which deploys the website and installers.
 From that moment the in-app updater and the one-line installers serve the new
