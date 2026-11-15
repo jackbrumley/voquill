@@ -3,6 +3,7 @@ pub mod capture;
 pub mod commands;
 pub mod hotkey_handler;
 pub mod identity;
+pub mod readiness;
 pub mod recording_flow;
 pub mod session_log;
 pub mod state;

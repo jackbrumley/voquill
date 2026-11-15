@@ -230,6 +230,7 @@ fn main() {
             get_engine_capabilities,
             unload_model,
             get_engine_residency,
+            report_app_readiness,
             test_voice_macro_sound,
             test_voice_macro_execution,
             test_spoken_voice_macro,

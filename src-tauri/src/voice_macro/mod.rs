@@ -266,7 +266,7 @@ async fn run_voice_macro_listener_loop(
                     )
                 };
 
-                if !enabled || commands.is_empty() {
+                if !enabled || commands.is_empty() || state.readiness.check().is_err() {
                     continue;
                 }
 

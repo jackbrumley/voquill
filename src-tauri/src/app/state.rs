@@ -44,6 +44,9 @@ pub struct AppState {
     pub wayland_host_app_registration_error: Arc<Mutex<Option<String>>>,
     pub display_backend: Arc<dyn platform::traits::DisplayBackend>,
     pub engine_factory: Arc<engine_factory::EngineFactory>,
+    /// Whether setup is complete enough to dictate (reported by the UI's
+    /// readiness gate); dictation and voice macros wait for it.
+    pub readiness: crate::app::readiness::ReadinessGate,
     pub post_process_factory: Arc<PostProcessFactory>,
     pub python_runner: Arc<Mutex<Option<crate::python_runner::PythonRunner>>>,
     pub python_runner_init_lock: Arc<tokio::sync::Mutex<()>>,
@@ -193,6 +196,7 @@ impl Default for AppState {
             wayland_host_app_registration_error: Arc::new(Mutex::new(None)),
             display_backend: platform::initialize(),
             engine_factory: Arc::new(engine_factory::EngineFactory::new()),
+            readiness: crate::app::readiness::ReadinessGate::new(),
             post_process_factory: Arc::new(PostProcessFactory::new()),
             python_runner: Arc::new(Mutex::new(None)),
             python_runner_init_lock: Arc::new(tokio::sync::Mutex::new(())),

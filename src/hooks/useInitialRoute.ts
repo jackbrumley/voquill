@@ -1,4 +1,5 @@
 import { useSignal, useSignalEffect } from '@preact/signals';
+import { useEffect } from 'preact/hooks';
 import { invoke } from '@tauri-apps/api/core';
 import type { AppRoute } from '../types.ts';
 import { explainReadiness, type ReadinessInputs, type ReadinessStatus } from '../readiness.ts';
@@ -52,6 +53,21 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
   /// transcribe (permissions, mic, model/key, hotkey) lands on setup instead.
   /// Runs in event-handler context, so signal/plain reads are always fresh.
   /// Only rewrites 'home' -> 'setup', so it can never redirect-loop.
+  /// Tells the backend whether dictation may start, so the hotkey and voice
+  /// macros stay off until setup is complete. Until startup checks settle
+  /// the backend treats readiness as unknown and refuses to record.
+  const startupChecksLoaded = options.startupChecksLoaded.value;
+  const isAllReady = options.readiness.isAllReady;
+  const notReadyReason = isAllReady ? '' : explainReadiness(options.readinessInputs, options.readiness);
+  useEffect(() => {
+    if (!startupChecksLoaded) {
+      return;
+    }
+    invoke('report_app_readiness', { ready: isAllReady, reason: notReadyReason }).catch((error: unknown) => {
+      console.error('Failed to report app readiness:', error);
+    });
+  }, [startupChecksLoaded, isAllReady, notReadyReason]);
+
   const guardHomeNavigation = (route: AppRoute): AppRoute => {
     if (route === 'home' && options.startupChecksLoaded.value && !options.readiness.isAllReady) {
       const explanation = explainReadiness(options.readinessInputs, options.readiness);
