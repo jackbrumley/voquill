@@ -3,7 +3,6 @@ import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { BaseVoiceModelInfo, DownloadPhase, TtsModelDownloadProgress, VoicePreset } from '../../../types.ts';
-import { FALLBACK_VOICE_MODELS } from './voiceStudioCatalog.ts';
 import {
   DEFAULT_VOICE_SETTINGS,
   RADIO_ON_DEFAULTS,
@@ -23,7 +22,7 @@ export function useVoiceStudio(onPresetSaved?: (preset: VoicePreset) => void) {
   const testPhrase = useSignal(DEFAULT_TEST_PHRASE);
   const presetName = useSignal('');
   const currentPresetId = useSignal<string | null>(null);
-  const models = useSignal<BaseVoiceModelInfo[]>(FALLBACK_VOICE_MODELS);
+  const models = useSignal<BaseVoiceModelInfo[]>([]);
   const savedPresets = useSignal<VoicePreset[]>([]);
 
   const isPlaying = useSignal(false);
@@ -38,9 +37,11 @@ export function useVoiceStudio(onPresetSaved?: (preset: VoicePreset) => void) {
   const refreshModels = () => {
     invoke<BaseVoiceModelInfo[]>('get_available_base_voice_models')
       .then((reported) => {
-        if (reported && reported.length > 0) models.value = reported;
+        models.value = reported;
       })
-      .catch(() => {});
+      .catch((e) => {
+        error.value = `Failed to list voices: ${e}`;
+      });
   };
 
   useEffect(() => {

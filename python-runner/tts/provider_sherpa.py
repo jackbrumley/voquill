@@ -14,7 +14,7 @@ import os
 import tarfile
 import tempfile
 import urllib.request
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import numpy as np
 import soundfile as sf
@@ -24,7 +24,6 @@ from .dsp import (
     to_stereo,
 )
 from .schemas import (
-    BaseVoiceModelInfo,
     TtsSynthesizeResponse,
     VoicePersonaInfo,
 )
@@ -362,30 +361,6 @@ def _get_tts_instance(
 
     _TTS_INSTANCES[cache_key] = tts
     return tts
-
-
-def get_available_models(runner_base_dir: str = ".") -> List[BaseVoiceModelInfo]:
-    models_dir = os.path.join(runner_base_dir, "models", "tts")
-    results: List[BaseVoiceModelInfo] = []
-    for k, v in BASE_MODELS.items():
-        voice_dir = os.path.join(models_dir, v["archive"])
-        model_path = os.path.join(voice_dir, v["model_file"])
-        tokens_path = os.path.join(voice_dir, "tokens.txt")
-        data_dir = os.path.join(voice_dir, "espeak-ng-data")
-        is_ready = (
-            os.path.exists(model_path)
-            and os.path.exists(tokens_path)
-            and os.path.exists(data_dir)
-        )
-        results.append(
-            BaseVoiceModelInfo(
-                id=k,
-                label=v["label"],
-                is_multi_speaker=v.get("is_multi_speaker", False),
-                is_ready=is_ready,
-            )
-        )
-    return results
 
 
 def _resolve_presets_file_path(runner_base_dir: str, presets_file_path: str | None = None) -> str:

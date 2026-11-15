@@ -5,12 +5,10 @@ use tauri::{AppHandle, Emitter};
 #[derive(Debug, Clone)]
 pub struct TtsModelMeta {
     pub key: &'static str,
-    #[allow(dead_code)]
     pub label: &'static str,
     pub archive: &'static str,
     pub url: &'static str,
     pub model_file: &'static str,
-    #[allow(dead_code)]
     pub is_multi_speaker: bool,
 }
 
@@ -168,6 +166,29 @@ pub fn resolve_base_model_key(voice_or_model_id: &str) -> &'static str {
             "piper-en_GB-northern_english_male-medium"
         }
     }
+}
+
+/// A base voice as the Voice Studio lists it.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct BaseVoiceModelInfo {
+    pub id: String,
+    pub label: String,
+    pub is_multi_speaker: bool,
+    pub is_ready: bool,
+}
+
+/// Every base voice, from this catalog (the owner of voice facts), with
+/// whether its files are on disk. Needs no Python runner.
+pub fn base_voice_models() -> Vec<BaseVoiceModelInfo> {
+    TTS_BASE_MODELS
+        .iter()
+        .map(|meta| BaseVoiceModelInfo {
+            id: meta.key.to_string(),
+            label: meta.label.to_string(),
+            is_multi_speaker: meta.is_multi_speaker,
+            is_ready: is_tts_model_downloaded(meta.key),
+        })
+        .collect()
 }
 
 pub fn is_tts_model_downloaded(model_key: &str) -> bool {

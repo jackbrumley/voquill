@@ -174,16 +174,6 @@ pub struct VoicePersonaInfo {
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct BaseVoiceModelInfo {
-    pub id: String,
-    pub label: String,
-    #[serde(default)]
-    pub is_multi_speaker: bool,
-    #[serde(default)]
-    pub is_ready: bool,
-}
-
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct TtsSynthesizeResponse {
     pub output_path: String,
     pub duration_secs: f32,
@@ -233,29 +223,6 @@ fn default_radio_drive() -> f32 {
 }
 fn default_chime() -> String {
     "none".to_string()
-}
-
-pub async fn get_tts_models(base_url: &str) -> Result<Vec<BaseVoiceModelInfo>, String> {
-    let url = format!("{}/tts/models", base_url);
-    let client = http_client();
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to query TTS models: {}", e))?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let text = response.text().await.unwrap_or_default();
-        return Err(format!("TTS models query returned {}: {}", status, text));
-    }
-
-    let models: Vec<BaseVoiceModelInfo> = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse TTS models response: {}", e))?;
-
-    Ok(models)
 }
 
 pub async fn get_tts_voices(base_url: &str) -> Result<Vec<VoicePersonaInfo>, String> {

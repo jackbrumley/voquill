@@ -272,23 +272,6 @@ def enhance(body: dict) -> dict:
         raise HTTPException(status_code=500, detail=f"Enhancement failed: {e}")
 
 
-@app.get("/tts/models")
-def get_tts_models() -> list[dict]:
-    handlers = app.state.handlers
-    if "tts" not in handlers:
-        raise HTTPException(
-            status_code=501,
-            detail="TTS capability not available (sherpa-onnx not installed?)",
-        )
-    mod = handlers["tts"]["module"]
-    try:
-        models = mod.get_available_models(RUNNER_BASE_DIR)
-        return [m.model_dump() for m in models]
-    except Exception as e:
-        logger.exception("Failed to query TTS models")
-        raise HTTPException(status_code=500, detail=f"Failed to query TTS models: {e}")
-
-
 @app.get("/tts/voices")
 def get_tts_voices() -> list[dict]:
     handlers = app.state.handlers

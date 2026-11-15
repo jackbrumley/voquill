@@ -264,11 +264,8 @@ pub async fn stop_macro_sound_playback(state: State<'_, AppState>) -> Result<(),
 
 #[command]
 pub async fn get_available_base_voice_models(
-    app_handle: AppHandle,
-    state: State<'_, AppState>,
-) -> Result<Vec<crate::python_runner::BaseVoiceModelInfo>, String> {
-    let runner = state.get_or_start_python_runner(&app_handle).await?;
-    runner.get_tts_models().await
+) -> Result<Vec<crate::python_runner::tts_models::BaseVoiceModelInfo>, String> {
+    Ok(crate::python_runner::tts_models::base_voice_models())
 }
 
 #[command]

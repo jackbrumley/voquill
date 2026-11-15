@@ -12,7 +12,7 @@ const RUNNER_PORT_START: u16 = 6201;
 const RUNNER_PORT_END: u16 = 6350;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
 const HEALTH_RETRY_INTERVAL: Duration = Duration::from_millis(500);
-const RUNNER_VERSION: &str = "1.2.25";
+const RUNNER_VERSION: &str = "1.2.26";
 const PYTHON_VERSION: &str = "20250115";
 const PYTHON_DOWNLOAD_BASE: &str =
     "https://github.com/astral-sh/python-build-standalone/releases/download";
@@ -72,10 +72,6 @@ impl PythonRunner {
         noise_reduction_strength: f32,
     ) -> Result<String, String> {
         client::enhance(&self.base_url, audio_path, noise_reduction_strength).await
-    }
-
-    pub async fn get_tts_models(&self) -> Result<Vec<client::BaseVoiceModelInfo>, String> {
-        client::get_tts_models(&self.base_url).await
     }
 
     pub async fn get_tts_voices(&self) -> Result<Vec<client::VoicePersonaInfo>, String> {
@@ -553,8 +549,6 @@ async fn wait_for_health(process: &mut Child, base_url: &str) -> Result<(), Stri
 pub mod client;
 pub mod diarization_models;
 pub mod tts_models;
-pub use client::{
-    BaseVoiceModelInfo, CustomTtsSynthesizeParams, TtsSynthesizeResponse, VoicePersonaInfo,
-};
+pub use client::{CustomTtsSynthesizeParams, TtsSynthesizeResponse, VoicePersonaInfo};
 pub use diarization_models::{download_diarization_models, is_diarization_ready};
 pub use tts_models::{download_tts_model, is_tts_model_downloaded};
