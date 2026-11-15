@@ -45,6 +45,7 @@ interface ConfigPageProps {
   stopMicTest: () => void;
   stopMicPlayback: () => void;
   onReopenInitialSetup: () => void;
+  onPreviewSetupReview: () => void;
   onFactoryReset: () => void;
   checkingUpdates: boolean;
   onCheckForUpdates: () => void;
@@ -117,6 +118,7 @@ export function ConfigPage(props: ConfigPageProps) {
     stopMicTest,
     stopMicPlayback,
     onReopenInitialSetup,
+    onPreviewSetupReview,
     onFactoryReset,
     checkingUpdates,
     onCheckForUpdates,
@@ -304,6 +306,7 @@ export function ConfigPage(props: ConfigPageProps) {
                 config={config}
                 updateConfig={updateConfig}
                 onReopenInitialSetup={onReopenInitialSetup}
+                onPreviewSetupReview={onPreviewSetupReview}
                 onFactoryReset={onFactoryReset}
                 onOpenUiLab={onOpenUiLab}
                 showToast={props.showToast}

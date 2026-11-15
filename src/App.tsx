@@ -98,6 +98,7 @@ function App() {
     navigate,
     setupReview,
     completeSetup,
+    previewSetupReview,
     handleFactoryReset,
     testApiKey,
     isTestingApi,
@@ -331,6 +332,7 @@ function App() {
           onStopMicTest={audioSetup.stopMicTest}
           onStopMicPlayback={audioSetup.stopMicPlayback}
           onReopenInitialSetup={() => navigate('setup')}
+          onPreviewSetupReview={() => void previewSetupReview()}
           onFactoryReset={() => hotkeySetup.setShowFactoryResetModal(true)}
           onCheckForUpdates={() => void updatesHook.checkForUpdates(true)}
           onOpenUiLab={() => navigate('ui-lab')}

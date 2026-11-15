@@ -41,6 +41,7 @@ interface DebugSectionProps {
   config: Config;
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
   onReopenInitialSetup: () => void;
+  onPreviewSetupReview: () => void;
   onFactoryReset: () => void;
   onOpenUiLab: () => void;
   showToast?: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void;
@@ -50,6 +51,7 @@ export function DebugSection({
   config,
   updateConfig,
   onReopenInitialSetup,
+  onPreviewSetupReview,
   onFactoryReset,
   onOpenUiLab,
   showToast,
@@ -135,6 +137,10 @@ export function DebugSection({
 
       <ConfigField label="Initial Setup" description="Re-open onboarding checks for permissions, model, and hotkey setup.">
         <Button variant="configAction" onClick={onReopenInitialSetup}>Re-run Initial Setup</Button>
+      </ConfigField>
+
+      <ConfigField label="Preview Update Review" description="Open setup as people see it after an update that brings new options, using this computer's real recommendation.">
+        <Button variant="configAction" onClick={onPreviewSetupReview}>Preview Update Review</Button>
       </ConfigField>
 
       <ConfigField label="Factory Reset" description="Reset Voquill to defaults and clear models, logs, and history.">

@@ -1,7 +1,7 @@
 import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
 import type { AppRoute } from '../types.ts';
-import type { SetupReview } from '../pages/setup/setupTypes.ts';
+import type { SetupRecommendation, SetupReview } from '../pages/setup/setupTypes.ts';
 import { describeReadiness, type ReadinessStatus } from '../readiness.ts';
 
 interface UseInitialRouteOptions {
@@ -21,6 +21,7 @@ interface UseInitialRouteReturn {
   /// Set when setup opened as a review of new options for an existing user.
   setupReview: SetupReview | null;
   completeSetup: () => Promise<void>;
+  previewSetupReview: () => Promise<void>;
   navigate: (route: AppRoute, replace?: boolean) => void;
   handleFactoryReset: (loadConfig: () => Promise<void>, loadMics: () => Promise<void>, loadModels: () => Promise<void>, loadHistory: () => Promise<void>, checkSetupStatus: () => Promise<void>) => Promise<void>;
   testApiKey: (apiKey: string, apiUrl: string) => Promise<void>;
@@ -118,6 +119,18 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
     }
   };
 
+  /// Debug: opens setup as the after-update review with this computer's
+  /// real recommendation, whether or not a review is actually due.
+  const previewSetupReview = async () => {
+    try {
+      const recommendation = await invoke<SetupRecommendation>('get_setup_recommendation');
+      setupReview.value = { due: true, recommended: recommendation.options[0] ?? null };
+      navigate('setup');
+    } catch (error) {
+      showToast(`Couldn't load the setup recommendation: ${error}`, 'error');
+    }
+  };
+
   /// Finishing or skipping setup records the current setup revision, so a
   /// review is never offered again until setup changes.
   const completeSetup = async () => {
@@ -211,6 +224,7 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
     navigate,
     setupReview: setupReview.value,
     completeSetup,
+    previewSetupReview,
     handleFactoryReset,
     testApiKey,
     isTestingApi: isTestingApi.value,
