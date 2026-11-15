@@ -12,7 +12,7 @@ pub trait InputSimulation: Send + Sync {
         &self,
         app_handle: &AppHandle,
         text: &str,
-        typing_speed_interval: f64,
+        typing_interval_ms: u64,
         key_press_duration_ms: u64,
     ) -> Result<(), String>;
 

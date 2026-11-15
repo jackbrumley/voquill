@@ -84,7 +84,8 @@ export interface Config {
   local_model_size: string;
   local_engine: string;
   hotkey: string;
-  typing_speed_interval: number;
+  /** Delay between typed characters in Typewriter mode, in milliseconds. */
+  typing_interval_ms: number;
   key_press_duration_ms: number;
   pixels_from_bottom: number;
   close_to_tray: boolean;

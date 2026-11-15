@@ -68,8 +68,9 @@ pub struct Config {
     pub local_engine: String,
     #[serde(default = "default_hotkey")]
     pub hotkey: String,
-    #[serde(default = "default_typing_speed")]
-    pub typing_speed_interval: f64,
+    /// Delay between typed characters in Typewriter mode, in milliseconds.
+    #[serde(default = "default_typing_interval_ms")]
+    pub typing_interval_ms: u64,
     #[serde(default = "default_key_press_duration")]
     pub key_press_duration_ms: u64,
     #[serde(default = "default_paste_delay_before_ms")]
@@ -281,7 +282,7 @@ fn default_transcription_mode() -> TranscriptionMode {
     TranscriptionMode::Local
 }
 fn default_local_model_size() -> String {
-    "base".to_string()
+    "distil-small.en".to_string()
 }
 fn default_local_engine() -> String {
     "Whisper.cpp (GPU)".to_string()
@@ -289,8 +290,8 @@ fn default_local_engine() -> String {
 fn default_hotkey() -> String {
     "ctrl+shift+space".to_string()
 }
-fn default_typing_speed() -> f64 {
-    0.001
+fn default_typing_interval_ms() -> u64 {
+    1
 }
 fn default_key_press_duration() -> u64 {
     2
@@ -396,7 +397,7 @@ impl Default for Config {
             local_model_size: default_local_model_size(),
             local_engine: default_local_engine(),
             hotkey: default_hotkey(),
-            typing_speed_interval: default_typing_speed(),
+            typing_interval_ms: default_typing_interval_ms(),
             key_press_duration_ms: default_key_press_duration(),
             paste_delay_before_ms: default_paste_delay_before_ms(),
             paste_delay_after_ms: default_paste_delay_after_ms(),
@@ -459,6 +460,16 @@ impl Default for Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_transcription_model_exists_in_the_catalog() {
+        let config = Config::default();
+        let engine = config.transcription_engine().unwrap();
+        assert!(
+            crate::model_manager::ModelManager::find_model(engine, &config.local_model_size)
+                .is_some()
+        );
+    }
 
     #[test]
     fn resolve_prompt_hint_empty_auto_is_none() {

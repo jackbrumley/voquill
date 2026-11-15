@@ -27,13 +27,13 @@ impl InputSimulation for X11Backend {
         &self,
         app_handle: &tauri::AppHandle,
         text: &str,
-        typing_speed_interval: f64,
+        typing_interval_ms: u64,
         key_press_duration_ms: u64,
     ) -> Result<(), String> {
         let session_state = app_handle.state::<crate::AppState>().session_state.clone();
         input::type_text_hardware(
             text,
-            typing_speed_interval,
+            typing_interval_ms,
             key_press_duration_ms,
             &session_state,
         )

@@ -377,10 +377,10 @@ pub async fn teardown_input_session(app_handle: &tauri::AppHandle) {
 pub async fn type_text_hardware(
     app_handle: &tauri::AppHandle,
     text: &str,
-    typing_speed_interval: f64,
+    typing_interval_ms: u64,
     key_press_duration_ms: u64,
 ) -> Result<(), String> {
-    let interval_ms = (typing_speed_interval * 1000.0) as u64;
+    let interval_ms = typing_interval_ms;
 
     let sender = {
         let state = app_handle.state::<AppState>();

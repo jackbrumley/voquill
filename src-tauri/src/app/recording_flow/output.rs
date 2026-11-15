@@ -48,7 +48,7 @@ pub async fn deliver_output(
     ) = {
         let config_guard = config.lock().unwrap();
         (
-            config_guard.typing_speed_interval,
+            config_guard.typing_interval_ms,
             config_guard.key_press_duration_ms,
             config_guard.output_method.clone(),
             config_guard.copy_on_typewriter,

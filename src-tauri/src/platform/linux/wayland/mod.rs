@@ -30,16 +30,10 @@ impl InputSimulation for WaylandBackend {
         &self,
         app_handle: &tauri::AppHandle,
         text: &str,
-        typing_speed_interval: f64,
+        typing_interval_ms: u64,
         key_press_duration_ms: u64,
     ) -> Result<(), String> {
-        input::type_text_hardware(
-            app_handle,
-            text,
-            typing_speed_interval,
-            key_press_duration_ms,
-        )
-        .await
+        input::type_text_hardware(app_handle, text, typing_interval_ms, key_press_duration_ms).await
     }
 
     async fn send_paste_shortcut(

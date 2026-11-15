@@ -1,6 +1,7 @@
 pub mod bootstrap;
 pub mod capture;
 pub mod commands;
+pub mod default_config_script;
 pub mod hotkey_handler;
 pub mod identity;
 pub mod readiness;

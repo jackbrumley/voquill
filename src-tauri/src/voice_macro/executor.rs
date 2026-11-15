@@ -5,6 +5,10 @@ use crate::app::state::SessionState;
 use crate::config::voice_macro::VoiceMacroCommand;
 use crate::AppState;
 
+/// Typing speed for a macro's Type Text step: steadier than dictation's
+/// default, so games and terminals don't drop characters.
+const MACRO_TYPING_INTERVAL_MS: u64 = 5;
+const MACRO_KEY_HOLD_MS: u64 = 5;
 pub async fn execute_macro_command(
     app_handle: &AppHandle,
     command: &VoiceMacroCommand,
@@ -127,7 +131,12 @@ async fn execute_macro_steps_inner(
                 );
                 state
                     .display_backend
-                    .type_text_hardware(app_handle, text, 0.005, 5)
+                    .type_text_hardware(
+                        app_handle,
+                        text,
+                        MACRO_TYPING_INTERVAL_MS,
+                        MACRO_KEY_HOLD_MS,
+                    )
                     .await?;
             }
             crate::config::voice_macro::MacroStep::RunCommand { command } => {

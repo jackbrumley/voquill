@@ -124,10 +124,10 @@ export function TypingSection({ config, updateConfig, supportedPasteShortcuts }:
             <>
               <ConfigField label="Typing Speed (ms / char)" description="Delay between simulated key presses. Lower is faster (1ms recommended); raise if characters drop in slow applications.">
                 <NumberField
-                  value={config.typing_speed_interval}
+                  value={config.typing_interval_ms}
                   min={1}
                   max={50}
-                  onChange={(value) => updateConfig('typing_speed_interval', value)}
+                  onChange={(value) => updateConfig('typing_interval_ms', value)}
                 />
               </ConfigField>
 

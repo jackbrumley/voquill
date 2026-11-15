@@ -233,11 +233,11 @@ pub fn send_paste_shortcut(
 
 pub fn type_text_hardware(
     text: &str,
-    typing_speed_interval: f64,
+    typing_interval_ms: u64,
     key_press_duration_ms: u64,
     session_state: &std::sync::Arc<std::sync::Mutex<crate::app::state::SessionState>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let interval_ms = (typing_speed_interval * 1000.0) as u64;
+    let interval_ms = typing_interval_ms;
     let hold_duration = Duration::from_millis(key_press_duration_ms);
 
     crate::log_info!(

@@ -121,6 +121,18 @@ fn parse_config(config_bytes: &[u8]) -> Result<Config, String> {
 }
 
 fn migrate_legacy_fields(fields: &mut serde_json::Map<String, serde_json::Value>) {
+    // Versions up to 1.10.1 stored the typing delay in seconds
+    // (`typing_speed_interval`, e.g. 0.001) while the UI showed milliseconds.
+    if let Some(seconds) = fields
+        .remove("typing_speed_interval")
+        .and_then(|value| value.as_f64())
+    {
+        if !fields.contains_key("typing_interval_ms") {
+            let milliseconds = (seconds * 1000.0).round().max(1.0) as u64;
+            fields.insert("typing_interval_ms".to_string(), milliseconds.into());
+        }
+    }
+
     // Migrate legacy linux_portal_hotkey into hotkey, then drop the legacy field
     if let Some(serde_json::Value::String(portal_hotkey)) = fields.remove("linux_portal_hotkey") {
         if !portal_hotkey.trim().is_empty() {
@@ -230,6 +242,14 @@ mod tests {
     fn parse_config_rejects_non_object_json() {
         assert!(parse_config(b"[]").is_err());
         assert!(parse_config(b"null").is_err());
+    }
+
+    #[test]
+    fn parse_config_migrates_typing_delay_from_seconds_to_milliseconds() {
+        let config = parse_config(br#"{"typing_speed_interval": 0.005}"#).unwrap();
+        assert_eq!(config.typing_interval_ms, 5);
+        let config = parse_config(br#"{"typing_speed_interval": 0.0001}"#).unwrap();
+        assert_eq!(config.typing_interval_ms, 1);
     }
 
     #[test]

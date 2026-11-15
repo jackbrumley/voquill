@@ -75,12 +75,12 @@ fn post_unicode(character: char) -> Result<(), String> {
 
 pub fn type_text_hardware(
     text: &str,
-    typing_speed_interval: f64,
+    typing_interval_ms: u64,
     key_press_duration_ms: u64,
     session_state: &Arc<Mutex<SessionState>>,
 ) -> Result<(), String> {
     require_accessibility()?;
-    let interval = Duration::from_secs_f64(typing_speed_interval.max(0.0));
+    let interval = Duration::from_millis(typing_interval_ms);
     let hold = Duration::from_millis(key_press_duration_ms);
 
     for character in text.chars() {
