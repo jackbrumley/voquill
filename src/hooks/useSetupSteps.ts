@@ -15,7 +15,7 @@ interface UseSetupStepsReturn {
 /// done when its readiness checks pass; the first unfinished step is open.
 /// The user may reopen a finished step to change it; `initiallyOpen` opens a
 /// finished step from the start (the speech engine, when reviewing new
-/// options). Readiness itself stays owned by `computeReadiness`; this hook
+/// options). Readiness itself is decided by the backend (`app::readiness`); this hook
 /// only presents it.
 export function useSetupSteps(readiness: ReadinessStatus, initiallyOpen: SetupStepId | null): UseSetupStepsReturn {
   const reopenedStep = useSignal<SetupStepId | null>(initiallyOpen);
