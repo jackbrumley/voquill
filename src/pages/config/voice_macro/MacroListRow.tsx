@@ -1,4 +1,3 @@
-import { ComponentChildren } from 'preact';
 import {
   IconCopy,
   IconMicrophone,
@@ -35,96 +34,53 @@ const actionButtonStyle = {
   borderRadius: '3px',
 };
 
-interface BadgeColors {
+interface SoundStyle {
+  icon: typeof IconVolume;
   color: string;
-  background: string;
-  border: string;
+  label: string;
 }
 
-const BADGE_COLORS = {
-  prefix: { color: '#93c5fd', background: 'rgba(59, 130, 246, 0.18)', border: 'rgba(59, 130, 246, 0.35)' },
-  neutral: { color: '#cbd5e1', background: 'rgba(255, 255, 255, 0.06)', border: 'rgba(255, 255, 255, 0.12)' },
-  spoken: { color: '#f472b6', background: 'rgba(236, 72, 153, 0.15)', border: 'rgba(236, 72, 153, 0.3)' },
-  audioFile: { color: '#34d399', background: 'rgba(16, 185, 129, 0.15)', border: 'rgba(16, 185, 129, 0.3)' },
-  voiceClip: { color: '#f87171', background: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.3)' },
-  muted: { color: tokens.colors.textMuted, background: 'rgba(255, 255, 255, 0.05)', border: 'rgba(255, 255, 255, 0.1)' },
-} satisfies Record<string, BadgeColors>;
-
-interface BadgeProps {
-  colors: BadgeColors;
-  title?: string;
-  maxWidth?: string;
-  children: ComponentChildren;
-}
-
-function Badge({ colors, title, maxWidth, children }: BadgeProps) {
-  return (
-    <span
-      title={title}
-      style={{
-        fontSize: '9.5px',
-        color: colors.color,
-        background: colors.background,
-        border: `1px solid ${colors.border}`,
-        padding: '1px 5px',
-        borderRadius: '4px',
-        whiteSpace: 'nowrap',
-        maxWidth,
-        overflow: maxWidth ? 'hidden' : undefined,
-        textOverflow: maxWidth ? 'ellipsis' : undefined,
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '3px',
-      }}
-    >
-      {children}
-    </span>
-  );
-}
-
-/// The badge describing what a macro plays when it fires.
-function SoundBadge({ macro }: { macro: VoiceMacroCommand }) {
+/// What a macro plays when it fires, as one small icon. Default chime and
+/// silence-with-no-setting show nothing.
+function soundStyle(macro: VoiceMacroCommand): SoundStyle | null {
   switch (macro.sound_mode) {
     case 'tts':
-      return macro.sound_tts_text ? (
-        <Badge colors={BADGE_COLORS.spoken} maxWidth="140px" title={`Voice feedback: "${macro.sound_tts_text}"`}>
-          <IconVolume size={11} />
-          <span>"{macro.sound_tts_text}"</span>
-        </Badge>
-      ) : null;
+      return macro.sound_tts_text
+        ? { icon: IconVolume, color: '#f472b6', label: `Says "${macro.sound_tts_text}"` }
+        : null;
     case 'custom_file':
-      return (
-        <Badge colors={BADGE_COLORS.audioFile}>
-          <IconUpload size={11} />
-          <span>Audio</span>
-        </Badge>
-      );
+      return { icon: IconUpload, color: '#34d399', label: 'Plays an audio file' };
     case 'mic_recording':
-      return (
-        <Badge colors={BADGE_COLORS.voiceClip}>
-          <IconMicrophone size={11} />
-          <span>Voice Clip</span>
-        </Badge>
-      );
+      return { icon: IconMicrophone, color: '#f87171', label: 'Plays a voice clip' };
     case 'none':
-      return (
-        <Badge colors={BADGE_COLORS.muted}>
-          <IconVolumeOff size={11} />
-          <span>Mute</span>
-        </Badge>
-      );
+      return { icon: IconVolumeOff, color: tokens.colors.textMuted, label: 'No sound' };
     default:
       return null;
   }
 }
 
+/// Everything the row leaves out, for its tooltip.
+function rowDetails(macro: VoiceMacroCommand, triggerWord: string, sound: SoundStyle | null): string {
+  const lines = [`Say: "${triggerWord ? `${triggerWord} ` : ''}${macro.phrase}"`];
+  const aliases = macro.phrases ?? [];
+  if (aliases.length > 0) {
+    lines.push(`Also: ${aliases.map((alias) => `"${alias}"`).join(', ')}`);
+  }
+  if (sound) {
+    lines.push(sound.label);
+  }
+  return lines.join('\n');
+}
+
 /// One macro in the library list: its phrase, a summary, and its actions.
 export function MacroListRow({ macro, triggerWord, isTesting, onTest, onDuplicate, onShare, onEdit }: MacroListRowProps) {
   const stepCount = resolveMacroSteps(macro).length;
-  const aliases = macro.phrases ?? [];
+  const sound = soundStyle(macro);
+  const SoundIcon = sound?.icon;
 
   return (
     <div
+      title={rowDetails(macro, triggerWord, sound)}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -136,7 +92,7 @@ export function MacroListRow({ macro, triggerWord, isTesting, onTest, onDuplicat
         gap: '6px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
         <span
           style={{
             fontSize: '13px',
@@ -149,16 +105,10 @@ export function MacroListRow({ macro, triggerWord, isTesting, onTest, onDuplicat
         >
           "{macro.phrase}"
         </span>
-        {triggerWord && <Badge colors={BADGE_COLORS.prefix}>Prefix: {triggerWord}</Badge>}
-        {aliases.length > 0 && (
-          <Badge colors={BADGE_COLORS.neutral} title={`Aliases: ${aliases.map((p) => `"${p}"`).join(', ')}`}>
-            +{aliases.length} {aliases.length === 1 ? 'alias' : 'aliases'}
-          </Badge>
-        )}
         <span style={{ fontSize: '11px', color: tokens.colors.textMuted, whiteSpace: 'nowrap' }}>
-          • {stepCount} {stepCount === 1 ? 'step' : 'steps'}
+          {stepCount} {stepCount === 1 ? 'step' : 'steps'}
         </span>
-        <SoundBadge macro={macro} />
+        {SoundIcon && sound && <SoundIcon size={12} color={sound.color} style={{ flexShrink: 0 }} />}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>

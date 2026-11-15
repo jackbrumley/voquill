@@ -1,11 +1,13 @@
 import { useEffect } from 'preact/hooks';
 import { useSignal } from '@preact/signals';
-import { IconAdjustmentsHorizontal, IconDotsVertical, IconDownload, IconPlus, IconUpload } from '@tabler/icons-preact';
+import { IconAdjustmentsHorizontal, IconDotsVertical, IconDownload, IconMicrophone, IconPlus, IconUpload } from '@tabler/icons-preact';
 import { Button } from '../../../components/Button.tsx';
 import { tokens } from '../../../design-tokens.ts';
 
 interface MacroLibraryHeaderProps {
   macroCount: number;
+  isTesterOpen: boolean;
+  onToggleTester: () => void;
   onOpenVoiceStudio: () => void;
   onCreate: () => void;
   onImport: () => void;
@@ -33,9 +35,9 @@ const highlight = (event: MouseEvent, isOn: boolean) => {
   (event.currentTarget as HTMLButtonElement).style.background = isOn ? 'rgba(255, 255, 255, 0.08)' : 'transparent';
 };
 
-/// The macro list's title row: macro count, Voice Studio, New, and a menu
-/// for importing and exporting. Owns the menu's open state.
-export function MacroLibraryHeader({ macroCount, onOpenVoiceStudio, onCreate, onImport, onExportAll }: MacroLibraryHeaderProps) {
+/// The macro list's title row: macro count, Test, New, and a menu with
+/// Voice Studio, import and export. Owns the menu's open state.
+export function MacroLibraryHeader({ macroCount, isTesterOpen, onToggleTester, onOpenVoiceStudio, onCreate, onImport, onExportAll }: MacroLibraryHeaderProps) {
   const isMenuOpen = useSignal(false);
   const canExport = macroCount > 0;
 
@@ -58,13 +60,18 @@ export function MacroLibraryHeader({ macroCount, onOpenVoiceStudio, onCreate, on
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', position: 'relative' }}>
       <span style={{ fontSize: '13px', fontWeight: 600, color: tokens.colors.textSecondary }}>
-        Custom Macros ({macroCount})
+        Your macros ({macroCount})
       </span>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
-        <Button variant="ghost" size="sm" onClick={onOpenVoiceStudio} title="Open Voice Studio to design and tune custom AI voice presets">
-          <IconAdjustmentsHorizontal size={13} />
-          <span>Voice Studio</span>
+        <Button
+          variant={isTesterOpen ? 'secondary' : 'ghost'}
+          size="sm"
+          onClick={onToggleTester}
+          title="Say a phrase and see which macro it would run"
+        >
+          <IconMicrophone size={13} />
+          <span>Test</span>
         </Button>
 
         <Button variant="configAction" size="sm" onClick={onCreate} title="Create a new voice macro" style={{ padding: '5px 10px' }}>
@@ -80,7 +87,7 @@ export function MacroLibraryHeader({ macroCount, onOpenVoiceStudio, onCreate, on
               event.stopPropagation();
               isMenuOpen.value = !isMenuOpen.value;
             }}
-            title="More actions (Import / Export)"
+            title="More: Voice Studio, import and export"
             style={{ padding: '5px 8px', minWidth: '28px' }}
           >
             <IconDotsVertical size={14} />
@@ -107,6 +114,20 @@ export function MacroLibraryHeader({ macroCount, onOpenVoiceStudio, onCreate, on
                 gap: '2px',
               }}
             >
+              <button
+                type="button"
+                onClick={() => {
+                  isMenuOpen.value = false;
+                  onOpenVoiceStudio();
+                }}
+                style={dropdownItemStyle}
+                onMouseEnter={(event) => highlight(event, true)}
+                onMouseLeave={(event) => highlight(event, false)}
+              >
+                <IconAdjustmentsHorizontal size={13} />
+                <span>Voice Studio...</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => {
