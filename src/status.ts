@@ -3,6 +3,7 @@ import type { DictationStatus, StatusUpdatePayload } from './types.ts';
 export const DICTATION_STATUSES: readonly DictationStatus[] = [
   'Ready',
   'Recording',
+  'WakingUp',
   'Transcribing',
   'Processing',
   'Typing',
@@ -23,5 +24,17 @@ export function normalizeStatusUpdate(payload: string | StatusUpdatePayload): No
 }
 
 export function statusLabel(status: DictationStatus): string {
-  return status === 'Error' ? 'Mic not found' : status;
+  switch (status) {
+    case 'Error':
+      return 'Mic not found';
+    case 'WakingUp':
+      return 'Waking up…';
+    default:
+      return status;
+  }
+}
+
+/** Statuses where Voquill is working on a finished recording. */
+export function isBusyStatus(status: DictationStatus): boolean {
+  return status === 'WakingUp' || status === 'Transcribing' || status === 'Processing' || status === 'Typing';
 }

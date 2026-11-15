@@ -98,6 +98,7 @@ export interface Config {
   post_roll_ms: number;
   hotkey_mode: 'HoldToTalk' | 'Toggle';
   max_recording_duration_minutes: number;
+  engine_idle_unload_minutes: number;
   engine_config: Record<string, unknown> | null;
   dictionary: string[];
   post_process_enabled: boolean;
@@ -296,6 +297,9 @@ export interface StatusUpdatePayload {
   status: string;
 }
 
-export type DictationStatus = 'Ready' | 'Recording' | 'Transcribing' | 'Processing' | 'Typing' | 'Error';
+export type DictationStatus = 'Ready' | 'Recording' | 'WakingUp' | 'Transcribing' | 'Processing' | 'Typing' | 'Error';
+
+/** Whether the local speech engine is in memory, as reported by the backend. */
+export type EngineResidency = 'Unloaded' | 'Loading' | 'Loaded';
 
 export type AppRoute = 'setup' | 'home' | 'status' | 'history' | 'settings' | 'ui-lab' | 'help';

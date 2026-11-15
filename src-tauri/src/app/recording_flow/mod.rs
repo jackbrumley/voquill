@@ -4,6 +4,7 @@ mod transcription;
 
 use crate::app::state::SessionState;
 use crate::config::Config;
+use crate::engine_residency::EngineResidency;
 use crate::{audio, engine_factory, typing};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -54,6 +55,17 @@ async fn finish_session(
     crate::app::status::emit_status_to_frontend("Ready").await;
 }
 
+/// Starts loading an unloaded speech engine as soon as the recording begins,
+/// so it is usually ready by the time the user stops talking.
+fn wake_engine_if_unloaded(engine_factory: &Arc<engine_factory::EngineFactory>, config: &Config) {
+    if config.transcription_mode == crate::config::TranscriptionMode::Local
+        && engine_factory.residency() == EngineResidency::Unloaded
+    {
+        crate::log_info!("Speech engine is unloaded; loading it while recording");
+        crate::app::bootstrap::spawn_engine_preload(engine_factory.clone(), config);
+    }
+}
+
 async fn record_and_transcribe_inner(
     config: &Arc<Mutex<Config>>,
     session_state: &Arc<Mutex<SessionState>>,
@@ -79,6 +91,7 @@ async fn record_and_transcribe_inner(
         )
     };
     let lang_code_str = current_config.language.clone();
+    wake_engine_if_unloaded(engine_factory, &current_config);
     let prompt_hint = current_config.resolve_prompt_hint();
     let prompt_name = current_config.resolve_post_process_prompt_name();
 
@@ -280,7 +293,16 @@ async fn record_and_transcribe_inner(
         audio_data
     };
 
+    let engine_waking = current_config.transcription_mode
+        == crate::config::TranscriptionMode::Local
+        && engine_factory.residency() != EngineResidency::Loaded;
+    if engine_waking {
+        crate::app::status::emit_status_to_frontend("WakingUp").await;
+    }
     let service = engine_factory.create_service(&current_config).await;
+    if engine_waking {
+        crate::app::status::emit_status_to_frontend("Transcribing").await;
+    }
     let service = match service {
         Ok(s) => s,
         Err(error) => {

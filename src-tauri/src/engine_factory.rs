@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::engine_residency::{EngineResidency, ResidencyTracker};
 use crate::local_whisper::{self, WhisperEngineCache};
 use crate::parakeet;
 use crate::transcription::{self, TranscriptionError, TranscriptionService};
@@ -12,7 +13,7 @@ use std::sync::{Arc, Mutex};
 /// engine types or their caches.
 pub struct EngineFactory {
     whisper_cache: WhisperEngineCache,
-    whisper_last_gpu_error: Arc<Mutex<Option<String>>>,
+    gpu_last_error: Arc<Mutex<Option<String>>>,
     gpu_tested: AtomicBool,
     /// Serializes preload attempts so fire-and-forget warm-ups (startup,
     /// config save, download completion) never double-load a model alongside
@@ -20,6 +21,29 @@ pub struct EngineFactory {
     preload_lock: Arc<tokio::sync::Mutex<()>>,
     /// The warm Parakeet sherpa-onnx sidecar, reused across dictations.
     parakeet_sidecar: parakeet::ParakeetSidecarCache,
+    /// Reports whether an engine is in memory and when it was last used.
+    residency: ResidencyTracker,
+}
+
+/// Marks a model load as running for as long as it is alive, so the UI shows
+/// the engine loading and then whatever the caches hold once it finishes.
+struct LoadInProgress<'a> {
+    factory: &'a EngineFactory,
+}
+
+impl<'a> LoadInProgress<'a> {
+    fn start(factory: &'a EngineFactory) -> Self {
+        factory.residency.begin_load();
+        factory.publish_residency();
+        Self { factory }
+    }
+}
+
+impl Drop for LoadInProgress<'_> {
+    fn drop(&mut self) {
+        self.factory.residency.end_load();
+        self.factory.publish_residency();
+    }
 }
 
 /// Generates dropdown options for CPU thread allocation, placing Auto at the top
@@ -115,11 +139,40 @@ impl EngineFactory {
     pub fn new() -> Self {
         Self {
             whisper_cache: Arc::new(Mutex::new(None)),
-            whisper_last_gpu_error: Arc::new(Mutex::new(None)),
+            gpu_last_error: Arc::new(Mutex::new(None)),
             gpu_tested: AtomicBool::new(false),
             preload_lock: Arc::new(tokio::sync::Mutex::new(())),
             parakeet_sidecar: parakeet::ParakeetSidecarCache::new(),
+            residency: ResidencyTracker::new(),
         }
+    }
+
+    /// Connects residency reporting to the app windows.
+    pub fn attach_app_handle(&self, app_handle: tauri::AppHandle) {
+        self.residency.attach_app_handle(app_handle);
+    }
+
+    /// Whether the local speech engine is unloaded, loading or loaded.
+    pub fn residency(&self) -> EngineResidency {
+        self.residency.resolve(self.engine_in_memory())
+    }
+
+    fn engine_in_memory(&self) -> bool {
+        self.whisper_cache.lock().unwrap().is_some() || self.parakeet_sidecar.is_loaded()
+    }
+
+    fn publish_residency(&self) {
+        self.residency.publish(self.residency());
+    }
+
+    /// Unloads the engine if it is loaded and has not been used for at least
+    /// `idle_limit`. Returns whether it unloaded.
+    pub fn unload_if_idle(&self, idle_limit: std::time::Duration) -> bool {
+        if self.residency() != EngineResidency::Loaded || self.residency.idle_for() < idle_limit {
+            return false;
+        }
+        self.unload_all();
+        true
     }
 
     /// Whether a GPU load attempt has been made since startup.
@@ -130,7 +183,7 @@ impl EngineFactory {
     /// The most recent GPU error, if any. Returns `None` if the last GPU
     /// attempt succeeded, or if no GPU attempt has been made yet.
     pub fn last_gpu_error(&self) -> Option<String> {
-        self.whisper_last_gpu_error.lock().unwrap().clone()
+        self.gpu_last_error.lock().unwrap().clone()
     }
 
     /// Returns the capabilities and settings for a given engine name, so the
@@ -146,7 +199,7 @@ impl EngineFactory {
                 settings: vec![EngineSetting {
                     key: "whisper.num_threads".to_string(),
                     label: "CPU Cores".to_string(),
-                    description: "Number of CPU cores allocated for transcription. Auto uses all available hardware cores for maximum speed.".to_string(),
+                    description: "How many processor cores Voquill uses to turn speech into text. Auto suits most computers.".to_string(),
                     setting_type: "select".to_string(),
                     default: serde_json::json!("auto"),
                     options: Some(build_thread_options(max_cpus)),
@@ -156,12 +209,16 @@ impl EngineFactory {
                 gpu_supported: true,
                 settings: vec![],
             },
+            "Parakeet (GPU)" => EngineCapabilities {
+                gpu_supported: true,
+                settings: vec![],
+            },
             "Parakeet" => EngineCapabilities {
                 gpu_supported: false,
                 settings: vec![EngineSetting {
                     key: "parakeet.num_threads".to_string(),
                     label: "CPU Cores".to_string(),
-                    description: "Number of CPU cores allocated for sherpa-onnx inference. Auto uses all available hardware cores for maximum speed.".to_string(),
+                    description: "How many processor cores Voquill uses to turn speech into text. Auto suits most computers.".to_string(),
                     setting_type: "select".to_string(),
                     default: serde_json::json!("auto"),
                     options: Some(build_thread_options(max_cpus)),
@@ -187,6 +244,13 @@ impl EngineFactory {
                 }))
             }
             crate::config::TranscriptionMode::Local => {
+                self.residency.mark_used();
+                // Loading through `preload` reports progress to the UI and
+                // waits for a load already running (e.g. the one started when
+                // the recording began).
+                if self.residency() != EngineResidency::Loaded {
+                    self.preload(config).await;
+                }
                 let use_gpu = engine_uses_gpu(&config.local_engine);
                 if use_gpu {
                     self.gpu_tested.store(true, Ordering::SeqCst);
@@ -198,41 +262,16 @@ impl EngineFactory {
                             self.whisper_cache.clone(),
                             &config.local_model_size,
                             use_gpu,
-                            Some(self.whisper_last_gpu_error.clone()),
+                            Some(self.gpu_last_error.clone()),
                             num_threads,
                         )?;
                         Ok(Box::new(service))
                     }
-                    "Parakeet" => {
-                        let num_threads = resolve_thread_count(config, "parakeet.num_threads");
-                        let model_info =
-                            crate::model_manager::ModelManager::find_model(
-                                "Parakeet",
-                                &config.local_model_size,
-                            )
-                            .ok_or_else(|| {
-                                TranscriptionError::Model(format!(
-                                    "Model {} not found for Parakeet engine",
-                                    config.local_model_size
-                                ))
-                            })?;
-                        let model_dir = crate::model_manager::ModelManager::new()
-                            .map_err(TranscriptionError::Model)?
-                            .get_model_path(&model_info);
-                        if !model_dir.exists() {
-                            return Err(TranscriptionError::Model(format!(
-                                "Model {} is not downloaded. Please download it in settings.",
-                                config.local_model_size
-                            )));
-                        }
-                        let service = self
-                            .parakeet_sidecar
-                            .service(model_dir, &config.local_model_size, num_threads)
-                            .await?;
-                        Ok(Box::new(service))
+                    "Parakeet" | "Parakeet (GPU)" => {
+                        Ok(Box::new(self.parakeet_service(config).await?))
                     }
                     other => Err(TranscriptionError::Model(format!(
-                        "Unknown local engine: {}. Available engines: Whisper.cpp, Whisper.cpp (GPU), Parakeet",
+                        "Unknown local engine: {}. Available engines: Whisper.cpp, Whisper.cpp (GPU), Parakeet, Parakeet (GPU)",
                         other
                     ))),
                 }
@@ -244,6 +283,12 @@ impl EngineFactory {
         let _preload_guard = self.preload_lock.lock().await;
 
         if config.transcription_mode != crate::config::TranscriptionMode::Local {
+            return;
+        }
+
+        // Every engine or model change unloads the caches, so a loaded engine
+        // is always the configured one.
+        if self.residency() == EngineResidency::Loaded {
             return;
         }
 
@@ -280,6 +325,7 @@ impl EngineFactory {
             self.gpu_tested.store(true, Ordering::SeqCst);
         }
 
+        let _load = LoadInProgress::start(self);
         crate::log_info!(
             "Engine preload: starting (engine={}, model={}, gpu={})",
             config.local_engine,
@@ -306,7 +352,7 @@ impl EngineFactory {
                                 config.local_model_size,
                                 reason
                             );
-                            *self.whisper_last_gpu_error.lock().unwrap() = Some(reason.clone());
+                            *self.gpu_last_error.lock().unwrap() = Some(reason.clone());
                         } else {
                             crate::log_info!(
                                 "Engine preload: model {} loaded (gpu={})",
@@ -325,41 +371,82 @@ impl EngineFactory {
                     }
                 }
             }
-            "Parakeet" => {
-                let num_threads = resolve_thread_count(config, "parakeet.num_threads");
-                match self
-                    .parakeet_sidecar
-                    .service(model_path, &config.local_model_size, num_threads)
-                    .await
-                {
-                    Ok(_) => crate::log_info!(
-                        "Engine preload: Parakeet sidecar running (model {})",
-                        config.local_model_size
-                    ),
-                    Err(e) => crate::log_warn!(
-                        "Engine preload: Parakeet sidecar failed to start ({}): {}",
-                        config.local_model_size,
-                        e
-                    ),
-                }
-            }
+            "Parakeet" | "Parakeet (GPU)" => match self.parakeet_service(config).await {
+                Ok(_) => crate::log_info!(
+                    "Engine preload: Parakeet sidecar running (engine {}, model {})",
+                    config.local_engine,
+                    config.local_model_size
+                ),
+                Err(e) => crate::log_warn!(
+                    "Engine preload: Parakeet sidecar failed to start ({}): {}",
+                    config.local_model_size,
+                    e
+                ),
+            },
             _ => {}
         }
     }
 
-    /// Unloads every cached transcription engine: the Whisper model and the
-    /// Parakeet sidecar.
-    pub fn unload_all(&self) {
-        local_whisper::unload_model(&self.whisper_cache);
-        self.invalidate_parakeet();
+    /// The warm Parakeet sidecar for the configured engine and model:
+    /// sherpa-onnx for "Parakeet", parakeet.cpp for "Parakeet (GPU)". A GPU
+    /// sidecar that ended up on the CPU is reported through `last_gpu_error`.
+    async fn parakeet_service(
+        &self,
+        config: &Config,
+    ) -> Result<parakeet::ParakeetService, TranscriptionError> {
+        let use_gpu = engine_uses_gpu(&config.local_engine);
+        let backend = if use_gpu {
+            parakeet::ParakeetBackend::ParakeetCpp
+        } else {
+            parakeet::ParakeetBackend::SherpaOnnx
+        };
+        let model_info = crate::model_manager::ModelManager::find_model(
+            &config.local_engine,
+            &config.local_model_size,
+        )
+        .ok_or_else(|| {
+            TranscriptionError::Model(format!(
+                "Model {} not found for {} engine",
+                config.local_model_size, config.local_engine
+            ))
+        })?;
+        let manager =
+            crate::model_manager::ModelManager::new().map_err(TranscriptionError::Model)?;
+        if !manager.is_model_downloaded(&model_info) {
+            return Err(TranscriptionError::Model(format!(
+                "Model {} is not downloaded. Please download it in settings.",
+                config.local_model_size
+            )));
+        }
+        let num_threads = resolve_thread_count(config, "parakeet.num_threads");
+        let service = self
+            .parakeet_sidecar
+            .service(
+                backend,
+                manager.get_model_path(&model_info),
+                &config.local_model_size,
+                num_threads,
+            )
+            .await?;
+        if use_gpu {
+            let fallback_reason = service.gpu_fallback_reason();
+            if let Some(ref reason) = fallback_reason {
+                crate::log_warn!("Parakeet (GPU): {}", reason);
+            }
+            *self.gpu_last_error.lock().unwrap() = fallback_reason;
+        }
+        Ok(service)
     }
 
-    /// Stops the warm Parakeet sidecar. Called when the transcription engine,
-    /// model or engine settings change, so the old process never serves the
-    /// new configuration and its memory is released when Parakeet is
-    /// deselected.
-    pub fn invalidate_parakeet(&self) {
+    /// Unloads every cached transcription engine: the Whisper model and the
+    /// Parakeet sidecar. Called when the transcription engine, model or
+    /// engine settings change (so the old engine never serves the new
+    /// configuration and its memory is released), on request from the UI,
+    /// and by the idle unload.
+    pub fn unload_all(&self) {
+        local_whisper::unload_model(&self.whisper_cache);
         self.parakeet_sidecar.invalidate();
+        self.publish_residency();
     }
 }
 

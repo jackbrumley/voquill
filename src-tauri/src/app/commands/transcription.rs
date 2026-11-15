@@ -128,3 +128,12 @@ pub async fn unload_model(state: tauri::State<'_, AppState>) -> Result<(), Strin
     crate::log_info!("Transcription model unloaded");
     Ok(())
 }
+
+/// Whether the local speech engine is unloaded, loading or loaded. Changes
+/// are pushed with the `engine-residency-changed` event.
+#[tauri::command]
+pub fn get_engine_residency(
+    state: tauri::State<'_, AppState>,
+) -> crate::engine_residency::EngineResidency {
+    state.engine_factory.residency()
+}

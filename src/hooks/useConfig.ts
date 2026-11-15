@@ -55,6 +55,7 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     post_roll_ms: 0,
     hotkey_mode: 'Toggle',
     max_recording_duration_minutes: 180,
+    engine_idle_unload_minutes: 0,
     engine_config: null,
     dictionary: ['Voquill'],
     post_process_enabled: false,

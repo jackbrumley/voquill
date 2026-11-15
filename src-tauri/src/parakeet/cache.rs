@@ -1,4 +1,4 @@
-//! Keeps the Parakeet sherpa-onnx sidecar running across dictations.
+//! Keeps the Parakeet sidecar (sherpa-onnx or parakeet.cpp) running across dictations.
 //!
 //! Starting the sidecar costs a process spawn plus a full model load (about
 //! 2 s), so one warm process is kept per configuration, like the Whisper model
@@ -10,13 +10,14 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
-use super::ParakeetService;
+use super::{ParakeetBackend, ParakeetService};
 use crate::transcription::TranscriptionError;
 
 /// The configuration a sidecar was started with. Any change starts a new one.
 #[derive(Clone, PartialEq)]
 struct SidecarFingerprint {
-    model_dir: PathBuf,
+    backend: ParakeetBackend,
+    model_path: PathBuf,
     num_threads: usize,
 }
 
@@ -54,12 +55,14 @@ impl ParakeetSidecarCache {
     /// none is cached, the configuration changed, or the cached process exited.
     pub async fn service(
         &self,
-        model_dir: PathBuf,
+        backend: ParakeetBackend,
+        model_path: PathBuf,
         model_size: &str,
         num_threads: usize,
     ) -> Result<ParakeetService, TranscriptionError> {
         let fingerprint = SidecarFingerprint {
-            model_dir: model_dir.clone(),
+            backend,
+            model_path: model_path.clone(),
             num_threads,
         };
 
@@ -75,7 +78,7 @@ impl ParakeetSidecarCache {
         }
 
         let generation = self.generation.load(Ordering::SeqCst);
-        let service = ParakeetService::new(model_dir, model_size, num_threads).await?;
+        let service = ParakeetService::new(backend, model_path, model_size, num_threads).await?;
 
         if self.generation.load(Ordering::SeqCst) == generation {
             // Replacing a stale entry drops its clone; that process exits once
@@ -88,6 +91,11 @@ impl ParakeetSidecarCache {
             crate::log_info!("Parakeet sidecar invalidated while starting; not caching it");
         }
         Ok(service)
+    }
+
+    /// Whether a sidecar is cached (and so holds the model in memory).
+    pub fn is_loaded(&self) -> bool {
+        self.slot.lock().unwrap().is_some()
     }
 
     /// Drops the cached sidecar, which stops the sherpa-onnx process once no

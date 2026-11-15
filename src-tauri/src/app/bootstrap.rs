@@ -189,6 +189,9 @@ pub fn run_setup(
     app.manage(build_app_state(&initial_config));
 
     crate::app::status::initialize(app.handle().clone());
+    app.state::<AppState>()
+        .engine_factory
+        .attach_app_handle(app.handle().clone());
 
     if let Some(recovery) = &config_recovery {
         show_config_recovery_dialog(app, recovery);
@@ -268,6 +271,7 @@ pub fn run_setup(
         app.handle(),
     );
     spawn_python_runner_prewarm(app.handle(), &initial_config);
+    spawn_engine_idle_unload(app.handle());
     // Starting the capture engine also attaches the voice macro listener.
     crate::app::capture::start(app.handle());
 
@@ -282,6 +286,38 @@ pub fn spawn_engine_preload(factory: Arc<engine_factory::EngineFactory>, config:
     let config = config.clone();
     tauri::async_runtime::spawn(async move {
         factory.preload(&config).await;
+    });
+}
+
+/// How often the idle unload checks whether the speech engine has gone unused
+/// for longer than `config.engine_idle_unload_minutes`.
+const ENGINE_IDLE_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Unloads the speech engine once it has gone unused for the configured
+/// number of minutes, never while a dictation is running. The next dictation
+/// (or the home screen) loads it again.
+fn spawn_engine_idle_unload(app_handle: &tauri::AppHandle) {
+    let app_handle = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        let mut interval = tokio::time::interval(ENGINE_IDLE_CHECK_INTERVAL);
+        loop {
+            interval.tick().await;
+            let state = app_handle.state::<AppState>();
+            let idle_minutes = state.config.lock().unwrap().engine_idle_unload_minutes;
+            if idle_minutes == 0 {
+                continue;
+            }
+            if *state.session_state.lock().unwrap() != crate::app::state::SessionState::Idle {
+                continue;
+            }
+            let idle_limit = std::time::Duration::from_secs(idle_minutes.saturating_mul(60));
+            if state.engine_factory.unload_if_idle(idle_limit) {
+                crate::log_info!(
+                    "Speech engine unloaded after {} minute(s) without use",
+                    idle_minutes
+                );
+            }
+        }
     });
 }
 

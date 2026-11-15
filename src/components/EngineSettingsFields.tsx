@@ -1,55 +1,27 @@
 import { NumberField } from './NumberField.tsx';
 import { SelectField } from './SelectField.tsx';
 import { Switch } from './Switch.tsx';
-import { helperTextStyle } from '../theme/ui-primitives.ts';
+import { ConfigField } from './ConfigField.tsx';
 import { tokens } from '../design-tokens.ts';
 import type { EngineCapabilities } from '../types.ts';
 
-interface EngineSettingsPanelProps {
+interface EngineSettingsFieldsProps {
   capabilities: EngineCapabilities;
   values: Record<string, unknown>;
   onChange: (key: string, value: unknown) => void;
 }
 
-export function EngineSettingsPanel({ capabilities, values, onChange }: EngineSettingsPanelProps) {
-  if (capabilities.settings.length === 0) return null;
-
+/// One settings row per setting the selected engine reports, laid out like
+/// every other row on the page.
+export function EngineSettingsFields({ capabilities, values, onChange }: EngineSettingsFieldsProps) {
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: tokens.spacing.sm,
-      width: '100%',
-      marginTop: tokens.spacing.xs,
-    }}>
-      <div style={{
-        fontSize: '11px',
-        fontWeight: 800,
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        color: tokens.colors.textSecondary,
-        marginBottom: '2px',
-      }}>
-        Engine Settings
-      </div>
-      {capabilities.settings.map((setting) => {
-        const currentValue = values[setting.key] ?? setting.default;
-        const labelStyle = {
-          fontSize: tokens.typography.sizeSm,
-          fontWeight: 600,
-          color: tokens.colors.textPrimary,
-          marginBottom: '2px',
-        };
-
-        return (
-          <div key={setting.key} style={{ width: '100%' }}>
-            <div style={labelStyle}>{setting.label}</div>
-            <div style={{ ...helperTextStyle, marginBottom: '4px' }}>{setting.description}</div>
-            {renderSettingControl(setting, currentValue, onChange)}
-          </div>
-        );
-      })}
-    </div>
+    <>
+      {capabilities.settings.map((setting) => (
+        <ConfigField key={setting.key} label={setting.label} description={setting.description}>
+          {renderSettingControl(setting, values[setting.key] ?? setting.default, onChange)}
+        </ConfigField>
+      ))}
+    </>
   );
 }
 

@@ -21,6 +21,8 @@ use tauri::{AppHandle, Manager};
 
 use crate::app::state::SessionState;
 use crate::audio::conversion::finalize_captured_audio_for_whisper;
+use crate::config::TranscriptionMode;
+use crate::engine_residency::EngineResidency;
 use crate::AppState;
 
 static LISTENER_GENERATION: AtomicU64 = AtomicU64::new(1);
@@ -265,6 +267,16 @@ async fn run_voice_macro_listener_loop(
                 };
 
                 if !enabled || commands.is_empty() {
+                    continue;
+                }
+
+                // An unloaded speech engine stays asleep: voice macros pause
+                // until a dictation or the user loads it again, otherwise any
+                // nearby sound would reload it moments after unloading.
+                if state.engine_factory.residency() == EngineResidency::Unloaded
+                    && state.config.lock().unwrap().transcription_mode == TranscriptionMode::Local
+                {
+                    crate::log_info!("[Voice Macro] Speech engine is unloaded; macros paused");
                     continue;
                 }
 

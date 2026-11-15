@@ -1,103 +1,214 @@
+//! NVIDIA Parakeet transcription through a local sidecar server.
+//!
+//! Two servers run Parakeet: sherpa-onnx on the CPU (engine "Parakeet") and
+//! parakeet.cpp on the graphics card (engine "Parakeet (GPU)"). Each backend
+//! module owns its release archive, arguments and wire protocol; this module
+//! owns what they share: starting and watching the process, splitting long
+//! recordings, and the `TranscriptionService` interface.
+
 mod cache;
+mod parakeet_cpp;
+mod sherpa_onnx;
 
 pub use cache::ParakeetSidecarCache;
 
 use crate::transcription::{TranscriptionError, TranscriptionService};
 use async_trait::async_trait;
-use futures_util::{SinkExt, StreamExt};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::process::Child;
 use tokio::sync::Mutex;
-use tokio_tungstenite::connect_async;
 
-const BINARY_VERSION: &str = "1.13.4";
 const PORT_START: u16 = 6006;
 const PORT_END: u16 = 6080;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
-const TRANSCRIBE_TIMEOUT: Duration = Duration::from_secs(300);
 const SAMPLE_RATE: u32 = 16000;
-/// Longest piece of audio sent to the sidecar in one request. The
-/// sherpa-onnx server rejects anything over its `--max-utterance-length`
-/// (300 s by default) by dropping the connection, and memory use grows with
-/// length, so longer recordings are split at pauses into pieces of at most
-/// this length.
-const MAX_PIECE_SECONDS: f32 = 60.0;
+/// Longest piece of audio sent to the sidecar in one request. sherpa-onnx
+/// rejects anything over its `--max-utterance-length` (300 s by default),
+/// parakeet.cpp fails on inputs over 5 minutes, and ONNX Runtime keeps the
+/// working memory of the longest piece it has decoded for the life of the
+/// process (measured with the 0.6B int8 model: 60 s pieces leave it ~350 MB
+/// larger than 30 s pieces, at the same speed), so recordings are split at
+/// pauses into pieces of at most this length.
+const MAX_PIECE_SECONDS: f32 = 30.0;
 
-/// Manages a sherpa-onnx-ws sidecar process and provides offline transcription
-/// via WebSocket. Clones share the same process, which is killed when the last
-/// clone is dropped.
+/// Which server runs the model.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParakeetBackend {
+    /// sherpa-onnx with int8 ONNX files, on the CPU.
+    SherpaOnnx,
+    /// parakeet.cpp with a GGUF file, on the graphics card.
+    ParakeetCpp,
+}
+
+impl ParakeetBackend {
+    fn log_label(self) -> &'static str {
+        match self {
+            Self::SherpaOnnx => sherpa_onnx::LOG_LABEL,
+            Self::ParakeetCpp => parakeet_cpp::LOG_LABEL,
+        }
+    }
+
+    fn ready_marker(self) -> &'static str {
+        match self {
+            Self::SherpaOnnx => sherpa_onnx::READY_MARKER,
+            Self::ParakeetCpp => parakeet_cpp::READY_MARKER,
+        }
+    }
+
+    async fn ensure_binary(self) -> Result<PathBuf, TranscriptionError> {
+        let (bin_dir, binary_name, download) = match self {
+            Self::SherpaOnnx => (
+                sherpa_onnx::binary_dir(),
+                sherpa_onnx::binary_name(),
+                sherpa_onnx::download_spec(),
+            ),
+            Self::ParakeetCpp => (
+                parakeet_cpp::binary_dir(),
+                parakeet_cpp::binary_name(),
+                parakeet_cpp::download_spec()?,
+            ),
+        };
+        let bin_dir = bin_dir.map_err(TranscriptionError::Model)?;
+        crate::sidecar::ensure_binary(bin_dir, binary_name, download)
+            .await
+            .map_err(|e| TranscriptionError::Model(e.to_string()))
+    }
+
+    fn args(self, model_path: &Path, port: u16, num_threads: usize) -> Vec<String> {
+        match self {
+            Self::SherpaOnnx => sherpa_onnx::args(model_path, port, num_threads),
+            Self::ParakeetCpp => parakeet_cpp::args(model_path, port),
+        }
+    }
+
+    async fn transcribe_piece(
+        self,
+        port: u16,
+        samples: &[f32],
+    ) -> Result<String, TranscriptionError> {
+        match self {
+            Self::SherpaOnnx => sherpa_onnx::transcribe_piece(port, samples).await,
+            Self::ParakeetCpp => parakeet_cpp::transcribe_piece(port, samples).await,
+        }
+    }
+}
+
+/// A running Parakeet sidecar. Clones share the same process, which is
+/// killed when the last clone is dropped.
 #[derive(Clone)]
 pub struct ParakeetService {
     port: u16,
     process: Arc<Mutex<Option<Child>>>,
     model_size: String,
+    backend: ParakeetBackend,
+    /// The compute device the server reported (parakeet.cpp only).
+    device: Option<String>,
 }
 
 impl ParakeetService {
+    /// Starts the server for `model_path`: the model directory for
+    /// sherpa-onnx, the GGUF file for parakeet.cpp.
     pub async fn new(
-        model_dir: PathBuf,
+        backend: ParakeetBackend,
+        model_path: PathBuf,
         model_size: &str,
         num_threads: usize,
     ) -> Result<Self, TranscriptionError> {
-        let binary_path = resolve_or_download_binary().await?;
+        let binary_path = backend.ensure_binary().await?;
         let port = crate::sidecar::find_free_port(PORT_START, PORT_END)
             .map_err(|e| TranscriptionError::Model(e.to_string()))?;
+        let args = backend.args(&model_path, port, num_threads);
+        let label = backend.log_label();
 
-        let args = vec![
-            format!("--tokens={}", model_dir.join("tokens.txt").display()),
-            format!(
-                "--encoder={}",
-                model_dir.join("encoder.int8.onnx").display()
-            ),
-            format!(
-                "--decoder={}",
-                model_dir.join("decoder.int8.onnx").display()
-            ),
-            format!("--joiner={}", model_dir.join("joiner.int8.onnx").display()),
-            format!("--port={}", port),
-            format!("--num-threads={}", num_threads),
-            format!("--num-work-threads={}", num_threads),
-            "--log-file=".to_string(),
-        ];
-        let mut child = crate::sidecar::spawn_sidecar(&binary_path, &args).map_err(|e| {
-            TranscriptionError::Model(format!("Failed to spawn sherpa-onnx: {}", e))
-        })?;
+        let mut child = crate::sidecar::spawn_sidecar(&binary_path, &args)
+            .map_err(|e| TranscriptionError::Model(format!("Failed to spawn {}: {}", label, e)))?;
 
         let stderr = child.stderr.take().unwrap();
         let mut stderr_reader = tokio::io::BufReader::new(stderr);
-        let ready = wait_for_ready(&mut stderr_reader, STARTUP_TIMEOUT).await;
+        let startup_lines =
+            match wait_for_ready(&mut stderr_reader, backend.ready_marker(), label).await {
+                Ok(lines) => lines,
+                Err(e) => {
+                    let _ = child.kill().await;
+                    return Err(TranscriptionError::Model(format!(
+                        "Parakeet sidecar ({}) failed to start: {}",
+                        label, e
+                    )));
+                }
+            };
 
-        match ready {
-            Ok(()) => {
-                // Drain stderr in background so the server doesn't get SIGPIPE
-                tokio::spawn(async move {
-                    use tokio::io::AsyncBufReadExt;
-                    let mut lines = stderr_reader.lines();
-                    while let Ok(Some(line)) = lines.next_line().await {
-                        crate::log_info!("sherpa-onnx: {}", line);
-                    }
-                });
-                crate::log_info!("Parakeet sidecar started on port {}", port);
-                Ok(Self {
-                    port,
-                    process: Arc::new(Mutex::new(Some(child))),
-                    model_size: model_size.to_string(),
-                })
+        // Drain stderr in background so the server doesn't get SIGPIPE.
+        tokio::spawn(async move {
+            use tokio::io::AsyncBufReadExt;
+            let mut lines = stderr_reader.lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                crate::log_info!("{}: {}", label, line);
             }
-            Err(e) => {
-                let _ = child.kill().await;
-                Err(TranscriptionError::Model(format!(
-                    "Parakeet sidecar failed to start: {}",
-                    e
-                )))
-            }
+        });
+
+        let device = match backend {
+            ParakeetBackend::SherpaOnnx => None,
+            ParakeetBackend::ParakeetCpp => startup_lines
+                .iter()
+                .find_map(|line| parakeet_cpp::device_from_log_line(line)),
+        };
+        crate::log_info!(
+            "Parakeet sidecar ({}) started on port {}{}",
+            label,
+            port,
+            device
+                .as_deref()
+                .map(|d| format!(", device {}", d))
+                .unwrap_or_default()
+        );
+
+        let service = Self {
+            port,
+            process: Arc::new(Mutex::new(Some(child))),
+            model_size: model_size.to_string(),
+            backend,
+            device,
+        };
+        service.warm_up().await;
+        Ok(service)
+    }
+
+    /// The first GPU request compiles shaders (~0.5 s); paying that at start
+    /// keeps it out of the first dictation.
+    async fn warm_up(&self) {
+        if self.backend != ParakeetBackend::ParakeetCpp {
+            return;
+        }
+        let one_second_of_silence = vec![0.0_f32; SAMPLE_RATE as usize];
+        if let Err(e) = self
+            .backend
+            .transcribe_piece(self.port, &one_second_of_silence)
+            .await
+        {
+            crate::log_warn!("Parakeet GPU warm-up request failed: {}", e);
         }
     }
 
-    /// Whether the sherpa-onnx sidecar process is still running, so a cached
-    /// service whose process crashed or was killed is not reused.
+    /// Why the GPU backend is not using a graphics card, if it isn't.
+    /// parakeet.cpp silently falls back to the CPU when no GPU starts.
+    pub fn gpu_fallback_reason(&self) -> Option<String> {
+        if self.backend != ParakeetBackend::ParakeetCpp {
+            return None;
+        }
+        match self.device.as_deref() {
+            Some(device) if parakeet_cpp::is_gpu_device(device) => None,
+            Some(device) => Some(format!(
+                "parakeet.cpp found no usable graphics card and is running on {}",
+                device
+            )),
+            None => Some("parakeet.cpp did not report which device it is using".to_string()),
+        }
+    }
+
+    /// Whether the sidecar process is still running, so a cached service
+    /// whose process crashed or was killed is not reused.
     pub async fn is_alive(&self) -> bool {
         let mut process = self.process.lock().await;
         match process.as_mut() {
@@ -109,51 +220,6 @@ impl ParakeetService {
     /// Whether `other` is a clone of this service, i.e. drives the same process.
     pub fn shares_process_with(&self, other: &ParakeetService) -> bool {
         Arc::ptr_eq(&self.process, &other.process)
-    }
-
-    /// Transcribes one piece of audio (at most `MAX_PIECE_SECONDS`) over its
-    /// own WebSocket connection.
-    async fn transcribe_piece(&self, samples: &[f32]) -> Result<String, TranscriptionError> {
-        let url = format!("ws://127.0.0.1:{}", self.port);
-        let (mut ws, _) = connect_async(&url)
-            .await
-            .map_err(|e| TranscriptionError::Network(format!("WebSocket connect failed: {}", e)))?;
-
-        let num_bytes = (samples.len() * 4) as i32;
-        let mut msg = Vec::with_capacity(8 + samples.len() * 4);
-        msg.extend_from_slice(&(SAMPLE_RATE as i32).to_le_bytes());
-        msg.extend_from_slice(&num_bytes.to_le_bytes());
-        for &sample in samples {
-            msg.extend_from_slice(&sample.to_le_bytes());
-        }
-
-        ws.send(tokio_tungstenite::tungstenite::Message::Binary(msg.into()))
-            .await
-            .map_err(|e| TranscriptionError::Network(format!("WebSocket send failed: {}", e)))?;
-
-        let result = tokio::time::timeout(TRANSCRIBE_TIMEOUT, async {
-            let mut text = String::new();
-            while let Some(msg) = ws.next().await {
-                let msg = msg.map_err(|e| {
-                    TranscriptionError::Network(format!("WebSocket recv failed: {}", e))
-                })?;
-                if msg.is_close() {
-                    break;
-                }
-                if msg.is_text() || msg.is_binary() {
-                    let data = msg.into_text().unwrap_or_default();
-                    text.push_str(&data);
-                    let _ = ws
-                        .send(tokio_tungstenite::tungstenite::Message::Text("Done".into()))
-                        .await;
-                }
-            }
-            Ok::<String, TranscriptionError>(text)
-        })
-        .await
-        .map_err(|_| TranscriptionError::Model("Transcription timed out".into()))??;
-
-        Ok(parse_offline_result(&result))
     }
 }
 
@@ -190,99 +256,57 @@ impl TranscriptionService for ParakeetService {
             if is_silent(piece_samples) {
                 continue;
             }
-            let piece_text = self.transcribe_piece(piece_samples).await?;
+            let piece_text = self
+                .backend
+                .transcribe_piece(self.port, piece_samples)
+                .await?;
             if !piece_text.is_empty() {
                 piece_texts.push(piece_text);
             }
         }
         let text = piece_texts.join(" ");
-        let elapsed = start_time.elapsed();
         crate::log_info!(
-            "Transcription ({}, engine=Parakeet): inference={:?}, chars={}",
+            "Transcription ({}, engine=Parakeet via {}): inference={:?}, chars={}",
             self.model_size,
-            elapsed,
+            self.backend.log_label(),
+            start_time.elapsed(),
             text.len()
         );
         Ok(text)
     }
 
     fn service_name(&self) -> &'static str {
-        "Parakeet (sherpa-onnx)"
+        match self.backend {
+            ParakeetBackend::SherpaOnnx => "Parakeet (sherpa-onnx)",
+            ParakeetBackend::ParakeetCpp => "Parakeet (parakeet.cpp)",
+        }
     }
 }
 
-/// Resolves the path to the sherpa-onnx binary, downloading it if necessary.
-async fn resolve_or_download_binary() -> Result<PathBuf, TranscriptionError> {
-    crate::sidecar::ensure_binary(binary_dir()?, &binary_name(), download_spec())
-        .await
-        .map_err(|e| TranscriptionError::Model(e.to_string()))
-}
-
-/// The sherpa-onnx release archive for this platform. Provider-specific
-/// release knowledge; download/extract mechanics live in `crate::sidecar`.
-fn download_spec() -> crate::sidecar::SidecarDownload {
-    let archive_name = archive_name();
-    crate::sidecar::SidecarDownload {
-        log_label: "sherpa-onnx",
-        archive_url: format!(
-            "https://github.com/k2-fsa/sherpa-onnx/releases/download/v{}/{}",
-            BINARY_VERSION, archive_name
-        ),
-        archive_name: archive_name.to_string(),
-        layout: crate::archive::ExtractLayout::Flat,
-    }
-}
-
-fn binary_dir() -> Result<PathBuf, TranscriptionError> {
-    let bin_dir = crate::paths::models_dir()
-        .map_err(TranscriptionError::Model)?
-        .join("transcription")
-        .join("parakeet")
-        .join("bin");
-    std::fs::create_dir_all(&bin_dir)
-        .map_err(|e| TranscriptionError::Model(format!("Failed to create bin dir: {}", e)))?;
-    Ok(bin_dir)
-}
-
-fn binary_name() -> String {
-    if cfg!(target_os = "windows") {
-        "sherpa-onnx-offline-websocket-server.exe".to_string()
-    } else {
-        "sherpa-onnx-offline-websocket-server".to_string()
-    }
-}
-
-fn archive_name() -> &'static str {
-    match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("linux", "x86_64") => "sherpa-onnx-v1.13.4-linux-x64-shared.tar.bz2",
-        ("windows", "x86_64") => "sherpa-onnx-v1.13.4-win-x64-shared-MD-Release.tar.bz2",
-        ("macos", _) => "sherpa-onnx-v1.13.4-osx-universal2-shared.tar.bz2",
-        (os, arch) => panic!("Unsupported platform: {}-{}", os, arch),
-    }
-}
-
+/// Reads the server's stderr until it prints `ready_marker`, returning every
+/// line seen before it (startup diagnostics such as the compute device).
 async fn wait_for_ready(
     reader: &mut tokio::io::BufReader<tokio::process::ChildStderr>,
-    timeout: Duration,
-) -> Result<(), String> {
+    ready_marker: &str,
+    label: &str,
+) -> Result<Vec<String>, String> {
     use tokio::io::AsyncBufReadExt;
     let mut lines = reader.lines();
     let mut captured_lines = Vec::new();
 
     let start = std::time::Instant::now();
-    while start.elapsed() < timeout {
-        tokio::time::sleep(Duration::from_millis(50)).await;
+    while start.elapsed() < STARTUP_TIMEOUT {
         match tokio::time::timeout(Duration::from_millis(200), lines.next_line()).await {
             Ok(Ok(Some(line))) => {
-                crate::log_info!("sherpa-onnx: {}", line);
-                if line.contains("Listening on:") {
-                    return Ok(());
+                crate::log_info!("{}: {}", label, line);
+                if line.contains(ready_marker) {
+                    return Ok(captured_lines);
                 }
                 captured_lines.push(line);
             }
             Ok(Ok(None)) => {
                 let error_detail = if captured_lines.is_empty() {
-                    "Process exited before ready".to_string()
+                    "no output".to_string()
                 } else {
                     captured_lines.join(" | ")
                 };
@@ -292,7 +316,10 @@ async fn wait_for_ready(
             Err(_) => {}
         }
     }
-    Err("Startup timeout: sidecar did not become ready within 60s".into())
+    Err(format!(
+        "Startup timeout: sidecar did not become ready within {}s",
+        STARTUP_TIMEOUT.as_secs()
+    ))
 }
 
 fn wav_to_float32(wav_bytes: &[u8]) -> Result<Vec<f32>, TranscriptionError> {
@@ -319,14 +346,4 @@ fn is_silent(samples: &[f32]) -> bool {
     }
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
     rms < 0.001
-}
-
-fn parse_offline_result(raw: &str) -> String {
-    let trimmed = raw.trim();
-    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(trimmed) {
-        if let Some(text) = parsed.get("text").and_then(|v| v.as_str()) {
-            return text.trim().to_string();
-        }
-    }
-    trimmed.to_string()
 }

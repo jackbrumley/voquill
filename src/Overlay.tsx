@@ -5,12 +5,22 @@ import { listen } from '@tauri-apps/api/event';
 import { StatusIndicator } from './components/StatusIndicator.tsx';
 import { tokens } from './design-tokens.ts';
 import { useDictationStatus } from './hooks/useDictationStatus.ts';
-import type { StatusUpdatePayload } from './types.ts';
+import type { DictationStatus, StatusUpdatePayload } from './types.ts';
 
 type HotkeyMode = 'HoldToTalk' | 'Toggle';
 
+function overlaySubtitle(status: DictationStatus, hotkeyMode: HotkeyMode): string | undefined {
+  if (status === 'Recording' && hotkeyMode === 'Toggle') {
+    return 'press again to stop';
+  }
+  if (status === 'WakingUp') {
+    return 'takes a few seconds';
+  }
+  return undefined;
+}
+
 function Overlay() {
-  const dictationStatus = useDictationStatus({ accept: ['Recording', 'Transcribing', 'Error'] });
+  const dictationStatus = useDictationStatus({ accept: ['Recording', 'WakingUp', 'Transcribing', 'Error'] });
   const hotkeyMode = useSignal<HotkeyMode>('HoldToTalk');
   const hasTauriRuntime = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in (window as Window & { __TAURI_INTERNALS__?: unknown });
   const isPreviewMode = !hasTauriRuntime;
@@ -97,7 +107,7 @@ function Overlay() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', width: '100%', height: '100%', backgroundColor: 'transparent', padding: '16px 20px' }}>
-      <StatusIndicator status={dictationStatus.status.value} size={44} fixedWidth={180} subtitle={dictationStatus.status.value === 'Recording' && hotkeyMode.value === 'Toggle' ? 'press again to stop' : undefined} />
+      <StatusIndicator status={dictationStatus.status.value} size={44} fixedWidth={180} subtitle={overlaySubtitle(dictationStatus.status.value, hotkeyMode.value)} />
     </div>
   );
 }

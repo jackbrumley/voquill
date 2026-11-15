@@ -15,6 +15,9 @@ import { tokens } from '../design-tokens.ts';
 import { useEffect } from 'preact/hooks';
 import type { Config, DictationStatus, Segment } from '../types.ts';
 import { getSpeakerColor } from '../speakerColors.ts';
+import { isBusyStatus, statusLabel } from '../status.ts';
+import { EngineResidencyChip } from '../components/EngineResidencyChip.tsx';
+import { useEngineResidency } from '../hooks/useEngineResidency.ts';
 
 interface HomePageProps {
   appVersion: string;
@@ -50,6 +53,7 @@ export function HomePage({
   const importResult = useSignal<TranscribeResult | null>(null);
   const importError = useSignal<string>('');
   const isDragOver = useSignal(false);
+  const engine = useEngineResidency();
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -137,7 +141,7 @@ export function HomePage({
                 <div style={{ position: 'absolute', inset: 0, opacity: dictationStatus === 'Recording' ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: dictationStatus === 'Recording' ? 'auto' : 'none' }}>
                   <AudioWave containerHeight={80} barWidth={5} gap={3} />
                 </div>
-                <div style={{ position: 'absolute', inset: 0, opacity: (dictationStatus === 'Transcribing' || dictationStatus === 'Processing' || dictationStatus === 'Typing') ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: (dictationStatus === 'Transcribing' || dictationStatus === 'Processing' || dictationStatus === 'Typing') ? 'auto' : 'none' }}>
+                <div style={{ position: 'absolute', inset: 0, opacity: isBusyStatus(dictationStatus) ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: isBusyStatus(dictationStatus) ? 'auto' : 'none' }}>
                   <BouncingDots dotSize={16} jumpHeight={18} />
                 </div>
               </div>
@@ -152,7 +156,7 @@ export function HomePage({
                     lineHeight: 1.2,
                     textAlign: 'center',
                   }}>
-                    {dictationStatus === 'Error' ? 'Mic not found' : dictationStatus}
+                    {statusLabel(dictationStatus)}
                   </div>
                   {dictationStatus === 'Ready' && config.hotkey ? (
                     <div style={{
@@ -166,7 +170,7 @@ export function HomePage({
                       <span style={{ color: '#818cf8', fontWeight: 600 }}>
                         {config.hotkey}
                       </span>
-                      {' to start dictation'}
+                      {engine.residency === 'Unloaded' ? ' to wake up and dictate' : ' to start dictation'}
                     </div>
                   ) : (
                     <div style={{
@@ -176,7 +180,7 @@ export function HomePage({
                       marginTop: '4px',
                       minHeight: '18px',
                     }}>
-                      {dictationStatus === 'Recording' ? 'Listening...' : (dictationStatus === 'Transcribing' || dictationStatus === 'Processing' || dictationStatus === 'Typing') ? 'Transcribing speech...' : ''}
+                      {dictationStatus === 'Recording' ? 'Listening...' : dictationStatus === 'WakingUp' ? 'Getting the speech engine ready...' : isBusyStatus(dictationStatus) ? 'Transcribing speech...' : ''}
                     </div>
                   )}
                 </div>
@@ -198,6 +202,7 @@ export function HomePage({
                 ? 'Types directly into your active cursor.'
                 : 'Copies results to your clipboard.'}
             </div>
+            {config.transcription_mode === 'Local' && <EngineResidencyChip config={config} engine={engine} />}
             </div>
         </div>
 
@@ -405,7 +410,7 @@ export function HomePage({
           )}
         </Card>
 
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tokens.spacing.xs, padding: `${tokens.spacing.xs} 0`, opacity: 0.6, transition: tokens.transitions.fast }}>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', paddingBottom: '2px', opacity: 0.6, transition: tokens.transitions.fast }}>
           <div style={{ display: 'flex', gap: tokens.spacing.sm, alignItems: 'center' }}>
             <button
               type="button"
@@ -416,7 +421,7 @@ export function HomePage({
               style={{
                 background: hoveredFooterIcon.value === 'github' ? 'rgba(255, 255, 255, 0.05)' : 'none',
                 border: 'none',
-                padding: '10px',
+                padding: '6px',
                 cursor: 'pointer',
                 color: hoveredFooterIcon.value === 'github' ? tokens.colors.textPrimary : tokens.colors.textMuted,
                 display: 'flex',
@@ -438,7 +443,7 @@ export function HomePage({
               style={{
                 background: hoveredFooterIcon.value === 'heart' ? 'rgba(255, 255, 255, 0.05)' : 'none',
                 border: 'none',
-                padding: '10px',
+                padding: '6px',
                 cursor: 'pointer',
                 color: tokens.colors.textMuted,
                 display: 'flex',

@@ -53,6 +53,7 @@ mod audio;
 mod config;
 mod diarization;
 mod engine_factory;
+mod engine_residency;
 mod history;
 mod hotkey;
 mod local_whisper;
@@ -228,6 +229,7 @@ fn main() {
             get_noise_reduction_error,
             get_engine_capabilities,
             unload_model,
+            get_engine_residency,
             test_voice_macro_sound,
             test_voice_macro_execution,
             test_spoken_voice_macro,

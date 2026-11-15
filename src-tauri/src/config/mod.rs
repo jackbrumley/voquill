@@ -10,6 +10,9 @@ pub const INPUT_SENSITIVITY_MIN: f32 = 0.1;
 pub const INPUT_SENSITIVITY_MAX: f32 = 2.0;
 pub const MAX_RECORDING_DURATION_MINUTES_MIN: u64 = 1;
 pub const MAX_RECORDING_DURATION_MINUTES_MAX: u64 = 180;
+/// Longest allowed idle time before the speech engine unloads (one day).
+/// Zero means the engine never unloads by itself.
+pub const ENGINE_IDLE_UNLOAD_MINUTES_MAX: u64 = 1440;
 pub const DIARIZATION_CLUSTER_THRESHOLD_MIN: f32 = 0.3;
 pub const DIARIZATION_CLUSTER_THRESHOLD_MAX: f32 = 0.95;
 
@@ -101,6 +104,10 @@ pub struct Config {
     pub hotkey_mode: HotkeyMode,
     #[serde(default = "default_max_recording_duration_minutes")]
     pub max_recording_duration_minutes: u64,
+    /// Minutes without dictation after which the local speech engine is
+    /// unloaded to free memory. Zero keeps it loaded.
+    #[serde(default)]
+    pub engine_idle_unload_minutes: u64,
     #[serde(default)]
     pub engine_config: Option<serde_json::Value>,
     #[serde(default = "default_dictionary")]
@@ -219,6 +226,9 @@ impl Config {
             MAX_RECORDING_DURATION_MINUTES_MIN,
             MAX_RECORDING_DURATION_MINUTES_MAX,
         );
+        self.engine_idle_unload_minutes = self
+            .engine_idle_unload_minutes
+            .min(ENGINE_IDLE_UNLOAD_MINUTES_MAX);
         // Ensure built-in prompts exist (migration for users upgrading)
         let pirate_id = "pirate";
         if !self.post_process_prompts.iter().any(|p| p.id == pirate_id) {
@@ -388,6 +398,7 @@ impl Default for Config {
             post_roll_ms: default_post_roll_ms(),
             hotkey_mode: default_hotkey_mode(),
             max_recording_duration_minutes: default_max_recording_duration_minutes(),
+            engine_idle_unload_minutes: 0,
             engine_config: None,
             dictionary: default_dictionary(),
             post_process_enabled: false,

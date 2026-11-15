@@ -151,9 +151,9 @@ fn reconcile_engine_warmup(
         || previous_config.engine_config != merged_config.engine_config;
 
     if transcription_changed {
-        // A running Parakeet sidecar belongs to the previous engine/model; the
-        // preload below starts a new one if Parakeet is still selected.
-        state.engine_factory.invalidate_parakeet();
+        // The loaded engine belongs to the previous engine/model; the preload
+        // below loads the new one.
+        state.engine_factory.unload_all();
     }
 
     if transcription_changed && merged_config.transcription_mode == TranscriptionMode::Local {

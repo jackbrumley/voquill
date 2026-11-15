@@ -6,11 +6,31 @@ import { Button } from '../../components/Button.tsx';
 import { NumberField } from '../../components/NumberField.tsx';
 import { SliderField } from '../../components/SliderField.tsx';
 import { ModelSelectionPanel } from '../../components/ModelSelectionPanel.tsx';
-import { SelectField } from '../../components/SelectField.tsx';
-import { EngineSettingsPanel } from '../../components/EngineSettingsPanel.tsx';
+import { SelectField, type SelectOption } from '../../components/SelectField.tsx';
+import { VOICE_MACRO_PAUSE_NOTE } from '../../hooks/useEngineResidency.ts';
+import { EngineSettingsFields } from '../../components/EngineSettingsFields.tsx';
+import { AdvancedSettings } from '../../components/AdvancedSettings.tsx';
 import type { Config, DownloadPhase, EngineCapabilities, GpuStatus, ModelInfo } from '../../types.ts';
 import { inputBaseStyle, selectWrapperStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
+
+const IDLE_UNLOAD_CHOICES: readonly SelectOption[] = [
+  { value: '0', label: 'Never' },
+  { value: '5', label: 'After 5 minutes' },
+  { value: '15', label: 'After 15 minutes' },
+  { value: '30', label: 'After 30 minutes' },
+  { value: '60', label: 'After 1 hour' },
+];
+
+/// The standard choices, plus the saved value when it is not one of them
+/// (e.g. edited in settings.json), so the field always shows the truth.
+function idleUnloadOptions(currentMinutes: number): SelectOption[] {
+  const current = String(currentMinutes);
+  if (IDLE_UNLOAD_CHOICES.some((choice) => choice.value === current)) {
+    return [...IDLE_UNLOAD_CHOICES];
+  }
+  return [...IDLE_UNLOAD_CHOICES, { value: current, label: `After ${currentMinutes} minutes` }];
+}
 
 interface TranscriptionSectionProps {
   config: Config;
@@ -79,27 +99,10 @@ export function TranscriptionSection({
             </div>
           </ConfigField>
 
-          <ConfigField label="API URL" description="The endpoint that processes audio (OpenAI or Local Whisper).">
-            <input
-              style={inputBaseStyle}
-              type="url"
-              value={config.api_url}
-              onChange={(e: Event) => updateConfig('api_url', (e.target as HTMLInputElement).value)}
-            />
-          </ConfigField>
-
-          <ConfigField label="API Model" description="The model name to use with the API provider.">
-            <input
-              style={inputBaseStyle}
-              type="text"
-              value={config.api_model}
-              onChange={(e: Event) => updateConfig('api_model', (e.target as HTMLInputElement).value)}
-            />
-          </ConfigField>
         </>
       ) : (
         <>
-          <ConfigField label="Local Engine" description="The core technology used to process your voice locally.">
+          <ConfigField label="Speech Engine" description="The technology that turns your voice into text on this computer.">
             <div style={selectWrapperStyle}>
               <SelectField
                 value={config.local_engine}
@@ -131,12 +134,12 @@ export function TranscriptionSection({
             }}>
               <IconInfoCircle size={14} />
               <span>
-                GPU unavailable: {gpuStatus.detail || 'No compatible GPU detected. Select Whisper.cpp (CPU) or check your GPU drivers.'}
+                GPU unavailable: {gpuStatus.detail || 'No compatible graphics card detected. Choose an engine without "(GPU)" or check your graphics drivers.'}
               </span>
             </div>
           )}
 
-          <ConfigField label="Local Model" description="Choose the Whisper model size. Distil-Small is recommended for most users.">
+          <ConfigField label="Model" description="Larger models are more accurate but slower and use more memory.">
             <ModelSelectionPanel
               availableModels={availableModels}
               localEngine={config.local_engine}
@@ -151,20 +154,6 @@ export function TranscriptionSection({
               onRetryModels={loadModels}
             />
           </ConfigField>
-
-          {engineCapabilities && engineCapabilities.settings.length > 0 && (
-            <ConfigField label="Engine Settings" description="Fine-tune how this engine processes your speech.">
-              <EngineSettingsPanel
-                capabilities={engineCapabilities}
-                values={(config.engine_config || {})}
-                onChange={(key, value) => {
-                  const current = { ...(config.engine_config || {}) };
-                  (current as Record<string, unknown>)[key] = value;
-                  updateConfig('engine_config', current);
-                }}
-              />
-            </ConfigField>
-          )}
         </>
       )}
 
@@ -179,48 +168,101 @@ export function TranscriptionSection({
         </div>
       </ConfigField>
 
+      {config.transcription_mode === 'Local' && (
+        <ConfigField
+          label="Unload Speech Engine When Idle"
+          description="Voquill keeps its speech engine in memory so dictation starts instantly. If you don't dictate often, unloading it frees up memory for other apps. It loads again by itself when you press your shortcut, which takes a few seconds."
+        >
+          <SelectField
+            value={String(config.engine_idle_unload_minutes)}
+            options={idleUnloadOptions(config.engine_idle_unload_minutes)}
+            onChange={(minutes) => updateConfig('engine_idle_unload_minutes', Number(minutes))}
+            ariaLabel="Unload speech engine when idle"
+          />
+          {config.voice_macros_enabled && config.engine_idle_unload_minutes > 0 && (
+            <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, marginTop: tokens.spacing.xs }}>
+              {VOICE_MACRO_PAUSE_NOTE}
+            </div>
+          )}
+        </ConfigField>
+      )}
+
       <ConfigField label="Differentiate Voices in Recordings" description="Detect and label different speakers in live recordings. When enabled, the recording takes slightly longer to process as each speaker segment is transcribed independently.">
         <Switch name="Diarization Recording" checked={config.diarization_enabled_recording} onChange={(checked) => updateConfig('diarization_enabled_recording', checked)} />
       </ConfigField>
 
-      {(config.diarization_enabled_recording || config.diarization_enabled_files) && (
-        <ConfigField label="Voice Distinctiveness" description="Higher values merge similar voices (fewer speaker labels); lower values detect more distinct voices. Adjust if you're seeing too many or too few speakers.">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
-            <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, textAlign: 'left' }}>
-              {Math.round(config.diarization_cluster_threshold * 100)}%
+      <AdvancedSettings>
+        {config.transcription_mode === 'API' && (
+          <>
+            <ConfigField label="API URL" description="The endpoint that processes audio (OpenAI or Local Whisper).">
+              <input
+                style={inputBaseStyle}
+                type="url"
+                value={config.api_url}
+                onChange={(e: Event) => updateConfig('api_url', (e.target as HTMLInputElement).value)}
+              />
+            </ConfigField>
+
+            <ConfigField label="API Model" description="The model name to use with the API provider.">
+              <input
+                style={inputBaseStyle}
+                type="text"
+                value={config.api_model}
+                onChange={(e: Event) => updateConfig('api_model', (e.target as HTMLInputElement).value)}
+              />
+            </ConfigField>
+          </>
+        )}
+        {config.transcription_mode === 'Local' && engineCapabilities && (
+          <EngineSettingsFields
+            capabilities={engineCapabilities}
+            values={config.engine_config || {}}
+            onChange={(key, value) => {
+              const current = { ...(config.engine_config || {}) };
+              (current as Record<string, unknown>)[key] = value;
+              updateConfig('engine_config', current);
+            }}
+          />
+        )}
+        {(config.diarization_enabled_recording || config.diarization_enabled_files) && (
+          <ConfigField label="Voice Distinctiveness" description="Higher values merge similar voices (fewer speaker labels); lower values detect more distinct voices. Adjust if you're seeing too many or too few speakers.">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
+              <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, textAlign: 'left' }}>
+                {Math.round(config.diarization_cluster_threshold * 100)}%
+              </div>
+              <SliderField
+                value={config.diarization_cluster_threshold}
+                min={0.3}
+                max={0.95}
+                step={0.05}
+                formatEndLabel={(value) => `${Math.round(value * 100)}%`}
+                onChange={(value) => updateConfig('diarization_cluster_threshold', value)}
+                ariaLabel="Voice distinctiveness"
+                style={{ margin: `${tokens.spacing.sm} 0` }}
+              />
             </div>
-            <SliderField
-              value={config.diarization_cluster_threshold}
-              min={0.3}
-              max={0.95}
-              step={0.05}
-              formatEndLabel={(value) => `${Math.round(value * 100)}%`}
-              onChange={(value) => updateConfig('diarization_cluster_threshold', value)}
-              ariaLabel="Voice distinctiveness"
-              style={{ margin: `${tokens.spacing.sm} 0` }}
-            />
-          </div>
+          </ConfigField>
+        )}
+
+        <ConfigField label="Post-roll (ms)" description="Extra audio (in milliseconds) captured after releasing the hotkey. Helps prevent the last sentence from being cut off, especially with API models.">
+          <NumberField
+            value={config.post_roll_ms}
+            onChange={(value) => updateConfig('post_roll_ms', value)}
+            min={0}
+            max={2000}
+            step={50}
+          />
         </ConfigField>
-      )}
 
-      <ConfigField label="Post-roll (ms)" description="Extra audio (in milliseconds) captured after releasing the hotkey. Helps prevent the last sentence from being cut off, especially with API models.">
-        <NumberField
-          value={config.post_roll_ms}
-          onChange={(value) => updateConfig('post_roll_ms', value)}
-          min={0}
-          max={2000}
-          step={50}
-        />
-      </ConfigField>
-
-      <ConfigField label="Max Recording Length (minutes)" description="Recording automatically stops and transcribes after this many minutes (1-180).">
-        <NumberField
-          value={config.max_recording_duration_minutes}
-          onChange={(value) => updateConfig('max_recording_duration_minutes', value)}
-          min={1}
-          max={180}
-        />
-      </ConfigField>
+        <ConfigField label="Max Recording Length (minutes)" description="Recording automatically stops and transcribes after this many minutes (1-180).">
+          <NumberField
+            value={config.max_recording_duration_minutes}
+            onChange={(value) => updateConfig('max_recording_duration_minutes', value)}
+            min={1}
+            max={180}
+          />
+        </ConfigField>
+      </AdvancedSettings>
     </>
   );
 }

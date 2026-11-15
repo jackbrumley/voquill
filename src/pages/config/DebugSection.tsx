@@ -138,10 +138,6 @@ export function DebugSection({
         <NumberField value={config.history_limit} onChange={(value) => updateConfig('history_limit', value)} min={0} max={10000} />
       </ConfigField>
 
-      <ConfigField label="Unload Model" description="Free GPU/CPU memory by unloading the transcription model from memory. It will reload automatically on next dictation.">
-        <Button variant="configAction" onClick={async () => { try { await invoke('unload_model'); } catch (e) { console.error('Failed to unload model:', e); } }}>Unload Model</Button>
-      </ConfigField>
-
       <ConfigField label="Initial Setup" description="Re-open onboarding checks for permissions, model, and hotkey setup.">
         <Button variant="configAction" onClick={onReopenInitialSetup}>Re-run Initial Setup</Button>
       </ConfigField>
