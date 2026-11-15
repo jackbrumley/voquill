@@ -1,8 +1,10 @@
 use chrono::Utc;
-use rusqlite::{params, Connection};
+mod store;
+
+use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::{Mutex, OnceLock};
+use store::global_db;
 
 use crate::diarization::Segment;
 
@@ -49,10 +51,6 @@ pub struct NewHistoryItem<'a> {
     pub limit: Option<usize>,
 }
 
-fn db_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    Ok(crate::paths::history_db()?)
-}
-
 fn delete_debug_audio_file(file_name_or_path: &str) {
     let path = PathBuf::from(file_name_or_path);
     if path.is_absolute() && path.exists() {
@@ -65,141 +63,6 @@ fn delete_debug_audio_file(file_name_or_path: &str) {
             let _ = std::fs::remove_file(&target);
         }
     }
-}
-
-fn open_db() -> Result<Connection, Box<dyn std::error::Error>> {
-    let path = db_path()?;
-    let conn = Connection::open(&path)?;
-    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;")?;
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS history (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_uuid  TEXT NOT NULL DEFAULT '',
-            timestamp     TEXT NOT NULL,
-            status        TEXT NOT NULL DEFAULT 'success',
-            text          TEXT NOT NULL,
-            raw_text      TEXT,
-            error_message TEXT,
-            segments      TEXT,
-            audio_file    TEXT,
-            duration_secs REAL,
-            engine        TEXT,
-            source        TEXT DEFAULT 'mic',
-            language      TEXT,
-            prompt_name   TEXT
-        );
-        CREATE VIRTUAL TABLE IF NOT EXISTS history_fts
-            USING fts5(text, content='history', content_rowid='id');",
-    )?;
-
-    // Migrations for existing databases
-    conn.execute_batch("ALTER TABLE history ADD COLUMN segments TEXT")
-        .ok();
-    conn.execute_batch("ALTER TABLE history ADD COLUMN raw_text TEXT")
-        .ok();
-    conn.execute_batch("ALTER TABLE history ADD COLUMN session_uuid TEXT DEFAULT ''")
-        .ok();
-    conn.execute_batch("ALTER TABLE history ADD COLUMN status TEXT DEFAULT 'success'")
-        .ok();
-    conn.execute_batch("ALTER TABLE history ADD COLUMN error_message TEXT")
-        .ok();
-    conn.execute_batch("ALTER TABLE history ADD COLUMN audio_file TEXT")
-        .ok();
-    conn.execute_batch("ALTER TABLE history ADD COLUMN duration_secs REAL")
-        .ok();
-    conn.execute_batch("ALTER TABLE history ADD COLUMN engine TEXT")
-        .ok();
-    conn.execute_batch("ALTER TABLE history ADD COLUMN source TEXT DEFAULT 'mic'")
-        .ok();
-    conn.execute_batch("ALTER TABLE history ADD COLUMN language TEXT")
-        .ok();
-    conn.execute_batch("ALTER TABLE history ADD COLUMN prompt_name TEXT")
-        .ok();
-
-    // Backfill session_uuid for legacy records without one
-    if let Ok(mut stmt) =
-        conn.prepare("SELECT id FROM history WHERE session_uuid IS NULL OR session_uuid = ''")
-    {
-        if let Ok(rows) = stmt
-            .query_map([], |r| r.get::<_, i64>(0))
-            .and_then(|mapped| mapped.collect::<Result<Vec<_>, _>>())
-        {
-            for row_id in rows {
-                let gen_uuid = uuid::Uuid::new_v4().to_string();
-                let _ = conn.execute(
-                    "UPDATE history SET session_uuid = ?1 WHERE id = ?2",
-                    params![gen_uuid, row_id],
-                );
-            }
-        }
-    }
-
-    conn.execute_batch(
-        "CREATE TRIGGER IF NOT EXISTS history_ai AFTER INSERT ON history BEGIN
-            INSERT INTO history_fts(rowid, text) VALUES (new.id, new.text);
-        END;
-        CREATE TRIGGER IF NOT EXISTS history_ad AFTER DELETE ON history BEGIN
-            INSERT INTO history_fts(history_fts, rowid, text) VALUES ('delete', old.id, old.text);
-        END;
-        CREATE TRIGGER IF NOT EXISTS history_au AFTER UPDATE ON history BEGIN
-            INSERT INTO history_fts(history_fts, rowid, text) VALUES ('delete', old.id, old.text);
-            INSERT INTO history_fts(rowid, text) VALUES (new.id, new.text);
-        END;",
-    )?;
-
-    Ok(conn)
-}
-
-fn global_db() -> &'static Mutex<Connection> {
-    static DB: OnceLock<Mutex<Connection>> = OnceLock::new();
-    DB.get_or_init(|| match open_db() {
-        Ok(conn) => {
-            migrate_from_json(&conn).ok();
-            Mutex::new(conn)
-        }
-        Err(e) => {
-            eprintln!("Failed to open history database: {}", e);
-            std::process::abort();
-        }
-    })
-}
-
-fn migrate_from_json(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
-    let json_path = crate::paths::app_root()?.join("history.json");
-
-    if !json_path.exists() {
-        return Ok(());
-    }
-
-    let content = std::fs::read_to_string(&json_path)?;
-    let legacy: serde_json::Value = serde_json::from_str(&content)?;
-    if let Some(items) = legacy.get("items").and_then(|v| v.as_array()) {
-        if items.is_empty() {
-            std::fs::remove_file(&json_path).ok();
-            return Ok(());
-        }
-        for item in items {
-            let text = item.get("text").and_then(|v| v.as_str()).unwrap_or("");
-            let timestamp = item.get("timestamp").and_then(|v| v.as_str()).unwrap_or("");
-
-            let count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM history WHERE id = ?",
-                params![item.get("id").and_then(|v| v.as_u64()).unwrap_or(0) as i64],
-                |row| row.get(0),
-            )?;
-            if count == 0 {
-                let id = item.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
-                let gen_uuid = uuid::Uuid::new_v4().to_string();
-                conn.execute(
-                    "INSERT INTO history (id, session_uuid, text, timestamp, status, segments, source) VALUES (?1, ?2, ?3, ?4, 'success', ?5, 'mic')",
-                    params![id as i64, gen_uuid, text, timestamp, Option::<&str>::None],
-                )?;
-            }
-        }
-    }
-
-    std::fs::remove_file(&json_path).ok();
-    Ok(())
 }
 
 fn sanitize_fts_query(raw: &str) -> String {
@@ -412,40 +275,11 @@ pub fn clear_history() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rusqlite::Connection;
 
     fn setup_test_db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(
-            "CREATE TABLE history (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_uuid  TEXT NOT NULL DEFAULT '',
-                timestamp     TEXT NOT NULL,
-                status        TEXT NOT NULL DEFAULT 'success',
-                text          TEXT NOT NULL,
-                raw_text      TEXT,
-                error_message TEXT,
-                segments      TEXT,
-                audio_file    TEXT,
-                duration_secs REAL,
-                engine        TEXT,
-                source        TEXT DEFAULT 'mic',
-                language      TEXT,
-                prompt_name   TEXT
-            );
-            CREATE VIRTUAL TABLE history_fts
-                USING fts5(text, content='history', content_rowid='id');
-            CREATE TRIGGER history_ai AFTER INSERT ON history BEGIN
-                INSERT INTO history_fts(rowid, text) VALUES (new.id, new.text);
-            END;
-            CREATE TRIGGER history_ad AFTER DELETE ON history BEGIN
-                INSERT INTO history_fts(history_fts, rowid, text) VALUES ('delete', old.id, old.text);
-            END;
-            CREATE TRIGGER history_au AFTER UPDATE ON history BEGIN
-                INSERT INTO history_fts(history_fts, rowid, text) VALUES ('delete', old.id, old.text);
-                INSERT INTO history_fts(rowid, text) VALUES (new.id, new.text);
-            END;",
-        )
-        .unwrap();
+        store::prepare_schema(&conn).unwrap();
         conn
     }
 
