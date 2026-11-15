@@ -50,6 +50,14 @@ const MULTILINGUAL_MODELS: ModelChoices = ModelChoices {
     language_phrase: "multilingual",
 };
 
+/// The engine and model for settings created before any hardware has been
+/// checked: the "works on any computer" choice for the default (automatic,
+/// treated as English) language. Initial setup replaces it with the
+/// recommendation for the actual hardware.
+pub fn baseline_choice() -> (ModelEngine, &'static str) {
+    ENGLISH_MODELS.processor
+}
+
 #[derive(Debug, Serialize)]
 pub struct SetupOption {
     pub engine: ModelEngine,

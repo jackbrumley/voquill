@@ -281,11 +281,17 @@ fn default_api_model() -> String {
 fn default_transcription_mode() -> TranscriptionMode {
     TranscriptionMode::Local
 }
+/// Defaults come from the setup recommendation rules (the single owner of
+/// which engine and model suit a computer), using their hardware-independent
+/// choice.
 fn default_local_model_size() -> String {
-    "distil-small.en".to_string()
+    crate::setup_recommendation::baseline_choice().1.to_string()
 }
 fn default_local_engine() -> String {
-    "Whisper.cpp (GPU)".to_string()
+    crate::setup_recommendation::baseline_choice()
+        .0
+        .name()
+        .to_string()
 }
 fn default_hotkey() -> String {
     "ctrl+shift+space".to_string()
@@ -565,7 +571,7 @@ mod tests {
     #[test]
     fn default_config_matches_expected_out_of_the_box_values() {
         let config = Config::default();
-        assert_eq!(config.local_engine, "Whisper.cpp (GPU)");
+        assert_eq!(config.local_engine, "Parakeet");
         assert_eq!(config.post_process_engine, "Post-Process (GPU)");
         assert_eq!(config.output_method, OutputMethod::Clipboard);
         assert!(config.paste_after_copy);
