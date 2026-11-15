@@ -148,7 +148,8 @@ export function SpokenMacroTester({ showToast }: SpokenMacroTesterProps) {
       )}
 
       <div style={{ fontSize: '11px', color: tokens.colors.textMuted, lineHeight: 1.4 }}>
-        Misheard a word? Add it under Settings → Words (Whisper only for now).
+        <div>Misheard a word? Add it under Settings → Words.</div>
+        <div>Whisper only for now.</div>
       </div>
     </div>
   );
