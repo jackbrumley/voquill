@@ -68,8 +68,13 @@ impl Config {
 pub(super) fn default_post_process_provider() -> PostProcessProvider {
     PostProcessProvider::Local
 }
+/// The hardware-independent choice; a new install switches to the GPU
+/// engine when the computer has a suitable graphics card
+/// (`setup_recommendation::apply_first_run_defaults`).
 pub(super) fn default_post_process_engine() -> String {
-    "Post-Process (GPU)".to_string()
+    crate::engines::ModelEngine::PostProcessCpu
+        .name()
+        .to_string()
 }
 pub(super) fn default_post_process_model() -> String {
     "qwen2.5-1.5b-instruct".to_string()

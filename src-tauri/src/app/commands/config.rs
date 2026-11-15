@@ -202,7 +202,8 @@ pub async fn reset_application_to_defaults(
 
     history::clear_history().map_err(|error| error.to_string())?;
 
-    let default_config = Config::default();
+    let mut default_config = Config::default();
+    crate::setup_recommendation::apply_first_run_defaults(&mut default_config);
     config::storage::save_config(&default_config)?;
 
     {

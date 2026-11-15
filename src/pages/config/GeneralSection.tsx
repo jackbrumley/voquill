@@ -115,6 +115,10 @@ export function GeneralSection({
       </ConfigField>
 
       <AdvancedSettings>
+        <ConfigField label="Keep Recordings" description="Save the audio of each dictation so you can play it back in History. Old recordings are removed along with old History entries.">
+          <Switch name="Keep Recordings" checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} />
+        </ConfigField>
+
         <ConfigField label="History Size" description="How many past dictations the History tab keeps. The oldest are removed first. 0 keeps everything.">
           <NumberField value={config.history_limit} onChange={(value) => updateConfig('history_limit', value)} min={0} max={10000} />
         </ConfigField>

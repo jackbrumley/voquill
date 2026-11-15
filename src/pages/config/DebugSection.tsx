@@ -1,7 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { ConfigField } from '../../components/ConfigField.tsx';
-import { Switch } from '../../components/Switch.tsx';
 import { Button } from '../../components/Button.tsx';
 import { SelectField } from '../../components/SelectField.tsx';
 import type { Config } from '../../types.ts';
@@ -108,9 +107,8 @@ export function DebugSection({
         </div>
       </ConfigField>
 
-      <ConfigField label="Save Recording Logs" description="Save raw audio from recordings and file imports as WAV files in the debug folder for troubleshooting.">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <Switch name="Save Recording Logs" checked={config.enable_recording_logs} onChange={(checked) => updateConfig('enable_recording_logs', checked)} />
+      <ConfigField label="Recordings Folder" description="The saved audio of past dictations (turn saving on or off in General → Keep Recordings).">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', width: '100%' }}>
           <div style={{ display: 'flex', gap: tokens.spacing.xs }}>
             <Button variant="ghost" pill style={configGhostPillStyle} onClick={diagnostics.openLogFolder}>Open Folder</Button>
             <Button

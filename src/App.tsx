@@ -276,6 +276,8 @@ function App() {
             onStopMicPlayback={() => void audioSetup.stopMicPlayback()}
             onTestApiKey={() => void testApiKey(configHook.config.openai_api_key, configHook.config.api_url)}
             setupReview={setupReview}
+            autostartEnabled={autostartHook.autostartEnabled}
+            onEnableAutostart={() => autostartHook.toggleAutostart(true)}
             onFinishSetup={() => {
               logUI(`[Finish Setup] Finish Setup clicked. ${describeReadiness(readiness)}`);
               void completeSetup();

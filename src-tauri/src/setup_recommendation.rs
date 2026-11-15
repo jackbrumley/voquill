@@ -58,6 +58,51 @@ pub fn baseline_choice() -> (ModelEngine, &'static str) {
     ENGLISH_MODELS.processor
 }
 
+/// Languages the settings offer that a system locale can map onto. Only
+/// English variants are taken from the system, as agreed; anything else
+/// stays on automatic detection.
+const LOCALE_LANGUAGES: &[&str] = &["en-AU", "en-GB", "en-US"];
+
+/// The settings language for a system locale such as "en_AU.UTF-8" or
+/// "en-GB", if it is one of the English variants the settings offer.
+fn language_for_locale(locale: &str) -> Option<&'static str> {
+    let normalized = locale.split('.').next()?.replace('_', "-");
+    LOCALE_LANGUAGES
+        .iter()
+        .find(|language| language.eq_ignore_ascii_case(&normalized))
+        .copied()
+}
+
+/// The post-processing engine for this hardware: the GPU build with a
+/// suitable graphics card, otherwise the processor.
+fn post_process_engine_for(hardware: &HardwareProfile) -> ModelEngine {
+    if suitable_graphics_card(&hardware.graphics).is_some() {
+        ModelEngine::PostProcessGpu
+    } else {
+        ModelEngine::PostProcessCpu
+    }
+}
+
+/// Adjusts brand-new settings (first run or factory reset) to this
+/// computer: the system's English variant as the language, and the
+/// post-processing engine its hardware suits. Existing settings are never
+/// changed. The speech engine is chosen in initial setup.
+pub fn apply_first_run_defaults(config: &mut crate::config::Config) {
+    if let Some(language) = sys_locale::get_locale()
+        .as_deref()
+        .and_then(language_for_locale)
+    {
+        config.language = language.to_string();
+    }
+    let hardware = crate::hardware_detection::detect_hardware();
+    config.post_process_engine = post_process_engine_for(&hardware).name().to_string();
+    crate::log_info!(
+        "First-run defaults: language {}, post-processing engine {}",
+        config.language,
+        config.post_process_engine
+    );
+}
+
 #[derive(Debug, Serialize)]
 pub struct SetupOption {
     pub engine: ModelEngine,
@@ -370,5 +415,25 @@ mod tests {
             .contains("4 GB of memory"));
         let plain = hardware(vec![], 16, 8);
         assert!(recommend(&plain, "auto").explanation.contains("processor"));
+    }
+
+    #[test]
+    fn system_locales_map_to_english_variants_only() {
+        assert_eq!(language_for_locale("en_AU.UTF-8"), Some("en-AU"));
+        assert_eq!(language_for_locale("en-GB"), Some("en-GB"));
+        assert_eq!(language_for_locale("de_DE.UTF-8"), None);
+        assert_eq!(language_for_locale("en_NZ.UTF-8"), None);
+    }
+
+    #[test]
+    fn post_processing_uses_the_gpu_only_with_a_suitable_card() {
+        assert_eq!(
+            post_process_engine_for(&hardware(vec![device(GraphicsKind::Discrete, 8)], 16, 8)),
+            ModelEngine::PostProcessGpu
+        );
+        assert_eq!(
+            post_process_engine_for(&hardware(vec![device(GraphicsKind::Discrete, 2)], 16, 8)),
+            ModelEngine::PostProcessCpu
+        );
     }
 }

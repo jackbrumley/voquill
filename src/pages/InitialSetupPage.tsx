@@ -56,6 +56,8 @@ interface InitialSetupPageProps {
   setupReview: SetupReview | null;
   /// Records setup as complete and opens Home.
   onFinishSetup: () => void;
+  autostartEnabled: boolean;
+  onEnableAutostart: () => Promise<void>;
 }
 
 /// First-run setup as numbered steps: permissions, microphone, speech engine,
@@ -72,6 +74,16 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
   const originalModelLabel = props.availableModels.find(
     (model) => model.engine === originalEngine.value.engine && model.size === originalEngine.value.modelSize,
   )?.label ?? originalEngine.value.modelSize;
+
+  // Ticked by default: a dictation tool is most useful when it is always
+  // running, but the choice stays visible rather than being made silently.
+  const startAtLogin = useSignal(true);
+  const finishSetup = async () => {
+    if (!isReviewing && startAtLogin.value && !props.autostartEnabled) {
+      await props.onEnableAutostart();
+    }
+    props.onFinishSetup();
+  };
 
   // Restoring the original engine takes a render to reach readiness, so
   // setup finishes once the restored setup reports ready.
@@ -206,11 +218,23 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
           </div>
         )}
 
+        {!isReviewing && !props.autostartEnabled && (
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: tokens.spacing.sm, fontSize: tokens.typography.sizeSm, color: tokens.colors.textSecondary, cursor: 'pointer', alignSelf: 'flex-start' }}>
+            <input
+              type="checkbox"
+              checked={startAtLogin.value}
+              onChange={(event) => { startAtLogin.value = (event.target as HTMLInputElement).checked; }}
+              style={{ accentColor: tokens.colors.accentPrimary, cursor: 'pointer' }}
+            />
+            Start Voquill when I log in
+          </label>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', paddingBottom: tokens.spacing.xl }}>
           <Button
             variant="configAction"
             disabled={!readiness.isAllReady}
-            onClick={props.onFinishSetup}
+            onClick={() => void finishSetup()}
             style={{ minWidth: '160px' }}
           >
             {readiness.isAllReady ? 'Start using Voquill' : 'Finish the steps above'}

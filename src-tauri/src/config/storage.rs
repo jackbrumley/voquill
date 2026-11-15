@@ -34,7 +34,8 @@ pub fn load_config() -> Result<LoadedConfig, String> {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
             log_info!("No config file at {:?}; creating defaults", config_path);
-            let default_config = Config::default();
+            let mut default_config = Config::default();
+            crate::setup_recommendation::apply_first_run_defaults(&mut default_config);
             save_config(&default_config)?;
             return Ok(LoadedConfig {
                 config: default_config,
@@ -269,7 +270,7 @@ mod tests {
         let config = parse_config(br#"{"voice_macros_enabled": false}"#).unwrap();
         assert_eq!(
             config.engine_idle_unload_minutes,
-            crate::config::DEFAULT_ENGINE_IDLE_UNLOAD_MINUTES
+            crate::config::defaults::DEFAULT_ENGINE_IDLE_UNLOAD_MINUTES
         );
         let config = parse_config(br#"{"voice_macros_enabled": true}"#).unwrap();
         assert_eq!(config.engine_idle_unload_minutes, 0);
