@@ -186,7 +186,7 @@ pub fn recommend(hardware: &HardwareProfile, language: &str) -> SetupRecommendat
 fn explain(hardware: &HardwareProfile, graphics_card: Option<&str>) -> String {
     if let Some(card) = graphics_card {
         return format!(
-            "Found your {}, so you get our fastest, most accurate engine.",
+            "Found your {}, so you get the fastest, most accurate engine.",
             card
         );
     }
@@ -200,7 +200,7 @@ fn explain(hardware: &HardwareProfile, graphics_card: Option<&str>) -> String {
             format!("{} processor threads", hardware.processor_threads)
         };
         return format!(
-            "This computer has {} and no dedicated graphics card, so we picked a lighter engine.",
+            "This computer has {} and no dedicated graphics card, so Voquill picked a lighter engine.",
             limit
         );
     }

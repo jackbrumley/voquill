@@ -97,7 +97,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
           </h2>
           <p style={{ ...helperTextStyle, margin: 0 }}>
             {isReviewing
-              ? `You're using ${originalModelLabel}. We found a choice that should be faster or more accurate. Your current setup still works.`
+              ? `You're using ${originalModelLabel}. Voquill found a choice that should be faster or more accurate. Your current setup still works.`
               : "A few quick steps and you're ready to dictate."}
           </p>
         </div>
