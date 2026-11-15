@@ -121,6 +121,18 @@ fn parse_config(config_bytes: &[u8]) -> Result<Config, String> {
 }
 
 fn migrate_legacy_fields(fields: &mut serde_json::Map<String, serde_json::Value>) {
+    // The idle unload arrived after 1.10.1 with a 30-minute default. An
+    // unloaded engine pauses voice macros, so people updating with voice
+    // macros already on keep the engine loaded (they can opt in later).
+    if !fields.contains_key("engine_idle_unload_minutes")
+        && fields
+            .get("voice_macros_enabled")
+            .and_then(|value| value.as_bool())
+            == Some(true)
+    {
+        fields.insert("engine_idle_unload_minutes".to_string(), 0.into());
+    }
+
     // Versions up to 1.10.1 stored the typing delay in seconds
     // (`typing_speed_interval`, e.g. 0.001) while the UI showed milliseconds.
     if let Some(seconds) = fields
@@ -250,6 +262,21 @@ mod tests {
         assert_eq!(config.typing_interval_ms, 5);
         let config = parse_config(br#"{"typing_speed_interval": 0.0001}"#).unwrap();
         assert_eq!(config.typing_interval_ms, 1);
+    }
+
+    #[test]
+    fn updates_default_the_idle_unload_unless_voice_macros_are_on() {
+        let config = parse_config(br#"{"voice_macros_enabled": false}"#).unwrap();
+        assert_eq!(
+            config.engine_idle_unload_minutes,
+            crate::config::DEFAULT_ENGINE_IDLE_UNLOAD_MINUTES
+        );
+        let config = parse_config(br#"{"voice_macros_enabled": true}"#).unwrap();
+        assert_eq!(config.engine_idle_unload_minutes, 0);
+        let config =
+            parse_config(br#"{"voice_macros_enabled": true, "engine_idle_unload_minutes": 15}"#)
+                .unwrap();
+        assert_eq!(config.engine_idle_unload_minutes, 15);
     }
 
     #[test]

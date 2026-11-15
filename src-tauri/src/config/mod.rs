@@ -112,7 +112,7 @@ pub struct Config {
     pub completed_setup_revision: u32,
     /// Minutes without dictation after which the local speech engine is
     /// unloaded to free memory. Zero keeps it loaded.
-    #[serde(default)]
+    #[serde(default = "default_engine_idle_unload_minutes")]
     pub engine_idle_unload_minutes: u64,
     #[serde(default)]
     pub engine_config: Option<serde_json::Value>,
@@ -363,6 +363,12 @@ fn default_noise_reduction_strength() -> f32 {
 fn default_log_level() -> String {
     "info".to_string()
 }
+/// Frees the speech engine's memory after half an hour without dictation.
+pub const DEFAULT_ENGINE_IDLE_UNLOAD_MINUTES: u64 = 30;
+
+fn default_engine_idle_unload_minutes() -> u64 {
+    DEFAULT_ENGINE_IDLE_UNLOAD_MINUTES
+}
 fn default_max_recording_duration_minutes() -> u64 {
     10
 }
@@ -415,7 +421,7 @@ impl Default for Config {
             post_roll_ms: default_post_roll_ms(),
             hotkey_mode: default_hotkey_mode(),
             max_recording_duration_minutes: default_max_recording_duration_minutes(),
-            engine_idle_unload_minutes: 0,
+            engine_idle_unload_minutes: default_engine_idle_unload_minutes(),
             completed_setup_revision: 0,
             engine_config: None,
             dictionary: default_dictionary(),
