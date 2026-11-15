@@ -83,7 +83,8 @@ export function VoiceMacrosSection({ config, updateConfig, showToast }: VoiceMac
                     macro={macro}
                     triggerWord={config.voice_macro_trigger_word}
                     isTesting={library.testingMacroId === macro.id}
-                    onTest={() => void library.testMacro(macro)}
+                    onRun={() => void library.testMacro(macro)}
+                    onPlaySound={() => void library.playMacroSound(macro)}
                     onDuplicate={() => void library.duplicateMacro(macro)}
                     onShare={() => void library.shareMacro(macro)}
                     onEdit={() => library.openEditor(macro)}

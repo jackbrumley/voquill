@@ -1,4 +1,5 @@
 import {
+  IconBolt,
   IconCopy,
   IconMicrophone,
   IconPencil,
@@ -16,7 +17,8 @@ interface MacroListRowProps {
   macro: VoiceMacroCommand;
   triggerWord: string;
   isTesting: boolean;
-  onTest: () => void;
+  onRun: () => void;
+  onPlaySound: () => void;
   onDuplicate: () => void;
   onShare: () => void;
   onEdit: () => void;
@@ -73,7 +75,7 @@ function rowDetails(macro: VoiceMacroCommand, triggerWord: string, sound: SoundS
 }
 
 /// One macro in the library list: its phrase, a summary, and its actions.
-export function MacroListRow({ macro, triggerWord, isTesting, onTest, onDuplicate, onShare, onEdit }: MacroListRowProps) {
+export function MacroListRow({ macro, triggerWord, isTesting, onRun, onPlaySound, onDuplicate, onShare, onEdit }: MacroListRowProps) {
   const stepCount = resolveMacroSteps(macro).length;
   const sound = soundStyle(macro);
   const SoundIcon = sound?.icon;
@@ -112,8 +114,13 @@ export function MacroListRow({ macro, triggerWord, isTesting, onTest, onDuplicat
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
-        <button onClick={onTest} disabled={isTesting} style={actionButtonStyle} title="Test macro sequence">
-          <IconPlayerPlay size={14} />
+        {macro.sound_mode !== 'none' && (
+          <button onClick={onPlaySound} style={actionButtonStyle} title="Play the sound this macro makes">
+            <IconPlayerPlay size={14} />
+          </button>
+        )}
+        <button onClick={onRun} disabled={isTesting} style={actionButtonStyle} title="Run this macro now">
+          <IconBolt size={14} />
         </button>
         <button onClick={onDuplicate} style={actionButtonStyle} title={`Duplicate "${macro.phrase}"`}>
           <IconCopy size={14} />

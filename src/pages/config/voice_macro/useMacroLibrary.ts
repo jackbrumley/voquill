@@ -118,6 +118,16 @@ export function useMacroLibrary({ config, updateConfig, showToast }: UseMacroLib
     showToast?.(`Successfully imported ${imported.length} ${imported.length === 1 ? 'macro' : 'macros'}`, 'success');
   };
 
+  /// Plays the macro's feedback sound: its saved voice line, audio file or
+  /// clip, or the default chime.
+  const playMacroSound = async (macro: VoiceMacroCommand) => {
+    try {
+      await invoke('play_macro_sound_preview', { macroId: macro.id });
+    } catch (e) {
+      showToast?.(`Couldn't play the sound: ${e}`, 'error');
+    }
+  };
+
   const testMacro = async (macro: VoiceMacroCommand) => {
     testingMacroId.value = macro.id;
     const steps = resolveMacroSteps(macro);
@@ -151,6 +161,7 @@ export function useMacroLibrary({ config, updateConfig, showToast }: UseMacroLib
     exportAllMacros,
     importMacros,
     testMacro,
+    playMacroSound,
   };
 }
 
