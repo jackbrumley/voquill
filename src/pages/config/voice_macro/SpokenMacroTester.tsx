@@ -140,7 +140,7 @@ export function SpokenMacroTester({ showToast }: SpokenMacroTesterProps) {
         </div>
       )}
 
-      {/* Dictionary Pro-Tip */}
+      {/* Custom words tip */}
       <div
         style={{
           fontSize: '11px',
@@ -154,7 +154,7 @@ export function SpokenMacroTester({ showToast }: SpokenMacroTesterProps) {
       >
         <IconSparkles size={14} style={{ flexShrink: 0, marginTop: '2px', color: '#f59e0b' }} />
         <span>
-          <strong>Dictionary Tip:</strong> If Whisper mishears specific words (e.g., "Coal" instead of "Call" or game terms), adding them to <strong>Settings ➔ Dictionary</strong> primes the speech model to transcribe them with 100% accuracy.
+          <strong>Tip:</strong> If Whisper mishears specific words (e.g., "Coal" instead of "Call" or game terms), add them under <strong>Settings ➔ Words ➔ Custom Words</strong> to prime it to hear them. Parakeet doesn't use that list yet.
         </span>
       </div>
     </div>

@@ -4,8 +4,7 @@ import type { DownloadPhase, GpuStatus, EngineCapabilities, Config, AudioDevice,
 import { tokens } from '../design-tokens.ts';
 import { GeneralSection } from './config/GeneralSection.tsx';
 import { AudioSection } from './config/AudioSection.tsx';
-import { DictionarySection } from './config/DictionarySection.tsx';
-import { FillerWordsSection } from './config/FillerWordsSection.tsx';
+import { WordsSection } from './config/WordsSection.tsx';
 import { TranscriptionSection } from './config/TranscriptionSection.tsx';
 import { PostProcessSection } from './config/PostProcessSection.tsx';
 import { TypingSection } from './config/TypingSection.tsx';
@@ -79,8 +78,7 @@ const sectionTitleMap: Record<string, string> = {
   'general': 'General',
   'audio': 'Audio',
   'transcription': 'Transcription',
-  'dictionary': 'Dictionary',
-  'filler-words': 'Filler Words',
+  'words': 'Words',
   'post-process': 'Post-Processing',
   'voice-macros': 'Voice Macros',
   'typing': 'Typing & Output',
@@ -177,8 +175,7 @@ export function ConfigPage(props: ConfigPageProps) {
           <SectionNavItem title="General" section="general" />
           <SectionNavItem title="Audio" section="audio" />
           <SectionNavItem title="Transcription" section="transcription" />
-          <SectionNavItem title="Dictionary" section="dictionary" />
-          <SectionNavItem title="Filler Words" section="filler-words" />
+          <SectionNavItem title="Words" section="words" />
           <SectionNavItem title="Post-Processing" section="post-process" />
           <SectionNavItem title="Voice Macros" section="voice-macros" />
           <SectionNavItem title="Typing & Output" section="typing" />
@@ -265,15 +262,8 @@ export function ConfigPage(props: ConfigPageProps) {
               />
             )}
 
-            {activeConfigSection === 'dictionary' && (
-              <DictionarySection
-                config={config}
-                updateConfig={updateConfig}
-              />
-            )}
-
-            {activeConfigSection === 'filler-words' && (
-              <FillerWordsSection
+            {activeConfigSection === 'words' && (
+              <WordsSection
                 config={config}
                 updateConfig={updateConfig}
               />
