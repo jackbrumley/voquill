@@ -18,6 +18,7 @@ import { getSpeakerColor } from '../speakerColors.ts';
 import { isBusyStatus, statusLabel } from '../status.ts';
 import { EngineResidencyChip } from '../components/EngineResidencyChip.tsx';
 import { useEngineResidency } from '../hooks/useEngineResidency.ts';
+import { isRecommendedChoice, useSetupRecommendation } from '../hooks/useSetupRecommendation.ts';
 
 interface HomePageProps {
   appVersion: string;
@@ -54,6 +55,10 @@ export function HomePage({
   const importError = useSignal<string>('');
   const isDragOver = useSignal(false);
   const engine = useEngineResidency();
+  const { recommendation } = useSetupRecommendation();
+  const engineNote = isRecommendedChoice(recommendation, config.local_engine, config.local_model_size)
+    ? `Using ${config.local_engine}, recommended for this computer.`
+    : `Using ${config.local_engine}. Settings → Transcription shows the engine recommended for this computer.`;
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -202,7 +207,7 @@ export function HomePage({
                 ? 'Types directly into your active cursor.'
                 : 'Copies results to your clipboard.'}
             </div>
-            {config.transcription_mode === 'Local' && <EngineResidencyChip config={config} engine={engine} />}
+            {config.transcription_mode === 'Local' && <EngineResidencyChip config={config} engine={engine} engineNote={engineNote} />}
             </div>
         </div>
 

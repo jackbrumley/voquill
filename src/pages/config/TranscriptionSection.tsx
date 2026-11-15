@@ -14,6 +14,7 @@ import type { Config, DownloadPhase, EngineCapabilities, GpuStatus, EngineInfo, 
 import { inputBaseStyle, selectWrapperStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
 import { engineUsesGpu, enginesInCategory } from '../../models.ts';
+import { isRecommendedChoice, recommendedChoice, useSetupRecommendation } from '../../hooks/useSetupRecommendation.ts';
 
 const IDLE_UNLOAD_CHOICES: readonly SelectOption[] = [
   { value: '0', label: 'Never' },
@@ -68,6 +69,7 @@ export function TranscriptionSection({
   setShowModelGuide,
   languageOptions,
 }: TranscriptionSectionProps) {
+  const { recommendation } = useSetupRecommendation();
   return (
     <>
       <ConfigField label="Transcription Method" description="Choose between cloud-based API or fully local processing.">
@@ -111,6 +113,14 @@ export function TranscriptionSection({
               />
             </div>
           </ConfigField>
+
+          {recommendation && (
+            <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, margin: '-8px 0 8px' }}>
+              {isRecommendedChoice(recommendation, config.local_engine, config.local_model_size)
+                ? `✓ Recommended for this computer. ${recommendation.explanation}`
+                : `Recommended for this computer: ${recommendedChoice(recommendation)?.title ?? ''} (${recommendedChoice(recommendation)?.engine ?? ''}). ${recommendation.explanation}`}
+            </div>
+          )}
 
           {engineUsesGpu(availableEngines, config.local_engine) && gpuStatus?.tested && !gpuStatus.available && (
             <div style={{

@@ -9,6 +9,8 @@ import { Modal } from './Modal.tsx';
 interface EngineResidencyChipProps {
   config: Config;
   engine: UseEngineResidencyReturn;
+  /** First tooltip line: which engine is in use and whether it is the recommendation. */
+  engineNote: string;
 }
 
 interface ResidencyPresentation {
@@ -61,7 +63,7 @@ function present(residency: EngineResidency, config: Config): ResidencyPresentat
 /// A quiet status line showing whether the speech engine is in memory, with a
 /// button to unload or wake it. Unloading asks first when voice macros are on,
 /// because they pause until the engine wakes up again.
-export function EngineResidencyChip({ config, engine }: EngineResidencyChipProps) {
+export function EngineResidencyChip({ config, engine, engineNote }: EngineResidencyChipProps) {
   const { residency, loadEngine, unloadEngine } = engine;
   const confirmingUnload = useSignal(false);
   if (residency === null) {
@@ -92,7 +94,7 @@ export function EngineResidencyChip({ config, engine }: EngineResidencyChipProps
   return (
     <>
       <div
-        title={presentation.tooltip}
+        title={`${engineNote}\n${presentation.tooltip}`}
         style={{
           display: 'flex',
           justifyContent: 'center',

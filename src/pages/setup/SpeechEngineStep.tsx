@@ -5,6 +5,7 @@ import { Button } from '../../components/Button.tsx';
 import { DownloadProgressBar } from '../../components/DownloadProgressBar.tsx';
 import { ModelSelectionPanel } from '../../components/ModelSelectionPanel.tsx';
 import { SelectField } from '../../components/SelectField.tsx';
+import { RatingDots } from '../../components/RatingDots.tsx';
 import { helperTextStyle, inputBaseStyle, selectWrapperStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
 import { API_KEY_PLACEHOLDER } from '../../readiness.ts';
@@ -118,7 +119,13 @@ export function SpeechEngineStep(props: SpeechEngineStepProps) {
 
   return (
     <>
-      <div style={helperTextStyle}>Turns your voice into text on this computer. Nothing leaves your machine.</div>
+      <div style={helperTextStyle}>
+        Turns your voice into text on this computer; nothing leaves your machine. Voquill picks the engine that suits
+        your computer, so faster computers, especially ones with a graphics card, get faster and more accurate results.
+      </div>
+      {recommendation?.explanation && (
+        <div style={{ ...helperTextStyle, color: tokens.colors.textPrimary }}>{recommendation.explanation}</div>
+      )}
 
       {props.recommendationError && (
         <div style={warningTextStyle}>Couldn't check your hardware: {props.recommendationError}</div>
@@ -160,6 +167,10 @@ export function SpeechEngineStep(props: SpeechEngineStepProps) {
                 <span style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, whiteSpace: 'nowrap' }}>{megabytes(option.download_bytes)}</span>
               </span>
               <span style={helperTextStyle}>{option.description}</span>
+              <span style={{ display: 'flex', gap: tokens.spacing.md, marginTop: '4px' }}>
+                <RatingDots label="Speed" value={option.speed} />
+                <RatingDots label="Accuracy" value={option.accuracy} />
+              </span>
             </span>
           </button>
         );

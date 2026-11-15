@@ -61,7 +61,10 @@ mod tests {
                 title: "Works on any computer".to_string(),
                 description: String::new(),
                 download_bytes: 0,
+                speed: 2,
+                accuracy: 4,
             }],
+            explanation: String::new(),
         }
     }
 

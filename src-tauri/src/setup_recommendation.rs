@@ -65,6 +65,17 @@ pub struct SetupOption {
     pub title: String,
     pub description: String,
     pub download_bytes: u64,
+    /// How fast it transcribes on this computer, 1 (slow) to 4 (fastest).
+    pub speed: u8,
+    /// How accurate it is, 1 (basic) to 4 (best).
+    pub accuracy: u8,
+}
+
+/// Speed and accuracy on this computer, each 1 to 4.
+#[derive(Clone, Copy)]
+struct Ratings {
+    speed: u8,
+    accuracy: u8,
 }
 
 #[derive(Debug, Serialize)]
@@ -73,6 +84,8 @@ pub struct SetupRecommendation {
     pub graphics_card: Option<String>,
     /// Choices in order of preference; the first is the recommendation.
     pub options: Vec<SetupOption>,
+    /// Why these choices, in plain words: what was found on this computer.
+    pub explanation: String,
 }
 
 /// Builds the recommendation for `hardware` and the configured `language`.
@@ -93,6 +106,10 @@ pub fn recommend(hardware: &HardwareProfile, language: &str) -> SetupRecommendat
         options.extend(option(
             models.gpu,
             "Best quality, uses your graphics card",
+            Ratings {
+                speed: 4,
+                accuracy: 4,
+            },
             format!(
                 "Fast, accurate {} dictation on your {}.",
                 models.language_phrase, card
@@ -101,6 +118,10 @@ pub fn recommend(hardware: &HardwareProfile, language: &str) -> SetupRecommendat
         options.extend(option(
             models.processor,
             "Works on any computer",
+            Ratings {
+                speed: 2,
+                accuracy: 4,
+            },
             format!(
                 "Accurate {} dictation on your processor. Slower.",
                 models.language_phrase
@@ -110,6 +131,10 @@ pub fn recommend(hardware: &HardwareProfile, language: &str) -> SetupRecommendat
         options.extend(option(
             light,
             "Light, for this computer",
+            Ratings {
+                speed: 3,
+                accuracy: 2,
+            },
             format!(
                 "Quick {} dictation that stays light on memory.",
                 models.language_phrase
@@ -118,6 +143,10 @@ pub fn recommend(hardware: &HardwareProfile, language: &str) -> SetupRecommendat
         options.extend(option(
             models.processor,
             "More accurate, needs a faster computer",
+            Ratings {
+                speed: 1,
+                accuracy: 4,
+            },
             format!(
                 "Best {} accuracy on your processor, but slower here.",
                 models.language_phrase
@@ -127,6 +156,10 @@ pub fn recommend(hardware: &HardwareProfile, language: &str) -> SetupRecommendat
         options.extend(option(
             models.processor,
             "Works on any computer",
+            Ratings {
+                speed: 2,
+                accuracy: 4,
+            },
             format!(
                 "Accurate {} dictation on your processor.",
                 models.language_phrase
@@ -141,10 +174,37 @@ pub fn recommend(hardware: &HardwareProfile, language: &str) -> SetupRecommendat
         is_modest(hardware),
         options.first().map(|choice| &choice.model_size)
     );
+    let explanation = explain(hardware, graphics_card.as_deref());
     SetupRecommendation {
         graphics_card,
         options,
+        explanation,
     }
+}
+
+/// What was found on this computer and what it means for the choice.
+fn explain(hardware: &HardwareProfile, graphics_card: Option<&str>) -> String {
+    if let Some(card) = graphics_card {
+        return format!(
+            "Found your {}, so you get our fastest, most accurate engine.",
+            card
+        );
+    }
+    if is_modest(hardware) {
+        let memory_gigabytes = hardware.system_memory_bytes / GIGABYTE;
+        let limit = if hardware.system_memory_bytes > 0
+            && hardware.system_memory_bytes < MODEST_MEMORY_BYTES
+        {
+            format!("{} GB of memory", memory_gigabytes)
+        } else {
+            format!("{} processor threads", hardware.processor_threads)
+        };
+        return format!(
+            "This computer has {} and no dedicated graphics card, so we picked a lighter engine.",
+            limit
+        );
+    }
+    "No dedicated graphics card found, so speech runs on your processor.".to_string()
 }
 
 /// "auto" counts as English: it is the default, and the English models
@@ -178,6 +238,7 @@ fn suitable_graphics_card(devices: &[GraphicsDevice]) -> Option<&GraphicsDevice>
 fn option(
     (engine, model_size): (ModelEngine, &str),
     title: &str,
+    ratings: Ratings,
     description: String,
 ) -> Option<SetupOption> {
     let Some(model) = ModelManager::find_model(engine, model_size) else {
@@ -194,6 +255,8 @@ fn option(
         title: title.to_string(),
         description,
         download_bytes: model.file_size,
+        speed: ratings.speed,
+        accuracy: ratings.accuracy,
     })
 }
 
@@ -294,5 +357,15 @@ mod tests {
             MULTILINGUAL_MODELS.processor.1
         );
         assert_eq!(recommendation.options.len(), 1);
+    }
+
+    #[test]
+    fn explanation_names_what_was_found() {
+        let modest = hardware(vec![], 4, 8);
+        assert!(recommend(&modest, "auto")
+            .explanation
+            .contains("4 GB of memory"));
+        let plain = hardware(vec![], 16, 8);
+        assert!(recommend(&plain, "auto").explanation.contains("processor"));
     }
 }

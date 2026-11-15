@@ -35,12 +35,18 @@ export interface SetupOption {
   title: string;
   description: string;
   download_bytes: number;
+  /** How fast it transcribes on this computer, 1 (slow) to 4 (fastest). */
+  speed: number;
+  /** How accurate it is, 1 (basic) to 4 (best). */
+  accuracy: number;
 }
 
 /** Speech engine choices from the backend, best first. */
 export interface SetupRecommendation {
   graphics_card: string | null;
   options: SetupOption[];
+  /** What was found on this computer and why it led to these choices. */
+  explanation: string;
 }
 
 /** Whether an existing user should review new setup options after an update. */

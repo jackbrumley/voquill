@@ -1,7 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { useSignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
-import type { SetupRecommendation } from '../pages/setup/setupTypes.ts';
+import type { SetupOption, SetupRecommendation } from '../pages/setup/setupTypes.ts';
 
 interface UseSetupRecommendationReturn {
   recommendation: SetupRecommendation | null;
@@ -26,4 +26,22 @@ export function useSetupRecommendation(): UseSetupRecommendationReturn {
   }, []);
 
   return { recommendation: recommendation.value, error: error.value };
+}
+
+/// The choice recommended for this computer (the first option).
+export function recommendedChoice(
+  recommendation: SetupRecommendation | null,
+): SetupOption | null {
+  return recommendation?.options[0] ?? null;
+}
+
+/// Whether the given engine and model are the choice recommended for this
+/// computer, for "recommended for this computer" labels.
+export function isRecommendedChoice(
+  recommendation: SetupRecommendation | null,
+  engine: string,
+  modelSize: string,
+): boolean {
+  const choice = recommendedChoice(recommendation);
+  return choice !== null && choice.engine === engine && choice.model_size === modelSize;
 }
