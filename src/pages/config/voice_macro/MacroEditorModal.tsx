@@ -8,7 +8,7 @@ import { confirm } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { Modal } from '../../../components/Modal.tsx';
 import { Button } from '../../../components/Button.tsx';
-import type { MacroSoundMode, MacroStep, VoiceMacroCommand } from '../../../types.ts';
+import type { MacroSoundMode, VoiceMacroCommand } from '../../../types.ts';
 import { tokens } from '../../../design-tokens.ts';
 import { MacroTriggerStep } from './MacroTriggerStep.tsx';
 import { MacroSequenceStep } from './MacroSequenceStep.tsx';
@@ -18,30 +18,10 @@ import { generateMacroId } from './macroSharing.ts';
 
 interface MacroEditorModalProps {
   initialCommand: VoiceMacroCommand | null;
-  onSave: (
-    id: string,
-    phrase: string,
-    phrases: string[],
-    steps: MacroStep[],
-    soundMode?: MacroSoundMode,
-    soundTtsText?: string | null,
-    soundTtsVoice?: string | null,
-    soundTtsSpeed?: number | null,
-    soundTtsEffect?: string | null,
-    soundTtsPitch?: number | null
-  ) => void;
-  onSaveAsCopy?: (
-    id: string,
-    phrase: string,
-    phrases: string[],
-    steps: MacroStep[],
-    soundMode?: MacroSoundMode,
-    soundTtsText?: string | null,
-    soundTtsVoice?: string | null,
-    soundTtsSpeed?: number | null,
-    soundTtsEffect?: string | null,
-    soundTtsPitch?: number | null
-  ) => void;
+  /// Receives the finished macro; its id is the edited macro's id.
+  onSave: (command: VoiceMacroCommand) => void;
+  /// Receives a copy with a new id and, when unchanged, a "copy of" phrase.
+  onSaveAsCopy?: (command: VoiceMacroCommand) => void;
   onDelete?: () => void;
   onClose: () => void;
 }
@@ -100,96 +80,67 @@ export function MacroEditorModal({
     phrases.value = updated;
   };
 
-  const handleSave = async () => {
+  /// Every phrase the user entered, including one still in the input box;
+  /// null when the macro is not complete enough to save.
+  const collectPhrases = (): string[] | null => {
     const all = [...phrases.value];
     const pending = phraseInput.value.replace(/,/g, '').trim().toLowerCase();
     if (pending && !all.includes(pending)) {
       all.push(pending);
     }
+    return all.length === 0 || sequence.steps.value.length === 0 ? null : all;
+  };
 
-    if (all.length === 0 || sequence.steps.value.length === 0) return;
+  const buildCommand = (id: string, phrase: string, aliases: string[]): VoiceMacroCommand => ({
+    id,
+    phrase,
+    phrases: aliases,
+    steps: [...sequence.steps.value],
+    key_combination: null,
+    hold_ms: null,
+    delay_after_ms: null,
+    sound_mode: soundMode.value,
+    sound_tts_text: soundTtsText.value.trim() || null,
+    sound_tts_voice: soundTtsVoice.value || null,
+    sound_tts_speed: soundTtsSpeed.value || 1.0,
+    sound_tts_effect: soundTtsEffect.value || null,
+    sound_tts_pitch: soundTtsPitch.value,
+  });
 
-    const primaryPhrase = all[0];
-    const aliasPhrases = all.slice(1);
-
-    if (soundMode.value === 'tts' && soundTtsText.value.trim()) {
-      if (soundTtsVoice.value) {
-        try {
-          await invoke('save_macro_tts_audio', {
-            macroId: macroId.value,
-            text: soundTtsText.value.trim(),
-            voiceId: soundTtsVoice.value,
-            speed: soundTtsSpeed.value || 1.0,
-            effect: soundTtsEffect.value || 'custom',
-            pitch: soundTtsPitch.value ?? 0.0,
-          });
-        } catch (e) {
-          console.warn('Failed to pre-render TTS audio:', e);
-        }
-      }
+  /// Renders the spoken feedback to disk ahead of time so the macro plays it
+  /// instantly when it fires.
+  const prerenderSpokenFeedback = async (macroId: string) => {
+    if (soundMode.value !== 'tts' || !soundTtsText.value.trim() || !soundTtsVoice.value) {
+      return;
     }
+    try {
+      await invoke('save_macro_tts_audio', {
+        macroId,
+        text: soundTtsText.value.trim(),
+        voiceId: soundTtsVoice.value,
+        speed: soundTtsSpeed.value || 1.0,
+        effect: soundTtsEffect.value || 'custom',
+        pitch: soundTtsPitch.value ?? 0.0,
+      });
+    } catch (e) {
+      console.warn('Failed to pre-render TTS audio:', e);
+    }
+  };
 
-    onSave(
-      macroId.value,
-      primaryPhrase,
-      aliasPhrases,
-      sequence.steps.value,
-      soundMode.value,
-      soundTtsText.value.trim() || null,
-      soundTtsVoice.value || null,
-      soundTtsSpeed.value || 1.0,
-      soundTtsEffect.value || null,
-      soundTtsPitch.value || null
-    );
+  const handleSave = async () => {
+    const all = collectPhrases();
+    if (!all) return;
+    await prerenderSpokenFeedback(macroId.value);
+    onSave(buildCommand(macroId.value, all[0], all.slice(1)));
   };
 
   const handleSaveAsCopy = async () => {
-    const all = [...phrases.value];
-    const pending = phraseInput.value.replace(/,/g, '').trim().toLowerCase();
-    if (pending && !all.includes(pending)) {
-      all.push(pending);
-    }
-
-    if (all.length === 0 || sequence.steps.value.length === 0) return;
-
-    let primaryPhrase = all[0];
-    if (initialCommand && primaryPhrase === initialCommand.phrase) {
-      primaryPhrase = `copy of ${primaryPhrase}`;
-    }
-    const aliasPhrases = all.slice(1);
+    const all = collectPhrases();
+    if (!all || !onSaveAsCopy) return;
+    const primaryPhrase = initialCommand && all[0] === initialCommand.phrase ? `copy of ${all[0]}` : all[0];
     const newId = generateMacroId();
-
-    if (soundMode.value === 'tts' && soundTtsText.value.trim()) {
-      if (soundTtsVoice.value) {
-        try {
-          await invoke('save_macro_tts_audio', {
-            macroId: newId,
-            text: soundTtsText.value.trim(),
-            voiceId: soundTtsVoice.value,
-            speed: soundTtsSpeed.value || 1.0,
-            effect: soundTtsEffect.value || 'custom',
-            pitch: soundTtsPitch.value ?? 0.0,
-          });
-        } catch (e) {
-          console.warn('Failed to pre-render TTS audio for copy:', e);
-        }
-      }
-    }
-
-    if (onSaveAsCopy) {
-      onSaveAsCopy(
-        newId,
-        primaryPhrase,
-        aliasPhrases,
-        sequence.steps.value,
-        soundMode.value,
-        soundTtsText.value.trim() || null,
-        soundTtsVoice.value || null,
-        soundTtsSpeed.value || 1.0,
-        soundTtsEffect.value || null,
-        soundTtsPitch.value || null
-      );
-    }
+    await prerenderSpokenFeedback(newId);
+    onSaveAsCopy(buildCommand(newId, primaryPhrase, all.slice(1)));
   };
 
   const totalPhraseCount = phrases.value.length + (phraseInput.value.trim() ? 1 : 0);
