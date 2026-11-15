@@ -2,6 +2,7 @@ import { useSignal, useSignalEffect } from '@preact/signals';
 import { useEffect } from 'preact/hooks';
 import { invoke } from '@tauri-apps/api/core';
 import type { AppRoute } from '../types.ts';
+import type { SetupReview } from '../pages/setup/setupTypes.ts';
 import { explainReadiness, type ReadinessInputs, type ReadinessStatus } from '../readiness.ts';
 
 interface UseInitialRouteOptions {
@@ -19,6 +20,9 @@ interface UseInitialRouteOptions {
 }
 
 interface UseInitialRouteReturn {
+  /// Set when setup opened as a review of new options for an existing user.
+  setupReview: SetupReview | null;
+  completeSetup: () => Promise<void>;
   navigate: (route: AppRoute, replace?: boolean) => void;
   handleFactoryReset: (loadConfig: () => Promise<void>, loadMics: () => Promise<void>, loadModels: () => Promise<void>, loadHistory: () => Promise<void>, checkSetupStatus: () => Promise<void>) => Promise<void>;
   testApiKey: (apiKey: string, apiUrl: string) => Promise<void>;
@@ -29,6 +33,7 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
   const { showToast } = options;
   const initialRouteChecked = useSignal(false);
   const isTestingApi = useSignal(false);
+  const setupReview = useSignal<SetupReview | null>(null);
 
   const routeFromHash = (hash: string): AppRoute => {
     const normalized = hash.replace(/^#\/?/, '').split('/')[0].trim().toLowerCase();
@@ -99,6 +104,49 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
     window.location.hash = nextHash;
   };
 
+  /// A ready app normally opens Home, but after an update whose setup has
+  /// new options worth seeing (the backend decides, see `setup_review`),
+  /// setup opens once as a review. The app stays fully usable either way.
+  const routeReadyLaunch = async (hasExplicitRoute: boolean, currentHashRoute: AppRoute, explanation: string) => {
+    let review: SetupReview = { due: false, recommended: null };
+    try {
+      review = await invoke<SetupReview>('get_setup_review');
+    } catch (error) {
+      const msg = `[Initial Route] Setup review check failed; continuing to the normal route: ${error}`;
+      console.error(msg);
+      invoke('log_ui_event', { message: msg }).catch(() => {});
+    }
+
+    if (review.due) {
+      setupReview.value = review;
+      const msg = `[Initial Route] Startup checks loaded. All checks ready; setup has new options -> routing to 'setup' for review. ${explanation}`;
+      console.log(msg);
+      invoke('log_ui_event', { message: msg }).catch(() => {});
+      navigate('setup', true);
+    } else if (!hasExplicitRoute || currentHashRoute === 'setup') {
+      const msg = `[Initial Route] Startup checks loaded. All checks ready -> routing to 'home'. ${explanation}`;
+      console.log(msg);
+      invoke('log_ui_event', { message: msg }).catch(() => {});
+      navigate('home', true);
+    } else {
+      const msg = `[Initial Route] Startup checks loaded. All checks ready; preserving explicit route '${currentHashRoute}'. ${explanation}`;
+      console.log(msg);
+      invoke('log_ui_event', { message: msg }).catch(() => {});
+    }
+  };
+
+  /// Finishing or skipping setup records the current setup revision, so a
+  /// review is never offered again until setup changes.
+  const completeSetup = async () => {
+    try {
+      await invoke('complete_setup_review');
+    } catch (error) {
+      showToast(`Couldn't save setup progress: ${error}`, 'error');
+    }
+    setupReview.value = null;
+    navigate('home');
+  };
+
   useSignalEffect(() => {
     if (initialRouteChecked.value || !options.startupChecksLoaded.value) {
       return;
@@ -117,16 +165,9 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
     }
 
     if (options.readiness.isAllReady) {
-      if (!hasExplicitRoute || currentHashRoute === 'setup') {
-        const msg = `[Initial Route] Startup checks loaded. All checks ready -> routing to 'home'. ${explanation}`;
-        console.log(msg);
-        invoke('log_ui_event', { message: msg }).catch(() => {});
-        navigate('home', true);
-      } else {
-        const msg = `[Initial Route] Startup checks loaded. All checks ready; preserving explicit route '${currentHashRoute}'. ${explanation}`;
-        console.log(msg);
-        invoke('log_ui_event', { message: msg }).catch(() => {});
-      }
+      initialRouteChecked.value = true;
+      void routeReadyLaunch(hasExplicitRoute, currentHashRoute, explanation);
+      return;
     } else if (!hasExplicitRoute || currentHashRoute !== 'setup') {
       const msg = `[Initial Route] Startup checks loaded. Not ready -> routing to 'setup'. ${explanation}`;
       console.log(msg);
@@ -185,6 +226,8 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
 
   return {
     navigate,
+    setupReview: setupReview.value,
+    completeSetup,
     handleFactoryReset,
     testApiKey,
     isTestingApi: isTestingApi.value,

@@ -66,6 +66,7 @@ mod post_process;
 pub mod process_guard;
 mod python_runner;
 mod setup_recommendation;
+mod setup_review;
 mod sidecar;
 mod text_cleanup;
 mod transcription;
@@ -234,6 +235,8 @@ fn main() {
             get_engine_residency,
             report_app_readiness,
             get_setup_recommendation,
+            get_setup_review,
+            complete_setup_review,
             test_voice_macro_sound,
             test_voice_macro_execution,
             test_spoken_voice_macro,

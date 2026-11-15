@@ -43,4 +43,10 @@ export interface SetupRecommendation {
   options: SetupOption[];
 }
 
+/** Whether an existing user should review new setup options after an update. */
+export interface SetupReview {
+  due: boolean;
+  recommended: SetupOption | null;
+}
+
 export type SetupStepId = 'permissions' | 'microphone' | 'speech' | 'try';

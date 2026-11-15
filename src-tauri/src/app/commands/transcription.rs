@@ -142,6 +142,53 @@ pub async fn get_setup_recommendation(
     Ok(crate::setup_recommendation::recommend(&hardware, &language))
 }
 
+/// Whether a user who already has a working setup should review new setup
+/// options after an update. Detection runs only when the completed setup
+/// revision is behind; when there is nothing new to show, the revision is
+/// recorded here so the check stays cheap on later launches.
+#[tauri::command]
+pub async fn get_setup_review(
+    state: tauri::State<'_, AppState>,
+) -> Result<crate::setup_review::SetupReview, String> {
+    let config = state.config.lock().unwrap().clone();
+    if !crate::setup_review::revision_is_behind(&config) {
+        return Ok(crate::setup_review::SetupReview {
+            due: false,
+            recommended: None,
+        });
+    }
+    let hardware = tokio::task::spawn_blocking(crate::hardware_detection::detect_hardware)
+        .await
+        .map_err(|e| format!("Hardware detection failed: {}", e))?;
+    let recommendation = crate::setup_recommendation::recommend(&hardware, &config.language);
+    let review = crate::setup_review::review(&config, recommendation);
+    crate::log_info!("Setup review: due={}", review.due);
+    if !review.due {
+        record_setup_revision(&state)?;
+    }
+    Ok(review)
+}
+
+/// Records that the user finished (or skipped) the current setup revision.
+#[tauri::command]
+pub fn complete_setup_review(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    record_setup_revision(&state)
+}
+
+fn record_setup_revision(state: &AppState) -> Result<(), String> {
+    let mut config = state.config.lock().unwrap();
+    if config.completed_setup_revision == crate::setup_review::SETUP_REVISION {
+        return Ok(());
+    }
+    config.completed_setup_revision = crate::setup_review::SETUP_REVISION;
+    crate::config::storage::save_config(&config)?;
+    crate::log_info!(
+        "Setup revision {} recorded as completed",
+        crate::setup_review::SETUP_REVISION
+    );
+    Ok(())
+}
+
 /// Whether the local speech engine is unloaded, loading or loaded. Changes
 /// are pushed with the `engine-residency-changed` event.
 #[tauri::command]

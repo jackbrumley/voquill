@@ -13,10 +13,12 @@ interface UseSetupStepsReturn {
 
 /// Turns the readiness gate's verdict into setup's step sequence. A step is
 /// done when its readiness checks pass; the first unfinished step is open.
-/// The user may reopen a finished step to change it. Readiness itself stays
-/// owned by `computeReadiness`; this hook only presents it.
-export function useSetupSteps(readiness: ReadinessStatus): UseSetupStepsReturn {
-  const reopenedStep = useSignal<SetupStepId | null>(null);
+/// The user may reopen a finished step to change it; `initiallyOpen` opens a
+/// finished step from the start (the speech engine, when reviewing new
+/// options). Readiness itself stays owned by `computeReadiness`; this hook
+/// only presents it.
+export function useSetupSteps(readiness: ReadinessStatus, initiallyOpen: SetupStepId | null): UseSetupStepsReturn {
+  const reopenedStep = useSignal<SetupStepId | null>(initiallyOpen);
 
   const isDone = (step: SetupStepId): boolean => {
     switch (step) {

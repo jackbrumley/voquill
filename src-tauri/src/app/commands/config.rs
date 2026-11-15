@@ -31,6 +31,8 @@ pub async fn save_config(
         if merged_config.input_token.is_none() {
             merged_config.input_token = config_guard.input_token.clone();
         }
+        // Backend-owned: only complete_setup_review changes it.
+        merged_config.completed_setup_revision = config_guard.completed_setup_revision;
 
         (hotkey_changed, previous_config, merged_config)
     };

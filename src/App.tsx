@@ -102,6 +102,8 @@ function App() {
 
   const {
     navigate,
+    setupReview,
+    completeSetup,
     handleFactoryReset,
     testApiKey,
     isTestingApi,
@@ -279,9 +281,10 @@ function App() {
             onStopMicTest={() => void audioSetup.stopMicTest()}
             onStopMicPlayback={() => void audioSetup.stopMicPlayback()}
             onTestApiKey={() => void testApiKey(configHook.config.openai_api_key, configHook.config.api_url)}
+            setupReview={setupReview}
             onFinishSetup={() => {
               logUI(`[Finish Setup] Finish Setup clicked. ${explainReadiness(readinessInputs, readiness)}`);
-              navigate('home');
+              void completeSetup();
             }}
           />
         </div>

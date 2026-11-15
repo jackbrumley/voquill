@@ -104,6 +104,11 @@ pub struct Config {
     pub hotkey_mode: HotkeyMode,
     #[serde(default = "default_max_recording_duration_minutes")]
     pub max_recording_duration_minutes: u64,
+    /// The setup revision this user last finished or skipped (see
+    /// `setup_review`). Owned by the backend: `save_config` never takes the
+    /// frontend's value.
+    #[serde(default)]
+    pub completed_setup_revision: u32,
     /// Minutes without dictation after which the local speech engine is
     /// unloaded to free memory. Zero keeps it loaded.
     #[serde(default)]
@@ -399,6 +404,7 @@ impl Default for Config {
             hotkey_mode: default_hotkey_mode(),
             max_recording_duration_minutes: default_max_recording_duration_minutes(),
             engine_idle_unload_minutes: 0,
+            completed_setup_revision: 0,
             engine_config: None,
             dictionary: default_dictionary(),
             post_process_enabled: false,

@@ -1,3 +1,5 @@
+import { useEffect } from 'preact/hooks';
+import { useSignal } from '@preact/signals';
 import { Button } from '../components/Button.tsx';
 import { helperTextStyle, tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
@@ -10,7 +12,7 @@ import { PermissionsStep } from './setup/PermissionsStep.tsx';
 import { MicrophoneStep, microphoneSummary } from './setup/MicrophoneStep.tsx';
 import { SpeechEngineStep, speechEngineSummary } from './setup/SpeechEngineStep.tsx';
 import { TryItStep } from './setup/TryItStep.tsx';
-import type { PlatformPermissions, SetupConfig } from './setup/setupTypes.ts';
+import type { PlatformPermissions, SetupConfig, SetupReview } from './setup/setupTypes.ts';
 
 interface InitialSetupPageProps {
   permissions: PlatformPermissions | null;
@@ -51,6 +53,9 @@ interface InitialSetupPageProps {
   onStopMicTest: () => void;
   onStopMicPlayback: () => void;
   onTestApiKey: () => void;
+  /// Set when setup opened to review new options after an update.
+  setupReview: SetupReview | null;
+  /// Records setup as complete and opens Home.
   onFinishSetup: () => void;
 }
 
@@ -58,18 +63,44 @@ interface InitialSetupPageProps {
 /// then a real dictation to prove it all works. Only the current step is
 /// open; finished steps fold to a tick.
 export function InitialSetupPage(props: InitialSetupPageProps) {
-  const { config, readiness } = props;
-  const steps = useSetupSteps(readiness);
+  const { config, readiness, setupReview } = props;
+  const isReviewing = setupReview !== null;
+  const steps = useSetupSteps(readiness, isReviewing ? 'speech' : null);
   const { recommendation, error: recommendationError } = useSetupRecommendation();
+  // The engine the user had when the review opened, restored by "Keep my
+  // current setup" after they tried other choices.
+  const originalEngine = useSignal({ engine: config.local_engine, modelSize: config.local_model_size });
+  const originalModelLabel = props.availableModels.find(
+    (model) => model.engine === originalEngine.value.engine && model.size === originalEngine.value.modelSize,
+  )?.label ?? originalEngine.value.modelSize;
+
+  // Restoring the original engine takes a render to reach readiness, so
+  // setup finishes once the restored setup reports ready.
+  const isKeepingCurrentSetup = useSignal(false);
+  const keepCurrentSetup = () => {
+    props.onSelectEngine(originalEngine.value.engine);
+    props.onChangeConfig('local_model_size', originalEngine.value.modelSize);
+    isKeepingCurrentSetup.value = true;
+  };
+  useEffect(() => {
+    if (isKeepingCurrentSetup.value && readiness.isAllReady) {
+      isKeepingCurrentSetup.value = false;
+      props.onFinishSetup();
+    }
+  }, [isKeepingCurrentSetup.value, readiness.isAllReady]);
 
   return (
     <div style={{ ...tabPanelStyle, overflow: 'auto' }} key="initial-setup">
       <div style={{ ...tabPanelPaddedStyle, flex: 1, paddingTop: tokens.spacing.md }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em', color: tokens.colors.textPrimary }}>
-            Set up Voquill
+            {isReviewing ? 'Voquill has new options for your computer' : 'Set up Voquill'}
           </h2>
-          <p style={{ ...helperTextStyle, margin: 0 }}>A few quick steps and you're ready to dictate.</p>
+          <p style={{ ...helperTextStyle, margin: 0 }}>
+            {isReviewing
+              ? `You're using ${originalModelLabel}. We found a choice that should be faster or more accurate. Your current setup still works.`
+              : "A few quick steps and you're ready to dictate."}
+          </p>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.md }}>
@@ -177,7 +208,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-start', paddingBottom: tokens.spacing.xl }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap', paddingBottom: tokens.spacing.xl }}>
           <Button
             variant="configAction"
             disabled={!readiness.isAllReady}
@@ -186,6 +217,11 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
           >
             {readiness.isAllReady ? 'Start using Voquill' : 'Finish the steps above'}
           </Button>
+          {isReviewing && (
+            <Button variant="ghost" pill onClick={keepCurrentSetup}>
+              Keep my current setup
+            </Button>
+          )}
         </div>
       </div>
     </div>
