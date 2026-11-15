@@ -25,6 +25,22 @@ use crate::config::TranscriptionMode;
 use crate::engine_residency::EngineResidency;
 use crate::AppState;
 
+/// Whether the listener may detect speech right now. It pauses during a
+/// dictation (so dictated speech never triggers a macro), until setup is
+/// complete (so nothing listens behind the setup screen), and while the
+/// local speech engine is unloaded (any nearby sound would otherwise reload
+/// it moments after the user unloaded it).
+fn listening_allowed(state: &AppState) -> bool {
+    if *state.session_state.lock().unwrap() != SessionState::Idle {
+        return false;
+    }
+    if state.readiness.check().is_err() {
+        return false;
+    }
+    let is_local = state.config.lock().unwrap().transcription_mode == TranscriptionMode::Local;
+    !(is_local && state.engine_factory.residency() == EngineResidency::Unloaded)
+}
+
 static LISTENER_GENERATION: AtomicU64 = AtomicU64::new(1);
 
 pub fn sync_voice_macro_listener(app_handle: &AppHandle) {
@@ -126,16 +142,21 @@ async fn run_voice_macro_listener_loop(
                 Ok(sample) => {
                     frame_buffer.push(sample);
                     if frame_buffer.len() >= frame_size {
-                        let (open_threshold, is_app_idle) = {
+                        let (open_threshold, may_listen) = {
                             let state = app_handle_for_vad.state::<AppState>();
-                            let is_idle =
-                                *state.session_state.lock().unwrap() == SessionState::Idle;
-                            let config = state.config.lock().unwrap();
-                            (config.voice_macro_activation_threshold, is_idle)
+                            let may_listen = listening_allowed(&state);
+                            let threshold = state
+                                .config
+                                .lock()
+                                .unwrap()
+                                .voice_macro_activation_threshold;
+                            (threshold, may_listen)
                         };
 
-                        if !is_app_idle {
-                            // If dictation or macro execution is active, reset buffers so dictation speech never builds macro chunks
+                        if !may_listen {
+                            // Paused (dictation running, setup incomplete or
+                            // engine asleep): reset buffers so no speech
+                            // builds macro chunks
                             if !speech_buffer.is_empty() || vad.is_speaking {
                                 vad.reset();
                                 speech_buffer.clear();
@@ -266,17 +287,7 @@ async fn run_voice_macro_listener_loop(
                     )
                 };
 
-                if !enabled || commands.is_empty() || state.readiness.check().is_err() {
-                    continue;
-                }
-
-                // An unloaded speech engine stays asleep: voice macros pause
-                // until a dictation or the user loads it again, otherwise any
-                // nearby sound would reload it moments after unloading.
-                if state.engine_factory.residency() == EngineResidency::Unloaded
-                    && state.config.lock().unwrap().transcription_mode == TranscriptionMode::Local
-                {
-                    crate::log_info!("[Voice Macro] Speech engine is unloaded; macros paused");
+                if !enabled || commands.is_empty() || !listening_allowed(&state) {
                     continue;
                 }
 
