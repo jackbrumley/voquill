@@ -44,10 +44,13 @@ pub enum HotkeyMode {
 }
 
 /// What happens to other applications' audio while a dictation records.
+/// Lowering it is the default: dictation is clearer and music returns as
+/// soon as the recording stops. Where it is unsupported (macOS) it does
+/// nothing.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum OtherAudioWhileRecording {
-    #[default]
     Keep,
+    #[default]
     Lower,
     Mute,
 }
@@ -449,7 +452,7 @@ impl Default for Config {
             custom_filler_words: Vec::new(),
             noise_reduction_enabled: false,
             noise_reduction_strength: default_noise_reduction_strength(),
-            other_audio_while_recording: OtherAudioWhileRecording::Keep,
+            other_audio_while_recording: OtherAudioWhileRecording::default(),
             append_trailing_space: false,
             auto_submit: false,
             paste_after_copy: default_paste_after_copy(),
