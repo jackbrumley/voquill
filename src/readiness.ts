@@ -1,15 +1,12 @@
-import { isModelDownloaded } from './models.ts';
-import type { AudioDevice, Config, PlatformPermissions, ModelInfo } from './types.ts';
+/// Readiness is decided by the backend (`app::readiness`); these types
+/// mirror its `ReadinessStatus`, and `useAppReadiness` loads and follows it.
 
-/// Placeholder written by `persistConfig` whenever the API key field is
-/// empty, so an empty key never persists to disk.
+/// What an empty API key field is saved as (matches `API_KEY_PLACEHOLDER`
+/// in `app/readiness.rs`).
 export const API_KEY_PLACEHOLDER = 'your_api_key_here';
 
 export type AudioDeviceIssue = 'none' | 'no-devices' | 'device-missing';
 
-/// Snapshot of everything that decides whether the app can be used right now
-/// ("could someone press the hotkey and transcribe this second?"). The single
-/// source of truth for the initial-setup gate and its per-row status.
 export interface ReadinessStatus {
   isPermissionsReady: boolean;
   audioDeviceIssue: AudioDeviceIssue;
@@ -17,104 +14,25 @@ export interface ReadinessStatus {
   isTranscriptionReady: boolean;
   isHotkeyReady: boolean;
   isAllReady: boolean;
-  /// Warn-only: dictation works, but local post-processing would fail.
   postProcessModelMissing: boolean;
+  /** Why the app is not ready, in plain words; empty when it is. */
+  reasons: string[];
 }
 
-export interface ReadinessInputs {
-  permissions: PlatformPermissions | null;
-  hotkeyError: string | null;
-  availableMics: AudioDevice[];
-  config: Config;
-  availableModels: ModelInfo[];
-}
+/// Shown until the backend's first verdict arrives. Routing waits for that
+/// verdict, so this placeholder never decides anything.
+export const READINESS_NOT_YET_CHECKED: ReadinessStatus = {
+  isPermissionsReady: false,
+  audioDeviceIssue: 'none',
+  isAudioDeviceReady: false,
+  isTranscriptionReady: false,
+  isHotkeyReady: false,
+  isAllReady: false,
+  postProcessModelMissing: false,
+  reasons: ['readiness has not been checked yet'],
+};
 
-/// Pure derivation, computed fresh during render from live probe state.
-export function computeReadiness(inputs: ReadinessInputs): ReadinessStatus {
-  const { permissions, hotkeyError, availableMics, config, availableModels } = inputs;
-
-  const isPermissionsReady = !!permissions
-    && permissions.audio
-    && permissions.shortcuts
-    && permissions.input_emulation;
-
-  const realMics = availableMics.filter((mic) => !mic.is_system_default);
-  const configuredDevice = config.audio_device || 'default';
-  const configuredDevicePresent = configuredDevice === 'default'
-    || realMics.some((mic) => mic.id === configuredDevice);
-  const audioDeviceIssue: AudioDeviceIssue = realMics.length === 0
-    ? 'no-devices'
-    : !configuredDevicePresent
-      ? 'device-missing'
-      : 'none';
-  const isAudioDeviceReady = audioDeviceIssue === 'none';
-
-  // The (engine, model) pairing must exist in the catalog AND be downloaded,
-  // so a stale pairing (e.g. engine switched without a matching model) gates.
-  const isTranscriptionReady = config.transcription_mode === 'Local'
-    ? isModelDownloaded(availableModels, config.local_engine, config.local_model_size)
-    : config.openai_api_key.trim().length > 0 && config.openai_api_key !== API_KEY_PLACEHOLDER;
-
-  const isHotkeyReady = hotkeyError === null;
-
-  const postProcessModelMissing = config.post_process_enabled
-    && config.post_process_provider === 'Local'
-    && !isModelDownloaded(availableModels, config.post_process_engine, config.post_process_model);
-
-  return {
-    isPermissionsReady,
-    audioDeviceIssue,
-    isAudioDeviceReady,
-    isTranscriptionReady,
-    isHotkeyReady,
-    isAllReady: isPermissionsReady && isAudioDeviceReady && isTranscriptionReady && isHotkeyReady,
-    postProcessModelMissing,
-  };
-}
-
-/// Returns a human-readable diagnostic string explaining why the app is or isn't ready.
-export function explainReadiness(inputs: ReadinessInputs, status?: ReadinessStatus): string {
-  const r = status || computeReadiness(inputs);
-  const reasons: string[] = [];
-
-  if (!r.isPermissionsReady) {
-    const p = inputs.permissions;
-    if (!p) {
-      reasons.push('permissions probe missing');
-    } else {
-      if (!p.audio) reasons.push('audio access denied');
-      if (!p.shortcuts) reasons.push('shortcuts permission denied');
-      if (p.input_emulation_restoring) {
-        reasons.push('input emulation session restoring');
-      } else if (!p.input_emulation) {
-        reasons.push('input emulation permission denied');
-      }
-    }
-  }
-
-  if (!r.isAudioDeviceReady) {
-    if (r.audioDeviceIssue === 'no-devices') {
-      reasons.push('no audio input devices detected');
-    } else if (r.audioDeviceIssue === 'device-missing') {
-      reasons.push(`configured audio device '${inputs.config.audio_device}' not found in active microphones`);
-    }
-  }
-
-  if (!r.isTranscriptionReady) {
-    if (inputs.config.transcription_mode === 'Local') {
-      reasons.push(`local model '${inputs.config.local_model_size}' for engine '${inputs.config.local_engine}' is not downloaded`);
-    } else {
-      reasons.push('API mode selected but API key is empty or placeholder');
-    }
-  }
-
-  if (!r.isHotkeyReady) {
-    reasons.push(`hotkey registration error: ${inputs.hotkeyError}`);
-  }
-
-  if (reasons.length === 0) {
-    return 'All checks ready (permissions, audio device, transcription model/key, hotkey)';
-  }
-
-  return `Not ready: [${reasons.join('; ')}]`;
+/// One line for logs explaining the verdict.
+export function describeReadiness(status: ReadinessStatus): string {
+  return status.isAllReady ? 'Ready' : `Not ready: [${status.reasons.join('; ')}]`;
 }

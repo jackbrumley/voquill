@@ -221,8 +221,7 @@ fn report_fn_listener_stopped(app_handle: &tauri::AppHandle) {
         Some(message.clone()),
         None,
     );
-    let state = app_handle.state::<crate::AppState>();
-    *state.hotkey_error.lock().unwrap() = Some(message);
+    crate::app::commands::hotkey::set_hotkey_error(app_handle, Some(message));
 }
 
 extern "C" fn handle_fn_hotkey_event(

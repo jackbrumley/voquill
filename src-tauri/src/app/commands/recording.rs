@@ -5,17 +5,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
 
-/// Records whether setup is complete enough to dictate. Called by the
-/// frontend's readiness gate whenever its verdict changes.
-#[tauri::command]
-pub fn report_app_readiness(state: tauri::State<'_, AppState>, ready: bool, reason: String) {
-    state.readiness.report(if ready {
-        crate::app::readiness::AppReadiness::Ready
-    } else {
-        crate::app::readiness::AppReadiness::NotReady(reason)
-    });
-}
-
 #[tauri::command]
 pub async fn start_recording(
     state: tauri::State<'_, AppState>,
@@ -33,11 +22,17 @@ pub async fn start_recording(
         return Err("Currently configuring hotkey".to_string());
     }
 
-    if let Err(reason) = state.readiness.check() {
-        // Show the window so the user lands on setup and sees what is left.
-        crate::log_info!("Ignoring start_recording: {}", reason);
-        crate::app::tray::show_main_window(&app_handle);
-        return Err(reason);
+    // The cached verdict keeps the hotkey instant; a cached "not ready" is
+    // re-checked so a stale one never blocks a working setup.
+    if !state.readiness.latest_is_ready() {
+        let status = crate::app::readiness::evaluate(&app_handle).await;
+        if !status.is_all_ready {
+            let reason = format!("Setup is not complete: {}", status.reasons.join("; "));
+            // Show the window so the user lands on setup and sees what is left.
+            crate::log_info!("Ignoring start_recording: {}", reason);
+            crate::app::tray::show_main_window(&app_handle);
+            return Err(reason);
+        }
     }
 
     {

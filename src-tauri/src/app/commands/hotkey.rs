@@ -55,6 +55,13 @@ pub fn set_hotkey_binding_state(
     let _ = app_handle.emit("hotkey-binding-state", snapshot);
 }
 
+/// The single writer of `AppState.hotkey_error`, which also re-evaluates
+/// readiness so the setup screen and the dictation gate see the change.
+pub fn set_hotkey_error(app_handle: &tauri::AppHandle, error: Option<String>) {
+    *app_handle.state::<AppState>().hotkey_error.lock().unwrap() = error;
+    crate::app::readiness::spawn_publish(app_handle);
+}
+
 #[derive(Serialize)]
 pub struct ConfigureHotkeyResult {
     outcome: String,
@@ -119,8 +126,7 @@ async fn apply_hotkey_registration(
                         Some(enriched_error.clone()),
                         None,
                     );
-                    let mut hotkey_error = state.hotkey_error.lock().unwrap();
-                    *hotkey_error = Some(enriched_error.clone());
+                    set_hotkey_error(&app_handle, Some(enriched_error.clone()));
                     return Err(format!(
                         "Failed to save hotkey change: {}. Also failed to restore previous hotkey: {}",
                         save_error, enriched_error
@@ -128,8 +134,7 @@ async fn apply_hotkey_registration(
                 }
 
                 set_hotkey_binding_state(&app_handle, true, true, None, None);
-                let mut hotkey_error = state.hotkey_error.lock().unwrap();
-                *hotkey_error = None;
+                set_hotkey_error(&app_handle, None);
                 return Err(format!(
                     "Failed to save hotkey change: {}. Previous hotkey was restored.",
                     save_error
@@ -137,8 +142,7 @@ async fn apply_hotkey_registration(
             }
 
             set_hotkey_binding_state(&app_handle, true, true, None, None);
-            let mut error = state.hotkey_error.lock().unwrap();
-            *error = None;
+            set_hotkey_error(&app_handle, None);
             Ok(())
         }
         Err(error) => {
@@ -166,8 +170,7 @@ async fn apply_hotkey_registration(
                     Some(registration_error.clone()),
                     None,
                 );
-                let mut hotkey_error = state.hotkey_error.lock().unwrap();
-                *hotkey_error = Some(registration_error.clone());
+                set_hotkey_error(&app_handle, Some(registration_error.clone()));
                 return Err(registration_error);
             }
 
@@ -175,8 +178,7 @@ async fn apply_hotkey_registration(
             match restore_result {
                 Ok(()) => {
                     set_hotkey_binding_state(&app_handle, true, true, None, None);
-                    let mut hotkey_error = state.hotkey_error.lock().unwrap();
-                    *hotkey_error = None;
+                    set_hotkey_error(&app_handle, None);
                     Err(registration_error)
                 }
                 Err(restore_error) => {
@@ -197,8 +199,7 @@ async fn apply_hotkey_registration(
                         Some(enriched_restore_error.clone()),
                         None,
                     );
-                    let mut hotkey_error = state.hotkey_error.lock().unwrap();
-                    *hotkey_error = Some(enriched_restore_error.clone());
+                    set_hotkey_error(&app_handle, Some(enriched_restore_error.clone()));
                     Err(format!(
                         "{} Also failed to restore previous hotkey: {}",
                         registration_error, enriched_restore_error

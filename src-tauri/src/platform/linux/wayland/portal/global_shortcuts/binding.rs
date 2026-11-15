@@ -144,4 +144,5 @@ pub fn realign_config_to_portal_trigger(
         }
     }
     let _ = app_handle.emit("config-updated", ());
+    crate::app::readiness::spawn_publish(app_handle);
 }

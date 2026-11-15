@@ -175,6 +175,7 @@ pub async fn start_linux_portal_hotkey_engine(
     }
     crate::set_hotkey_binding_state(&app_handle, true, true, None, Some(active_trigger.clone()));
     let _ = app_handle.emit("config-updated", ());
+    crate::app::readiness::spawn_publish(&app_handle);
 
     let mut activated_stream = proxy
         .receive_activated()

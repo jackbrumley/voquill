@@ -52,20 +52,19 @@ pub async fn save_config(
 
     if hotkey_changed {
         if let Err(error) = re_register_hotkey(&app_handle, &merged_config.hotkey).await {
-            let mut error_lock = state.hotkey_error.lock().unwrap();
-            *error_lock = Some(error.clone());
+            crate::app::commands::hotkey::set_hotkey_error(&app_handle, Some(error.clone()));
             return Err(format!(
                 "Config saved but failed to update hotkey: {}",
                 error
             ));
         } else {
-            let mut error_lock = state.hotkey_error.lock().unwrap();
-            *error_lock = None;
+            crate::app::commands::hotkey::set_hotkey_error(&app_handle, None);
         }
     }
 
     // Notify all windows (including the overlay) that config values changed.
     let _ = app_handle.emit("config-updated", ());
+    crate::app::readiness::publish(&app_handle).await;
 
     crate::voice_macro::sync_voice_macro_listener(&app_handle);
 
@@ -227,14 +226,10 @@ pub async fn reset_application_to_defaults(
         );
     }
 
-    {
-        let mut hotkey_error = state.hotkey_error.lock().unwrap();
-        *hotkey_error = None;
-    }
+    crate::app::commands::hotkey::set_hotkey_error(&app_handle, None);
 
     if let Err(error) = re_register_hotkey(&app_handle, &default_config.hotkey).await {
-        let mut hotkey_error = state.hotkey_error.lock().unwrap();
-        *hotkey_error = Some(error.clone());
+        crate::app::commands::hotkey::set_hotkey_error(&app_handle, Some(error.clone()));
         return Err(format!(
             "Factory reset completed but failed to re-register default hotkey: {}",
             error

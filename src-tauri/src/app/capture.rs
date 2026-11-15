@@ -145,6 +145,7 @@ fn rebuild_reason(
 fn announce_capture_change(app_handle: &AppHandle) {
     crate::voice_macro::sync_voice_macro_listener(app_handle);
     let _ = app_handle.emit(AUDIO_DEVICES_CHANGED_EVENT, ());
+    crate::app::readiness::spawn_publish(app_handle);
 }
 
 fn spawn_watchdog(app_handle: AppHandle) {

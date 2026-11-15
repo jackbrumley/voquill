@@ -72,6 +72,7 @@ fn set_input_session_state(app_handle: &tauri::AppHandle, next_state: InputSessi
             next_state
         );
         let _ = app_handle.emit(INPUT_SESSION_STATE_CHANGED_EVENT, ());
+        crate::app::readiness::spawn_publish(app_handle);
     }
 }
 

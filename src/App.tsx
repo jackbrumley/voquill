@@ -20,7 +20,8 @@ import { useInputCapabilities } from './hooks/useInputCapabilities.ts';
 import { useInitialRoute } from './hooks/useInitialRoute.ts';
 import { useGpuStatus } from './hooks/useGpuStatus.ts';
 import { useDictationStatus } from './hooks/useDictationStatus.ts';
-import { computeReadiness, explainReadiness, type ReadinessInputs } from './readiness.ts';
+import { describeReadiness } from './readiness.ts';
+import { useAppReadiness } from './hooks/useAppReadiness.ts';
 import { engineUsesGpu } from './models.ts';
 import type { AppRoute } from './types.ts';
 
@@ -67,7 +68,10 @@ function App() {
   const startupProbesSettled = useSignal(false);
   // The launch routing decision waits for a stored input-emulation restore
   // token to resolve, so a silent portal restore never lands on setup.
-  const startupChecksLoaded = useComputed(() => startupProbesSettled.value && !audioSetup.isInputSessionRestoring.value);
+  const { readiness, hasLoadedReadiness, refreshReadiness } = useAppReadiness();
+  const startupChecksLoaded = useComputed(
+    () => startupProbesSettled.value && hasLoadedReadiness.value && !audioSetup.isInputSessionRestoring.value,
+  );
 
   const hotkeySetup = useHotkeySetup({
     showToast,
@@ -90,16 +94,6 @@ function App() {
     },
   });
 
-  const readinessInputs: ReadinessInputs = {
-    permissions: audioSetup.permissions,
-    hotkeyError: audioSetup.hotkeyError,
-    availableMics: audioSetup.availableMics,
-    config: configHook.config,
-    availableModels: configHook.availableModels,
-  };
-
-  const readiness = computeReadiness(readinessInputs);
-
   const {
     navigate,
     setupReview,
@@ -111,7 +105,6 @@ function App() {
     startupChecksLoaded,
     activeRoute,
     readiness,
-    readinessInputs,
     showToast,
   });
 
@@ -198,6 +191,7 @@ function App() {
         void audioSetup.loadMics();
         void audioSetup.loadSpeakers();
         void configHook.loadModels();
+        void refreshReadiness();
         logUI(
           `[Focus] Re-probed readiness: input simulation=${setup?.perms.input_emulation ? 'ready' : 'not granted'}.`,
         );
@@ -282,7 +276,7 @@ function App() {
             onTestApiKey={() => void testApiKey(configHook.config.openai_api_key, configHook.config.api_url)}
             setupReview={setupReview}
             onFinishSetup={() => {
-              logUI(`[Finish Setup] Finish Setup clicked. ${explainReadiness(readinessInputs, readiness)}`);
+              logUI(`[Finish Setup] Finish Setup clicked. ${describeReadiness(readiness)}`);
               void completeSetup();
             }}
           />

@@ -34,7 +34,7 @@ fn listening_allowed(state: &AppState) -> bool {
     if *state.session_state.lock().unwrap() != SessionState::Idle {
         return false;
     }
-    if state.readiness.check().is_err() {
+    if !state.readiness.latest_is_ready() {
         return false;
     }
     let is_local = state.config.lock().unwrap().transcription_mode == TranscriptionMode::Local;

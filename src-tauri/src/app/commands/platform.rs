@@ -131,11 +131,8 @@ pub async fn get_system_shortcut_context() -> Result<SystemShortcutContext, Stri
     }
 }
 
-#[tauri::command]
-pub async fn get_platform_setup_status(
-    state: tauri::State<'_, AppState>,
-) -> Result<PlatformPermissions, String> {
-    crate::log_info!("Tauri Command: get_platform_setup_status invoked");
+/// The permission state the setup screen and the readiness gate use.
+pub async fn platform_setup_status(state: &AppState) -> PlatformPermissions {
     let config = {
         let guard = state.config.lock().unwrap();
         guard.clone()
@@ -169,6 +166,16 @@ pub async fn get_platform_setup_status(
         // its input stream, so a live engine is the grant signal.
         permissions.audio = state.audio_engine.lock().unwrap().is_some();
     }
+    permissions
+}
+
+#[tauri::command]
+pub async fn get_platform_setup_status(
+    state: tauri::State<'_, AppState>,
+) -> Result<PlatformPermissions, String> {
+    crate::log_info!("Tauri Command: get_platform_setup_status invoked");
+    let permissions = platform_setup_status(&state).await;
+    let binding_state = state.hotkey_binding_state.lock().unwrap().clone();
     crate::log_info!(
         "Setup readiness: audio={}, shortcuts={} (status={}), input_emulation={}, input_emulation_restoring={}, runtime_hotkey_bound={}, runtime_hotkey_listening={}",
         permissions.audio,
@@ -182,16 +189,26 @@ pub async fn get_platform_setup_status(
     Ok(permissions)
 }
 
+/// Whether Voquill can be used right now, decided by `app::readiness`.
+#[tauri::command]
+pub async fn get_app_readiness(
+    app_handle: tauri::AppHandle,
+) -> Result<crate::app::readiness::ReadinessStatus, String> {
+    Ok(crate::app::readiness::evaluate(&app_handle).await)
+}
+
 #[tauri::command]
 pub async fn request_audio_permission(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     crate::log_info!("Tauri Command: request_audio_permission invoked");
-    state
+    let result = state
         .display_backend
-        .request_audio_permission(app_handle)
-        .await
+        .request_audio_permission(app_handle.clone())
+        .await;
+    crate::app::readiness::publish(&app_handle).await;
+    result
 }
 
 #[tauri::command]
@@ -200,10 +217,12 @@ pub async fn request_input_permission(
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     crate::log_info!("Tauri Command: request_input_permission invoked");
-    state
+    let result = state
         .display_backend
-        .request_input_permission(app_handle)
-        .await
+        .request_input_permission(app_handle.clone())
+        .await;
+    crate::app::readiness::publish(&app_handle).await;
+    result
 }
 
 #[tauri::command]

@@ -234,7 +234,7 @@ fn main() {
             get_engine_capabilities,
             unload_model,
             get_engine_residency,
-            report_app_readiness,
+            get_app_readiness,
             get_setup_recommendation,
             get_setup_review,
             complete_setup_review,

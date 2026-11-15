@@ -238,9 +238,7 @@ pub fn run_setup(
     tauri::async_runtime::spawn(async move {
         if let Err(error) = re_register_hotkey(&app_handle, &hotkey_string).await {
             crate::log_warn!("Initial hotkey registration failed: {}", error);
-            let state = app_handle.state::<AppState>();
-            let mut hotkey_error = state.hotkey_error.lock().unwrap();
-            *hotkey_error = Some(error);
+            crate::app::commands::hotkey::set_hotkey_error(&app_handle, Some(error));
         }
     });
 

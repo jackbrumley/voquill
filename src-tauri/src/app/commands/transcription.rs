@@ -75,6 +75,7 @@ pub async fn download_model(
         crate::app::bootstrap::spawn_engine_preload(state.engine_factory.clone(), &config);
     }
 
+    crate::app::readiness::publish(&app_handle).await;
     Ok(())
 }
 
