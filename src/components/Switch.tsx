@@ -13,14 +13,16 @@ interface SwitchProps {
 
 export const Switch = ({ checked, onChange, name, label, className = '' }: SwitchProps) => {
   return (
+    // Without a visible label the clickable area is just the switch: a
+    // full-width label made a stray click anywhere in the row flip it.
     <label
       className={className}
       style={{
-        display: 'flex',
+        display: label ? 'flex' : 'inline-flex',
         alignItems: 'center',
         justifyContent: label ? 'space-between' : 'flex-start',
         gap: tokens.spacing.md,
-        width: '100%',
+        width: label ? '100%' : 'auto',
         cursor: 'pointer',
       }}
     >
