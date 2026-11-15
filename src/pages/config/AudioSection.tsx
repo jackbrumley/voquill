@@ -92,21 +92,6 @@ export function AudioSection({
         </ConfigField>
       )}
 
-      <ConfigField label="Mic Test & Sensitivity" description="Adjust capture gain and verify your microphone playback.">
-        <MicSetupPanel
-          inputSensitivity={config.input_sensitivity}
-          onInputSensitivityChange={(value) => updateConfig('input_sensitivity', value)}
-          voiceMacroActivationThreshold={config.voice_macro_activation_threshold}
-          onVoiceMacroActivationThresholdChange={(value) => updateConfig('voice_macro_activation_threshold', value)}
-          micTestStatus={micTestStatus}
-          micVolume={micVolume}
-          isMicTriggered={isMicTriggered}
-          onStartMicTest={startMicTest}
-          onStopMicTest={stopMicTest}
-          onStopMicPlayback={stopMicPlayback}
-        />
-      </ConfigField>
-
       <ConfigField label="Noise Reduction" description="Reduce background noise from your microphone using spectral gating. Improves transcription accuracy in noisy environments.">
         <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.sm, width: '100%' }}>
           <Switch name="Noise Reduction" checked={config.noise_reduction_enabled} onChange={(checked) => updateConfig('noise_reduction_enabled', checked)} />
@@ -146,6 +131,21 @@ export function AudioSection({
             </div>
           )}
         </div>
+      </ConfigField>
+
+      <ConfigField label="Mic Test & Sensitivity" description="Adjust capture gain, then record a short test to hear your microphone with the settings above applied.">
+        <MicSetupPanel
+          inputSensitivity={config.input_sensitivity}
+          onInputSensitivityChange={(value) => updateConfig('input_sensitivity', value)}
+          voiceMacroActivationThreshold={config.voice_macro_activation_threshold}
+          onVoiceMacroActivationThresholdChange={(value) => updateConfig('voice_macro_activation_threshold', value)}
+          micTestStatus={micTestStatus}
+          micVolume={micVolume}
+          isMicTriggered={isMicTriggered}
+          onStartMicTest={startMicTest}
+          onStopMicTest={stopMicTest}
+          onStopMicPlayback={stopMicPlayback}
+        />
       </ConfigField>
     </>
   );
