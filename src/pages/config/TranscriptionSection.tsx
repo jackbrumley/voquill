@@ -7,7 +7,7 @@ import { NumberField } from '../../components/NumberField.tsx';
 import { SliderField } from '../../components/SliderField.tsx';
 import { ModelSelectionPanel } from '../../components/ModelSelectionPanel.tsx';
 import { SelectField, type SelectOption } from '../../components/SelectField.tsx';
-import { VOICE_MACRO_PAUSE_NOTE } from '../../hooks/useEngineResidency.ts';
+import { VOICE_MACRO_KEEPS_ENGINE_NOTE } from '../../hooks/useEngineResidency.ts';
 import { EngineSettingsFields } from '../../components/EngineSettingsFields.tsx';
 import { AdvancedSettings } from '../../components/AdvancedSettings.tsx';
 import type { Config, DownloadPhase, EngineCapabilities, GpuStatus, EngineInfo, ModelInfo } from '../../types.ts';
@@ -182,7 +182,7 @@ export function TranscriptionSection({
           />
           {config.voice_macros_enabled && config.engine_idle_unload_minutes > 0 && (
             <div style={{ fontSize: tokens.typography.sizeXs, color: tokens.colors.textMuted, marginTop: tokens.spacing.xs }}>
-              {VOICE_MACRO_PAUSE_NOTE}
+              {VOICE_MACRO_KEEPS_ENGINE_NOTE}
             </div>
           )}
         </ConfigField>

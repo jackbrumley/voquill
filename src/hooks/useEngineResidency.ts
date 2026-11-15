@@ -65,10 +65,14 @@ export function useEngineResidency(): UseEngineResidencyReturn {
   return { residency: residency.value, loadEngine, unloadEngine };
 }
 
-/// Plain-language description of the idle unload setting.
-export function describeIdleUnload(minutes: number): string {
+/// Plain-language description of the idle unload setting. The backend skips
+/// the idle unload while voice macros are on, so the engine stays loaded.
+export function describeIdleUnload(minutes: number, voiceMacrosEnabled: boolean): string {
   if (minutes <= 0) {
     return 'It stays loaded until you unload it.';
+  }
+  if (voiceMacrosEnabled) {
+    return 'Voice macros are on, so it stays loaded until you unload it.';
   }
   if (minutes % 60 === 0) {
     const hours = minutes / 60;
@@ -78,5 +82,5 @@ export function describeIdleUnload(minutes: number): string {
 }
 
 /// Shown beside the idle unload setting while voice macros are on: the
-/// backend pauses them while the engine is unloaded.
-export const VOICE_MACRO_PAUSE_NOTE = 'Voice macros pause while the speech engine is unloaded.';
+/// backend keeps the engine loaded so they keep listening.
+export const VOICE_MACRO_KEEPS_ENGINE_NOTE = 'Voice macros are on, so the speech engine stays loaded.';

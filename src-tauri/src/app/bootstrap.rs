@@ -292,8 +292,10 @@ pub fn spawn_engine_preload(factory: Arc<engine_factory::EngineFactory>, config:
 const ENGINE_IDLE_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// Unloads the speech engine once it has gone unused for the configured
-/// number of minutes, never while a dictation is running. The next dictation
-/// (or the home screen) loads it again.
+/// number of minutes, never while a dictation is running and never while
+/// voice macros are on (they listen through the engine, so unloading it
+/// would silently stop them). The next dictation (or the home screen) loads
+/// it again.
 fn spawn_engine_idle_unload(app_handle: &tauri::AppHandle) {
     let app_handle = app_handle.clone();
     tauri::async_runtime::spawn(async move {
@@ -301,8 +303,14 @@ fn spawn_engine_idle_unload(app_handle: &tauri::AppHandle) {
         loop {
             interval.tick().await;
             let state = app_handle.state::<AppState>();
-            let idle_minutes = state.config.lock().unwrap().engine_idle_unload_minutes;
-            if idle_minutes == 0 {
+            let (idle_minutes, voice_macros_enabled) = {
+                let config = state.config.lock().unwrap();
+                (
+                    config.engine_idle_unload_minutes,
+                    config.voice_macros_enabled,
+                )
+            };
+            if idle_minutes == 0 || voice_macros_enabled {
                 continue;
             }
             if *state.session_state.lock().unwrap() != crate::app::state::SessionState::Idle {

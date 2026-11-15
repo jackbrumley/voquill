@@ -41,7 +41,7 @@ function present(residency: EngineResidency, config: Config): ResidencyPresentat
         title: 'Speech engine ready',
         note: null,
         dotColor: tokens.colors.success,
-        tooltip: `Unloading frees up memory for other apps. ${describeIdleUnload(config.engine_idle_unload_minutes)}`,
+        tooltip: `Unloading frees up memory for other apps. ${describeIdleUnload(config.engine_idle_unload_minutes, config.voice_macros_enabled)}`,
       };
     case 'Loading':
       return {
