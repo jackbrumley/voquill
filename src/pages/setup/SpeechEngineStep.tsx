@@ -8,16 +8,16 @@ import { SelectField } from '../../components/SelectField.tsx';
 import { helperTextStyle, inputBaseStyle, selectWrapperStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
 import { API_KEY_PLACEHOLDER } from '../../readiness.ts';
-import type { DownloadPhase, GpuStatus, ModelInfo } from '../../types.ts';
+import { engineUsesGpu, enginesInCategory, isModelDownloaded } from '../../models.ts';
+import type { DownloadPhase, GpuStatus, EngineInfo, ModelInfo } from '../../types.ts';
 import type { SetupConfig, SetupOption, SetupRecommendation } from './setupTypes.ts';
 
 interface SpeechEngineStepProps {
   config: SetupConfig;
   recommendation: SetupRecommendation | null;
   recommendationError: string | null;
-  availableEngines: string[];
+  availableEngines: EngineInfo[];
   availableModels: ModelInfo[];
-  modelStatus: Record<string, boolean>;
   isDownloading: boolean;
   downloadProgress: number;
   downloadPhase: DownloadPhase;
@@ -64,10 +64,10 @@ export function speechEngineSummary(config: SetupConfig, recommendation: SetupRe
 /// Step 3: choose and download the speech engine. The backend recommends
 /// plain choices for this computer; every model stays one link away.
 export function SpeechEngineStep(props: SpeechEngineStepProps) {
-  const { config, recommendation, modelStatus } = props;
+  const { config, recommendation, availableModels } = props;
   const isOtherModelsOpen = useSignal(false);
   const hasAppliedRecommendation = useSignal(false);
-  const isModelStatusKnown = Object.keys(modelStatus).length > 0;
+  const isModelStatusKnown = availableModels.length > 0;
 
   // Once, start from the backend's first choice, unless the configured
   // model is already downloaded or is one of the offered choices. Waits for
@@ -82,7 +82,7 @@ export function SpeechEngineStep(props: SpeechEngineStepProps) {
       return;
     }
     const alreadyChosen = options.some((option) => isSelected(option, config));
-    if (!alreadyChosen && !modelStatus[config.local_model_size]) {
+    if (!alreadyChosen && !isModelDownloaded(availableModels, config.local_engine, config.local_model_size)) {
       chooseOption(options[0]);
     }
   }, [recommendation, isModelStatusKnown]);
@@ -113,8 +113,8 @@ export function SpeechEngineStep(props: SpeechEngineStepProps) {
     );
   }
 
-  const isGpuEngine = config.local_engine.includes('(GPU)');
-  const isModelReady = Boolean(modelStatus[config.local_model_size]);
+  const isGpuEngine = engineUsesGpu(props.availableEngines, config.local_engine);
+  const isModelReady = isModelDownloaded(availableModels, config.local_engine, config.local_model_size);
 
   return (
     <>
@@ -196,13 +196,12 @@ export function SpeechEngineStep(props: SpeechEngineStepProps) {
             onChange={props.onSelectEngine}
             searchable={false}
             ariaLabel="Speech engine"
-            options={props.availableEngines.map((engine) => ({ value: engine, label: engine }))}
+            options={enginesInCategory(props.availableEngines, 'transcription').map((engine) => ({ value: engine.name, label: engine.name }))}
           />
           <ModelSelectionPanel
             availableModels={props.availableModels}
             localEngine={config.local_engine}
             localModelSize={config.local_model_size}
-            modelStatus={modelStatus}
             isDownloading={props.isDownloading}
             downloadProgress={props.downloadProgress}
             downloadPhase={props.downloadPhase}

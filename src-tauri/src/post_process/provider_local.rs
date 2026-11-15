@@ -1,3 +1,4 @@
+use crate::engines::ModelEngine;
 use crate::model_manager::ModelManager;
 use crate::post_process::{PostProcessError, PostProcessService};
 use async_trait::async_trait;
@@ -42,13 +43,13 @@ impl SidecarPostProcess {
     /// recording the reason in `last_gpu_error` (the same fallback contract
     /// as whisper GPU transcription).
     pub async fn new(
-        engine_name: &str,
+        engine: ModelEngine,
         model_size: &str,
         threads_setting: &str,
         last_gpu_error: Arc<std::sync::Mutex<Option<String>>>,
     ) -> Result<Self, PostProcessError> {
-        if crate::engine_factory::engine_uses_gpu(engine_name) {
-            match Self::start(engine_name, model_size, threads_setting, true).await {
+        if engine.uses_gpu() {
+            match Self::start(engine, model_size, threads_setting, true).await {
                 Ok(service) => {
                     *last_gpu_error.lock().unwrap() = None;
                     return Ok(service);
@@ -62,11 +63,11 @@ impl SidecarPostProcess {
                 }
             }
         }
-        Self::start(engine_name, model_size, threads_setting, false).await
+        Self::start(engine, model_size, threads_setting, false).await
     }
 
     async fn start(
-        engine_name: &str,
+        engine: ModelEngine,
         model_size: &str,
         threads_setting: &str,
         use_gpu: bool,
@@ -84,10 +85,11 @@ impl SidecarPostProcess {
         let mgr = ModelManager::new()
             .map_err(|e| PostProcessError::Api(format!("Failed to init model manager: {}", e)))?;
 
-        let model = ModelManager::find_model(engine_name, model_size).ok_or_else(|| {
+        let model = ModelManager::find_model(engine, model_size).ok_or_else(|| {
             PostProcessError::Api(format!(
                 "Model '{}' not found in catalog for engine '{}'",
-                model_size, engine_name
+                model_size,
+                engine.name()
             ))
         })?;
 

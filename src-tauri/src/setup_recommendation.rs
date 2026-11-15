@@ -12,6 +12,7 @@
 //! English (or automatic) languages get English models, which are the most
 //! accurate for English; any other language gets the multilingual ones.
 
+use crate::engines::ModelEngine;
 use crate::hardware_detection::{GraphicsDevice, GraphicsKind, HardwareProfile};
 use crate::model_manager::ModelManager;
 use serde::Serialize;
@@ -28,30 +29,30 @@ const MODEST_PROCESSOR_THREADS: usize = 4;
 
 /// The models each tier uses, by language family.
 struct ModelChoices {
-    gpu: (&'static str, &'static str),
-    processor: (&'static str, &'static str),
+    gpu: (ModelEngine, &'static str),
+    processor: (ModelEngine, &'static str),
     /// No light multilingual model is in the catalog.
-    light: Option<(&'static str, &'static str)>,
+    light: Option<(ModelEngine, &'static str)>,
     language_phrase: &'static str,
 }
 
 const ENGLISH_MODELS: ModelChoices = ModelChoices {
-    gpu: ("Parakeet (GPU)", "tdt-0.6b-v2-q8_0"),
-    processor: ("Parakeet", "parakeet-unified-en-0.6b"),
-    light: Some(("Whisper.cpp", "distil-small.en")),
+    gpu: (ModelEngine::ParakeetGpu, "tdt-0.6b-v2-q8_0"),
+    processor: (ModelEngine::ParakeetCpu, "parakeet-unified-en-0.6b"),
+    light: Some((ModelEngine::WhisperCpu, "distil-small.en")),
     language_phrase: "English",
 };
 
 const MULTILINGUAL_MODELS: ModelChoices = ModelChoices {
-    gpu: ("Parakeet (GPU)", "tdt-0.6b-v3-q8_0"),
-    processor: ("Parakeet", "parakeet-tdt-0.6b-v3"),
+    gpu: (ModelEngine::ParakeetGpu, "tdt-0.6b-v3-q8_0"),
+    processor: (ModelEngine::ParakeetCpu, "parakeet-tdt-0.6b-v3"),
     light: None,
     language_phrase: "multilingual",
 };
 
 #[derive(Debug, Serialize)]
 pub struct SetupOption {
-    pub engine: String,
+    pub engine: ModelEngine,
     pub model_size: String,
     pub title: String,
     pub description: String,
@@ -167,20 +168,20 @@ fn suitable_graphics_card(devices: &[GraphicsDevice]) -> Option<&GraphicsDevice>
 /// One choice, sized from the model catalog (the single source of model
 /// facts). A model missing from the catalog is logged and left out.
 fn option(
-    (engine, model_size): (&str, &str),
+    (engine, model_size): (ModelEngine, &str),
     title: &str,
     description: String,
 ) -> Option<SetupOption> {
     let Some(model) = ModelManager::find_model(engine, model_size) else {
         crate::log_warn!(
             "Setup recommendation names {} / {}, which is not in the model catalog",
-            engine,
+            engine.name(),
             model_size
         );
         return None;
     };
     Some(SetupOption {
-        engine: engine.to_string(),
+        engine,
         model_size: model_size.to_string(),
         title: title.to_string(),
         description,
@@ -224,7 +225,8 @@ mod tests {
             for (engine, size) in choices {
                 assert!(
                     ModelManager::find_model(engine, size).is_some(),
-                    "{engine} / {size}"
+                    "{} / {size}",
+                    engine.name()
                 );
             }
         }

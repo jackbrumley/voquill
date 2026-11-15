@@ -232,6 +232,15 @@ export interface ModelInfo {
   description: string;
   recommended: boolean;
   category: string;
+  /** Whether the model is on disk, as the backend reported it. */
+  downloaded: boolean;
+}
+
+/** A local engine as the backend describes it. */
+export interface EngineInfo {
+  name: string;
+  uses_gpu: boolean;
+  category: 'transcription' | 'post_process';
 }
 
 export type DownloadPhase = 'downloading' | 'extracting';

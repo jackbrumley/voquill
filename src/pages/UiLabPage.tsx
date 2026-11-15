@@ -21,8 +21,8 @@ import { tokens } from '../design-tokens.ts';
 import type { ModelInfo } from '../types.ts';
 
 const sampleModels: ModelInfo[] = [
-  { size: 'distil-small.en', label: 'Distil Small', recommended: true, file_size: 260_000_000, description: 'Balanced quality and speed for most hardware.', engine: 'Whisper.cpp', download_url: '', sha256: '', category: 'transcription' },
-  { size: 'base', label: 'Base', recommended: false, file_size: 145_000_000, description: 'Lightweight option with faster runtime.', engine: 'Whisper.cpp', download_url: '', sha256: '', category: 'transcription' },
+  { size: 'distil-small.en', label: 'Distil Small', recommended: true, file_size: 260_000_000, description: 'Balanced quality and speed for most hardware.', engine: 'Whisper.cpp', download_url: '', sha256: '', category: 'transcription', downloaded: true },
+  { size: 'base', label: 'Base', recommended: false, file_size: 145_000_000, description: 'Lightweight option with faster runtime.', engine: 'Whisper.cpp', download_url: '', sha256: '', category: 'transcription', downloaded: false },
 ];
 
 interface UiLabPageProps {
@@ -40,7 +40,7 @@ export function UiLabPage({ onBackToSettings }: UiLabPageProps) {
   const sliderValue = useSignal(1.0);
   const selectValue = useSignal('default');
   const modelSize = useSignal('distil-small.en');
-  const modelStatus = useSignal<Record<string, boolean>>({ 'distil-small.en': true, base: false });
+  const demoModels = useSignal<ModelInfo[]>(sampleModels);
   const isDownloading = useSignal(false);
   const downloadProgress = useSignal(0);
   const activeStatus = useSignal<'Ready' | 'Recording' | 'Transcribing'>('Ready');
@@ -110,10 +110,9 @@ export function UiLabPage({ onBackToSettings }: UiLabPageProps) {
 
         <ConfigField label="Model Selection Panel" description="Model picker, description, and download action.">
           <ModelSelectionPanel
-            availableModels={sampleModels}
+            availableModels={demoModels.value}
             localEngine="Whisper.cpp"
             localModelSize={modelSize.value}
-            modelStatus={modelStatus.value}
             isDownloading={isDownloading.value}
             downloadProgress={downloadProgress.value}
             downloadPhase="downloading"
@@ -122,7 +121,7 @@ export function UiLabPage({ onBackToSettings }: UiLabPageProps) {
             onDownloadModel={(size) => {
               isDownloading.value = true;
               downloadProgress.value = 67;
-              modelStatus.value = { ...modelStatus.value, [size]: true };
+              demoModels.value = demoModels.value.map((model) => (model.size === size ? { ...model, downloaded: true } : model));
               setTimeout(() => {
                 isDownloading.value = false;
                 downloadProgress.value = 0;

@@ -4,24 +4,13 @@ import { SelectField } from './SelectField.tsx';
 import { DownloadProgressBar } from './DownloadProgressBar.tsx';
 import { selectWrapperStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
-import type { DownloadPhase } from '../types.ts';
-
-interface ModelInfo {
-  engine: string;
-  size: string;
-  file_size: number;
-  download_url: string;
-  sha256: string;
-  label: string;
-  description: string;
-  recommended: boolean;
-}
+import type { DownloadPhase, ModelInfo } from '../types.ts';
+import { isModelDownloaded } from '../models.ts';
 
 interface ModelSelectionPanelProps {
   availableModels: ModelInfo[];
   localEngine: string;
   localModelSize: string;
-  modelStatus: Record<string, boolean>;
   isDownloading: boolean;
   downloadProgress: number;
   downloadPhase: DownloadPhase;
@@ -36,7 +25,6 @@ export function ModelSelectionPanel({
   availableModels,
   localEngine,
   localModelSize,
-  modelStatus,
   isDownloading,
   downloadProgress,
   downloadPhase,
@@ -78,7 +66,7 @@ export function ModelSelectionPanel({
                 <IconInfoCircle size={20} />
               </Button>
             </div>
-            {localModelSize && availableModels.some(m => m.size === localModelSize && m.engine === localEngine) && !modelStatus[localModelSize] && (
+            {localModelSize && availableModels.some(m => m.size === localModelSize && m.engine === localEngine) && !isModelDownloaded(availableModels, localEngine, localModelSize) && (
               <div style={actionButtonRowStyle}>
                 <Button variant="configAction" size={actionButtonSize} onClick={() => onDownloadModel(localModelSize)} disabled={isDownloading}>
                   {isDownloading ? '...' : 'Download'}

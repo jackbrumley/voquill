@@ -21,6 +21,7 @@ import { useInitialRoute } from './hooks/useInitialRoute.ts';
 import { useGpuStatus } from './hooks/useGpuStatus.ts';
 import { useDictationStatus } from './hooks/useDictationStatus.ts';
 import { computeReadiness, explainReadiness, type ReadinessInputs } from './readiness.ts';
+import { engineUsesGpu } from './models.ts';
 import type { AppRoute } from './types.ts';
 
 function App() {
@@ -95,7 +96,6 @@ function App() {
     availableMics: audioSetup.availableMics,
     config: configHook.config,
     availableModels: configHook.availableModels,
-    modelStatus: configHook.modelStatus,
   };
 
   const readiness = computeReadiness(readinessInputs);
@@ -237,7 +237,6 @@ function App() {
             readiness={readiness}
             availableEngines={configHook.availableEngines}
             availableModels={configHook.availableModels}
-            modelStatus={configHook.modelStatus}
             downloadProgress={configHook.downloadProgress}
             downloadPhase={configHook.downloadPhase}
             isDownloading={configHook.isDownloading}
@@ -262,14 +261,14 @@ function App() {
             onChangeConfig={configHook.updateConfig}
             onSelectEngine={(engine) => {
               configHook.updateConfig('local_engine', engine);
-              if (engine.includes('(GPU)')) {
+              if (engineUsesGpu(configHook.availableEngines, engine)) {
                 void gpuHook.testTranscriptionEngine();
               }
             }}
             onShowModelGuide={() => { showModelGuide.value = true; }}
             onDownloadModel={(size) => {
               void configHook.downloadModel(size).then(() => {
-                if (configHook.config.local_engine.includes('(GPU)')) {
+                if (engineUsesGpu(configHook.availableEngines, configHook.config.local_engine)) {
                   void gpuHook.testTranscriptionEngine();
                 }
               });
@@ -296,7 +295,6 @@ function App() {
           dictationStatus={dictationStatus.status.value}
           availableEngines={configHook.availableEngines}
           availableModels={configHook.availableModels}
-          modelStatus={configHook.modelStatus}
           downloadProgress={configHook.downloadProgress}
           downloadPhase={configHook.downloadPhase}
           isDownloading={configHook.isDownloading}

@@ -4,7 +4,7 @@ import { Button } from '../components/Button.tsx';
 import { helperTextStyle, tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
 import type { ReadinessStatus } from '../readiness.ts';
-import type { AudioDevice, DownloadPhase, GpuStatus, ModelInfo } from '../types.ts';
+import type { AudioDevice, DownloadPhase, GpuStatus, EngineInfo, ModelInfo } from '../types.ts';
 import { useSetupRecommendation } from '../hooks/useSetupRecommendation.ts';
 import { useSetupSteps } from '../hooks/useSetupSteps.ts';
 import { SetupStep } from './setup/SetupStep.tsx';
@@ -18,9 +18,8 @@ interface InitialSetupPageProps {
   permissions: PlatformPermissions | null;
   config: SetupConfig;
   readiness: ReadinessStatus;
-  availableEngines: string[];
+  availableEngines: EngineInfo[];
   availableModels: ModelInfo[];
-  modelStatus: Record<string, boolean>;
   downloadProgress: number;
   downloadPhase: DownloadPhase;
   isDownloading: boolean;
@@ -167,7 +166,6 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               recommendationError={recommendationError}
               availableEngines={props.availableEngines}
               availableModels={props.availableModels}
-              modelStatus={props.modelStatus}
               isDownloading={props.isDownloading}
               downloadProgress={props.downloadProgress}
               downloadPhase={props.downloadPhase}

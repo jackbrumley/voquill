@@ -1,26 +1,29 @@
 import { Card } from '../components/Card.tsx';
 import { tabPanelPaddedStyle, tabPanelStyle } from '../theme/ui-primitives.ts';
 import { tokens } from '../design-tokens.ts';
+import { isModelDownloaded } from '../models.ts';
+import type { ModelInfo } from '../types.ts';
 
 interface HelpPageProps {
   config: {
     transcription_mode: 'API' | 'Local';
+    local_engine: string;
     local_model_size: string;
     hotkey: string;
     hotkey_mode: 'HoldToTalk' | 'Toggle';
   };
-  modelStatus: Record<string, boolean>;
+  availableModels: ModelInfo[];
   isSystemManagedShortcut: boolean;
 }
 
-export function HelpPage({ config, modelStatus, isSystemManagedShortcut }: HelpPageProps) {
+export function HelpPage({ config, availableModels, isSystemManagedShortcut }: HelpPageProps) {
   const isToggleMode = config.hotkey_mode === 'Toggle';
 
   const howToSteps = [
     config.transcription_mode === 'Local'
-      ? (modelStatus[config.local_model_size]
-        ? <>Local Whisper model is <strong style={{ color: '#ffffff' }}>Ready</strong>.</>
-        : <>Download a <strong style={{ color: '#ffffff' }}>Whisper model</strong> in Settings.</>)
+      ? (isModelDownloaded(availableModels, config.local_engine, config.local_model_size)
+        ? <>Your speech engine is <strong style={{ color: '#ffffff' }}>Ready</strong>.</>
+        : <>Download a <strong style={{ color: '#ffffff' }}>speech engine model</strong> in Settings.</>)
       : <>Enter your <strong style={{ color: '#ffffff' }}>OpenAI API key</strong> in Settings.</>,
     <>Position cursor in any text field.</>,
     isToggleMode

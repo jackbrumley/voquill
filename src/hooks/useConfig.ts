@@ -1,12 +1,11 @@
 import { useSignal, useSignalEffect } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
-import type { Config, DownloadPhase, EngineCapabilities, ModelDownloadProgress, ModelInfo } from '../types.ts';
+import type { Config, DownloadPhase, EngineCapabilities, EngineInfo, ModelDownloadProgress, ModelInfo } from '../types.ts';
 
 interface UseConfigReturn {
   config: Config;
-  availableEngines: string[];
+  availableEngines: EngineInfo[];
   availableModels: ModelInfo[];
-  modelStatus: Record<string, boolean>;
   engineCapabilities: EngineCapabilities | null;
   downloadProgress: number;
   downloadPhase: DownloadPhase;
@@ -92,9 +91,8 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     voice_macro_activation_threshold: 0.035,
     voice_macros: [],
   });
-  const availableEngines = useSignal<string[]>([]);
+  const availableEngines = useSignal<EngineInfo[]>([]);
   const availableModels = useSignal<ModelInfo[]>([]);
-  const modelStatus = useSignal<Record<string, boolean>>({});
   const engineCapabilities = useSignal<EngineCapabilities | null>(null);
   const downloadProgress = useSignal<number>(0);
   const downloadPhase = useSignal<DownloadPhase>('downloading');
@@ -139,17 +137,8 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
 
   const loadModels = async () => {
     try {
-      const engines = await invoke<string[]>('get_available_engines');
-      availableEngines.value = engines || [];
-
-      const models = await invoke<ModelInfo[]>('get_available_models');
-      availableModels.value = models || [];
-
-      const status: Record<string, boolean> = {};
-      for (const model of (models || [])) {
-        status[model.size] = await invoke<boolean>('check_model_status', { modelSize: model.size, engineName: model.engine });
-      }
-      modelStatus.value = status;
+      availableEngines.value = (await invoke<EngineInfo[]>('get_available_engines')) || [];
+      availableModels.value = (await invoke<ModelInfo[]>('get_available_models')) || [];
     } catch (error) {
       showToast(`Failed to load models: ${error}`, 'error');
     } finally {
@@ -322,7 +311,6 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
     config: config.value,
     availableEngines: availableEngines.value,
     availableModels: availableModels.value,
-    modelStatus: modelStatus.value,
     engineCapabilities: engineCapabilities.value,
     downloadProgress: downloadProgress.value,
     downloadPhase: downloadPhase.value,

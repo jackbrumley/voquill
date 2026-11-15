@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::engine_residency::{EngineResidency, ResidencyTracker};
+use crate::engines::{EngineFamily, ModelEngine};
 use crate::local_whisper::{self, WhisperEngineCache};
 use crate::parakeet;
 use crate::transcription::{self, TranscriptionError, TranscriptionService};
@@ -97,13 +98,6 @@ fn resolve_thread_count(config: &Config, key: &str) -> usize {
     max_cpus
 }
 
-/// Returns true if the engine name indicates GPU acceleration should be used.
-/// Single owner of the "(GPU)" naming convention across all engines
-/// (transcription and post-processing).
-pub(crate) fn engine_uses_gpu(engine_name: &str) -> bool {
-    engine_name.contains("(GPU)")
-}
-
 /// Describes what settings an engine supports, so the frontend can render the
 /// appropriate configuration UI.
 #[derive(Serialize)]
@@ -193,38 +187,31 @@ impl EngineFactory {
             .map(|n| n.get())
             .unwrap_or(4);
 
-        match engine_name {
-            "Whisper.cpp" => EngineCapabilities {
+        let cpu_threads_setting = |key: &str| {
+            EngineSetting {
+            key: key.to_string(),
+            label: "CPU Cores".to_string(),
+            description: "How many processor cores Voquill uses to turn speech into text. Auto suits most computers.".to_string(),
+            setting_type: "select".to_string(),
+            default: serde_json::json!("auto"),
+            options: Some(build_thread_options(max_cpus)),
+        }
+        };
+
+        match ModelEngine::parse(engine_name) {
+            Some(ModelEngine::WhisperCpu) => EngineCapabilities {
                 gpu_supported: false,
-                settings: vec![EngineSetting {
-                    key: "whisper.num_threads".to_string(),
-                    label: "CPU Cores".to_string(),
-                    description: "How many processor cores Voquill uses to turn speech into text. Auto suits most computers.".to_string(),
-                    setting_type: "select".to_string(),
-                    default: serde_json::json!("auto"),
-                    options: Some(build_thread_options(max_cpus)),
-                }],
+                settings: vec![cpu_threads_setting("whisper.num_threads")],
             },
-            "Whisper.cpp (GPU)" => EngineCapabilities {
-                gpu_supported: true,
+            Some(ModelEngine::ParakeetCpu) => EngineCapabilities {
+                gpu_supported: false,
+                settings: vec![cpu_threads_setting("parakeet.num_threads")],
+            },
+            Some(engine) => EngineCapabilities {
+                gpu_supported: engine.uses_gpu(),
                 settings: vec![],
             },
-            "Parakeet (GPU)" => EngineCapabilities {
-                gpu_supported: true,
-                settings: vec![],
-            },
-            "Parakeet" => EngineCapabilities {
-                gpu_supported: false,
-                settings: vec![EngineSetting {
-                    key: "parakeet.num_threads".to_string(),
-                    label: "CPU Cores".to_string(),
-                    description: "How many processor cores Voquill uses to turn speech into text. Auto suits most computers.".to_string(),
-                    setting_type: "select".to_string(),
-                    default: serde_json::json!("auto"),
-                    options: Some(build_thread_options(max_cpus)),
-                }],
-            },
-            _ => EngineCapabilities {
+            None => EngineCapabilities {
                 gpu_supported: false,
                 settings: vec![],
             },
@@ -251,28 +238,28 @@ impl EngineFactory {
                 if self.residency() != EngineResidency::Loaded {
                     self.preload(config).await;
                 }
-                let use_gpu = engine_uses_gpu(&config.local_engine);
-                if use_gpu {
+                let engine = config
+                    .transcription_engine()
+                    .map_err(TranscriptionError::Model)?;
+                if engine.uses_gpu() {
                     self.gpu_tested.store(true, Ordering::SeqCst);
                 }
-                match config.local_engine.as_str() {
-                    "Whisper.cpp" | "Whisper.cpp (GPU)" => {
+                match engine.family() {
+                    EngineFamily::Whisper => {
                         let num_threads = resolve_thread_count(config, "whisper.num_threads");
                         let service = local_whisper::LocalWhisperService::new_full(
                             self.whisper_cache.clone(),
                             &config.local_model_size,
-                            use_gpu,
-                            Some(self.gpu_last_error.clone()),
+                            engine.uses_gpu(),
+                            self.gpu_last_error.clone(),
                             num_threads,
                         )?;
                         Ok(Box::new(service))
                     }
-                    "Parakeet" | "Parakeet (GPU)" => {
-                        Ok(Box::new(self.parakeet_service(config).await?))
-                    }
-                    other => Err(TranscriptionError::Model(format!(
-                        "Unknown local engine: {}. Available engines: Whisper.cpp, Whisper.cpp (GPU), Parakeet, Parakeet (GPU)",
-                        other
+                    EngineFamily::Parakeet => Ok(Box::new(self.parakeet_service(config).await?)),
+                    EngineFamily::PostProcess => Err(TranscriptionError::Model(format!(
+                        "{} is a post-processing engine, not a transcription engine",
+                        engine.name()
                     ))),
                 }
             }
@@ -292,8 +279,15 @@ impl EngineFactory {
             return;
         }
 
+        let engine = match config.transcription_engine() {
+            Ok(engine) => engine,
+            Err(error) => {
+                crate::log_warn!("Engine preload: {}", error);
+                return;
+            }
+        };
         let model_info = match crate::model_manager::ModelManager::find_model(
-            &config.local_engine,
+            engine,
             &config.local_model_size,
         ) {
             Some(m) => m,
@@ -320,7 +314,7 @@ impl EngineFactory {
             }
         };
 
-        let use_gpu = engine_uses_gpu(&config.local_engine);
+        let use_gpu = engine.uses_gpu();
         if use_gpu {
             self.gpu_tested.store(true, Ordering::SeqCst);
         }
@@ -333,8 +327,8 @@ impl EngineFactory {
             use_gpu
         );
 
-        match config.local_engine.as_str() {
-            "Whisper.cpp" | "Whisper.cpp (GPU)" => {
+        match engine.family() {
+            EngineFamily::Whisper => {
                 let result = local_whisper::ensure_model_loaded_with_fallback(
                     &self.whisper_cache,
                     model_path,
@@ -371,7 +365,7 @@ impl EngineFactory {
                     }
                 }
             }
-            "Parakeet" | "Parakeet (GPU)" => match self.parakeet_service(config).await {
+            EngineFamily::Parakeet => match self.parakeet_service(config).await {
                 Ok(_) => crate::log_info!(
                     "Engine preload: Parakeet sidecar running (engine {}, model {})",
                     config.local_engine,
@@ -383,7 +377,10 @@ impl EngineFactory {
                     e
                 ),
             },
-            _ => {}
+            EngineFamily::PostProcess => crate::log_warn!(
+                "Engine preload: {} is not a transcription engine",
+                engine.name()
+            ),
         }
     }
 
@@ -394,22 +391,23 @@ impl EngineFactory {
         &self,
         config: &Config,
     ) -> Result<parakeet::ParakeetService, TranscriptionError> {
-        let use_gpu = engine_uses_gpu(&config.local_engine);
+        let engine = config
+            .transcription_engine()
+            .map_err(TranscriptionError::Model)?;
+        let use_gpu = engine.uses_gpu();
         let backend = if use_gpu {
             parakeet::ParakeetBackend::ParakeetCpp
         } else {
             parakeet::ParakeetBackend::SherpaOnnx
         };
-        let model_info = crate::model_manager::ModelManager::find_model(
-            &config.local_engine,
-            &config.local_model_size,
-        )
-        .ok_or_else(|| {
-            TranscriptionError::Model(format!(
-                "Model {} not found for {} engine",
-                config.local_model_size, config.local_engine
-            ))
-        })?;
+        let model_info =
+            crate::model_manager::ModelManager::find_model(engine, &config.local_model_size)
+                .ok_or_else(|| {
+                    TranscriptionError::Model(format!(
+                        "Model {} not found for {} engine",
+                        config.local_model_size, config.local_engine
+                    ))
+                })?;
         let manager =
             crate::model_manager::ModelManager::new().map_err(TranscriptionError::Model)?;
         if !manager.is_model_downloaded(&model_info) {
@@ -453,17 +451,6 @@ impl EngineFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn engine_uses_gpu_true_for_gpu_engine() {
-        assert!(engine_uses_gpu("Whisper.cpp (GPU)"));
-    }
-
-    #[test]
-    fn engine_uses_gpu_false_for_cpu_engine() {
-        assert!(!engine_uses_gpu("Whisper.cpp"));
-        assert!(!engine_uses_gpu("Parakeet"));
-    }
 
     #[test]
     fn engine_capabilities_whisper_cpp() {

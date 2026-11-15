@@ -54,6 +54,7 @@ mod config;
 mod diarization;
 mod engine_factory;
 mod engine_residency;
+mod engines;
 mod hardware_detection;
 mod history;
 mod hotkey;
@@ -211,7 +212,6 @@ fn main() {
             log_ui_event,
             get_available_engines,
             get_available_models,
-            check_model_status,
             download_model,
             preload_transcription_engine,
             transcribe_audio_file,

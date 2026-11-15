@@ -216,7 +216,7 @@ pub struct LocalWhisperService {
     model_size: String,
     model_path: PathBuf,
     use_gpu: bool,
-    last_gpu_error: Option<Arc<Mutex<Option<String>>>>,
+    last_gpu_error: Arc<Mutex<Option<String>>>,
     num_threads: usize,
 }
 
@@ -225,19 +225,20 @@ impl LocalWhisperService {
         cache: WhisperEngineCache,
         model_size: &str,
         use_gpu: bool,
-        last_gpu_error: Option<Arc<Mutex<Option<String>>>>,
+        last_gpu_error: Arc<Mutex<Option<String>>>,
         num_threads: usize,
     ) -> Result<Self, TranscriptionError> {
         let model_manager = ModelManager::new().map_err(TranscriptionError::Model)?;
         let engine = if use_gpu {
-            "Whisper.cpp (GPU)"
+            crate::engines::ModelEngine::WhisperGpu
         } else {
-            "Whisper.cpp"
+            crate::engines::ModelEngine::WhisperCpu
         };
         let model = ModelManager::find_model(engine, model_size).ok_or_else(|| {
             TranscriptionError::Model(format!(
                 "Model {} not found for engine {}",
-                model_size, engine
+                model_size,
+                engine.name()
             ))
         })?;
         let model_path = model_manager.get_model_path(&model);
@@ -293,7 +294,7 @@ impl TranscriptionService for LocalWhisperService {
             model_path,
             self.model_size.clone(),
             self.use_gpu,
-            self.last_gpu_error.as_ref(),
+            Some(&self.last_gpu_error),
         )
         .await?;
 

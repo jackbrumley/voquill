@@ -34,7 +34,7 @@ pub fn revision_is_behind(config: &Config) -> bool {
 /// has nothing new to see.
 pub fn review(config: &Config, recommendation: SetupRecommendation) -> SetupReview {
     let runs_an_offered_choice = recommendation.options.iter().any(|option| {
-        option.engine == config.local_engine && option.model_size == config.local_model_size
+        option.engine.name() == config.local_engine && option.model_size == config.local_model_size
     });
     let has_something_new =
         config.transcription_mode == TranscriptionMode::Local && !runs_an_offered_choice;
@@ -56,7 +56,7 @@ mod tests {
         SetupRecommendation {
             graphics_card: None,
             options: vec![SetupOption {
-                engine: "Parakeet".to_string(),
+                engine: crate::engines::ModelEngine::ParakeetCpu,
                 model_size: "parakeet-unified-en-0.6b".to_string(),
                 title: "Works on any computer".to_string(),
                 description: String::new(),
@@ -88,7 +88,10 @@ mod tests {
     fn review_is_due_when_the_recommendation_differs() {
         let review = review(&config("Whisper.cpp", "small.en"), recommendation());
         assert!(review.due);
-        assert_eq!(review.recommended.unwrap().engine, "Parakeet");
+        assert_eq!(
+            review.recommended.unwrap().engine,
+            crate::engines::ModelEngine::ParakeetCpu
+        );
     }
 
     #[test]

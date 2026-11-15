@@ -79,6 +79,7 @@ impl PostProcessFactory {
                 }))
             }
             crate::config::post_process::PostProcessProvider::Local => {
+                let engine = config.post_process_model_engine()?;
                 let fingerprint = LocalFingerprint {
                     engine: config.post_process_engine.clone(),
                     model: config.post_process_model.clone(),
@@ -95,7 +96,7 @@ impl PostProcessFactory {
                     }
                 }
 
-                if crate::engine_factory::engine_uses_gpu(&config.post_process_engine) {
+                if engine.uses_gpu() {
                     self.gpu_tested.store(true, Ordering::SeqCst);
                 }
 
@@ -121,7 +122,7 @@ impl PostProcessFactory {
                 let generation = self.generation.load(Ordering::SeqCst);
                 let service = Arc::new(
                     SidecarPostProcess::new(
-                        &config.post_process_engine,
+                        engine,
                         &config.post_process_model,
                         &config.post_process_threads,
                         self.last_gpu_error.clone(),

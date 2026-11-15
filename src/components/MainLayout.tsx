@@ -7,16 +7,15 @@ import { HistoryPage } from '../pages/HistoryPage.tsx';
 import { UiLabPage } from '../pages/UiLabPage.tsx';
 import { TabBar } from './TabBar.tsx';
 import { appContentStyle } from '../theme/ui-primitives.ts';
-import type { Config, DictationStatus, DownloadPhase, HistoryItem, AudioDevice, EngineCapabilities, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, ModelInfo, PasteShortcut, UpdateCheckResult, AppRoute } from '../types.ts';
+import type { Config, DictationStatus, DownloadPhase, HistoryItem, AudioDevice, EngineCapabilities, GpuStatus, HotkeyBindingState, OverlayPositioningCapabilities, EngineInfo, ModelInfo, PasteShortcut, UpdateCheckResult, AppRoute } from '../types.ts';
 
 interface MainLayoutProps {
   activeRoute: AppRoute;
   config: Config;
   appVersion: string;
   dictationStatus: DictationStatus;
-  availableEngines: string[];
+  availableEngines: EngineInfo[];
   availableModels: ModelInfo[];
-  modelStatus: Record<string, boolean>;
   downloadProgress: number;
   downloadPhase: DownloadPhase;
   isDownloading: boolean;
@@ -105,7 +104,7 @@ export function MainLayout(props: MainLayoutProps) {
         {props.activeRoute === 'help' && (
           <HelpPage
             config={props.config}
-            modelStatus={props.modelStatus}
+            availableModels={props.availableModels}
             isSystemManagedShortcut={props.isSystemManagedShortcut}
           />
         )}
@@ -120,7 +119,6 @@ export function MainLayout(props: MainLayoutProps) {
             setActiveConfigSection={props.onSetActiveConfigSection}
             availableEngines={props.availableEngines}
             availableModels={props.availableModels}
-            modelStatus={props.modelStatus}
             downloadProgress={props.downloadProgress}
             downloadPhase={props.downloadPhase}
             isDownloading={props.isDownloading}

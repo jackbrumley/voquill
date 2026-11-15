@@ -10,26 +10,26 @@ pub async fn test_api_key(api_key: String, api_url: String) -> Result<bool, Stri
 }
 
 #[tauri::command]
-pub async fn get_available_engines() -> Result<Vec<String>, String> {
+pub async fn get_available_engines() -> Result<Vec<crate::engines::EngineInfo>, String> {
     Ok(model_manager::ModelManager::get_available_engines())
 }
 
+/// Every model in the catalog with whether it is downloaded, in one call.
 #[tauri::command]
-pub async fn get_available_models() -> Result<Vec<model_manager::ModelInfo>, String> {
-    Ok(model_manager::ModelManager::get_available_models())
+pub async fn get_available_models() -> Result<Vec<model_manager::AvailableModel>, String> {
+    let manager = model_manager::ModelManager::new()?;
+    Ok(model_manager::ModelManager::get_available_models()
+        .into_iter()
+        .map(|model| model_manager::AvailableModel {
+            downloaded: manager.is_model_downloaded(&model),
+            model,
+        })
+        .collect())
 }
 
 #[tauri::command]
 pub fn get_engine_capabilities(engine_name: String) -> engine_factory::EngineCapabilities {
     engine_factory::EngineFactory::engine_capabilities(&engine_name)
-}
-
-#[tauri::command]
-pub async fn check_model_status(model_size: String, engine_name: String) -> Result<bool, String> {
-    let model = model_manager::ModelManager::find_model(&engine_name, &model_size)
-        .ok_or_else(|| format!("Model {} not found for engine {}", model_size, engine_name))?;
-    let manager = model_manager::ModelManager::new().map_err(|error| error.to_string())?;
-    Ok(manager.is_model_downloaded(&model))
 }
 
 #[tauri::command]
@@ -39,7 +39,8 @@ pub async fn download_model(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let model = model_manager::ModelManager::find_model(&engine_name, &model_size)
+    let engine = crate::engines::ModelEngine::parse_required(&engine_name)?;
+    let model = model_manager::ModelManager::find_model(engine, &model_size)
         .ok_or_else(|| format!("Model {} not found for engine {}", model_size, engine_name))?;
     let manager = model_manager::ModelManager::new().map_err(|error| error.to_string())?;
 

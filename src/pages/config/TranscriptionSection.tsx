@@ -10,9 +10,10 @@ import { SelectField, type SelectOption } from '../../components/SelectField.tsx
 import { VOICE_MACRO_PAUSE_NOTE } from '../../hooks/useEngineResidency.ts';
 import { EngineSettingsFields } from '../../components/EngineSettingsFields.tsx';
 import { AdvancedSettings } from '../../components/AdvancedSettings.tsx';
-import type { Config, DownloadPhase, EngineCapabilities, GpuStatus, ModelInfo } from '../../types.ts';
+import type { Config, DownloadPhase, EngineCapabilities, GpuStatus, EngineInfo, ModelInfo } from '../../types.ts';
 import { inputBaseStyle, selectWrapperStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
+import { engineUsesGpu, enginesInCategory } from '../../models.ts';
 
 const IDLE_UNLOAD_CHOICES: readonly SelectOption[] = [
   { value: '0', label: 'Never' },
@@ -35,9 +36,8 @@ function idleUnloadOptions(currentMinutes: number): SelectOption[] {
 interface TranscriptionSectionProps {
   config: Config;
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
-  availableEngines: string[];
+  availableEngines: EngineInfo[];
   availableModels: ModelInfo[];
-  modelStatus: Record<string, boolean>;
   isDownloading: boolean;
   downloadProgress: number;
   downloadPhase: DownloadPhase;
@@ -56,7 +56,6 @@ export function TranscriptionSection({
   updateConfig,
   availableEngines,
   availableModels,
-  modelStatus,
   isDownloading,
   downloadProgress,
   downloadPhase,
@@ -106,21 +105,14 @@ export function TranscriptionSection({
             <div style={selectWrapperStyle}>
               <SelectField
                 value={config.local_engine}
-                options={availableEngines.map((engine) => ({ value: engine, label: engine }))}
-                onChange={(nextEngine) => {
-                  updateConfig('local_engine', nextEngine);
-                  const modelsForEngine = availableModels.filter((m) => m.engine === nextEngine);
-                  if (modelsForEngine.length > 0) {
-                    const recommended = modelsForEngine.find((m) => m.recommended) || modelsForEngine[0];
-                    updateConfig('local_model_size', recommended.size);
-                  }
-                }}
+                options={enginesInCategory(availableEngines, 'transcription').map((engine) => ({ value: engine.name, label: engine.name }))}
+                onChange={(nextEngine) => updateConfig('local_engine', nextEngine)}
                 ariaLabel="Local engine"
               />
             </div>
           </ConfigField>
 
-          {config.local_engine.includes('(GPU)') && gpuStatus?.tested && !gpuStatus.available && (
+          {engineUsesGpu(availableEngines, config.local_engine) && gpuStatus?.tested && !gpuStatus.available && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -144,7 +136,6 @@ export function TranscriptionSection({
               availableModels={availableModels}
               localEngine={config.local_engine}
               localModelSize={config.local_model_size}
-              modelStatus={modelStatus}
               isDownloading={isDownloading}
               downloadProgress={downloadProgress}
               downloadPhase={downloadPhase}

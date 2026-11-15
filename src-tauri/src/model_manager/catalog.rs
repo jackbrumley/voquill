@@ -3,6 +3,7 @@
 //! module.
 
 use super::{ModelInfo, ModelManager};
+use crate::engines::{EngineInfo, ModelEngine};
 
 /// One whisper.cpp model definition. Each spec is expanded into a CPU and a
 /// GPU engine variant so the two catalogs can never drift apart.
@@ -32,7 +33,7 @@ struct PostProcessModelSpec {
 
 impl ModelManager {
     /// Looks up a single model by engine name + model size.
-    pub fn find_model(engine: &str, size: &str) -> Option<ModelInfo> {
+    pub fn find_model(engine: ModelEngine, size: &str) -> Option<ModelInfo> {
         Self::get_available_models()
             .into_iter()
             .find(|m| m.engine == engine && m.size == size)
@@ -103,7 +104,7 @@ impl ModelManager {
         ]
     }
 
-    fn whisper_models(engine: &'static str, use_gpu: bool) -> Vec<ModelInfo> {
+    fn whisper_models(engine: ModelEngine) -> Vec<ModelInfo> {
         Self::whisper_model_specs()
             .into_iter()
             .map(|spec| {
@@ -114,36 +115,35 @@ impl ModelManager {
                     spec.file_size,
                     spec.download_url,
                     spec.sha256,
-                    if use_gpu {
+                    if engine.uses_gpu() {
                         spec.gpu_description
                     } else {
                         spec.cpu_description
                     },
                     spec.recommended,
-                    "transcription",
                 )
             })
             .collect()
     }
 
     fn cpu_models() -> Vec<ModelInfo> {
-        Self::whisper_models("Whisper.cpp", false)
+        Self::whisper_models(ModelEngine::WhisperCpu)
     }
 
     fn gpu_models() -> Vec<ModelInfo> {
-        Self::whisper_models("Whisper.cpp (GPU)", true)
+        Self::whisper_models(ModelEngine::WhisperGpu)
     }
 
     fn parakeet_models() -> Vec<ModelInfo> {
         vec![
-            Self::model_info("Parakeet", "parakeet-tdt-0.6b-v3", "Parakeet TDT 0.6B (Multilingual)", 680_000_000,
+            Self::model_info(ModelEngine::ParakeetCpu, "parakeet-tdt-0.6b-v3", "Parakeet TDT 0.6B (Multilingual)", 680_000_000,
                 "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
                 "",
-                "NVIDIA Parakeet model, 25 languages. Requires sherpa-onnx sidecar. Fast on CPU.", true, "transcription"),
-            Self::model_info("Parakeet", "parakeet-unified-en-0.6b", "Parakeet Unified EN 0.6B (English)", 631_000_000,
+                "NVIDIA Parakeet model, 25 languages. Requires sherpa-onnx sidecar. Fast on CPU.", true),
+            Self::model_info(ModelEngine::ParakeetCpu, "parakeet-unified-en-0.6b", "Parakeet Unified EN 0.6B (English)", 631_000_000,
                 "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming.tar.bz2",
                 "",
-                "NVIDIA Parakeet English-only model. Requires sherpa-onnx sidecar. Fast on CPU.", false, "transcription"),
+                "NVIDIA Parakeet English-only model. Requires sherpa-onnx sidecar. Fast on CPU.", false),
         ]
     }
 
@@ -152,14 +152,14 @@ impl ModelManager {
     /// NVIDIA's models are CC-BY-4.0.
     fn parakeet_gpu_models() -> Vec<ModelInfo> {
         vec![
-            Self::model_info("Parakeet (GPU)", "tdt-0.6b-v2-q8_0", "Parakeet TDT 0.6B v2 (English)", 903_835_936,
+            Self::model_info(ModelEngine::ParakeetGpu, "tdt-0.6b-v2-q8_0", "Parakeet TDT 0.6B v2 (English)", 903_835_936,
                 "https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/tdt-0.6b-v2-q8_0.gguf",
                 "2027e2e1a4dc60ccdd8558f93b15e7c0db4ef8895b4e82e889f3a6275d8119c6",
-                "NVIDIA Parakeet English model on your graphics card. Very accurate and very fast.", true, "transcription"),
-            Self::model_info("Parakeet (GPU)", "tdt-0.6b-v3-q8_0", "Parakeet TDT 0.6B v3 (Multilingual)", 940_663_680,
+                "NVIDIA Parakeet English model on your graphics card. Very accurate and very fast.", true),
+            Self::model_info(ModelEngine::ParakeetGpu, "tdt-0.6b-v3-q8_0", "Parakeet TDT 0.6B v3 (Multilingual)", 940_663_680,
                 "https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/tdt-0.6b-v3-q8_0.gguf",
                 "4d69a4a6683f4f2d952bad794c1357ca6eb628027695b4699c5a9ad4cd07d757",
-                "NVIDIA Parakeet model, 25 languages, on your graphics card. Very fast.", false, "transcription"),
+                "NVIDIA Parakeet model, 25 languages, on your graphics card. Very fast.", false),
         ]
     }
 
@@ -183,10 +183,10 @@ impl ModelManager {
     }
 
     fn post_process_models() -> Vec<ModelInfo> {
-        ["Post-Process (Local)", "Post-Process (GPU)"]
+        [ModelEngine::PostProcessCpu, ModelEngine::PostProcessGpu]
             .into_iter()
             .flat_map(|engine| {
-                let use_gpu = crate::engine_factory::engine_uses_gpu(engine);
+                let use_gpu = engine.uses_gpu();
                 Self::post_process_model_specs()
                     .into_iter()
                     .map(move |spec| {
@@ -203,7 +203,6 @@ impl ModelManager {
                                 spec.cpu_description
                             },
                             spec.recommended,
-                            "post_process",
                         )
                     })
             })
@@ -212,7 +211,7 @@ impl ModelManager {
 
     #[allow(clippy::too_many_arguments)]
     fn model_info(
-        engine: &str,
+        engine: ModelEngine,
         size: &str,
         label: &str,
         file_size: u64,
@@ -220,10 +219,9 @@ impl ModelManager {
         sha256: &str,
         description: &str,
         recommended: bool,
-        category: &str,
     ) -> ModelInfo {
         ModelInfo {
-            engine: engine.to_string(),
+            engine,
             size: size.to_string(),
             label: label.to_string(),
             file_size,
@@ -231,18 +229,18 @@ impl ModelManager {
             sha256: sha256.to_string(),
             description: description.to_string(),
             recommended,
-            category: category.to_string(),
+            category: engine.category(),
         }
     }
 
-    pub fn get_available_engines() -> Vec<String> {
-        let mut engines: Vec<String> = Self::get_available_models()
-            .iter()
-            .filter(|m| m.category == "transcription")
-            .map(|m| m.engine.clone())
-            .collect();
-        engines.sort();
-        engines.dedup();
-        engines
+    /// Every engine (transcription and post-processing) that has at least
+    /// one model.
+    pub fn get_available_engines() -> Vec<EngineInfo> {
+        let models = Self::get_available_models();
+        ModelEngine::ALL
+            .into_iter()
+            .filter(|engine| models.iter().any(|model| model.engine == *engine))
+            .map(EngineInfo::from)
+            .collect()
     }
 }

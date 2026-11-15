@@ -1,11 +1,12 @@
 mod catalog;
 
+use crate::engines::{EngineFamily, ModelCategory, ModelEngine};
 use serde::Serialize;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ModelInfo {
-    pub engine: String,
+    pub engine: ModelEngine,
     pub size: String,
     pub file_size: u64,
     pub download_url: String,
@@ -13,7 +14,16 @@ pub struct ModelInfo {
     pub label: String,
     pub description: String,
     pub recommended: bool,
-    pub category: String,
+    pub category: ModelCategory,
+}
+
+/// A catalog model with whether it is on disk, as `get_available_models`
+/// reports it.
+#[derive(Debug, Clone, Serialize)]
+pub struct AvailableModel {
+    #[serde(flatten)]
+    pub model: ModelInfo,
+    pub downloaded: bool,
 }
 
 /// The required model files for a Parakeet / sherpa-onnx model directory.
@@ -196,42 +206,36 @@ impl ModelManager {
 
     /// The on-disk path for a model, taking its engine into account.
     /// whisper.cpp models are flat files:  models/transcription/whisper/ggml-{size}.bin
-    /// Parakeet models are directories:    models/transcription/parakeet/{size}/
+    /// Parakeet (CPU) models are directories: models/transcription/parakeet/{size}/
+    /// Parakeet (GPU) models are flat files: models/transcription/parakeet-cpp/{size}.gguf
     /// Post-process models are flat files: models/post-process/llama/{size}.gguf
     pub fn get_model_path(&self, model: &ModelInfo) -> PathBuf {
-        match model.engine.as_str() {
-            e if e.contains("Whisper.cpp") => self
-                .models_dir
-                .join("transcription")
+        let transcription = self.models_dir.join("transcription");
+        match model.engine.family() {
+            EngineFamily::Whisper => transcription
                 .join("whisper")
                 .join(format!("ggml-{}.bin", model.size)),
-            "Parakeet (GPU)" => self
-                .models_dir
-                .join("transcription")
+            EngineFamily::Parakeet if model.engine.uses_gpu() => transcription
                 .join("parakeet-cpp")
                 .join(format!("{}.gguf", model.size)),
-            e if e.starts_with("Post-Process") => self
+            EngineFamily::Parakeet => {
+                let dir = transcription.join("parakeet").join(&model.size);
+                ensure_parakeet_model_flattened(&dir);
+                dir
+            }
+            EngineFamily::PostProcess => self
                 .models_dir
                 .join("post-process")
                 .join("llama")
                 .join(format!("{}.gguf", model.size)),
-            _ => {
-                let dir = self
-                    .models_dir
-                    .join("transcription")
-                    .join("parakeet")
-                    .join(&model.size);
-                ensure_parakeet_model_flattened(&dir);
-                dir
-            }
         }
     }
 
     /// Checks whether the model is present on disk. For whisper.cpp this is a
     /// single file check. For Parakeet it checks for all required ONNX files.
     pub fn is_model_downloaded(&self, model: &ModelInfo) -> bool {
-        match model.engine.as_str() {
-            "Parakeet" => {
+        match model.engine {
+            ModelEngine::ParakeetCpu => {
                 let dir = self.get_model_path(model);
                 ensure_parakeet_model_flattened(&dir);
                 PARAKEET_REQUIRED_FILES.iter().all(|f| dir.join(f).exists())
@@ -265,8 +269,8 @@ impl ModelManager {
         let mut downloaded: u64 = 0;
         let mut last_progress: f64 = -1.0;
 
-        match model.engine.as_str() {
-            "Parakeet" => {
+        match model.engine {
+            ModelEngine::ParakeetCpu => {
                 let archive_path = self.models_dir.join(format!("{}.tar.bz2", model.size));
 
                 {
@@ -341,58 +345,63 @@ mod tests {
 
     #[test]
     fn find_model_exists() {
-        let model = ModelManager::find_model("Whisper.cpp", "tiny.en");
+        let model = ModelManager::find_model(ModelEngine::WhisperCpu, "tiny.en");
         assert!(model.is_some());
-        assert_eq!(model.unwrap().engine, "Whisper.cpp");
+        assert_eq!(model.unwrap().engine, ModelEngine::WhisperCpu);
     }
 
     #[test]
     fn find_model_gpu_exists() {
-        let model = ModelManager::find_model("Whisper.cpp (GPU)", "tiny.en");
+        let model = ModelManager::find_model(ModelEngine::WhisperGpu, "tiny.en");
         assert!(model.is_some());
-        assert_eq!(model.unwrap().engine, "Whisper.cpp (GPU)");
+        assert_eq!(model.unwrap().engine, ModelEngine::WhisperGpu);
     }
 
     #[test]
     fn find_model_parakeet_exists() {
-        let model = ModelManager::find_model("Parakeet", "parakeet-tdt-0.6b-v3");
+        let model = ModelManager::find_model(ModelEngine::ParakeetCpu, "parakeet-tdt-0.6b-v3");
         assert!(model.is_some());
-        assert_eq!(model.unwrap().engine, "Parakeet");
+        assert_eq!(model.unwrap().engine, ModelEngine::ParakeetCpu);
     }
 
     #[test]
     fn find_model_not_found() {
-        let model = ModelManager::find_model("Whisper.cpp", "nonexistent-model");
+        let model = ModelManager::find_model(ModelEngine::WhisperCpu, "nonexistent-model");
         assert!(model.is_none());
     }
 
     #[test]
     fn find_model_wrong_engine() {
-        let model = ModelManager::find_model("Parakeet", "tiny.en");
+        let model = ModelManager::find_model(ModelEngine::ParakeetCpu, "tiny.en");
         assert!(model.is_none());
     }
 
     #[test]
-    fn get_available_engines_includes_all() {
+    fn get_available_engines_lists_every_engine() {
         let engines = ModelManager::get_available_engines();
-        assert!(engines.contains(&"Whisper.cpp".to_string()));
-        assert!(engines.contains(&"Whisper.cpp (GPU)".to_string()));
-        assert!(engines.contains(&"Parakeet".to_string()));
-        assert!(!engines.contains(&"Post-Process (Local)".to_string()));
+        let names: Vec<&str> = engines.iter().map(|engine| engine.name).collect();
+        assert!(names.contains(&"Whisper.cpp"));
+        assert!(names.contains(&"Whisper.cpp (GPU)"));
+        assert!(names.contains(&"Parakeet"));
+        assert!(names.contains(&"Parakeet (GPU)"));
+        assert!(names.contains(&"Post-Process (Local)"));
     }
 
     #[test]
     fn get_available_engines_no_duplicates() {
-        let engines = ModelManager::get_available_engines();
-        let mut sorted = engines.clone();
-        sorted.dedup();
-        assert_eq!(engines.len(), sorted.len());
+        let names: Vec<&str> = ModelManager::get_available_engines()
+            .iter()
+            .map(|engine| engine.name)
+            .collect();
+        let mut unique = names.clone();
+        unique.dedup();
+        assert_eq!(names.len(), unique.len());
     }
 
     #[test]
     fn get_model_path_whisper_cpp() {
         let manager = ModelManager::new().unwrap();
-        let model = ModelManager::find_model("Whisper.cpp", "tiny.en").unwrap();
+        let model = ModelManager::find_model(ModelEngine::WhisperCpu, "tiny.en").unwrap();
         let path = manager.get_model_path(&model);
         assert!(path.ends_with(
             std::path::Path::new("transcription")
@@ -404,7 +413,8 @@ mod tests {
     #[test]
     fn get_model_path_parakeet() {
         let manager = ModelManager::new().unwrap();
-        let model = ModelManager::find_model("Parakeet", "parakeet-tdt-0.6b-v3").unwrap();
+        let model =
+            ModelManager::find_model(ModelEngine::ParakeetCpu, "parakeet-tdt-0.6b-v3").unwrap();
         let path = manager.get_model_path(&model);
         assert!(path.ends_with(
             std::path::Path::new("transcription")
@@ -416,17 +426,18 @@ mod tests {
     #[test]
     fn is_model_downloaded_returns_false_for_nonexistent() {
         let manager = ModelManager::new().unwrap();
-        let model = ModelManager::find_model("Whisper.cpp", "nonexistent").unwrap_or(ModelInfo {
-            engine: "Whisper.cpp".to_string(),
-            size: "__test_nonexistent__".to_string(),
-            file_size: 0,
-            download_url: String::new(),
-            sha256: String::new(),
-            label: String::new(),
-            description: String::new(),
-            recommended: false,
-            category: "transcription".to_string(),
-        });
+        let model =
+            ModelManager::find_model(ModelEngine::WhisperCpu, "nonexistent").unwrap_or(ModelInfo {
+                engine: ModelEngine::WhisperCpu,
+                size: "__test_nonexistent__".to_string(),
+                file_size: 0,
+                download_url: String::new(),
+                sha256: String::new(),
+                label: String::new(),
+                description: String::new(),
+                recommended: false,
+                category: ModelCategory::Transcription,
+            });
         assert!(!manager.is_model_downloaded(&model));
     }
 
@@ -435,7 +446,6 @@ mod tests {
         let models = ModelManager::get_available_models();
         assert!(!models.is_empty());
         for model in &models {
-            assert!(!model.engine.is_empty());
             assert!(!model.size.is_empty());
             assert!(!model.label.is_empty());
             assert!(!model.download_url.is_empty());

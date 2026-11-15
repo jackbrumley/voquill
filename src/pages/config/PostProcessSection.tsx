@@ -8,7 +8,8 @@ import { NumberField } from '../../components/NumberField.tsx';
 import { ModelSelectionPanel } from '../../components/ModelSelectionPanel.tsx';
 import { SelectField } from '../../components/SelectField.tsx';
 import { AdvancedSettings } from '../../components/AdvancedSettings.tsx';
-import type { Config, DownloadPhase, GpuStatus, ModelInfo } from '../../types.ts';
+import type { Config, DownloadPhase, EngineInfo, GpuStatus, ModelInfo } from '../../types.ts';
+import { engineUsesGpu, enginesInCategory } from '../../models.ts';
 import { inputBaseStyle, selectWrapperStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
 
@@ -35,8 +36,8 @@ const configGhostPillStyle = {
 interface PostProcessSectionProps {
   config: Config;
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
+  availableEngines: EngineInfo[];
   availableModels: ModelInfo[];
-  modelStatus: Record<string, boolean>;
   isDownloading: boolean;
   downloadProgress: number;
   downloadPhase: DownloadPhase;
@@ -50,8 +51,8 @@ interface PostProcessSectionProps {
 export function PostProcessSection({
   config,
   updateConfig,
+  availableEngines,
   availableModels,
-  modelStatus,
   isDownloading,
   downloadProgress,
   downloadPhase,
@@ -62,6 +63,7 @@ export function PostProcessSection({
   setShowPostProcessGuide,
 }: PostProcessSectionProps) {
   const promptNameInput = useSignal('');
+  const usesGpu = engineUsesGpu(availableEngines, config.post_process_engine);
 
   return (
     <>
@@ -113,17 +115,17 @@ export function PostProcessSection({
                 <div style={selectWrapperStyle}>
                   <SelectField
                     value={config.post_process_engine}
-                    options={[
-                      { value: 'Post-Process (Local)', label: 'CPU' },
-                      { value: 'Post-Process (GPU)', label: 'GPU (Vulkan)' },
-                    ]}
+                    options={enginesInCategory(availableEngines, 'post_process').map((engine) => ({
+                      value: engine.name,
+                      label: engine.uses_gpu ? 'GPU (Vulkan)' : 'CPU',
+                    }))}
                     onChange={(nextEngine) => updateConfig('post_process_engine', nextEngine)}
                     ariaLabel="Post-process engine"
                   />
                 </div>
               </ConfigField>
 
-              {config.post_process_engine.includes('(GPU)') && postProcessGpuStatus?.tested && !postProcessGpuStatus.available && (
+              {usesGpu && postProcessGpuStatus?.tested && !postProcessGpuStatus.available && (
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -147,7 +149,6 @@ export function PostProcessSection({
                   availableModels={(availableModels || []).filter((m) => m.engine === config.post_process_engine)}
                   localEngine={config.post_process_engine}
                   localModelSize={config.post_process_model}
-                  modelStatus={modelStatus}
                   isDownloading={isDownloading}
                   downloadProgress={downloadProgress}
                   downloadPhase={downloadPhase}
@@ -265,7 +266,7 @@ export function PostProcessSection({
                 />
               </ConfigField>
             )}
-            {config.post_process_provider === 'Local' && !config.post_process_engine.includes('(GPU)') && (
+            {config.post_process_provider === 'Local' && !usesGpu && (
               <ConfigField
                 label="CPU Cores"
                 description="How many processor cores Voquill uses to clean up text. Auto suits most computers."

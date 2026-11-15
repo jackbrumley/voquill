@@ -221,6 +221,17 @@ impl Config {
         }
     }
 
+    /// The configured transcription engine. Settings store its name; an
+    /// unknown name is an error here rather than an unreadable settings file.
+    pub fn transcription_engine(&self) -> Result<crate::engines::ModelEngine, String> {
+        crate::engines::ModelEngine::parse_required(&self.local_engine)
+    }
+
+    /// The configured local post-processing engine.
+    pub fn post_process_model_engine(&self) -> Result<crate::engines::ModelEngine, String> {
+        crate::engines::ModelEngine::parse_required(&self.post_process_engine)
+    }
+
     pub fn normalize(&mut self) {
         self.normalize_input_sensitivity();
         self.diarization_cluster_threshold = self.diarization_cluster_threshold.clamp(

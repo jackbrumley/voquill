@@ -1,6 +1,6 @@
 import { IconChevronLeft } from '@tabler/icons-preact';
 import { useSignal } from '@preact/signals';
-import type { DownloadPhase, GpuStatus, EngineCapabilities, Config, AudioDevice, ModelInfo, PasteShortcut } from '../types.ts';
+import type { DownloadPhase, GpuStatus, EngineCapabilities, Config, AudioDevice, EngineInfo, ModelInfo, PasteShortcut } from '../types.ts';
 import { tokens } from '../design-tokens.ts';
 import { GeneralSection } from './config/GeneralSection.tsx';
 import { AudioSection } from './config/AudioSection.tsx';
@@ -15,9 +15,8 @@ interface ConfigPageProps {
   config: Config;
   activeConfigSection: string | null;
   setActiveConfigSection: (value: string | null) => void;
-  availableEngines: string[];
+  availableEngines: EngineInfo[];
   availableModels: ModelInfo[];
-  modelStatus: Record<string, boolean>;
   downloadProgress: number;
   downloadPhase: DownloadPhase;
   isDownloading: boolean;
@@ -92,7 +91,6 @@ export function ConfigPage(props: ConfigPageProps) {
     setActiveConfigSection,
     availableEngines,
     availableModels,
-    modelStatus,
     downloadProgress,
     downloadPhase,
     isDownloading,
@@ -247,7 +245,6 @@ export function ConfigPage(props: ConfigPageProps) {
                 updateConfig={updateConfig}
                 availableEngines={availableEngines}
                 availableModels={availableModels}
-                modelStatus={modelStatus}
                 isDownloading={isDownloading}
                 downloadProgress={downloadProgress}
                 downloadPhase={downloadPhase}
@@ -273,8 +270,8 @@ export function ConfigPage(props: ConfigPageProps) {
               <PostProcessSection
                 config={config}
                 updateConfig={updateConfig}
+                availableEngines={availableEngines}
                 availableModels={availableModels}
-                modelStatus={modelStatus}
                 isDownloading={isDownloading}
                 downloadProgress={downloadProgress}
                 downloadPhase={downloadPhase}

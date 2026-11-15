@@ -1,3 +1,4 @@
+import { isModelDownloaded } from './models.ts';
 import type { AudioDevice, Config, PlatformPermissions, ModelInfo } from './types.ts';
 
 /// Placeholder written by `persistConfig` whenever the API key field is
@@ -26,12 +27,11 @@ export interface ReadinessInputs {
   availableMics: AudioDevice[];
   config: Config;
   availableModels: ModelInfo[];
-  modelStatus: Record<string, boolean>;
 }
 
 /// Pure derivation, computed fresh during render from live probe state.
 export function computeReadiness(inputs: ReadinessInputs): ReadinessStatus {
-  const { permissions, hotkeyError, availableMics, config, availableModels, modelStatus } = inputs;
+  const { permissions, hotkeyError, availableMics, config, availableModels } = inputs;
 
   const isPermissionsReady = !!permissions
     && permissions.audio
@@ -52,18 +52,14 @@ export function computeReadiness(inputs: ReadinessInputs): ReadinessStatus {
   // The (engine, model) pairing must exist in the catalog AND be downloaded,
   // so a stale pairing (e.g. engine switched without a matching model) gates.
   const isTranscriptionReady = config.transcription_mode === 'Local'
-    ? availableModels.some(
-        (model) => model.engine === config.local_engine
-          && model.size === config.local_model_size
-          && !!modelStatus[model.size],
-      )
+    ? isModelDownloaded(availableModels, config.local_engine, config.local_model_size)
     : config.openai_api_key.trim().length > 0 && config.openai_api_key !== API_KEY_PLACEHOLDER;
 
   const isHotkeyReady = hotkeyError === null;
 
   const postProcessModelMissing = config.post_process_enabled
     && config.post_process_provider === 'Local'
-    && !modelStatus[config.post_process_model];
+    && !isModelDownloaded(availableModels, config.post_process_engine, config.post_process_model);
 
   return {
     isPermissionsReady,
