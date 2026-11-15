@@ -115,6 +115,10 @@ export function GeneralSection({
       </ConfigField>
 
       <AdvancedSettings>
+        <ConfigField label="History Size" description="How many past dictations the History tab keeps. The oldest are removed first. 0 keeps everything.">
+          <NumberField value={config.history_limit} onChange={(value) => updateConfig('history_limit', value)} min={0} max={10000} />
+        </ConfigField>
+
         <ConfigField label="Status Overlay Position (px)" description="Vertical offset for the status overlay from the bottom of the screen.">
           <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs, width: '100%' }}>
             <NumberField

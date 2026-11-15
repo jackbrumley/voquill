@@ -3,7 +3,6 @@ import { confirm } from '@tauri-apps/plugin-dialog';
 import { ConfigField } from '../../components/ConfigField.tsx';
 import { Switch } from '../../components/Switch.tsx';
 import { Button } from '../../components/Button.tsx';
-import { NumberField } from '../../components/NumberField.tsx';
 import { SelectField } from '../../components/SelectField.tsx';
 import type { Config } from '../../types.ts';
 import { useDiagnostics } from '../../hooks/useDiagnostics.ts';
@@ -132,10 +131,6 @@ export function DebugSection({
             </Button>
           </div>
         </div>
-      </ConfigField>
-
-      <ConfigField label="History Limit" description="Maximum number of history entries to keep. Oldest entries are automatically pruned when the limit is exceeded. 0 = unlimited.">
-        <NumberField value={config.history_limit} onChange={(value) => updateConfig('history_limit', value)} min={0} max={10000} />
       </ConfigField>
 
       <ConfigField label="Initial Setup" description="Re-open onboarding checks for permissions, model, and hotkey setup.">
