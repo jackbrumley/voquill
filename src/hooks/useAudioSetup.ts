@@ -1,6 +1,6 @@
 import { useComputed, useSignal, type ReadonlySignal } from '@preact/signals';
 import { invoke } from '@tauri-apps/api/core';
-import type { AudioDevice, PlatformPermissions, HotkeyBindingState, MicVolumePayload } from '../types.ts';
+import type { AudioDevice, PlatformPermissions, HotkeyBindingState, MicVolumePayload, MicTestPlaybackPayload } from '../types.ts';
 
 interface UseAudioSetupReturn {
   permissions: PlatformPermissions | null;
@@ -10,6 +10,8 @@ interface UseAudioSetupReturn {
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   isMicTriggered: boolean;
+  /// From the last mic test: the backend found the microphone too quiet.
+  isMicTooQuiet: boolean;
   hasLoadedSetupStatus: boolean;
   /// Signal (not a plain value) so routing effects re-run when the backend
   /// finishes resuming the input emulation portal session.
@@ -26,6 +28,7 @@ interface UseAudioSetupReturn {
   checkSetupStatus: () => Promise<{ perms: PlatformPermissions; bindingState: HotkeyBindingState } | undefined>;
   setMicTestStatus: (status: 'idle' | 'recording' | 'playing' | 'processing') => void;
   setMicVolume: (payload: MicVolumePayload | number) => void;
+  showMicTestPlayback: (payload: MicTestPlaybackPayload) => void;
 }
 
 export function useAudioSetup(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseAudioSetupReturn {
@@ -36,6 +39,7 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
   const micTestStatus = useSignal<'idle' | 'recording' | 'playing' | 'processing'>('idle');
   const micVolume = useSignal<number>(0);
   const isMicTriggered = useSignal<boolean>(false);
+  const isMicTooQuiet = useSignal<boolean>(false);
   const hasLoadedSetupStatus = useSignal(false);
   const isInputSessionRestoring = useComputed(() => permissions.value?.input_emulation_restoring ?? false);
   const hasLoadedMics = useSignal(false);
@@ -106,6 +110,7 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
   const startMicTest = async () => {
     try {
       micTestStatus.value = 'recording';
+      isMicTooQuiet.value = false;
       await invoke('start_mic_test');
     } catch (error) {
       micTestStatus.value = 'idle';
@@ -144,6 +149,7 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
     micTestStatus: micTestStatus.value,
     micVolume: micVolume.value,
     isMicTriggered: isMicTriggered.value,
+    isMicTooQuiet: isMicTooQuiet.value,
     hasLoadedSetupStatus: hasLoadedSetupStatus.value,
     isInputSessionRestoring,
     hasLoadedMics: hasLoadedMics.value,
@@ -156,6 +162,12 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
     handleAudioSetup,
     handleInputSetup,
     checkSetupStatus,
+    showMicTestPlayback: (payload) => {
+      micTestStatus.value = 'playing';
+      isMicTriggered.value = false;
+      micVolume.value = 0;
+      isMicTooQuiet.value = payload.is_too_quiet;
+    },
     setMicTestStatus: (status) => {
       micTestStatus.value = status;
       if (status !== 'recording') {

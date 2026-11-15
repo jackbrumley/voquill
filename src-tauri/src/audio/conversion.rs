@@ -30,65 +30,6 @@ fn is_wav_file(data: &[u8]) -> bool {
     data.len() >= 12 && &data[0..4] == b"RIFF" && &data[8..12] == b"WAVE"
 }
 
-fn normalize_audio(samples: &[f32]) -> Vec<f32> {
-    if samples.is_empty() {
-        return samples.to_vec();
-    }
-
-    let peak = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    if peak < f32::EPSILON {
-        return samples.to_vec();
-    }
-
-    let mut sorted_abs: Vec<f32> = samples.iter().map(|s| s.abs()).collect();
-    sorted_abs.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let p99_5_idx = (sorted_abs.len() as f64 * 0.995).round() as usize;
-    let p99_5_peak = sorted_abs[p99_5_idx.min(sorted_abs.len() - 1)];
-
-    let active_samples: Vec<&f32> = samples.iter().filter(|&&s| s.abs() > 0.02).collect();
-    let active_rms = if active_samples.is_empty() {
-        return samples.to_vec();
-    } else {
-        let sum_sq: f32 = active_samples.iter().map(|&&s| s * s).sum();
-        (sum_sq / active_samples.len() as f32).sqrt()
-    };
-
-    const TARGET_RMS: f32 = 0.18;
-    const MAX_GAIN: f32 = 10.0;
-
-    let rms_gain = TARGET_RMS / active_rms;
-    let safety_gain = 1.0 / p99_5_peak;
-    let gain = rms_gain.min(safety_gain).min(MAX_GAIN);
-
-    if (gain - 1.0).abs() < f32::EPSILON {
-        return samples.to_vec();
-    }
-
-    crate::log_info!(
-        "Normalizing audio: peak={:.4}, p99.5={:.4}, active_rms={:.4}, gain={:.2}",
-        peak,
-        p99_5_peak,
-        active_rms,
-        gain,
-    );
-
-    let limit_threshold = 0.95f32;
-    samples
-        .iter()
-        .map(|&s| {
-            let scaled = s * gain;
-            let abs = scaled.abs();
-            if abs > limit_threshold {
-                let over = (abs - limit_threshold) / (1.0 - limit_threshold);
-                let limited = limit_threshold + (1.0 - limit_threshold) * (over / (over + 1.0));
-                scaled.signum() * limited
-            } else {
-                scaled
-            }
-        })
-        .collect()
-}
-
 fn downmix_to_mono(samples: &[f32], channels: usize) -> Vec<f32> {
     if channels <= 1 {
         return samples.to_vec();
@@ -286,22 +227,23 @@ pub fn finalize_captured_audio_for_whisper(
         samples.to_vec()
     };
 
-    let trimmed = trim_leading_silence(&resampled, 16000);
-    let normalized = normalize_audio(&trimmed);
-    let peak = normalized.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    let rms = if normalized.is_empty() {
+    // Level first, so a quiet microphone's speech onset is still found.
+    let (leveled, _) = super::level::normalize(&resampled, 16000);
+    let prepared = trim_leading_silence(&leveled, 16000);
+    let peak = prepared.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+    let rms = if prepared.is_empty() {
         0.0
     } else {
-        (normalized.iter().map(|s| s * s).sum::<f32>() / normalized.len() as f32).sqrt()
+        (prepared.iter().map(|s| s * s).sum::<f32>() / prepared.len() as f32).sqrt()
     };
     crate::log_info!(
         "Output audio: {} samples ({:.1}s at 16kHz), peak={:.4}, rms={:.6}",
-        normalized.len(),
-        normalized.len() as f64 / 16000.0,
+        prepared.len(),
+        prepared.len() as f64 / 16000.0,
         peak,
         rms,
     );
-    let samples_i16: Vec<i16> = normalized
+    let samples_i16: Vec<i16> = prepared
         .iter()
         .map(|&sample| float_to_i16(sample))
         .collect();

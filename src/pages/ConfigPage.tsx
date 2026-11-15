@@ -30,6 +30,7 @@ interface ConfigPageProps {
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   isMicTriggered?: boolean;
+  isMicTooQuiet: boolean;
   overlayPositioningCapabilities: { manual_offset_supported: boolean; detail?: string };
   supportedPasteShortcuts: PasteShortcut[] | null;
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
@@ -104,6 +105,7 @@ export function ConfigPage(props: ConfigPageProps) {
     micTestStatus,
     micVolume,
     isMicTriggered,
+    isMicTooQuiet,
     overlayPositioningCapabilities,
     supportedPasteShortcuts,
     updateConfig,
@@ -235,6 +237,7 @@ export function ConfigPage(props: ConfigPageProps) {
                 micTestStatus={micTestStatus}
                 micVolume={micVolume}
                 isMicTriggered={isMicTriggered}
+                isMicTooQuiet={isMicTooQuiet}
                 startMicTest={startMicTest}
                 stopMicTest={stopMicTest}
                 stopMicPlayback={stopMicPlayback}

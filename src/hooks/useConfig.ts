@@ -140,23 +140,16 @@ export function useConfig(showToast: (message: string, type: 'success' | 'error'
   };
 
   const updateConfig = (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => {
-    const normalizedValue = key === 'input_sensitivity'
+    // The backend clamps input sensitivity when it saves (Config::normalize).
+    const normalizedValue = key === 'diarization_cluster_threshold'
       ? (() => {
           const parsedValue = Number(value);
           if (!Number.isFinite(parsedValue)) {
-            return 1.0;
+            return 0.7;
           }
-          return Math.min(2.0, Math.max(0.1, parsedValue));
+          return Math.min(0.95, Math.max(0.3, parsedValue));
         })()
-      : key === 'diarization_cluster_threshold'
-        ? (() => {
-            const parsedValue = Number(value);
-            if (!Number.isFinite(parsedValue)) {
-              return 0.7;
-            }
-            return Math.min(0.95, Math.max(0.3, parsedValue));
-          })()
-        : value;
+      : value;
     const nextConfig = { ...config.value, [key]: normalizedValue } as Config;
     if (key === 'local_engine') {
       nextConfig.local_model_size = validModelSizeForEngine(

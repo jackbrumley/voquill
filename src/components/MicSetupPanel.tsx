@@ -10,6 +10,8 @@ interface MicSetupPanelProps {
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   isMicTriggered?: boolean;
+  /// The backend found the microphone too quiet in the last test.
+  isMicTooQuiet: boolean;
   onStartMicTest: () => void;
   onStopMicTest: () => void;
   onStopMicPlayback: () => void;
@@ -25,6 +27,7 @@ export function MicSetupPanel({
   micTestStatus,
   micVolume,
   isMicTriggered = false,
+  isMicTooQuiet,
   onStartMicTest,
   onStopMicTest,
   onStopMicPlayback,
@@ -48,7 +51,7 @@ export function MicSetupPanel({
       <SliderField
         value={inputSensitivity}
         min={0.1}
-        max={2.0}
+        max={4.0}
         step={0.05}
         formatEndLabel={(v) => `${Math.round(v * 100)}%`}
         onChange={onInputSensitivityChange}
@@ -186,6 +189,12 @@ export function MicSetupPanel({
                 ? 'Stop Playback'
                 : 'Processing...'}
         </Button>
+
+        {isMicTooQuiet && micTestStatus !== 'recording' && (
+          <div role="status" style={{ fontSize: tokens.typography.sizeXs, color: '#f1c40f', textAlign: 'center' }}>
+            Your microphone is very quiet. Turn up its volume or gain in your system sound settings, or raise Mic Sensitivity.
+          </div>
+        )}
       </div>
     </div>
   );

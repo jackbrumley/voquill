@@ -175,6 +175,12 @@ export interface AudioDevice {
   is_system_default: boolean;
 }
 
+/// Sent by the backend as mic test playback starts.
+export interface MicTestPlaybackPayload {
+  /// The backend found the microphone too quiet even after boosting it.
+  is_too_quiet: boolean;
+}
+
 export interface MicVolumePayload {
   volume: number;
   is_triggered: boolean;

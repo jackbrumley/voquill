@@ -30,6 +30,7 @@ interface MainLayoutProps {
   micTestStatus: 'playing' | 'idle' | 'recording' | 'processing';
   micVolume: number;
   isMicTriggered?: boolean;
+  isMicTooQuiet: boolean;
   overlayPositioningCapabilities: OverlayPositioningCapabilities;
   supportedPasteShortcuts: PasteShortcut[] | null;
   checkingUpdates: boolean;
@@ -132,6 +133,7 @@ export function MainLayout(props: MainLayoutProps) {
             micTestStatus={props.micTestStatus}
             micVolume={props.micVolume}
             isMicTriggered={props.isMicTriggered}
+            isMicTooQuiet={props.isMicTooQuiet}
             overlayPositioningCapabilities={props.overlayPositioningCapabilities}
             supportedPasteShortcuts={props.supportedPasteShortcuts}
             updateConfig={props.onUpdateConfig}

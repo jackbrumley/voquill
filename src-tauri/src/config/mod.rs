@@ -10,7 +10,7 @@ pub mod storage;
 pub mod voice_macro;
 
 pub const INPUT_SENSITIVITY_MIN: f32 = 0.1;
-pub const INPUT_SENSITIVITY_MAX: f32 = 2.0;
+pub const INPUT_SENSITIVITY_MAX: f32 = 4.0;
 pub const MAX_RECORDING_DURATION_MINUTES_MIN: u64 = 1;
 pub const MAX_RECORDING_DURATION_MINUTES_MAX: u64 = 180;
 /// Longest allowed idle time before the speech engine unloads (one day).

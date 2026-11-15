@@ -16,6 +16,7 @@ interface MicrophoneStepProps {
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   isMicTriggered?: boolean;
+  isMicTooQuiet: boolean;
   onChangeConfig: (key: string, value: string | number | boolean | null) => void;
   onLoadMics: () => void;
   onStartMicTest: () => void;
@@ -90,6 +91,7 @@ export function MicrophoneStep(props: MicrophoneStepProps) {
           micTestStatus={props.micTestStatus}
           micVolume={props.micVolume}
           isMicTriggered={props.isMicTriggered}
+          isMicTooQuiet={props.isMicTooQuiet}
           onStartMicTest={props.onStartMicTest}
           onStopMicTest={props.onStopMicTest}
           onStopMicPlayback={props.onStopMicPlayback}

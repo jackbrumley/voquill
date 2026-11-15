@@ -27,6 +27,7 @@ interface AudioSectionProps {
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   isMicTriggered?: boolean;
+  isMicTooQuiet: boolean;
   startMicTest: () => void;
   stopMicTest: () => void;
   stopMicPlayback: () => void;
@@ -42,6 +43,7 @@ export function AudioSection({
   micTestStatus,
   micVolume,
   isMicTriggered,
+  isMicTooQuiet,
   startMicTest,
   stopMicTest,
   stopMicPlayback,
@@ -142,6 +144,7 @@ export function AudioSection({
           micTestStatus={micTestStatus}
           micVolume={micVolume}
           isMicTriggered={isMicTriggered}
+          isMicTooQuiet={isMicTooQuiet}
           onStartMicTest={startMicTest}
           onStopMicTest={stopMicTest}
           onStopMicPlayback={stopMicPlayback}

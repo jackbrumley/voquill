@@ -1,7 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { useSignal } from '@preact/signals';
 import { listen } from '@tauri-apps/api/event';
-import { HotkeyBindingState, ModelDownloadProgress, StatusUpdatePayload, MicVolumePayload } from '../types.ts';
+import { HotkeyBindingState, ModelDownloadProgress, StatusUpdatePayload, MicVolumePayload, MicTestPlaybackPayload } from '../types.ts';
 
 interface UseTauriEventsOptions {
   onSetupStatus: (payload: string) => void;
@@ -9,7 +9,7 @@ interface UseTauriEventsOptions {
   onHistoryUpdated: () => void;
   onConfigUpdated: () => void;
   onHotkeyBindingState: (payload: HotkeyBindingState) => void;
-  onMicTestStarted: () => void;
+  onMicTestStarted: (payload: MicTestPlaybackPayload) => void;
   onMicTestFinished: () => void;
   onMicVolume: (payload: MicVolumePayload | number) => void;
   onDownloadProgress: (progress: ModelDownloadProgress) => void;
@@ -41,8 +41,8 @@ export function useTauriEvents(options: UseTauriEventsOptions) {
     const unlistenHotkeyBindingState = listen<HotkeyBindingState>('hotkey-binding-state', (event) => {
       latest.value.onHotkeyBindingState(event.payload);
     });
-    const unlistenMicTestStarted = listen('mic-test-playback-started', () => {
-      latest.value.onMicTestStarted();
+    const unlistenMicTestStarted = listen<MicTestPlaybackPayload>('mic-test-playback-started', (event) => {
+      latest.value.onMicTestStarted(event.payload);
     });
     const unlistenMicTestFinished = listen('mic-test-playback-finished', () => {
       latest.value.onMicTestFinished();

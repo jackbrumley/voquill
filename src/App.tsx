@@ -167,7 +167,7 @@ function App() {
     onHistoryUpdated: () => { historyHook.loadHistory(); },
     onConfigUpdated: () => { configHook.loadConfig(); },
     onHotkeyBindingState: hotkeySetup.setHotkeyBindingState,
-    onMicTestStarted: () => { audioSetup.setMicTestStatus('playing'); },
+    onMicTestStarted: (payload) => { audioSetup.showMicTestPlayback(payload); },
     onMicTestFinished: () => {
       audioSetup.setMicTestStatus('idle');
       audioSetup.setMicVolume(0);
@@ -243,6 +243,7 @@ function App() {
             micTestStatus={audioSetup.micTestStatus}
             micVolume={audioSetup.micVolume}
             isMicTriggered={audioSetup.isMicTriggered}
+            isMicTooQuiet={audioSetup.isMicTooQuiet}
             gpuStatus={gpuHook.gpuStatus}
             isTestingEngine={gpuHook.isTestingEngine}
             isTestingApi={isTestingApi}
@@ -305,6 +306,7 @@ function App() {
           micTestStatus={audioSetup.micTestStatus}
           micVolume={audioSetup.micVolume}
           isMicTriggered={audioSetup.isMicTriggered}
+            isMicTooQuiet={audioSetup.isMicTooQuiet}
           overlayPositioningCapabilities={hotkeySetup.overlayPositioningCapabilities}
           supportedPasteShortcuts={inputCapabilities?.paste_shortcuts ?? null}
           checkingUpdates={updatesHook.checkingUpdates}

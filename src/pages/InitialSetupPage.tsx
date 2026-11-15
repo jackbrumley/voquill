@@ -31,6 +31,7 @@ interface InitialSetupPageProps {
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   isMicTriggered?: boolean;
+  isMicTooQuiet: boolean;
   gpuStatus: GpuStatus | null;
   isTestingEngine: boolean;
   isTestingApi: boolean;
@@ -156,6 +157,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               micTestStatus={props.micTestStatus}
               micVolume={props.micVolume}
               isMicTriggered={props.isMicTriggered}
+              isMicTooQuiet={props.isMicTooQuiet}
               onChangeConfig={props.onChangeConfig}
               onLoadMics={props.onLoadMics}
               onStartMicTest={props.onStartMicTest}
