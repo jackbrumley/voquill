@@ -305,10 +305,13 @@ mod tests {
 
     #[test]
     fn picks_the_discrete_card_with_the_most_memory() {
+        // The integrated device has less memory than the best discrete card,
+        // so the result is the same where integrated graphics count (Apple
+        // Silicon) and where they don't.
         let devices = [
             device(GraphicsKind::Discrete, 8),
             device(GraphicsKind::Discrete, 20),
-            device(GraphicsKind::Integrated, 32),
+            device(GraphicsKind::Integrated, 16),
         ];
         let card = suitable_graphics_card(&devices).unwrap();
         assert_eq!(card.total_memory_bytes, 20 * GIGABYTE);
