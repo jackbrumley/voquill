@@ -8,6 +8,7 @@ pub mod playback;
 #[cfg(target_os = "linux")]
 mod pulse_server;
 pub mod recording;
+pub mod speech_segmenter;
 pub mod vad;
 
 pub use conversion::{convert_audio_file_for_whisper, extract_segment_wav};

@@ -86,19 +86,17 @@ where
     let (data_tx, data_rx) = mpsc::channel::<Vec<f32>>();
     std::thread::spawn(move || {
         let mut samples = Vec::new();
-        let mut vad = super::vad::VoiceActivityDetector::new();
-        let frame_size = (sample_rate as f32 * 0.03) as usize; // 30ms frame
-        let mut frame = Vec::with_capacity(frame_size);
+        // The same segmenter as the voice macro listener, so the meter's
+        // "triggered" light means exactly what the listener would hear.
+        let mut segmenter = super::speech_segmenter::SpeechSegmenter::new(sample_rate);
 
         while let Ok(s) = rx.recv() {
-            frame.push(s);
-            if frame.len() >= frame_size {
-                let vad_res = vad.process_frame(&frame, threshold);
+            if let Some(frame) = segmenter.push_sample(s) {
+                let level = segmenter.process_frame(&frame, threshold).level;
                 on_volume(super::vad::MicVolumePayload {
-                    volume: vad_res.smoothed_rms,
-                    is_triggered: vad_res.is_speaking,
+                    volume: level.smoothed_rms,
+                    is_triggered: level.is_speaking,
                 });
-                frame.clear();
             }
             samples.push(s);
         }

@@ -13,6 +13,8 @@ export interface SpokenMacroTestResult {
   matched: boolean;
   matched_phrase?: string | null;
   matched_command?: VoiceMacroCommand | null;
+  /** Length of the phrase the listener would have heard; 0 if none. */
+  heard_seconds: number;
 }
 
 interface SpokenMacroTesterProps {
@@ -123,6 +125,11 @@ export function SpokenMacroTester({ showToast }: SpokenMacroTesterProps) {
             <strong style={{ color: tokens.colors.textPrimary }}>Voquill Heard:</strong>{' '}
             <em>"{testResult.value.transcript || '(silence)'}"</em>
           </div>
+          {testResult.value.heard_seconds > 0 && (
+            <div style={{ fontSize: '11px', color: tokens.colors.textMuted }}>
+              Played back the {testResult.value.heard_seconds.toFixed(1)}s clip voice macros received, cut where your activation threshold cuts it.
+            </div>
+          )}
 
           {steps.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>

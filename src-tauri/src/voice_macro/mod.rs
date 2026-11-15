@@ -1,5 +1,6 @@
 pub mod executor;
 pub mod matcher;
+pub mod recognition;
 pub mod sound;
 
 pub use executor::{execute_macro_command, execute_macro_steps};
@@ -13,14 +14,12 @@ pub use sound::{
     save_macro_mic_recording,
 };
 
-use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 
 use crate::app::state::SessionState;
-use crate::audio::conversion::finalize_captured_audio_for_whisper;
 use crate::config::TranscriptionMode;
 use crate::engine_residency::EngineResidency;
 use crate::AppState;
@@ -79,9 +78,7 @@ pub fn sync_voice_macro_listener(app_handle: &AppHandle) {
 }
 
 struct SpeechChunk {
-    samples: Vec<f32>,
-    duration_secs: f32,
-    peak_rms: f32,
+    phrase: crate::audio::speech_segmenter::SpeechPhrase,
     detected_at: Instant,
 }
 
@@ -127,119 +124,51 @@ async fn run_voice_macro_listener_loop(
     let app_handle_for_vad = app_handle.clone();
 
     std::thread::spawn(move || {
-        let frame_size = (sample_rate as f32 * 0.03) as usize; // 30ms window
-        let pre_roll_frames = 7; // ~210ms pre-roll to catch speech onset
-        let mut pre_roll_buffer: VecDeque<Vec<f32>> = VecDeque::with_capacity(pre_roll_frames);
-        let mut frame_buffer = Vec::with_capacity(frame_size);
-        let mut speech_buffer = Vec::with_capacity(sample_rate as usize * 4);
-        let mut vad = crate::audio::vad::VoiceActivityDetector::new();
-        let mut max_rms_in_phrase = 0.0f32;
-        let max_speech_samples = (sample_rate as f32 * 4.0) as usize; // max 4.0s
-        let min_speech_samples = (sample_rate as f32 * 0.30) as usize; // min 0.30s
-
+        let mut segmenter = crate::audio::speech_segmenter::SpeechSegmenter::new(sample_rate);
         while is_running_drain.load(Ordering::Relaxed) {
-            match audio_rx.recv_timeout(Duration::from_millis(30)) {
-                Ok(sample) => {
-                    frame_buffer.push(sample);
-                    if frame_buffer.len() >= frame_size {
-                        let (open_threshold, may_listen) = {
-                            let state = app_handle_for_vad.state::<AppState>();
-                            let may_listen = listening_allowed(&state);
-                            let threshold = state
-                                .config
-                                .lock()
-                                .unwrap()
-                                .voice_macro_activation_threshold;
-                            (threshold, may_listen)
-                        };
-
-                        if !may_listen {
-                            // Paused (dictation running, setup incomplete or
-                            // engine asleep): reset buffers so no speech
-                            // builds macro chunks
-                            if !speech_buffer.is_empty() || vad.is_speaking {
-                                vad.reset();
-                                speech_buffer.clear();
-                                max_rms_in_phrase = 0.0;
-                            }
-                            frame_buffer.clear();
-                            continue;
-                        }
-
-                        let vad_res = vad.process_frame(&frame_buffer, open_threshold);
-
-                        if vad_res.speech_just_started {
-                            speech_buffer.clear();
-                            for pre in &pre_roll_buffer {
-                                speech_buffer.extend_from_slice(pre);
-                            }
-                            speech_buffer.extend_from_slice(&frame_buffer);
-                            max_rms_in_phrase = vad_res.smoothed_rms;
-                            crate::log_info!(
-                                "[Voice Macro VAD] Speech onset detected (RMS={:.4} >= threshold={:.4})",
-                                vad_res.smoothed_rms,
-                                open_threshold
-                            );
-                        } else if vad_res.is_speaking {
-                            speech_buffer.extend_from_slice(&frame_buffer);
-                            if vad_res.smoothed_rms > max_rms_in_phrase {
-                                max_rms_in_phrase = vad_res.smoothed_rms;
-                            }
-
-                            if speech_buffer.len() >= max_speech_samples {
-                                vad.reset();
-                                let dur = speech_buffer.len() as f32 / sample_rate as f32;
-                                crate::log_info!(
-                                    "[Voice Macro VAD] Max duration reached, phrase finalized (dur={:.2}s, peak_rms={:.4})",
-                                    dur,
-                                    max_rms_in_phrase
-                                );
-                                let chunk = SpeechChunk {
-                                    samples: speech_buffer.clone(),
-                                    duration_secs: dur,
-                                    peak_rms: max_rms_in_phrase,
-                                    detected_at: Instant::now(),
-                                };
-                                let _ = chunk_tx.try_send(chunk);
-                                max_rms_in_phrase = 0.0;
-                                speech_buffer.clear();
-                            }
-                        } else if vad_res.speech_just_ended {
-                            speech_buffer.extend_from_slice(&frame_buffer);
-                            if speech_buffer.len() >= min_speech_samples {
-                                let dur = speech_buffer.len() as f32 / sample_rate as f32;
-                                crate::log_info!(
-                                    "[Voice Macro VAD] Phrase finalized (duration={:.2}s, peak_rms={:.4}, samples={})",
-                                    dur,
-                                    max_rms_in_phrase,
-                                    speech_buffer.len()
-                                );
-
-                                let chunk = SpeechChunk {
-                                    samples: speech_buffer.clone(),
-                                    duration_secs: dur,
-                                    peak_rms: max_rms_in_phrase,
-                                    detected_at: Instant::now(),
-                                };
-                                let _ = chunk_tx.try_send(chunk);
-                            }
-                            max_rms_in_phrase = 0.0;
-                            speech_buffer.clear();
-                        }
-
-                        if pre_roll_buffer.len() >= pre_roll_frames {
-                            pre_roll_buffer.pop_front();
-                        }
-                        pre_roll_buffer.push_back(frame_buffer.clone());
-                        frame_buffer.clear();
-                    }
-                }
-                Err(mpsc::RecvTimeoutError::Timeout) => {
-                    continue;
-                }
-                Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    break;
-                }
+            let sample = match audio_rx.recv_timeout(Duration::from_millis(30)) {
+                Ok(sample) => sample,
+                Err(mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            };
+            let Some(frame) = segmenter.push_sample(sample) else {
+                continue;
+            };
+            let (threshold, may_listen) = {
+                let state = app_handle_for_vad.state::<AppState>();
+                let may_listen = listening_allowed(&state);
+                let threshold = state
+                    .config
+                    .lock()
+                    .unwrap()
+                    .voice_macro_activation_threshold;
+                (threshold, may_listen)
+            };
+            if !may_listen {
+                // Paused (dictation running, setup incomplete or engine
+                // asleep): drop any phrase in progress.
+                segmenter.reset();
+                continue;
+            }
+            let outcome = segmenter.process_frame(&frame, threshold);
+            if outcome.level.speech_just_started {
+                crate::log_info!(
+                    "[Voice Macro VAD] Speech onset detected (level={:.4} >= threshold={:.4})",
+                    outcome.level.smoothed_rms,
+                    threshold
+                );
+            }
+            if let Some(phrase) = outcome.phrase {
+                crate::log_info!(
+                    "[Voice Macro VAD] Phrase finalized ({:?}, duration={:.2}s, peak={:.4})",
+                    phrase.ended_by,
+                    phrase.duration_secs,
+                    phrase.peak_level
+                );
+                let _ = chunk_tx.try_send(SpeechChunk {
+                    phrase,
+                    detected_at: Instant::now(),
+                });
             }
         }
     });
@@ -261,9 +190,9 @@ async fn run_voice_macro_listener_loop(
                 }
 
                 crate::log_info!(
-                    "[Voice Macro] Processing speech chunk (duration={:.2}s, peak_rms={:.4}, queue_age={:.1}ms)",
-                    chunk.duration_secs,
-                    chunk.peak_rms,
+                    "[Voice Macro] Processing speech chunk (duration={:.2}s, peak={:.4}, queue_age={:.1}ms)",
+                    chunk.phrase.duration_secs,
+                    chunk.phrase.peak_level,
                     queue_age.as_secs_f64() * 1000.0
                 );
 
@@ -277,102 +206,64 @@ async fn run_voice_macro_listener_loop(
                     continue;
                 }
 
-                let (enabled, trigger_word, commands, sound_feedback) = {
+                let (enabled, has_macros, sound_feedback) = {
                     let config = state.config.lock().unwrap();
                     (
                         config.voice_macros_enabled,
-                        config.voice_macro_trigger_word.clone(),
-                        config.voice_macros.clone(),
+                        !config.voice_macros.is_empty(),
                         config.voice_macro_sound_feedback,
                     )
                 };
-
-                if !enabled || commands.is_empty() || !listening_allowed(&state) {
+                if !enabled || !has_macros || !listening_allowed(&state) {
                     continue;
                 }
 
-                let wav_bytes = match finalize_captured_audio_for_whisper(&chunk.samples, sample_rate) {
-                    Ok(b) => b,
-                    Err(e) => {
-                        crate::log_warn!("Voice Macro audio conversion failed: {}", e);
-                        continue;
-                    }
-                };
-
-                let config_snapshot = {
-                    let config = state.config.lock().unwrap();
-                    config.clone()
-                };
-
-                let service = match state.engine_factory.create_service(&config_snapshot).await {
-                    Ok(s) => s,
-                    Err(e) => {
-                        crate::log_warn!("Voice Macro transcription service creation failed: {}", e);
-                        continue;
-                    }
-                };
-
-                let lang = if config_snapshot.language == "auto" {
-                    None
-                } else {
-                    Some(config_snapshot.language.as_str())
-                };
-
-                let prompt_hint = config_snapshot.resolve_prompt_hint();
-                let transcribe_start = Instant::now();
-                match service.transcribe(&wav_bytes, lang, prompt_hint.as_deref()).await {
-                    Ok(transcript) => {
-                        let transcribe_time = transcribe_start.elapsed();
-                        let trimmed = transcript.trim();
-                        crate::log_info!(
-                            "[Voice Macro] Transcription completed in {:.1}ms: \"{}\"",
-                            transcribe_time.as_secs_f64() * 1000.0,
-                            trimmed
-                        );
-
-                        if !trimmed.is_empty() {
-                            let match_start = Instant::now();
-                            let match_res = find_best_match(trimmed, &trigger_word, &commands);
-                            if match_res.matched {
-                                if let Some(matched_cmd) = match_res.matched_command {
-                                    let match_time = match_start.elapsed();
-                                    let steps = matched_cmd.resolve_steps();
-                                    crate::log_info!(
-                                        "[Voice Macro] MATCHED in {:.2}ms ({:.1}% match): \"{}\" -> \"{}\" ({} steps)",
-                                        match_time.as_secs_f64() * 1000.0,
-                                        match_res.similarity * 100.0,
-                                        trimmed,
-                                        matched_cmd.phrase,
-                                        steps.len()
-                                    );
-
-                                    play_macro_sound(&state, &matched_cmd, sound_feedback);
-
-                                    let exec_start = Instant::now();
-                                    if let Err(e) = execute_macro_command(&app_handle, &matched_cmd).await {
-                                        crate::log_warn!("Voice Macro execution failed: {}", e);
-                                    } else {
-                                        let exec_time = exec_start.elapsed();
-                                        let total_turnaround = chunk.detected_at.elapsed();
-                                        crate::log_info!(
-                                            "[Voice Macro] ⚡ Executed in {:.1}ms (Total speech-end to key turnaround: {:.1}ms)",
-                                            exec_time.as_secs_f64() * 1000.0,
-                                            total_turnaround.as_secs_f64() * 1000.0
-                                        );
-                                    }
-                                }
-                            } else {
-                                crate::log_info!(
-                                    "[Voice Macro] No macro matched for phrase: \"{}\" (best similarity: {:.1}%)",
-                                    trimmed,
-                                    match_res.similarity * 100.0
-                                );
-                            }
+                let recognize_start = Instant::now();
+                let recognition =
+                    match recognition::recognize_phrase(&state, &chunk.phrase.samples, sample_rate).await {
+                        Ok(recognition) => recognition,
+                        Err(e) => {
+                            crate::log_warn!("Voice Macro recognition failed: {}", e);
+                            continue;
                         }
-                    }
-                    Err(e) => {
-                        crate::log_warn!("Voice Macro background transcription error: {}", e);
-                    }
+                    };
+                crate::log_info!(
+                    "[Voice Macro] Transcription completed in {:.1}ms: \"{}\"",
+                    recognize_start.elapsed().as_secs_f64() * 1000.0,
+                    recognition.transcript
+                );
+                if recognition.transcript.is_empty() {
+                    continue;
+                }
+
+                let match_result = recognition.match_result;
+                let Some(matched_cmd) = match_result.matched_command.filter(|_| match_result.matched) else {
+                    crate::log_info!(
+                        "[Voice Macro] No macro matched for phrase: \"{}\" (best similarity: {:.1}%)",
+                        recognition.transcript,
+                        match_result.similarity * 100.0
+                    );
+                    continue;
+                };
+                crate::log_info!(
+                    "[Voice Macro] MATCHED ({:.1}% match): \"{}\" -> \"{}\" ({} steps)",
+                    match_result.similarity * 100.0,
+                    recognition.transcript,
+                    matched_cmd.phrase,
+                    matched_cmd.resolve_steps().len()
+                );
+
+                play_macro_sound(&state, &matched_cmd, sound_feedback);
+
+                let exec_start = Instant::now();
+                if let Err(e) = execute_macro_command(&app_handle, &matched_cmd).await {
+                    crate::log_warn!("Voice Macro execution failed: {}", e);
+                } else {
+                    crate::log_info!(
+                        "[Voice Macro] ⚡ Executed in {:.1}ms (Total speech-end to key turnaround: {:.1}ms)",
+                        exec_start.elapsed().as_secs_f64() * 1000.0,
+                        chunk.detected_at.elapsed().as_secs_f64() * 1000.0
+                    );
                 }
             }
         }

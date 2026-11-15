@@ -11,6 +11,8 @@ pub struct SpokenMacroTestResult {
     pub matched: bool,
     pub matched_phrase: Option<String>,
     pub matched_command: Option<VoiceMacroCommand>,
+    /// Length of the phrase the listener would have heard (0 if none).
+    pub heard_seconds: f32,
 }
 
 #[command]
@@ -27,9 +29,14 @@ pub async fn test_voice_macro_execution(
     crate::voice_macro::execute_macro_steps(&app_handle, "Test Macro", &steps).await
 }
 
+/// How long the tester waits for a phrase before giving up.
+const SPOKEN_TEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
+
+/// Listens for one phrase exactly as the background listener would (same
+/// segmenter, threshold, lead-in and cut-off), plays that clip back so the
+/// user hears what voice macros receive, then recognizes it the same way.
 #[command]
 pub async fn test_spoken_voice_macro(
-    _app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<SpokenMacroTestResult, String> {
     let (sample_rate, rx) = {
@@ -41,106 +48,72 @@ pub async fn test_spoken_voice_macro(
         *engine.recording_tx.lock().unwrap() = Some(tx);
         (engine.sample_rate, rx)
     };
+    let threshold = state
+        .config
+        .lock()
+        .unwrap()
+        .voice_macro_activation_threshold;
 
-    let threshold = {
-        let config = state.config.lock().unwrap();
-        config.voice_macro_activation_threshold
-    };
-
-    let (data_tx, data_rx) = std::sync::mpsc::channel::<Vec<f32>>();
-    std::thread::spawn(move || {
-        let mut samples = Vec::new();
-        let mut vad = crate::audio::vad::VoiceActivityDetector::new();
-        let frame_size = (sample_rate as f32 * 0.03) as usize;
-        let mut frame = Vec::with_capacity(frame_size);
-        let max_samples = (sample_rate as f32 * 3.5) as usize;
-
-        let start_time = std::time::Instant::now();
-        while start_time.elapsed() < std::time::Duration::from_millis(3500) {
-            match rx.recv_timeout(std::time::Duration::from_millis(30)) {
-                Ok(s) => {
-                    frame.push(s);
-                    if frame.len() >= frame_size {
-                        let res = vad.process_frame(&frame, threshold);
-                        if res.speech_just_ended || samples.len() >= max_samples {
-                            samples.extend_from_slice(&frame);
-                            break;
-                        }
-                        if res.is_speaking || vad.smoothed_rms >= threshold * 0.5 {
-                            samples.extend_from_slice(&frame);
-                        }
-                        frame.clear();
-                    }
+    let capture = tokio::task::spawn_blocking(move || {
+        let mut segmenter = crate::audio::speech_segmenter::SpeechSegmenter::new(sample_rate);
+        let started = std::time::Instant::now();
+        while started.elapsed() < SPOKEN_TEST_TIMEOUT {
+            let Ok(sample) = rx.recv_timeout(std::time::Duration::from_millis(30)) else {
+                continue;
+            };
+            if let Some(frame) = segmenter.push_sample(sample) {
+                if let Some(phrase) = segmenter.process_frame(&frame, threshold).phrase {
+                    return Some(phrase);
                 }
-                Err(_) => break,
             }
         }
-        let _ = data_tx.send(samples);
-    });
+        None
+    })
+    .await
+    .map_err(|e| e.to_string());
 
-    let raw_samples = data_rx.recv().map_err(|e| e.to_string())?;
-
-    {
-        if let Some(engine) = state.audio_engine.lock().unwrap().as_ref() {
-            *engine.recording_tx.lock().unwrap() = None;
-        }
+    if let Some(engine) = state.audio_engine.lock().unwrap().as_ref() {
+        *engine.recording_tx.lock().unwrap() = None;
     }
 
-    if raw_samples.is_empty() {
+    let Some(phrase) = capture? else {
         return Ok(SpokenMacroTestResult {
             transcript: String::new(),
             similarity: 0.0,
             matched: false,
             matched_phrase: None,
             matched_command: None,
+            heard_seconds: 0.0,
         });
+    };
+
+    let clip = crate::audio::AudioClip {
+        samples: phrase.samples.clone(),
+        sample_rate,
+    };
+    if let Err(e) = state.play_audio(crate::audio::PlaybackSlot::Preview, clip, || {}) {
+        crate::log_warn!(
+            "Spoken macro test: could not play back the heard phrase: {}",
+            e
+        );
     }
 
-    let wav_bytes =
-        crate::audio::conversion::finalize_captured_audio_for_whisper(&raw_samples, sample_rate)
-            .map_err(|e| e.to_string())?;
-
-    let config_snapshot = {
-        let config = state.config.lock().unwrap();
-        config.clone()
-    };
-
-    let service = state
-        .engine_factory
-        .create_service(&config_snapshot)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let lang = if config_snapshot.language == "auto" {
-        None
-    } else {
-        Some(config_snapshot.language.as_str())
-    };
-
-    let prompt = config_snapshot.resolve_prompt_hint();
-    let transcript = service
-        .transcribe(&wav_bytes, lang, prompt.as_deref())
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let trimmed = transcript.trim();
-    let match_res = crate::voice_macro::find_best_match(
-        trimmed,
-        &config_snapshot.voice_macro_trigger_word,
-        &config_snapshot.voice_macros,
-    );
-
-    let matched_phrase = match_res.matched_command.as_ref().map(|c| c.phrase.clone());
-
+    let recognition =
+        crate::voice_macro::recognition::recognize_phrase(&state, &phrase.samples, sample_rate)
+            .await?;
+    let match_result = recognition.match_result;
     Ok(SpokenMacroTestResult {
-        transcript: trimmed.to_string(),
-        similarity: match_res.similarity,
-        matched: match_res.matched,
-        matched_phrase,
-        matched_command: match_res.matched_command,
+        transcript: recognition.transcript,
+        similarity: match_result.similarity,
+        matched: match_result.matched,
+        matched_phrase: match_result
+            .matched_command
+            .as_ref()
+            .map(|c| c.phrase.clone()),
+        matched_command: match_result.matched_command,
+        heard_seconds: phrase.duration_secs,
     })
 }
-
 #[command]
 pub async fn get_available_tts_voices() -> Result<Vec<crate::tts::VoicePersonaInfo>, String> {
     crate::tts::list_voices()
