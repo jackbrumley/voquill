@@ -142,16 +142,11 @@ pub async fn test_spoken_voice_macro(
 }
 
 #[command]
-pub async fn get_available_tts_voices(
-    app_handle: AppHandle,
-    state: State<'_, AppState>,
-) -> Result<Vec<crate::python_runner::VoicePersonaInfo>, String> {
-    let runner = state.get_or_start_python_runner(&app_handle).await?;
-    runner.get_tts_voices().await
+pub async fn get_available_tts_voices() -> Result<Vec<crate::tts::VoicePersonaInfo>, String> {
+    crate::tts::list_voices()
 }
 
 #[command]
-#[allow(clippy::too_many_arguments)]
 pub async fn preview_tts_voice(
     app_handle: AppHandle,
     state: State<'_, AppState>,
@@ -161,20 +156,10 @@ pub async fn preview_tts_voice(
     effect: Option<String>,
     pitch: Option<f32>,
 ) -> Result<crate::python_runner::TtsSynthesizeResponse, String> {
-    if !crate::python_runner::is_tts_model_downloaded(&voice_id) {
-        crate::python_runner::download_tts_model(&app_handle, &voice_id).await?;
-    }
-
-    let runner = state.get_or_start_python_runner(&app_handle).await?;
-    let res = runner
-        .synthesize_tts(&text, &voice_id, speed, effect.as_deref(), pitch, None)
-        .await?;
-
-    let path = std::path::PathBuf::from(&res.output_path);
-    if path.exists() {
-        let _ = crate::voice_macro::play_macro_sound_file(&state, &path);
-    }
-
+    let recipe =
+        crate::tts::recipe_for_voice(&voice_id, speed, effect.as_deref(), pitch.unwrap_or(0.0))?;
+    let res = crate::tts::render(&app_handle, recipe, &text, None).await?;
+    play_rendered(&state, &res)?;
     Ok(res)
 }
 
@@ -182,7 +167,6 @@ pub async fn preview_tts_voice(
 #[allow(clippy::too_many_arguments)]
 pub async fn save_macro_tts_audio(
     app_handle: AppHandle,
-    state: State<'_, AppState>,
     macro_id: String,
     text: String,
     voice_id: String,
@@ -191,24 +175,15 @@ pub async fn save_macro_tts_audio(
     pitch: Option<f32>,
 ) -> Result<String, String> {
     let dest_path = crate::voice_macro::macro_sound_path(&macro_id)?;
-    let dest_str = dest_path.to_string_lossy().to_string();
-
-    if !crate::python_runner::is_tts_model_downloaded(&voice_id) {
-        crate::python_runner::download_tts_model(&app_handle, &voice_id).await?;
-    }
-
-    let runner = state.get_or_start_python_runner(&app_handle).await?;
-    let res = runner
-        .synthesize_tts(
-            &text,
-            &voice_id,
-            speed,
-            effect.as_deref(),
-            pitch,
-            Some(&dest_str),
-        )
-        .await?;
-
+    let recipe =
+        crate::tts::recipe_for_voice(&voice_id, speed, effect.as_deref(), pitch.unwrap_or(0.0))?;
+    let res = crate::tts::render(
+        &app_handle,
+        recipe,
+        &text,
+        Some(dest_path.to_string_lossy().into_owned()),
+    )
+    .await?;
     Ok(res.output_path)
 }
 
@@ -268,182 +243,103 @@ pub async fn get_available_base_voice_models(
     Ok(crate::python_runner::tts_models::base_voice_models())
 }
 
+/// A Voice Studio preview: text plus the tuning being designed.
+#[derive(serde::Deserialize)]
+pub struct VoiceStudioPreview {
+    pub text: String,
+    #[serde(flatten)]
+    pub tuning: crate::tts::presets::VoiceTuning,
+}
+
 #[command]
 pub async fn preview_custom_tts_voice(
     app_handle: AppHandle,
     state: State<'_, AppState>,
-    params: crate::python_runner::CustomTtsSynthesizeParams,
+    params: VoiceStudioPreview,
 ) -> Result<crate::python_runner::TtsSynthesizeResponse, String> {
     crate::log_info!(
-        "Preview custom TTS: model={}, speed={:.2}, pitch={:.1}, sub_bass={:.2}, comb={:.2}, flanger={:.2}, bandpass={}, drive={:.2}, rf={:.2}, open='{}', close='{}', text='{}'",
-        params.model_key,
-        params.speed,
-        params.pitch,
-        params.sub_bass,
-        params.comb_mix,
-        params.flanger_mix,
-        params.radio_bandpass,
-        params.radio_drive,
-        params.rf_noise,
-        params.opening_chime,
-        params.closing_chime,
-        params.text
+        "Voice Studio preview: model={}, speed={:.2}, pitch={:.1}",
+        params.tuning.model_key,
+        params.tuning.speed,
+        params.tuning.pitch
     );
-    if !crate::python_runner::is_tts_model_downloaded(&params.model_key) {
-        crate::python_runner::download_tts_model(&app_handle, &params.model_key).await?;
-    }
-
-    let runner = state.get_or_start_python_runner(&app_handle).await?;
-    let res = runner.synthesize_custom_tts(&params).await.map_err(|e| {
-        crate::log_warn!("Python runner synthesize_custom_tts failed: {}", e);
-        e
-    })?;
-
-    let path = std::path::PathBuf::from(&res.output_path);
-    if path.exists() {
-        crate::log_info!(
-            "Playing generated custom TTS audio file: {}",
-            path.display()
-        );
-        crate::voice_macro::play_macro_sound_file(&state, &path).map_err(|e| {
-            crate::log_warn!("Failed to play custom TTS audio file: {}", e);
-            e
-        })?;
-    } else {
-        let err_msg = format!(
-            "Synthesized audio output file not found on disk: {}",
-            path.display()
-        );
-        crate::log_warn!("{}", err_msg);
-        return Err(err_msg);
-    }
-
+    let recipe = crate::tts::recipe_for_tuning(&params.tuning);
+    let res = crate::tts::render(&app_handle, recipe, &params.text, None).await?;
+    play_rendered(&state, &res)?;
     Ok(res)
 }
 
-#[command]
-pub async fn get_custom_voice_presets() -> Result<Vec<serde_json::Value>, String> {
-    let presets_file = crate::paths::voice_presets_file()?;
-    if !presets_file.exists() {
-        return Ok(Vec::new());
+/// Plays a freshly rendered clip, failing if Python wrote no file.
+fn play_rendered(
+    state: &AppState,
+    rendered: &crate::python_runner::TtsSynthesizeResponse,
+) -> Result<(), String> {
+    let path = std::path::PathBuf::from(&rendered.output_path);
+    if !path.exists() {
+        return Err(format!(
+            "Synthesized audio was not written to {}",
+            path.display()
+        ));
     }
-    let data = std::fs::read_to_string(&presets_file)
-        .map_err(|e| format!("Failed to read voice presets: {}", e))?;
-    let presets: Vec<serde_json::Value> = serde_json::from_str(&data).unwrap_or_default();
-    Ok(presets)
+    crate::voice_macro::play_macro_sound_file(state, &path)
 }
 
+#[command]
+pub async fn get_custom_voice_presets() -> Result<Vec<crate::tts::presets::VoicePreset>, String> {
+    crate::tts::presets::load()
+}
+
+/// Saves a preset and re-renders the spoken feedback of every macro that
+/// uses it, returning how many were updated.
 #[command]
 pub async fn save_custom_voice_preset(
     app_handle: AppHandle,
     state: State<'_, AppState>,
-    preset: serde_json::Value,
+    preset: crate::tts::presets::VoicePreset,
 ) -> Result<usize, String> {
-    let presets_file = crate::paths::voice_presets_file()?;
-    let mut presets: Vec<serde_json::Value> = if presets_file.exists() {
-        let data = std::fs::read_to_string(&presets_file).unwrap_or_default();
-        serde_json::from_str(&data).unwrap_or_default()
-    } else {
-        Vec::new()
+    let preset_id = preset.id.clone();
+    let recipe = crate::tts::recipe_for_tuning(&preset.tuning);
+    crate::tts::presets::save(preset)?;
+
+    let macros_using_preset: Vec<(String, String)> = {
+        let config = state.config.lock().unwrap();
+        config
+            .voice_macros
+            .iter()
+            .filter(|m| {
+                m.sound_mode == crate::config::voice_macro::MacroSoundMode::Tts
+                    && m.sound_tts_voice.as_deref() == Some(preset_id.as_str())
+            })
+            .filter_map(|m| {
+                let text = m.sound_tts_text.as_deref()?.trim();
+                (!text.is_empty()).then(|| (m.id.clone(), text.to_string()))
+            })
+            .collect()
     };
 
-    let id = preset
-        .get("id")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default()
-        .to_string();
-
-    let speed = preset
-        .get("speed")
-        .and_then(|v| v.as_f64())
-        .map(|v| v as f32)
-        .unwrap_or(1.0);
-
-    let pitch = preset
-        .get("pitch")
-        .and_then(|v| v.as_f64())
-        .map(|v| v as f32)
-        .unwrap_or(0.0);
-
-    if !id.is_empty() {
-        presets.retain(|p| p.get("id").and_then(|v| v.as_str()) != Some(&id));
-    }
-    presets.push(preset);
-
-    let json = serde_json::to_string_pretty(&presets)
-        .map_err(|e| format!("Failed to serialize voice presets: {}", e))?;
-    std::fs::write(&presets_file, json)
-        .map_err(|e| format!("Failed to save voice presets: {}", e))?;
-
-    // Automatically regenerate audio on disk for all macros that use this preset
     let mut regenerated_count = 0;
-    if !id.is_empty() {
-        let matching_macros: Vec<(String, String)> = {
-            let config = state.config.lock().unwrap();
-            config
-                .voice_macros
-                .iter()
-                .filter(|m| {
-                    m.sound_mode == crate::config::voice_macro::MacroSoundMode::Tts
-                        && m.sound_tts_voice.as_deref() == Some(&id)
-                        && m.sound_tts_text
-                            .as_deref()
-                            .map(|t| !t.trim().is_empty())
-                            .unwrap_or(false)
-                })
-                .map(|m| (m.id.clone(), m.sound_tts_text.clone().unwrap()))
-                .collect()
-        };
-
-        for (macro_id, text) in matching_macros {
-            crate::log_info!(
-                "[Voice Preset] Regenerating audio for macro '{}' using updated preset '{}'...",
+    for (macro_id, text) in macros_using_preset {
+        crate::log_info!(
+            "[Voice Preset] Regenerating audio for macro '{}' with preset '{}'",
+            macro_id,
+            preset_id
+        );
+        let output = crate::voice_macro::macro_sound_path(&macro_id)?
+            .to_string_lossy()
+            .into_owned();
+        match crate::tts::render(&app_handle, recipe.clone(), &text, Some(output)).await {
+            Ok(_) => regenerated_count += 1,
+            Err(e) => crate::log_warn!(
+                "[Voice Preset] Failed to regenerate audio for macro '{}': {}",
                 macro_id,
-                id
-            );
-            match save_macro_tts_audio(
-                app_handle.clone(),
-                state.clone(),
-                macro_id.clone(),
-                text,
-                id.clone(),
-                speed,
-                Some("custom".to_string()),
-                Some(pitch),
-            )
-            .await
-            {
-                Ok(_) => {
-                    regenerated_count += 1;
-                }
-                Err(e) => {
-                    crate::log_warn!(
-                        "[Voice Preset] Failed to regenerate audio for macro '{}': {}",
-                        macro_id,
-                        e
-                    );
-                }
-            }
+                e
+            ),
         }
     }
-
     Ok(regenerated_count)
 }
 
 #[command]
 pub async fn delete_custom_voice_preset(preset_id: String) -> Result<(), String> {
-    let presets_file = crate::paths::voice_presets_file()?;
-    if !presets_file.exists() {
-        return Ok(());
-    }
-    let data = std::fs::read_to_string(&presets_file).unwrap_or_default();
-    let mut presets: Vec<serde_json::Value> = serde_json::from_str(&data).unwrap_or_default();
-    presets.retain(|p| p.get("id").and_then(|v| v.as_str()) != Some(&preset_id));
-
-    let json = serde_json::to_string_pretty(&presets)
-        .map_err(|e| format!("Failed to serialize voice presets: {}", e))?;
-    std::fs::write(&presets_file, json)
-        .map_err(|e| format!("Failed to update voice presets: {}", e))?;
-
-    Ok(())
+    crate::tts::presets::delete(&preset_id)
 }

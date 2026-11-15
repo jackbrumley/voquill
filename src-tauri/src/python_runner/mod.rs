@@ -12,7 +12,7 @@ const RUNNER_PORT_START: u16 = 6201;
 const RUNNER_PORT_END: u16 = 6350;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
 const HEALTH_RETRY_INTERVAL: Duration = Duration::from_millis(500);
-const RUNNER_VERSION: &str = "1.2.26";
+const RUNNER_VERSION: &str = "1.2.27";
 const PYTHON_VERSION: &str = "20250115";
 const PYTHON_DOWNLOAD_BASE: &str =
     "https://github.com/astral-sh/python-build-standalone/releases/download";
@@ -74,36 +74,11 @@ impl PythonRunner {
         client::enhance(&self.base_url, audio_path, noise_reduction_strength).await
     }
 
-    pub async fn get_tts_voices(&self) -> Result<Vec<client::VoicePersonaInfo>, String> {
-        client::get_tts_voices(&self.base_url).await
-    }
-
-    pub async fn synthesize_tts(
+    pub async fn render_tts(
         &self,
-        text: &str,
-        voice_id: &str,
-        speed: f32,
-        effect: Option<&str>,
-        pitch: Option<f32>,
-        output_path: Option<&str>,
+        request: &crate::tts::RenderRequest,
     ) -> Result<client::TtsSynthesizeResponse, String> {
-        client::synthesize_tts(
-            &self.base_url,
-            text,
-            voice_id,
-            speed,
-            effect,
-            pitch,
-            output_path,
-        )
-        .await
-    }
-
-    pub async fn synthesize_custom_tts(
-        &self,
-        params: &client::CustomTtsSynthesizeParams,
-    ) -> Result<client::TtsSynthesizeResponse, String> {
-        client::synthesize_custom_tts(&self.base_url, params).await
+        client::render_tts(&self.base_url, request).await
     }
 }
 
@@ -468,8 +443,6 @@ async fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
     let python_bin = python_bin_path(runner_dir);
     let server_script = runner_dir.join("server.py");
     let app_root = crate::paths::app_root()?;
-    let presets_file = crate::paths::voice_presets_file()?;
-
     crate::log_info!("Starting Python runner on port {}", port);
 
     let server_script_str = server_script
@@ -483,10 +456,6 @@ async fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
             runner_dir.to_string_lossy().as_ref(),
         )
         .env("VOQUILL_APP_ROOT", app_root.to_string_lossy().as_ref())
-        .env(
-            "VOQUILL_VOICE_PRESETS_FILE",
-            presets_file.to_string_lossy().as_ref(),
-        )
         .env("VOQUILL_PARENT_PID", std::process::id().to_string())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -549,6 +518,5 @@ async fn wait_for_health(process: &mut Child, base_url: &str) -> Result<(), Stri
 pub mod client;
 pub mod diarization_models;
 pub mod tts_models;
-pub use client::{CustomTtsSynthesizeParams, TtsSynthesizeResponse, VoicePersonaInfo};
+pub use client::TtsSynthesizeResponse;
 pub use diarization_models::{download_diarization_models, is_diarization_ready};
-pub use tts_models::{download_tts_model, is_tts_model_downloaded};

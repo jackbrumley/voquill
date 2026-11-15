@@ -126,46 +126,41 @@ pub struct TtsModelDownloadProgress {
     pub progress: f64,
 }
 
-pub fn resolve_base_model_key(voice_or_model_id: &str) -> &'static str {
-    match voice_or_model_id {
-        "tactical-comms" | "piper-en_US-arctic-medium" => {
-            "piper-en_GB-northern_english_male-medium"
-        }
-        "titan-mech" | "nanosuit" | "apex-studio" | "piper-en_US-ryan-low" => {
-            "piper-en_US-ryan-low"
-        }
-        "glados" | "piper-en_US-glados" => "piper-en_US-glados",
-        "cyberpunk-eva" | "piper-en_US-amy-low" => "piper-en_US-amy-low",
-        "flight-deck" | "piper-en_GB-southern_english_female-low" => {
-            "piper-en_GB-southern_english_female-low"
-        }
-        "nova-studio" | "piper-en_US-lessac-low" => "piper-en_US-lessac-low",
-        other => {
-            if let Some(m) = TTS_BASE_MODELS.iter().find(|m| m.key == other) {
-                return m.key;
-            }
-            if let Ok(presets_file) = crate::paths::voice_presets_file() {
-                if presets_file.exists() {
-                    if let Ok(data) = std::fs::read_to_string(presets_file) {
-                        if let Ok(presets) = serde_json::from_str::<Vec<serde_json::Value>>(&data) {
-                            for p in presets {
-                                if p.get("id").and_then(|v| v.as_str()) == Some(other) {
-                                    if let Some(mk) = p.get("model_key").and_then(|v| v.as_str()) {
-                                        if let Some(found) =
-                                            TTS_BASE_MODELS.iter().find(|m| m.key == mk)
-                                        {
-                                            return found.key;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            "piper-en_GB-northern_english_male-medium"
-        }
+/// The files a base voice is made of, under the runner's model folder.
+#[derive(Clone, Debug)]
+pub struct VoiceFiles {
+    pub voice_dir: PathBuf,
+    pub model_path: PathBuf,
+    pub tokens_path: PathBuf,
+    pub data_dir: PathBuf,
+}
+
+impl VoiceFiles {
+    pub fn are_present(&self) -> bool {
+        self.model_path.exists() && self.tokens_path.exists() && self.data_dir.exists()
     }
+}
+
+fn base_model(model_key: &str) -> Result<&'static TtsModelMeta, String> {
+    TTS_BASE_MODELS
+        .iter()
+        .find(|meta| meta.key == model_key)
+        .ok_or_else(|| format!("Unknown voice model '{}'", model_key))
+}
+
+/// Where a base voice's files live (whether or not they are downloaded).
+pub fn voice_files(model_key: &str) -> Result<VoiceFiles, String> {
+    let meta = base_model(model_key)?;
+    let voice_dir = crate::paths::python_runner_dir()?
+        .join("models")
+        .join("tts")
+        .join(meta.archive);
+    Ok(VoiceFiles {
+        model_path: voice_dir.join(meta.model_file),
+        tokens_path: voice_dir.join("tokens.txt"),
+        data_dir: voice_dir.join("espeak-ng-data"),
+        voice_dir,
+    })
 }
 
 /// A base voice as the Voice Studio lists it.
@@ -192,48 +187,36 @@ pub fn base_voice_models() -> Vec<BaseVoiceModelInfo> {
 }
 
 pub fn is_tts_model_downloaded(model_key: &str) -> bool {
-    let base_key = resolve_base_model_key(model_key);
-    let Some(meta) = TTS_BASE_MODELS.iter().find(|m| m.key == base_key) else {
-        return false;
-    };
-    let Ok(runner_dir) = crate::paths::python_runner_dir() else {
-        return false;
-    };
-    let voice_dir = runner_dir.join("models").join("tts").join(meta.archive);
-    let model_path = voice_dir.join(meta.model_file);
-    let tokens_path = voice_dir.join("tokens.txt");
-    let data_dir = voice_dir.join("espeak-ng-data");
-    model_path.exists() && tokens_path.exists() && data_dir.exists()
+    voice_files(model_key).is_ok_and(|files| files.are_present())
 }
 
+/// Downloads and extracts a base voice (by its model key) unless its files
+/// are already present.
 pub async fn download_tts_model(
     app_handle: &AppHandle,
-    voice_or_model_id: &str,
+    model_key: &str,
 ) -> Result<PathBuf, String> {
-    let base_key = resolve_base_model_key(voice_or_model_id);
-    let meta = TTS_BASE_MODELS
-        .iter()
-        .find(|m| m.key == base_key)
-        .ok_or_else(|| format!("Unknown TTS model: {}", base_key))?;
-
-    let runner_dir = crate::paths::python_runner_dir()?;
-    let tts_models_dir = runner_dir.join("models").join("tts");
-    std::fs::create_dir_all(&tts_models_dir).map_err(|e| e.to_string())?;
-
-    let voice_dir = tts_models_dir.join(meta.archive);
-    let model_path = voice_dir.join(meta.model_file);
-    let tokens_path = voice_dir.join("tokens.txt");
-    let data_dir = voice_dir.join("espeak-ng-data");
-
-    if model_path.exists() && tokens_path.exists() && data_dir.exists() {
-        return Ok(voice_dir);
+    let meta = base_model(model_key)?;
+    let files = voice_files(model_key)?;
+    if files.are_present() {
+        return Ok(files.voice_dir);
     }
+    let VoiceFiles {
+        voice_dir,
+        model_path,
+        ..
+    } = files;
+    let tts_models_dir = voice_dir
+        .parent()
+        .ok_or_else(|| format!("Voice folder {} has no parent", voice_dir.display()))?
+        .to_path_buf();
+    std::fs::create_dir_all(&tts_models_dir).map_err(|e| e.to_string())?;
 
     let report = |phase: &str, progress: f64| {
         let _ = app_handle.emit(
             "tts-model-download-progress",
             TtsModelDownloadProgress {
-                model_id: voice_or_model_id.to_string(),
+                model_id: model_key.to_string(),
                 phase: phase.to_string(),
                 progress,
             },

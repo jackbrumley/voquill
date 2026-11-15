@@ -71,6 +71,7 @@ mod setup_review;
 mod sidecar;
 mod text_cleanup;
 mod transcription;
+mod tts;
 mod typing;
 pub mod voice_macro;
 

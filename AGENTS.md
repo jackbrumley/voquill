@@ -56,7 +56,7 @@ The `python-runner/` directory at the project root is a self-contained Python Fa
    - `GET /health` — health check
    - `GET /capabilities` — discover available endpoints
    - `POST /diarize` — speaker diarization
-   - `POST /tts/synthesize` — text-to-speech synthesis
+   - `POST /tts/render` — render speech from a fully resolved request (voice files, speaker, speed, effects) built by Rust's `tts` module
 
 **Capability-Based Design:**
 - Each feature (diarization, TTS, enhancement) is a separate module under `python-runner/`
@@ -73,13 +73,14 @@ The `python-runner/` directory at the project root is a self-contained Python Fa
 | File | Role |
 |------|------|
 | `python-runner/server.py` | FastAPI app, capability discovery, routing |
-| `python-runner/tts/provider_sherpa.py` | Tier 2 Piper TTS execution |
+| `python-runner/tts/provider_sherpa.py` | Piper TTS rendering only (no voice catalog, settings or downloads) |
 | `python-runner/diarization/provider_sherpa.py` | Tier 2 diarization (sherpa-onnx) |
 | `python-runner/diarization/schemas.py` | Pydantic models (shared across providers) |
 | `python-runner/requirements/base.txt` | Core deps (fastapi, uvicorn) |
 | `python-runner/requirements/diarization-sherpa.txt` | Tier 2 deps (sherpa-onnx, soundfile) |
 | `src-tauri/src/python_runner/mod.rs` | Rust lifecycle: extract, venv, spawn, health |
-| `src-tauri/src/python_runner/tts_models.rs` | Rust TTS model catalog, download, and archive extraction |
+| `src-tauri/src/python_runner/tts_models.rs` | Rust base-voice catalog, file locations, download, and archive extraction |
+| `src-tauri/src/tts/` | Voice decisions: persona catalog, Voice Studio presets (`voice_presets.json`), resolving a voice ID into a render request |
 | `src-tauri/src/diarization/mod.rs` | Rust types: Segment, DiarizationResult, DiarizationService trait |
 | `src-tauri/src/diarization/provider_python.rs` | (future) Wraps PythonRunner for DiarizationService trait |
 

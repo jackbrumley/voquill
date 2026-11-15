@@ -32,6 +32,8 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from tts.schemas import TtsRenderRequest
+
 # ── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -103,10 +105,6 @@ def _start_parent_watchdog(parent_pid_str: str | None) -> None:
 RUNNER_BASE_DIR = os.environ.get(
     "VOQUILL_PYTHON_RUNNER_DIR",
     os.path.dirname(os.path.abspath(__file__)),
-)
-VOICE_PRESETS_FILE = os.environ.get(
-    "VOQUILL_VOICE_PRESETS_FILE",
-    os.path.join(os.path.dirname(os.path.abspath(RUNNER_BASE_DIR)), "voice_presets.json"),
 )
 
 
@@ -272,123 +270,19 @@ def enhance(body: dict) -> dict:
         raise HTTPException(status_code=500, detail=f"Enhancement failed: {e}")
 
 
-@app.get("/tts/voices")
-def get_tts_voices() -> list[dict]:
+@app.post("/tts/render")
+def render_tts(request: TtsRenderRequest) -> dict:
     handlers = app.state.handlers
     if "tts" not in handlers:
         raise HTTPException(
             status_code=501,
             detail="TTS capability not available (sherpa-onnx not installed?)",
         )
-    mod = handlers["tts"]["module"]
     try:
-        voices = mod.get_available_voices(
-            runner_base_dir=RUNNER_BASE_DIR,
-            presets_file_path=VOICE_PRESETS_FILE,
-        )
-        return [v.model_dump() for v in voices]
+        return handlers["tts"]["module"].render(request).model_dump()
     except Exception as e:
-        logger.exception("Failed to query TTS voices")
-        raise HTTPException(status_code=500, detail=f"Failed to query TTS voices: {e}")
-
-
-@app.post("/tts/synthesize")
-def synthesize_tts(body: dict) -> dict:
-    handlers = app.state.handlers
-    if "tts" not in handlers:
-        raise HTTPException(
-            status_code=501,
-            detail="TTS capability not available (sherpa-onnx not installed?)",
-        )
-    text = body.get("text")
-    if not text:
-        raise HTTPException(status_code=400, detail="text is required")
-
-    voice_id = body.get("voice_id", "titan-mech")
-    speed = body.get("speed", 1.0)
-    effect = body.get("effect")
-    pitch = body.get("pitch", 0.0)
-    output_path = body.get("output_path")
-
-    mod = handlers["tts"]["module"]
-    try:
-        result = mod.run(
-            text=text,
-            voice_id=voice_id,
-            speed=speed,
-            effect=effect,
-            pitch=pitch,
-            output_path=output_path,
-            runner_base_dir=RUNNER_BASE_DIR,
-            presets_file_path=VOICE_PRESETS_FILE,
-        )
-        return result.model_dump()
-    except Exception as e:
-        logger.exception("TTS synthesis failed")
-        raise HTTPException(status_code=500, detail=f"TTS synthesis failed: {e}")
-
-
-@app.post("/tts/synthesize_custom")
-def synthesize_custom_tts(body: dict) -> dict:
-    logger.info("Received /tts/synthesize_custom: %s", body)
-    handlers = app.state.handlers
-    if "tts" not in handlers:
-        raise HTTPException(
-            status_code=501,
-            detail="TTS capability not available (sherpa-onnx not installed?)",
-        )
-    text = body.get("text")
-    if not text:
-        raise HTTPException(status_code=400, detail="text is required")
-
-    model_key = body.get("model_key", "piper-en_GB-northern_english_male-medium")
-    speaker_id = int(body.get("speaker_id", 0))
-    speed = float(body.get("speed", 1.0))
-    noise_scale = float(body.get("noise_scale", 0.667))
-    pitch = float(body.get("pitch", 0.0))
-    sub_bass = float(body.get("sub_bass", 0.0))
-    comb_mix = float(body.get("comb_mix", 0.0))
-    flanger_mix = float(body.get("flanger_mix", 0.0))
-    radio_bandpass = bool(body.get("radio_bandpass", False))
-    radio_drive = float(body.get("radio_drive", 1.0))
-    rf_noise = float(body.get("rf_noise", 0.0))
-    opening_chime = str(body.get("opening_chime", "none"))
-    closing_chime = str(body.get("closing_chime", "none"))
-    output_path = body.get("output_path")
-
-    mod = handlers["tts"]["module"]
-    try:
-        result = mod.run_custom(
-            text=text,
-            model_key=model_key,
-            speaker_id=speaker_id,
-            speed=speed,
-            noise_scale=noise_scale,
-            pitch=pitch,
-            sub_bass=sub_bass,
-            comb_mix=comb_mix,
-            flanger_mix=flanger_mix,
-            radio_bandpass=radio_bandpass,
-            radio_drive=radio_drive,
-            rf_noise=rf_noise,
-            opening_chime=opening_chime,
-            closing_chime=closing_chime,
-            output_path=output_path,
-            runner_base_dir=RUNNER_BASE_DIR,
-        )
-        logger.info("Custom synthesis complete: output=%s, dur=%.2fs", result.output_path, result.duration_secs)
-        return result.model_dump()
-    except Exception as e:
-        logger.exception("Custom TTS synthesis failed with exception")
-        raise HTTPException(status_code=500, detail=f"Custom TTS synthesis failed: {e}")
-
-
-# ── Entry point (used when Rust spawns the server) ─────────────────────────
-def main():
-    _start_parent_watchdog(os.environ.get("VOQUILL_PARENT_PID"))
-    port = int(os.environ.get("VOQUILL_PORT", "9000"))
-    logger.info("Starting on port %d (base_dir=%s)", port, RUNNER_BASE_DIR)
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+        logger.exception("TTS render failed")
+        raise HTTPException(status_code=500, detail=f"TTS render failed: {e}")
 
 
 if __name__ == "__main__":

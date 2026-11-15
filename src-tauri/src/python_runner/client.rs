@@ -157,23 +157,6 @@ pub async fn enhance(
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct VoicePersonaInfo {
-    pub id: String,
-    pub name: String,
-    pub persona: String,
-    pub category: String,
-    pub engine: String,
-    pub description: String,
-    pub is_ready: bool,
-    #[serde(default)]
-    pub default_effect: Option<String>,
-    #[serde(default)]
-    pub default_pitch: Option<f32>,
-    #[serde(default)]
-    pub default_speed: Option<f32>,
-}
-
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct TtsSynthesizeResponse {
     pub output_path: String,
     pub duration_secs: f32,
@@ -181,142 +164,29 @@ pub struct TtsSynthesizeResponse {
     pub provider: String,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct CustomTtsSynthesizeParams {
-    pub text: String,
-    pub model_key: String,
-    #[serde(default)]
-    pub speaker_id: i32,
-    #[serde(default = "default_speed")]
-    pub speed: f32,
-    #[serde(default = "default_noise_scale")]
-    pub noise_scale: f32,
-    #[serde(default)]
-    pub pitch: f32,
-    #[serde(default)]
-    pub sub_bass: f32,
-    #[serde(default)]
-    pub comb_mix: f32,
-    #[serde(default)]
-    pub flanger_mix: f32,
-    #[serde(default)]
-    pub radio_bandpass: bool,
-    #[serde(default = "default_radio_drive")]
-    pub radio_drive: f32,
-    #[serde(default)]
-    pub rf_noise: f32,
-    #[serde(default = "default_chime")]
-    pub opening_chime: String,
-    #[serde(default = "default_chime")]
-    pub closing_chime: String,
-    pub output_path: Option<String>,
-}
-
-fn default_speed() -> f32 {
-    1.0
-}
-fn default_noise_scale() -> f32 {
-    0.667
-}
-fn default_radio_drive() -> f32 {
-    1.0
-}
-fn default_chime() -> String {
-    "none".to_string()
-}
-
-pub async fn get_tts_voices(base_url: &str) -> Result<Vec<VoicePersonaInfo>, String> {
-    let url = format!("{}/tts/voices", base_url);
-    let client = http_client();
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to query TTS voices: {}", e))?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let text = response.text().await.unwrap_or_default();
-        return Err(format!("TTS voices query returned {}: {}", status, text));
-    }
-
-    let voices: Vec<VoicePersonaInfo> = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse TTS voices response: {}", e))?;
-
-    Ok(voices)
-}
-
-pub async fn synthesize_tts(
+/// Renders speech from a fully resolved request (`crate::tts`).
+pub async fn render_tts(
     base_url: &str,
-    text: &str,
-    voice_id: &str,
-    speed: f32,
-    effect: Option<&str>,
-    pitch: Option<f32>,
-    output_path: Option<&str>,
+    request: &crate::tts::RenderRequest,
 ) -> Result<TtsSynthesizeResponse, String> {
-    let url = format!("{}/tts/synthesize", base_url);
-    let body = serde_json::json!({
-        "text": text,
-        "voice_id": voice_id,
-        "speed": speed,
-        "effect": effect.unwrap_or("clean"),
-        "pitch": pitch.unwrap_or(0.0),
-        "output_path": output_path,
-    });
-
-    let client = heavy_http_client();
-    let response = client
+    let url = format!("{}/tts/render", base_url);
+    let response = heavy_http_client()
         .post(&url)
-        .json(&body)
+        .json(request)
         .send()
         .await
-        .map_err(|e| format!("TTS synthesis request failed: {}", e))?;
+        .map_err(|e| format!("TTS render request failed: {}", e))?;
 
     if !response.status().is_success() {
         let status = response.status();
         let text = response.text().await.unwrap_or_default();
-        return Err(format!("TTS synthesis returned {}: {}", status, text));
+        return Err(format!("TTS render returned {}: {}", status, text));
     }
 
-    let raw: TtsSynthesizeResponse = response
+    response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse TTS response: {}", e))?;
-
-    Ok(raw)
-}
-
-pub async fn synthesize_custom_tts(
-    base_url: &str,
-    params: &CustomTtsSynthesizeParams,
-) -> Result<TtsSynthesizeResponse, String> {
-    let url = format!("{}/tts/synthesize_custom", base_url);
-    let client = heavy_http_client();
-    let response = client
-        .post(&url)
-        .json(params)
-        .send()
-        .await
-        .map_err(|e| format!("Custom TTS synthesis request failed: {}", e))?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let text = response.text().await.unwrap_or_default();
-        return Err(format!(
-            "Custom TTS synthesis returned {}: {}",
-            status, text
-        ));
-    }
-
-    let raw: TtsSynthesizeResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse custom TTS response: {}", e))?;
-
-    Ok(raw)
+        .map_err(|e| format!("Failed to parse TTS render response: {}", e))
 }
 
 #[cfg(test)]
