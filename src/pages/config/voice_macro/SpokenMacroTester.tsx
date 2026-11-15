@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals';
-import { IconMicrophone, IconCheck, IconAlertTriangle, IconSparkles } from '@tabler/icons-preact';
+import { IconMicrophone, IconCheck, IconAlertTriangle } from '@tabler/icons-preact';
 import { invoke } from '@tauri-apps/api/core';
 import { Button } from '../../../components/Button.tsx';
 import type { MacroStep, VoiceMacroCommand } from '../../../types.ts';
@@ -147,22 +147,8 @@ export function SpokenMacroTester({ showToast }: SpokenMacroTesterProps) {
         </div>
       )}
 
-      {/* Custom words tip */}
-      <div
-        style={{
-          fontSize: '11px',
-          color: tokens.colors.textMuted,
-          lineHeight: 1.4,
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '6px',
-          padding: '4px 0',
-        }}
-      >
-        <IconSparkles size={14} style={{ flexShrink: 0, marginTop: '2px', color: '#f59e0b' }} />
-        <span>
-          <strong>Tip:</strong> If Whisper mishears specific words (e.g., "Coal" instead of "Call" or game terms), add them under <strong>Settings ➔ Words ➔ Custom Words</strong> to prime it to hear them. Parakeet doesn't use that list yet.
-        </span>
+      <div style={{ fontSize: '11px', color: tokens.colors.textMuted, lineHeight: 1.4 }}>
+        Misheard a word? Add it under Settings → Words (Whisper only for now).
       </div>
     </div>
   );
