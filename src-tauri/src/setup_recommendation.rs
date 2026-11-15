@@ -1,19 +1,53 @@
 //! The speech engine Voquill recommends during initial setup, chosen from
-//! the hardware it detects. The rule lives here so the setup screen only
-//! renders the result.
+//! the hardware it detects and the configured language. The rule lives here
+//! so the setup screen only renders the result.
+//!
+//! Tiers, best first:
+//! 1. A suitable graphics card: Parakeet on the GPU, with the processor
+//!    choice offered second.
+//! 2. A modest computer (under 8 GB of memory or 4 processor threads or
+//!    fewer), English: the light Whisper model first, Parakeet second.
+//! 3. Otherwise: Parakeet on the processor.
+//!
+//! English (or automatic) languages get English models, which are the most
+//! accurate for English; any other language gets the multilingual ones.
 
-use crate::gpu_detection::{GraphicsDevice, GraphicsKind};
+use crate::hardware_detection::{GraphicsDevice, GraphicsKind, HardwareProfile};
 use crate::model_manager::ModelManager;
 use serde::Serialize;
 
+const GIGABYTE: u64 = 1024 * 1024 * 1024;
 /// Graphics memory needed to run the GPU model comfortably (it uses about
 /// 1.5 GB, plus room for the desktop and other apps).
-const MIN_GPU_MEMORY_BYTES: u64 = 4 * 1024 * 1024 * 1024;
+const MIN_GPU_MEMORY_BYTES: u64 = 4 * GIGABYTE;
+/// Below this much system memory the 0.6B processor model (1.5-2 GB at its
+/// peak) crowds out other apps.
+const MODEST_MEMORY_BYTES: u64 = 8 * GIGABYTE;
+/// At or below this many processor threads the 0.6B model is noticeably slow.
+const MODEST_PROCESSOR_THREADS: usize = 4;
 
-const GPU_ENGINE: &str = "Parakeet (GPU)";
-const GPU_MODEL: &str = "tdt-0.6b-v2-q8_0";
-const CPU_ENGINE: &str = "Parakeet";
-const CPU_MODEL: &str = "parakeet-unified-en-0.6b";
+/// The models each tier uses, by language family.
+struct ModelChoices {
+    gpu: (&'static str, &'static str),
+    processor: (&'static str, &'static str),
+    /// No light multilingual model is in the catalog.
+    light: Option<(&'static str, &'static str)>,
+    language_phrase: &'static str,
+}
+
+const ENGLISH_MODELS: ModelChoices = ModelChoices {
+    gpu: ("Parakeet (GPU)", "tdt-0.6b-v2-q8_0"),
+    processor: ("Parakeet", "parakeet-unified-en-0.6b"),
+    light: Some(("Whisper.cpp", "distil-small.en")),
+    language_phrase: "English",
+};
+
+const MULTILINGUAL_MODELS: ModelChoices = ModelChoices {
+    gpu: ("Parakeet (GPU)", "tdt-0.6b-v3-q8_0"),
+    processor: ("Parakeet", "parakeet-tdt-0.6b-v3"),
+    light: None,
+    language_phrase: "multilingual",
+};
 
 #[derive(Debug, Serialize)]
 pub struct SetupOption {
@@ -32,11 +66,15 @@ pub struct SetupRecommendation {
     pub options: Vec<SetupOption>,
 }
 
-/// Builds the recommendation for `devices`. The GPU option appears only when
-/// parakeet.cpp has a GPU build for this platform and a suitable card exists.
-pub fn recommend(devices: &[GraphicsDevice]) -> SetupRecommendation {
+/// Builds the recommendation for `hardware` and the configured `language`.
+pub fn recommend(hardware: &HardwareProfile, language: &str) -> SetupRecommendation {
+    let models = if is_english(language) {
+        &ENGLISH_MODELS
+    } else {
+        &MULTILINGUAL_MODELS
+    };
     let graphics_card = if crate::parakeet::gpu_backend_available() {
-        suitable_graphics_card(devices).map(|device| device.description.clone())
+        suitable_graphics_card(&hardware.graphics).map(|device| device.description.clone())
     } else {
         None
     };
@@ -44,28 +82,74 @@ pub fn recommend(devices: &[GraphicsDevice]) -> SetupRecommendation {
     let mut options = Vec::new();
     if let Some(card) = &graphics_card {
         options.extend(option(
-            GPU_ENGINE,
-            GPU_MODEL,
+            models.gpu,
             "Best quality, uses your graphics card",
-            &format!("Fast, accurate English dictation on your {}.", card),
+            format!(
+                "Fast, accurate {} dictation on your {}.",
+                models.language_phrase, card
+            ),
+        ));
+        options.extend(option(
+            models.processor,
+            "Works on any computer",
+            format!(
+                "Accurate {} dictation on your processor. Slower.",
+                models.language_phrase
+            ),
+        ));
+    } else if let (true, Some(light)) = (is_modest(hardware), models.light) {
+        options.extend(option(
+            light,
+            "Light, for this computer",
+            format!(
+                "Quick {} dictation that stays light on memory.",
+                models.language_phrase
+            ),
+        ));
+        options.extend(option(
+            models.processor,
+            "More accurate, needs a faster computer",
+            format!(
+                "Best {} accuracy on your processor, but slower here.",
+                models.language_phrase
+            ),
+        ));
+    } else {
+        options.extend(option(
+            models.processor,
+            "Works on any computer",
+            format!(
+                "Accurate {} dictation on your processor.",
+                models.language_phrase
+            ),
         ));
     }
-    options.extend(option(
-        CPU_ENGINE,
-        CPU_MODEL,
-        "Works on any computer",
-        "Accurate English dictation on your processor. A little slower.",
-    ));
 
     crate::log_info!(
-        "Setup recommendation: graphics card {:?}, first choice {:?}",
+        "Setup recommendation: language {}, graphics card {:?}, modest {}, first choice {:?}",
+        language,
         graphics_card,
+        is_modest(hardware),
         options.first().map(|choice| &choice.model_size)
     );
     SetupRecommendation {
         graphics_card,
         options,
     }
+}
+
+/// "auto" counts as English: it is the default, and the English models
+/// handle English best.
+fn is_english(language: &str) -> bool {
+    language == "auto" || language.starts_with("en")
+}
+
+/// Whether the processor model would be heavy here. Unknown memory (0) is
+/// not treated as modest.
+fn is_modest(hardware: &HardwareProfile) -> bool {
+    let low_memory =
+        hardware.system_memory_bytes > 0 && hardware.system_memory_bytes < MODEST_MEMORY_BYTES;
+    low_memory || hardware.processor_threads <= MODEST_PROCESSOR_THREADS
 }
 
 /// The card with the most memory among those good enough for the GPU model.
@@ -82,7 +166,11 @@ fn suitable_graphics_card(devices: &[GraphicsDevice]) -> Option<&GraphicsDevice>
 
 /// One choice, sized from the model catalog (the single source of model
 /// facts). A model missing from the catalog is logged and left out.
-fn option(engine: &str, model_size: &str, title: &str, description: &str) -> Option<SetupOption> {
+fn option(
+    (engine, model_size): (&str, &str),
+    title: &str,
+    description: String,
+) -> Option<SetupOption> {
     let Some(model) = ModelManager::find_model(engine, model_size) else {
         crate::log_warn!(
             "Setup recommendation names {} / {}, which is not in the model catalog",
@@ -95,7 +183,7 @@ fn option(engine: &str, model_size: &str, title: &str, description: &str) -> Opt
         engine: engine.to_string(),
         model_size: model_size.to_string(),
         title: title.to_string(),
-        description: description.to_string(),
+        description,
         download_bytes: model.file_size,
     })
 }
@@ -108,14 +196,38 @@ mod tests {
         GraphicsDevice {
             description: format!("{:?} {} GB", kind, gigabytes),
             kind,
-            total_memory_bytes: gigabytes * 1024 * 1024 * 1024,
+            total_memory_bytes: gigabytes * GIGABYTE,
         }
     }
 
+    fn hardware(
+        graphics: Vec<GraphicsDevice>,
+        memory_gigabytes: u64,
+        threads: usize,
+    ) -> HardwareProfile {
+        HardwareProfile {
+            graphics,
+            system_memory_bytes: memory_gigabytes * GIGABYTE,
+            processor_threads: threads,
+        }
+    }
+
+    fn first_model(recommendation: &SetupRecommendation) -> &str {
+        &recommendation.options[0].model_size
+    }
+
     #[test]
-    fn recommended_models_exist_in_the_catalog() {
-        assert!(ModelManager::find_model(GPU_ENGINE, GPU_MODEL).is_some());
-        assert!(ModelManager::find_model(CPU_ENGINE, CPU_MODEL).is_some());
+    fn every_recommended_model_exists_in_the_catalog() {
+        for models in [&ENGLISH_MODELS, &MULTILINGUAL_MODELS] {
+            let mut choices = vec![models.gpu, models.processor];
+            choices.extend(models.light);
+            for (engine, size) in choices {
+                assert!(
+                    ModelManager::find_model(engine, size).is_some(),
+                    "{engine} / {size}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -126,20 +238,51 @@ mod tests {
             device(GraphicsKind::Integrated, 32),
         ];
         let card = suitable_graphics_card(&devices).unwrap();
-        assert_eq!(card.total_memory_bytes, 20 * 1024 * 1024 * 1024);
+        assert_eq!(card.total_memory_bytes, 20 * GIGABYTE);
     }
 
     #[test]
     fn small_cards_are_not_suitable() {
-        let devices = [device(GraphicsKind::Discrete, 2)];
-        assert!(suitable_graphics_card(&devices).is_none());
+        assert!(suitable_graphics_card(&[device(GraphicsKind::Discrete, 2)]).is_none());
     }
 
     #[test]
-    fn processor_option_is_always_offered() {
-        let recommendation = recommend(&[]);
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    fn laptop_with_integrated_graphics_gets_the_processor_model() {
+        let laptop = hardware(vec![device(GraphicsKind::Integrated, 16)], 16, 8);
+        let recommendation = recommend(&laptop, "en-AU");
         assert!(recommendation.graphics_card.is_none());
+        assert_eq!(first_model(&recommendation), ENGLISH_MODELS.processor.1);
+    }
+
+    #[test]
+    fn modest_computer_gets_the_light_model_first() {
+        let low_memory = hardware(vec![], 4, 8);
+        assert_eq!(
+            first_model(&recommend(&low_memory, "auto")),
+            "distil-small.en"
+        );
+        let few_threads = hardware(vec![], 16, 4);
+        assert_eq!(
+            first_model(&recommend(&few_threads, "auto")),
+            "distil-small.en"
+        );
+        assert_eq!(recommend(&few_threads, "auto").options.len(), 2);
+    }
+
+    #[test]
+    fn unknown_memory_is_not_modest() {
+        assert!(!is_modest(&hardware(vec![], 0, 8)));
+    }
+
+    #[test]
+    fn other_languages_get_multilingual_models() {
+        let modest = hardware(vec![], 4, 2);
+        let recommendation = recommend(&modest, "de");
+        assert_eq!(
+            first_model(&recommendation),
+            MULTILINGUAL_MODELS.processor.1
+        );
         assert_eq!(recommendation.options.len(), 1);
-        assert_eq!(recommendation.options[0].engine, CPU_ENGINE);
     }
 }

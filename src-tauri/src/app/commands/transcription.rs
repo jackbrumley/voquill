@@ -133,11 +133,13 @@ pub async fn unload_model(state: tauri::State<'_, AppState>) -> Result<(), Strin
 /// graphics hardware Voquill detects.
 #[tauri::command]
 pub async fn get_setup_recommendation(
+    state: tauri::State<'_, AppState>,
 ) -> Result<crate::setup_recommendation::SetupRecommendation, String> {
-    let devices = tokio::task::spawn_blocking(crate::gpu_detection::detect_graphics_devices)
+    let language = state.config.lock().unwrap().language.clone();
+    let hardware = tokio::task::spawn_blocking(crate::hardware_detection::detect_hardware)
         .await
-        .map_err(|e| format!("Graphics detection failed: {}", e))?;
-    Ok(crate::setup_recommendation::recommend(&devices))
+        .map_err(|e| format!("Hardware detection failed: {}", e))?;
+    Ok(crate::setup_recommendation::recommend(&hardware, &language))
 }
 
 /// Whether the local speech engine is unloaded, loading or loaded. Changes

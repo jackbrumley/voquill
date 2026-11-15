@@ -54,7 +54,7 @@ mod config;
 mod diarization;
 mod engine_factory;
 mod engine_residency;
-mod gpu_detection;
+mod hardware_detection;
 mod history;
 mod hotkey;
 mod local_whisper;
