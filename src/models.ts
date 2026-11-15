@@ -19,3 +19,7 @@ export function engineUsesGpu(engines: EngineInfo[], engine: string): boolean {
 export function enginesInCategory(engines: EngineInfo[], category: EngineInfo['category']): EngineInfo[] {
   return engines.filter((engine) => engine.category === category);
 }
+
+export function engineUsesCustomWords(engines: EngineInfo[], engine: string): boolean {
+  return engines.find((info) => info.name === engine)?.uses_custom_words ?? false;
+}

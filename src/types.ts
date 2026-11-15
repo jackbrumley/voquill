@@ -241,6 +241,8 @@ export interface ModelInfo {
 export interface EngineInfo {
   name: string;
   uses_gpu: boolean;
+  /** Whether the engine uses the Settings → Words custom words list. */
+  uses_custom_words: boolean;
   category: 'transcription' | 'post_process';
 }
 

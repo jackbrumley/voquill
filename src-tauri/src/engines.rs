@@ -95,6 +95,12 @@ impl ModelEngine {
         }
     }
 
+    /// Whether the engine uses the custom words list (passed as Whisper's
+    /// prompt hint). Parakeet ignores it.
+    pub fn uses_custom_words(self) -> bool {
+        self.family() == EngineFamily::Whisper
+    }
+
     pub fn category(self) -> ModelCategory {
         match self.family() {
             EngineFamily::Whisper | EngineFamily::Parakeet => ModelCategory::Transcription,
@@ -108,6 +114,7 @@ impl ModelEngine {
 pub struct EngineInfo {
     pub name: &'static str,
     pub uses_gpu: bool,
+    pub uses_custom_words: bool,
     pub category: ModelCategory,
 }
 
@@ -116,6 +123,7 @@ impl From<ModelEngine> for EngineInfo {
         EngineInfo {
             name: engine.name(),
             uses_gpu: engine.uses_gpu(),
+            uses_custom_words: engine.uses_custom_words(),
             category: engine.category(),
         }
     }
@@ -154,5 +162,7 @@ mod tests {
             ModelEngine::PostProcessGpu.category(),
             ModelCategory::PostProcess
         );
+        assert!(ModelEngine::WhisperGpu.uses_custom_words());
+        assert!(!ModelEngine::ParakeetGpu.uses_custom_words());
     }
 }

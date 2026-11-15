@@ -264,6 +264,7 @@ export function ConfigPage(props: ConfigPageProps) {
             {activeConfigSection === 'words' && (
               <WordsSection
                 config={config}
+                availableEngines={availableEngines}
                 updateConfig={updateConfig}
               />
             )}

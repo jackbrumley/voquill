@@ -1,27 +1,41 @@
 import { ConfigField } from '../../components/ConfigField.tsx';
 import { Switch } from '../../components/Switch.tsx';
 import { WordListEditor } from '../../components/WordListEditor.tsx';
-import type { Config } from '../../types.ts';
+import type { Config, EngineInfo } from '../../types.ts';
+import { engineUsesCustomWords } from '../../models.ts';
+import { tokens } from '../../design-tokens.ts';
 
 interface WordsSectionProps {
   config: Config;
+  availableEngines: EngineInfo[];
   updateConfig: (key: string, value: string | number | boolean | null | string[] | Record<string, unknown> | unknown[]) => void;
 }
 
 /// Words Voquill should get right (custom words) and words it should drop
 /// (filler words).
-export function WordsSection({ config, updateConfig }: WordsSectionProps) {
+export function WordsSection({ config, availableEngines, updateConfig }: WordsSectionProps) {
+  // Cloud transcription and Whisper use the list; say so when the chosen
+  // engine does not.
+  const customWordsIgnored = config.transcription_mode === 'Local'
+    && availableEngines.length > 0
+    && !engineUsesCustomWords(availableEngines, config.local_engine);
+
   return (
     <>
       <ConfigField
         label="Custom Words"
-        description="Names, jargon and terms you want spelled correctly. Used by Whisper and cloud transcription; Parakeet doesn't use this list yet."
+        description="Names, jargon and terms you want spelled correctly. Works with the Whisper engine and cloud transcription."
       >
         <WordListEditor
           words={config.dictionary || []}
           onChange={(words) => updateConfig('dictionary', words)}
           placeholder="e.g. Anthropic, Rust, Voquill"
         />
+        {customWordsIgnored && (
+          <div style={{ fontSize: tokens.typography.sizeXs, color: '#f1c40f', marginTop: tokens.spacing.xs }}>
+            Your speech engine ({config.local_engine}) doesn't use this list. Switch to a Whisper engine in Settings → Transcription to use it.
+          </div>
+        )}
       </ConfigField>
 
       <ConfigField
