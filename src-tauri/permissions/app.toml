@@ -59,6 +59,7 @@ commands.allow = [
     "unload_model",
     "get_engine_residency",
     "report_app_readiness",
+    "get_setup_recommendation",
     "test_voice_macro_sound",
     "test_voice_macro_execution",
     "test_spoken_voice_macro",

@@ -10,7 +10,6 @@ interface UseAudioSetupReturn {
   micTestStatus: 'idle' | 'recording' | 'playing' | 'processing';
   micVolume: number;
   isMicTriggered: boolean;
-  micTestPassed: boolean;
   hasLoadedSetupStatus: boolean;
   /// Signal (not a plain value) so routing effects re-run when the backend
   /// finishes resuming the input emulation portal session.
@@ -27,7 +26,6 @@ interface UseAudioSetupReturn {
   checkSetupStatus: () => Promise<{ perms: PlatformPermissions; bindingState: HotkeyBindingState } | undefined>;
   setMicTestStatus: (status: 'idle' | 'recording' | 'playing' | 'processing') => void;
   setMicVolume: (payload: MicVolumePayload | number) => void;
-  setMicTestPassed: (passed: boolean) => void;
 }
 
 export function useAudioSetup(showToast: (message: string, type: 'success' | 'error' | 'info' | 'saved') => void): UseAudioSetupReturn {
@@ -38,7 +36,6 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
   const micTestStatus = useSignal<'idle' | 'recording' | 'playing' | 'processing'>('idle');
   const micVolume = useSignal<number>(0);
   const isMicTriggered = useSignal<boolean>(false);
-  const micTestPassed = useSignal(false);
   const hasLoadedSetupStatus = useSignal(false);
   const isInputSessionRestoring = useComputed(() => permissions.value?.input_emulation_restoring ?? false);
   const hasLoadedMics = useSignal(false);
@@ -147,7 +144,6 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
     micTestStatus: micTestStatus.value,
     micVolume: micVolume.value,
     isMicTriggered: isMicTriggered.value,
-    micTestPassed: micTestPassed.value,
     hasLoadedSetupStatus: hasLoadedSetupStatus.value,
     isInputSessionRestoring,
     hasLoadedMics: hasLoadedMics.value,
@@ -176,6 +172,5 @@ export function useAudioSetup(showToast: (message: string, type: 'success' | 'er
         isMicTriggered.value = payload.is_triggered;
       }
     },
-    setMicTestPassed: (passed) => { micTestPassed.value = passed; },
   };
 }

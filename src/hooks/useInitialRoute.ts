@@ -19,8 +19,6 @@ interface UseInitialRouteOptions {
 }
 
 interface UseInitialRouteReturn {
-  setupTouched: boolean;
-  setSetupTouched: (touched: boolean) => void;
   navigate: (route: AppRoute, replace?: boolean) => void;
   handleFactoryReset: (loadConfig: () => Promise<void>, loadMics: () => Promise<void>, loadModels: () => Promise<void>, loadHistory: () => Promise<void>, checkSetupStatus: () => Promise<void>) => Promise<void>;
   testApiKey: (apiKey: string, apiUrl: string) => Promise<void>;
@@ -29,7 +27,6 @@ interface UseInitialRouteReturn {
 
 export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRouteReturn {
   const { showToast } = options;
-  const setupTouched = useSignal(false);
   const initialRouteChecked = useSignal(false);
   const isTestingApi = useSignal(false);
 
@@ -163,7 +160,6 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
         checkSetupStatus(),
       ]);
 
-      setupTouched.value = false;
       initialRouteChecked.value = false;
       navigate('setup', true);
     } catch (error) {
@@ -188,8 +184,6 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
   };
 
   return {
-    setupTouched: setupTouched.value,
-    setSetupTouched: (touched) => { setupTouched.value = touched; },
     navigate,
     handleFactoryReset,
     testApiKey,

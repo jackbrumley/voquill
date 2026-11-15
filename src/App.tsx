@@ -101,8 +101,6 @@ function App() {
   const readiness = computeReadiness(readinessInputs);
 
   const {
-    setupTouched,
-    setSetupTouched,
     navigate,
     handleFactoryReset,
     testApiKey,
@@ -177,7 +175,6 @@ function App() {
     onMicTestFinished: () => {
       audioSetup.setMicTestStatus('idle');
       audioSetup.setMicVolume(0);
-      audioSetup.setMicTestPassed(true);
     },
     onMicVolume: audioSetup.setMicVolume,
     onDownloadProgress: (progress) => { configHook.setDownloadProgress(progress); },
@@ -244,20 +241,16 @@ function App() {
             isDownloading={configHook.isDownloading}
             portalVersion={hotkeySetup.portalVersion}
             isSystemManagedShortcut={hotkeySetup.isSystemManagedShortcut}
-            systemShortcutContext={hotkeySetup.systemShortcutContext}
             isApplyingHotkey={hotkeySetup.isApplyingHotkey}
             hotkeyError={audioSetup.hotkeyError}
             availableMics={audioSetup.availableMics}
             micTestStatus={audioSetup.micTestStatus}
             micVolume={audioSetup.micVolume}
             isMicTriggered={audioSetup.isMicTriggered}
-            micTestPassed={audioSetup.micTestPassed}
             gpuStatus={gpuHook.gpuStatus}
             isTestingEngine={gpuHook.isTestingEngine}
             isTestingApi={isTestingApi}
             isRecordingHotkey={hotkeySetup.isRecordingHotkey}
-            setupTouched={setupTouched}
-            onTouchSetup={() => setSetupTouched(true)}
             onAudioSetup={() => void audioSetup.handleAudioSetup()}
             onInputSetup={() => void audioSetup.handleInputSetup()}
             onConfigureHotkey={() => void hotkeySetup.handleConfigureHotkey()}
@@ -266,7 +259,6 @@ function App() {
             onHotkeyBlur={() => void hotkeySetup.setRecordingState(false)}
             onChangeConfig={configHook.updateConfig}
             onSelectEngine={(engine) => {
-              setSetupTouched(true);
               configHook.updateConfig('local_engine', engine);
               if (engine.includes('(GPU)')) {
                 void gpuHook.testTranscriptionEngine();
@@ -286,7 +278,6 @@ function App() {
             onStartMicTest={() => void audioSetup.startMicTest()}
             onStopMicTest={() => void audioSetup.stopMicTest()}
             onStopMicPlayback={() => void audioSetup.stopMicPlayback()}
-            onRefreshStatus={() => void audioSetup.checkSetupStatus()}
             onTestApiKey={() => void testApiKey(configHook.config.openai_api_key, configHook.config.api_url)}
             onFinishSetup={() => {
               logUI(`[Finish Setup] Finish Setup clicked. ${explainReadiness(readinessInputs, readiness)}`);
@@ -344,7 +335,7 @@ function App() {
           onStartMicTest={audioSetup.startMicTest}
           onStopMicTest={audioSetup.stopMicTest}
           onStopMicPlayback={audioSetup.stopMicPlayback}
-          onReopenInitialSetup={() => { setSetupTouched(true); navigate('setup'); }}
+          onReopenInitialSetup={() => navigate('setup')}
           onFactoryReset={() => hotkeySetup.setShowFactoryResetModal(true)}
           onCheckForUpdates={() => void updatesHook.checkForUpdates(true)}
           onOpenUiLab={() => navigate('ui-lab')}

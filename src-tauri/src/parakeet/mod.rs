@@ -33,6 +33,11 @@ const SAMPLE_RATE: u32 = 16000;
 /// pauses into pieces of at most this length.
 const MAX_PIECE_SECONDS: f32 = 30.0;
 
+/// Whether parakeet.cpp ships a GPU build for this platform.
+pub fn gpu_backend_available() -> bool {
+    parakeet_cpp::download_spec().is_ok()
+}
+
 /// Which server runs the model.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ParakeetBackend {

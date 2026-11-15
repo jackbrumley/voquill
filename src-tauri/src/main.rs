@@ -54,6 +54,7 @@ mod config;
 mod diarization;
 mod engine_factory;
 mod engine_residency;
+mod gpu_detection;
 mod history;
 mod hotkey;
 mod local_whisper;
@@ -64,6 +65,7 @@ pub mod platform;
 mod post_process;
 pub mod process_guard;
 mod python_runner;
+mod setup_recommendation;
 mod sidecar;
 mod text_cleanup;
 mod transcription;
@@ -231,6 +233,7 @@ fn main() {
             unload_model,
             get_engine_residency,
             report_app_readiness,
+            get_setup_recommendation,
             test_voice_macro_sound,
             test_voice_macro_execution,
             test_spoken_voice_macro,
