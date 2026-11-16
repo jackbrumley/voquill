@@ -254,6 +254,72 @@ fn powershell_single_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
+/// What to change in the updater's environment so it runs with the
+/// computer's own programs and libraries, not the AppImage's.
+#[cfg(any(target_os = "linux", test))]
+#[derive(Debug, PartialEq)]
+enum EnvironmentChange {
+    Remove(String),
+    Set(String, String),
+}
+
+/// The AppImage runtime points search paths (`LD_LIBRARY_PATH`,
+/// `XDG_DATA_DIRS`, `GTK_PATH`, ...) into its own bundle at `APPDIR`. A
+/// system program started from it inherits them and loads the bundled
+/// libraries: the system `curl` then fails with "symbol lookup error" in
+/// libcurl, so the updater could never download anything. Every entry under
+/// `APPDIR` is removed; a variable left with no entries is removed entirely
+/// (an empty `LD_LIBRARY_PATH` entry would mean the current directory).
+/// `APPIMAGE` (the .AppImage file itself) is outside `APPDIR` and kept: the
+/// update script uses it to update the AppImage install.
+#[cfg(any(target_os = "linux", test))]
+fn appimage_environment_changes(
+    appdir: &str,
+    variables: impl Iterator<Item = (String, String)>,
+) -> Vec<EnvironmentChange> {
+    let appdir = appdir.trim_end_matches('/');
+    let is_inside_appdir =
+        |entry: &str| entry == appdir || entry.starts_with(&format!("{appdir}/"));
+    variables
+        .filter(|(_, value)| value.split(':').any(is_inside_appdir))
+        .map(|(name, value)| {
+            let kept: Vec<&str> = value
+                .split(':')
+                .filter(|entry| !entry.is_empty() && !is_inside_appdir(entry))
+                .collect();
+            if kept.is_empty() {
+                EnvironmentChange::Remove(name)
+            } else {
+                EnvironmentChange::Set(name, kept.join(":"))
+            }
+        })
+        .collect()
+}
+
+/// Applies `appimage_environment_changes` when running as an AppImage.
+#[cfg(target_os = "linux")]
+fn use_system_environment(command: &mut std::process::Command) {
+    let Some(appdir) = std::env::var("APPDIR").ok().filter(|dir| !dir.is_empty()) else {
+        return;
+    };
+    let variables = std::env::vars_os()
+        .filter_map(|(name, value)| Some((name.into_string().ok()?, value.into_string().ok()?)));
+    for change in appimage_environment_changes(&appdir, variables) {
+        crate::log_info!("Updater environment: {:?}", change);
+        match change {
+            EnvironmentChange::Remove(name) => {
+                command.env_remove(name);
+            }
+            EnvironmentChange::Set(name, value) => {
+                command.env(name, value);
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn use_system_environment(_command: &mut std::process::Command) {}
+
 /// Downloads update.sh and pipes it to bash. If the download fails, bash
 /// gets an empty script and exits without the started line, which
 /// `wait_for_updater_start` reports. The URL and path are passed as
@@ -279,6 +345,7 @@ fn spawn_updater(
         .stdin(Stdio::null())
         .stdout(stdout)
         .stderr(stderr);
+    use_system_environment(&mut command);
 
     // SAFETY: setsid only detaches the child from this process's session.
     unsafe {
@@ -410,7 +477,41 @@ fn parse_version(value: &str) -> Option<(u64, u64, u64)> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_update_base_url, powershell_single_quote, UPDATE_STARTED_MARKER};
+    use super::{
+        appimage_environment_changes, parse_update_base_url, powershell_single_quote,
+        EnvironmentChange, UPDATE_STARTED_MARKER,
+    };
+
+    #[test]
+    fn appimage_paths_are_removed_from_the_updater_environment() {
+        let variables = [
+            ("APPDIR", "/tmp/appimage_extracted_1"),
+            ("APPIMAGE", "/home/me/.local/bin/voquill"),
+            ("LD_LIBRARY_PATH", "/tmp/appimage_extracted_1/usr/lib:"),
+            (
+                "XDG_DATA_DIRS",
+                "/tmp/appimage_extracted_1/usr/share:/usr/local/share:/usr/share",
+            ),
+            ("PATH", "/tmp/appimage_extracted_1/usr/bin:/usr/bin:/bin"),
+            ("HOME", "/home/me"),
+            ("OTHER", "/tmp/appimage_extracted_10/usr/lib"),
+        ]
+        .into_iter()
+        .map(|(name, value)| (name.to_string(), value.to_string()));
+
+        assert_eq!(
+            appimage_environment_changes("/tmp/appimage_extracted_1/", variables),
+            vec![
+                EnvironmentChange::Remove("APPDIR".to_string()),
+                EnvironmentChange::Remove("LD_LIBRARY_PATH".to_string()),
+                EnvironmentChange::Set(
+                    "XDG_DATA_DIRS".to_string(),
+                    "/usr/local/share:/usr/share".to_string()
+                ),
+                EnvironmentChange::Set("PATH".to_string(), "/usr/bin:/bin".to_string()),
+            ]
+        );
+    }
 
     #[test]
     fn powershell_quoting_doubles_embedded_quotes() {
