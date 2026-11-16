@@ -73,7 +73,11 @@ Pushing the tag starts the **Release** workflow (`.github/workflows/release.yml`
    with the SHA-256 digest the installers check.
 4. **Install test** installs the pre-release on Linux (.deb and AppImage),
    Windows (setup.exe and MSI) and macOS with the installer scripts from the
-   tag, and checks the installed app.
+   tag, and checks the installed app. Last, it runs the installed build's
+   real Update Now path (`voquill --update`, through
+   `scripts/test-in-app-update.mjs`) with the tag's `update.ps1` /
+   `update.sh`, which updates it to the latest published release. A build
+   whose updater cannot start fails here instead of stranding its users.
 
 A full run takes roughly 60–90 minutes. Follow it with:
 ```bash

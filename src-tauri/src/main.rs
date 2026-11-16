@@ -45,6 +45,11 @@ struct Cli {
     /// install failed
     #[arg(long, hide = true)]
     update_failed: bool,
+
+    /// Run the in-app updater (as Update Now does) and exit. Used by the
+    /// release workflow to test the real update path of an installed build.
+    #[arg(long, hide = true)]
+    update: bool,
 }
 
 mod app;
@@ -115,6 +120,7 @@ fn main() {
     let launch = app::bootstrap::LaunchOptions {
         start_hidden: cli.start_hidden,
         update_failed: cli.update_failed,
+        run_update: cli.update,
     };
 
     // Third-party Vulkan "implicit layers" (Steam overlay, OBS capture, NVIDIA

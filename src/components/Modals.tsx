@@ -23,6 +23,7 @@ interface ModalsProps {
   updateResult: UpdateCheckResult | null;
   appVersion: string;
   isInstallingUpdate?: boolean;
+  updateError: string | null;
   getLastCheckedLabel: () => string;
   onCancelHotkeyCapture: () => void;
   onToggleFnModifier: () => void;
@@ -172,10 +173,16 @@ export function Modals(props: ModalsProps) {
               </Button>
               {props.updateResult?.updateAvailable && (
                 <>
-                  <Button variant="ghost" pill onClick={props.onOpenLatestRelease} disabled={props.isInstallingUpdate}>
-                    Release Notes
-                  </Button>
-                  {props.onInstallUpdate && (
+                  {!props.updateError && (
+                    <Button variant="ghost" pill onClick={props.onOpenLatestRelease} disabled={props.isInstallingUpdate}>
+                      Release Notes
+                    </Button>
+                  )}
+                  {props.updateError ? (
+                    <Button variant="primary" pill onClick={props.onOpenLatestRelease}>
+                      Open Download Page
+                    </Button>
+                  ) : props.onInstallUpdate && (
                     <Button variant="primary" pill onClick={props.onInstallUpdate} disabled={props.isInstallingUpdate}>
                       {props.isInstallingUpdate ? 'Updating...' : 'Update Now'}
                     </Button>
@@ -191,11 +198,16 @@ export function Modals(props: ModalsProps) {
                 ? `A newer Voquill version is available. Current: v${props.updateResult.currentVersion} -> Latest: v${props.updateResult.latestVersion}.`
                 : `You are on the latest version (v${props.updateResult?.currentVersion || props.appVersion}).`}
             </p>
-            {props.updateResult?.updateAvailable && (
+            {props.updateResult?.updateAvailable && !props.updateError && (
               <p style={{ ...modalShortcutNoteStyle, margin: 0 }}>
                 {props.isInstallingUpdate
-                  ? 'Downloading and applying the update. Voquill will close and relaunch automatically once completed.'
+                  ? 'Starting the updater. Voquill will close, install the update and reopen.'
                   : 'Click "Update Now" to automatically download and install the latest release. Voquill will restart after updating.'}
+              </p>
+            )}
+            {props.updateResult?.updateAvailable && props.updateError && (
+              <p style={{ ...modalShortcutNoteStyle, color: '#f87171', margin: 0 }}>
+                {props.updateError}
               </p>
             )}
             <p style={{ ...modalShortcutNoteStyle, margin: 0 }}>

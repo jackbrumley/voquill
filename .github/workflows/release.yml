@@ -219,3 +219,23 @@ jobs:
             binary=/Applications/Voquill.app/Contents/MacOS/voquill
           fi
           node scripts/test-single-instance.mjs "$binary"
+
+      # Last: it updates the installed build to the latest published release.
+      # Runs the build's real Update Now path (--update) with this tag's
+      # update and install scripts, so a broken updater fails the release
+      # instead of stranding users on it.
+      - name: In-app update
+        shell: bash
+        env:
+          VOQUILL_UPDATE_BASE_URL: https://raw.githubusercontent.com/${{ github.repository }}/${{ needs.prepare.outputs.tag }}/docs
+          VOQUILL_NO_RELAUNCH: 1
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          case "$RUNNER_OS" in
+            Linux)
+              dbus-run-session -- xvfb-run -a node scripts/test-in-app-update.mjs "$HOME/.local/bin/voquill" ;;
+            Windows)
+              node scripts/test-in-app-update.mjs "$LOCALAPPDATA/Voquill/voquill.exe" ;;
+            macOS)
+              node scripts/test-in-app-update.mjs /Applications/Voquill.app/Contents/MacOS/voquill ;;
+          esac

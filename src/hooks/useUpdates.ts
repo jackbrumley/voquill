@@ -8,6 +8,9 @@ interface UseUpdatesReturn {
   lastCheckedAt: number | null;
   checkingUpdates: boolean;
   installingUpdate: boolean;
+  /// Why Update Now could not start the updater. Voquill stays open and the
+  /// update window offers the release page instead.
+  updateError: string | null;
   showUpdateModal: boolean;
   setShowUpdateModal: (show: boolean) => void;
   checkForUpdates: (showUpToDateModal: boolean) => Promise<void>;
@@ -21,6 +24,7 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
   const lastCheckedAt = useSignal<number | null>(null);
   const checkingUpdates = useSignal(false);
   const installingUpdate = useSignal(false);
+  const updateError = useSignal<string | null>(null);
   const showUpdateModal = useSignal(false);
 
   const checkForUpdates = async (showUpToDateModal: boolean) => {
@@ -52,12 +56,13 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
     if (installingUpdate.value) return;
 
     installingUpdate.value = true;
+    updateError.value = null;
     try {
-      showToast('Starting update... Voquill will restart shortly.', 'info');
       await invoke('install_update');
     } catch (error) {
       installingUpdate.value = false;
-      showToast(`Failed to start update: ${error}`, 'error');
+      updateError.value = String(error);
+      showUpdateModal.value = true;
     }
   };
 
@@ -99,6 +104,7 @@ export function useUpdates(showToast: (message: string, type: 'success' | 'error
     lastCheckedAt: lastCheckedAt.value,
     checkingUpdates: checkingUpdates.value,
     installingUpdate: installingUpdate.value,
+    updateError: updateError.value,
     showUpdateModal: showUpdateModal.value,
     setShowUpdateModal: (show) => { showUpdateModal.value = show; },
     checkForUpdates,

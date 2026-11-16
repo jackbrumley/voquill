@@ -392,6 +392,7 @@ function App() {
         updateResult={updatesHook.updateResult}
         appVersion={appVersion.value}
         isInstallingUpdate={updatesHook.installingUpdate}
+        updateError={updatesHook.updateError}
         getLastCheckedLabel={updatesHook.getLastCheckedLabel}
         onCancelHotkeyCapture={() => void hotkeySetup.cancelHotkeyCapture()}
         onToggleFnModifier={hotkeySetup.toggleFnModifier}

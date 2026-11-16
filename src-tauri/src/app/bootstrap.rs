@@ -187,6 +187,8 @@ pub struct LaunchOptions {
     pub start_hidden: bool,
     /// The in-app updater relaunched this version because the install failed.
     pub update_failed: bool,
+    /// Run the updater and exit, without showing the window.
+    pub run_update: bool,
 }
 
 pub fn run_setup(
@@ -238,11 +240,15 @@ pub fn run_setup(
             "Start hidden requested but no system tray is available; showing the main window so the app stays reachable"
         );
     }
-    if !launch.start_hidden || !tray_available {
+    let stays_hidden = launch.start_hidden || launch.run_update;
+    if !stays_hidden || !tray_available {
         tray::show_main_window(app.handle());
     }
     if launch.update_failed {
         crate::app::commands::update::show_update_failed_dialog(app.handle());
+    }
+    if launch.run_update {
+        run_update_and_exit(app.handle());
     }
 
     let hotkey_string = initial_config.hotkey.clone();
@@ -286,6 +292,22 @@ pub fn run_setup(
     crate::app::capture::start(app.handle());
 
     Ok(())
+}
+
+/// `--update`: runs the same updater as Update Now, then exits with 0 once
+/// the update script has started, or 1 if it never did.
+fn run_update_and_exit(app_handle: &tauri::AppHandle) {
+    let app_handle = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        let exit_code = match crate::app::commands::update::start_updater().await {
+            Ok(()) => 0,
+            Err(error) => {
+                crate::log_warn!("--update: {}", error);
+                1
+            }
+        };
+        app_handle.exit(exit_code);
+    });
 }
 
 /// Pre-loads the transcription engine model into its cache so the first

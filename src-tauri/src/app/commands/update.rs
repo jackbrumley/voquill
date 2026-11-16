@@ -98,39 +98,117 @@ pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
 pub async fn install_update(app_handle: tauri::AppHandle) -> Result<(), String> {
     crate::log_info!("Tauri Command: install_update invoked");
 
-    spawn_update_process()?;
+    start_updater().await?;
 
-    let handle = app_handle.clone();
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
-        crate::log_info!("Exiting Voquill for update installation");
-        handle.exit(0);
-    });
-
+    crate::log_info!("Exiting Voquill for update installation");
+    app_handle.exit(0);
     Ok(())
 }
 
-/// The install command that replaces this installation in place. AppImage
-/// installs must stay AppImage installs rather than switching to a package.
-#[cfg(target_os = "linux")]
-fn unix_update_command() -> &'static str {
-    let is_appimage = std::env::var("APPIMAGE").is_ok()
-        || std::env::current_exe()
-            .map(|path| path.to_string_lossy().contains(".local/bin"))
-            .unwrap_or(false);
+/// Where the update script is downloaded from. `VOQUILL_UPDATE_BASE_URL`
+/// replaces it so the release workflow can run a tag's scripts before they
+/// are published.
+const UPDATE_BASE_URL: &str = "https://voquill.org";
+const UPDATE_BASE_URL_OVERRIDE_VARIABLE: &str = "VOQUILL_UPDATE_BASE_URL";
 
-    if is_appimage {
-        "curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash -s -- --appimage"
-    } else {
-        "curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash"
+/// The first line the update script writes (see docs/update.ps1 and
+/// docs/update.sh). Seeing it in the update log proves the script was
+/// downloaded and is running.
+const UPDATE_STARTED_MARKER: &str = "[voquill-update] started";
+
+/// How long the update script may take to report that it started. Covers a
+/// cold PowerShell start plus downloading a small script on a slow network.
+const UPDATER_START_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+const UPDATER_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// Shown when the update script never reported that it started.
+const UPDATER_NOT_STARTED_MESSAGE: &str = "The updater could not start, so nothing was changed. Download the new version from the release page instead.";
+
+/// Starts the updater and returns once the update script reports that it is
+/// running; only then may Voquill exit. The app does as little as possible:
+/// it starts a shell that downloads the current update script from the
+/// website and runs it, so every later fix to the update procedure is a
+/// change to that script, not a new release. If the script never starts
+/// (the shell could not run, the download failed), this returns an error and
+/// Voquill stays open, so an update can never close the app and do nothing.
+pub async fn start_updater() -> Result<(), String> {
+    let base_url = parse_update_base_url(std::env::var(UPDATE_BASE_URL_OVERRIDE_VARIABLE).ok())?;
+    let relaunch = relaunch_target()
+        .ok_or_else(|| "Could not find this Voquill executable to relaunch".to_string())?;
+    let log_path = update_log_path();
+    let (stdout, stderr) = update_log_outputs(&log_path)?;
+
+    crate::log_info!(
+        "Starting updater from {} (relaunch target {})",
+        base_url,
+        relaunch.display()
+    );
+    let mut updater = spawn_updater(&base_url, &relaunch, stdout, stderr)?;
+    wait_for_updater_start(&mut updater, &log_path).await
+}
+
+/// The default base URL, or the override, which must be https and loses any
+/// trailing slash.
+fn parse_update_base_url(override_url: Option<String>) -> Result<String, String> {
+    let Some(override_url) = override_url else {
+        return Ok(UPDATE_BASE_URL.to_string());
+    };
+    let trimmed = override_url.trim().trim_end_matches('/');
+    if !trimmed.starts_with("https://") {
+        return Err(format!(
+            "{UPDATE_BASE_URL_OVERRIDE_VARIABLE} must be an https:// URL, got '{override_url}'"
+        ));
+    }
+    Ok(trimmed.to_string())
+}
+
+/// Waits for the started line in the update log. An updater that exits or
+/// stays silent past the timeout has failed to start: it is stopped, its
+/// log is copied into the session log, and the user gets an error instead of
+/// a closed app.
+async fn wait_for_updater_start(
+    updater: &mut std::process::Child,
+    log_path: &std::path::Path,
+) -> Result<(), String> {
+    let deadline = std::time::Instant::now() + UPDATER_START_TIMEOUT;
+    loop {
+        if read_update_log(log_path).contains(UPDATE_STARTED_MARKER) {
+            crate::log_info!("Updater started");
+            return Ok(());
+        }
+        let failure = match updater.try_wait() {
+            Ok(Some(status)) => Some(format!("it exited ({status})")),
+            Ok(None) if std::time::Instant::now() >= deadline => {
+                let _ = updater.kill();
+                Some(format!(
+                    "it did not report starting within {}s",
+                    UPDATER_START_TIMEOUT.as_secs()
+                ))
+            }
+            Ok(None) => None,
+            Err(error) => Some(format!("its state could not be read: {error}")),
+        };
+        if let Some(reason) = failure {
+            // The script may have written its first line just before exiting.
+            if read_update_log(log_path).contains(UPDATE_STARTED_MARKER) {
+                crate::log_info!("Updater started");
+                return Ok(());
+            }
+            crate::log_warn!(
+                "Updater did not start: {}. Update log:\n{}",
+                reason,
+                read_update_log(log_path)
+            );
+            return Err(UPDATER_NOT_STARTED_MESSAGE.to_string());
+        }
+        tokio::time::sleep(UPDATER_POLL_INTERVAL).await;
     }
 }
 
-/// install.sh hands off to the macOS installer, which replaces the app bundle
-/// in /Applications.
-#[cfg(target_os = "macos")]
-fn unix_update_command() -> &'static str {
-    "curl --proto '=https' --tlsv1.2 -sSf https://voquill.org/install.sh | bash"
+fn read_update_log(log_path: &std::path::Path) -> String {
+    std::fs::read(log_path)
+        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+        .unwrap_or_default()
 }
 
 /// The updater's output, and what the update-failed dialog opens.
@@ -141,15 +219,14 @@ fn update_log_path() -> std::path::PathBuf {
 }
 
 /// A fresh update log, as the updater's stdout and stderr. Emptied first, then
-/// opened in append mode: install.sh also appends its own lines to this file,
-/// and a plain write handle would write over them at its own offset.
-fn update_log_outputs() -> Result<(Stdio, Stdio), String> {
-    let log_path = update_log_path();
-    std::fs::write(&log_path, b"")
+/// opened in append mode: the installers also append their own lines to this
+/// file, and a plain write handle would write over them at its own offset.
+fn update_log_outputs(log_path: &std::path::Path) -> Result<(Stdio, Stdio), String> {
+    std::fs::write(log_path, b"")
         .map_err(|error| format!("Failed to reset update log file: {error}"))?;
     let log_file = std::fs::OpenOptions::new()
         .append(true)
-        .open(&log_path)
+        .open(log_path)
         .map_err(|error| format!("Failed to open update log file: {error}"))?;
     let log_file_err = log_file
         .try_clone()
@@ -157,9 +234,9 @@ fn update_log_outputs() -> Result<(Stdio, Stdio), String> {
     Ok((Stdio::from(log_file), Stdio::from(log_file_err)))
 }
 
-/// What to relaunch, with `--update-failed`, when the installer fails: the
-/// AppImage file itself (its mounted executable disappears on exit),
-/// otherwise this executable.
+/// What the update script relaunches, with `--update-failed`, when the
+/// installer fails: the AppImage file itself (its mounted executable
+/// disappears on exit), otherwise this executable.
 fn relaunch_target() -> Option<std::path::PathBuf> {
     #[cfg(target_os = "linux")]
     {
@@ -170,13 +247,6 @@ fn relaunch_target() -> Option<std::path::PathBuf> {
     std::env::current_exe().ok()
 }
 
-/// Wraps `value` in single quotes for bash, which takes everything inside
-/// literally (an embedded quote closes, escapes and reopens).
-#[cfg(any(target_os = "linux", target_os = "macos", test))]
-fn bash_single_quote(value: &str) -> String {
-    format!("'{}'", value.replace('\'', r"'\''"))
-}
-
 /// Wraps `value` in single quotes for PowerShell, which escapes an embedded
 /// quote by doubling it.
 #[cfg(any(target_os = "windows", test))]
@@ -184,84 +254,33 @@ fn powershell_single_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
-/// Runs the installer, and if it fails relaunches the installed version with
-/// `--update-failed` so the user is told instead of the app just vanishing.
-/// `pipefail` makes a failed download fail the update rather than piping an
-/// empty script into bash.
+/// Downloads update.sh and pipes it to bash. If the download fails, bash
+/// gets an empty script and exits without the started line, which
+/// `wait_for_updater_start` reports. The URL and path are passed as
+/// positional arguments, so they are never parsed as shell code. `setsid`
+/// detaches the updater from this process's session, so it survives Voquill
+/// exiting.
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-fn unix_update_script() -> String {
-    let relaunch = match relaunch_target() {
-        Some(path) => {
-            let path = bash_single_quote(&path.to_string_lossy());
-            format!("if [ -x {path} ]; then {path} --update-failed >/dev/null 2>&1 & fi")
-        }
-        None => "echo \"[voquill] No installed version found to relaunch\"".to_string(),
-    };
-    format!(
-        r#"set -o pipefail
-{install}
-status=$?
-if [ "$status" -ne 0 ]; then
-  echo "[voquill] Update failed (exit $status); relaunching the installed version"
-  {relaunch}
-fi
-"#,
-        install = unix_update_command(),
-    )
-}
-
-/// Windows counterpart of `unix_update_script`. install.ps1 runs from a file
-/// rather than through `iex`, so its `exit 1` on failure ends the script, not
-/// this updater, and sets `$LASTEXITCODE`. It runs with PowerShell's default
-/// error handling, exactly as the one-line install does.
-#[cfg(target_os = "windows")]
-fn windows_update_script() -> String {
-    let relaunch = match relaunch_target() {
-        Some(path) => {
-            let path = powershell_single_quote(&path.to_string_lossy());
-            format!(
-                "if (Test-Path -LiteralPath {path}) {{ Start-Process -FilePath {path} -ArgumentList '--update-failed' }}"
-            )
-        }
-        None => "Write-Output '[voquill] No installed version found to relaunch'".to_string(),
-    };
-    format!(
-        r#"$installer = Join-Path $env:TEMP 'voquill-update-install.ps1'
-try {{
-  Invoke-RestMethod -Uri 'https://voquill.org/install.ps1' -OutFile $installer -ErrorAction Stop
-  $LASTEXITCODE = 0
-  & $installer
-  $succeeded = $LASTEXITCODE -eq 0
-}} catch {{
-  Write-Output "[voquill] ERROR: $_"
-  $succeeded = $false
-}}
-if (-not $succeeded) {{
-  Write-Output '[voquill] Update failed; relaunching the installed version'
-  {relaunch}
-}}
-"#
-    )
-}
-
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-fn spawn_update_process() -> Result<(), String> {
+fn spawn_updater(
+    base_url: &str,
+    relaunch: &std::path::Path,
+    stdout: Stdio,
+    stderr: Stdio,
+) -> Result<std::process::Child, String> {
     use std::os::unix::process::CommandExt;
-
-    let script = unix_update_script();
-    crate::log_info!("Spawning update process:\n{}", script);
-    let (stdout, stderr) = update_log_outputs()?;
 
     let mut command = std::process::Command::new("bash");
     command
         .arg("-c")
-        .arg(script)
+        .arg(r#"curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --connect-timeout 10 "$1/update.sh" | bash -s -- --base-url "$1" --relaunch "$2""#)
+        .arg("voquill-update")
+        .arg(base_url)
+        .arg(relaunch)
         .stdin(Stdio::null())
         .stdout(stdout)
         .stderr(stderr);
 
-    // SAFETY: setsid only detaches the child from this process's session, so
-    // the updater survives Voquill exiting.
+    // SAFETY: setsid only detaches the child from this process's session.
     unsafe {
         command.pre_exec(|| {
             libc::setsid();
@@ -271,29 +290,40 @@ fn spawn_update_process() -> Result<(), String> {
 
     command
         .spawn()
-        .map_err(|error| format!("Failed to spawn updater process: {error}"))?;
-
-    Ok(())
+        .map_err(|error| format!("Failed to start the updater: {error}"))
 }
 
-/// Runs the updater in its own hidden console. It must not be
+/// Downloads update.ps1 and runs it as a script block. A failed download is
+/// a terminating error, so PowerShell exits without the started line, which
+/// `wait_for_updater_start` reports.
+///
+/// The process gets its own hidden console. It must not be
 /// `DETACHED_PROCESS`: Windows PowerShell started without any console exits
-/// at once without running a line, which made every in-app update on Windows
-/// close the app and do nothing. A console of its own (hidden) also keeps the
+/// at once without running a line, which made every in-app update before
+/// 1.11.3 close the app and do nothing. A console of its own also keeps the
 /// updater alive after Voquill exits.
 #[cfg(target_os = "windows")]
-fn spawn_update_process() -> Result<(), String> {
+fn spawn_updater(
+    base_url: &str,
+    relaunch: &std::path::Path,
+    stdout: Stdio,
+    stderr: Stdio,
+) -> Result<std::process::Child, String> {
     use std::os::windows::process::CommandExt;
 
     const CREATE_NO_WINDOW: u32 = 0x08000000;
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
 
-    let script = windows_update_script();
-    crate::log_info!("Spawning Windows update process:\n{}", script);
-    let (stdout, stderr) = update_log_outputs()?;
+    let script = format!(
+        "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12\n\
+         $updater = Invoke-RestMethod -Uri {script_url} -ErrorAction Stop\n\
+         & ([scriptblock]::Create($updater)) -BaseUrl {base_url} -Relaunch {relaunch}\n",
+        script_url = powershell_single_quote(&format!("{base_url}/update.ps1")),
+        base_url = powershell_single_quote(base_url),
+        relaunch = powershell_single_quote(&relaunch.to_string_lossy()),
+    );
 
-    let mut command = std::process::Command::new("powershell.exe");
-    command
+    std::process::Command::new("powershell.exe")
         .args([
             "-NoProfile",
             "-ExecutionPolicy",
@@ -304,17 +334,18 @@ fn spawn_update_process() -> Result<(), String> {
         .stdin(Stdio::null())
         .stdout(stdout)
         .stderr(stderr)
-        .creation_flags(CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP);
-
-    command
+        .creation_flags(CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP)
         .spawn()
-        .map_err(|error| format!("Failed to spawn updater process: {error}"))?;
-
-    Ok(())
+        .map_err(|error| format!("Failed to start the updater: {error}"))
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
-fn spawn_update_process() -> Result<(), String> {
+fn spawn_updater(
+    _base_url: &str,
+    _relaunch: &std::path::Path,
+    _stdout: Stdio,
+    _stderr: Stdio,
+) -> Result<std::process::Child, String> {
     Err("In-app updates are not supported on this platform".to_string())
 }
 
@@ -379,16 +410,7 @@ fn parse_version(value: &str) -> Option<(u64, u64, u64)> {
 
 #[cfg(test)]
 mod tests {
-    use super::{bash_single_quote, powershell_single_quote};
-
-    #[test]
-    fn bash_quoting_keeps_paths_literal() {
-        assert_eq!(bash_single_quote("/usr/bin/voquill"), "'/usr/bin/voquill'");
-        assert_eq!(
-            bash_single_quote("/home/o'brien/Voquill $HOME.AppImage"),
-            r"'/home/o'\''brien/Voquill $HOME.AppImage'"
-        );
-    }
+    use super::{parse_update_base_url, powershell_single_quote, UPDATE_STARTED_MARKER};
 
     #[test]
     fn powershell_quoting_doubles_embedded_quotes() {
@@ -398,11 +420,39 @@ mod tests {
         );
     }
 
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[test]
-    fn unix_update_script_fails_on_a_failed_download_and_relaunches() {
-        let script = super::unix_update_script();
-        assert!(script.starts_with("set -o pipefail\n"));
-        assert!(script.contains("--update-failed"));
+    fn update_base_url_defaults_to_the_website() {
+        assert_eq!(parse_update_base_url(None).unwrap(), "https://voquill.org");
+    }
+
+    #[test]
+    fn update_base_url_override_must_be_https() {
+        assert_eq!(
+            parse_update_base_url(Some(
+                "https://raw.githubusercontent.com/jackbrumley/voquill/v1.2.3/docs/".to_string()
+            ))
+            .unwrap(),
+            "https://raw.githubusercontent.com/jackbrumley/voquill/v1.2.3/docs"
+        );
+        assert!(parse_update_base_url(Some("http://127.0.0.1:8000".to_string())).is_err());
+    }
+
+    /// The app waits for this exact line, so the scripts must print it first.
+    #[test]
+    fn update_scripts_print_the_started_marker_first() {
+        let first_output = |script: &str, command: &str| {
+            script
+                .lines()
+                .find(|line| line.starts_with(command))
+                .map(str::to_string)
+        };
+        assert_eq!(
+            first_output(include_str!("../../../../docs/update.ps1"), "Write-Output "),
+            Some(format!("Write-Output \"{UPDATE_STARTED_MARKER}\""))
+        );
+        assert_eq!(
+            first_output(include_str!("../../../../docs/update.sh"), "echo "),
+            Some(format!("echo \"{UPDATE_STARTED_MARKER}\""))
+        );
     }
 }
