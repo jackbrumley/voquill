@@ -35,6 +35,18 @@ function run(command, args) {
   execFileSync(command, args, { cwd: ROOT, stdio: "inherit" });
 }
 
+// npm through the Node running this script, at the path `npm run` provides.
+// Spawning "npm" directly fails on Windows, where it is npm.cmd and Node
+// refuses to run a .cmd without a shell.
+function npm(args) {
+  const npmCli = process.env.npm_execpath;
+  if (!npmCli) {
+    fail("run this through npm: npm run release:prepare -- X.Y.Z");
+  }
+  console.log(`$ npm ${args.join(" ")}`);
+  execFileSync(process.execPath, [npmCli, ...args], { cwd: ROOT, stdio: "inherit" });
+}
+
 function git(...args) {
   return execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
 }
@@ -69,7 +81,7 @@ if (git("status", "--porcelain", "--", ...releaseFiles)) {
 for (const file of VERSION_FILES) {
   setVersion(file, version);
 }
-run("npm", ["install", "--package-lock-only"]);
+npm(["install", "--package-lock-only"]);
 run("cargo", ["update", "--workspace", "--manifest-path", "src-tauri/Cargo.toml"]);
 
 run("git", ["add", ...releaseFiles]);
