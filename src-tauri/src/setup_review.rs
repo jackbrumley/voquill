@@ -5,15 +5,17 @@
 //! something worth seeing again (such as a better engine recommendation),
 //! never automatically per version. A user whose completed revision is
 //! behind is shown setup once, but only if it has something to offer: the
-//! recommendation differs from the engine they run. Otherwise the revision
-//! is recorded silently.
+//! first (recommended) choice differs from the engine they run. Otherwise the
+//! revision is recorded silently.
 
 use crate::config::{Config, TranscriptionMode};
 use crate::setup_recommendation::{SetupOption, SetupRecommendation};
 use serde::Serialize;
 
 /// Bump when setup has something new for existing users to review.
-pub const SETUP_REVISION: u32 = 1;
+/// Revision 2: revision 1 skipped users on a lesser offered choice (the
+/// processor model on a computer with a suitable graphics card).
+pub const SETUP_REVISION: u32 = 2;
 
 #[derive(Debug, Serialize)]
 pub struct SetupReview {
@@ -30,21 +32,18 @@ pub fn revision_is_behind(config: &Config) -> bool {
 }
 
 /// Decides the review for a user whose revision is behind. Cloud users chose
-/// their engine deliberately, and a user already running any offered choice
-/// has nothing new to see.
+/// their engine deliberately, and a user already running the recommended
+/// (first) choice has nothing new to see. A user on a lesser offered choice
+/// is reviewed; "Keep my current setup" keeps it if they chose it on purpose.
 pub fn review(config: &Config, recommendation: SetupRecommendation) -> SetupReview {
-    let runs_an_offered_choice = recommendation.options.iter().any(|option| {
-        option.engine.name() == config.local_engine && option.model_size == config.local_model_size
+    let recommended = recommendation.options.into_iter().next().filter(|first| {
+        let runs_first_choice = first.engine.name() == config.local_engine
+            && first.model_size == config.local_model_size;
+        config.transcription_mode == TranscriptionMode::Local && !runs_first_choice
     });
-    let has_something_new =
-        config.transcription_mode == TranscriptionMode::Local && !runs_an_offered_choice;
     SetupReview {
-        due: has_something_new,
-        recommended: if has_something_new {
-            recommendation.options.into_iter().next()
-        } else {
-            None
-        },
+        due: recommended.is_some(),
+        recommended,
     }
 }
 
@@ -52,18 +51,41 @@ pub fn review(config: &Config, recommendation: SetupRecommendation) -> SetupRevi
 mod tests {
     use super::*;
 
+    fn option(engine: crate::engines::ModelEngine, model_size: &str) -> SetupOption {
+        SetupOption {
+            engine,
+            model_size: model_size.to_string(),
+            title: String::new(),
+            description: String::new(),
+            download_bytes: 0,
+            speed: 2,
+            accuracy: 4,
+        }
+    }
+
     fn recommendation() -> SetupRecommendation {
         SetupRecommendation {
             graphics_card: None,
-            options: vec![SetupOption {
-                engine: crate::engines::ModelEngine::ParakeetCpu,
-                model_size: "parakeet-unified-en-0.6b".to_string(),
-                title: "Works on any computer".to_string(),
-                description: String::new(),
-                download_bytes: 0,
-                speed: 2,
-                accuracy: 4,
-            }],
+            options: vec![option(
+                crate::engines::ModelEngine::ParakeetCpu,
+                "parakeet-unified-en-0.6b",
+            )],
+            explanation: String::new(),
+        }
+    }
+
+    /// A computer with a suitable graphics card: the GPU choice first, the
+    /// processor choice second.
+    fn graphics_card_recommendation() -> SetupRecommendation {
+        SetupRecommendation {
+            graphics_card: Some("NVIDIA RTX A2000 12GB".to_string()),
+            options: vec![
+                option(crate::engines::ModelEngine::ParakeetGpu, "tdt-0.6b-v2-q8_0"),
+                option(
+                    crate::engines::ModelEngine::ParakeetCpu,
+                    "parakeet-unified-en-0.6b",
+                ),
+            ],
             explanation: String::new(),
         }
     }
@@ -98,12 +120,25 @@ mod tests {
     }
 
     #[test]
-    fn no_review_when_already_running_an_offered_choice() {
+    fn no_review_when_already_running_the_first_choice() {
         let review = review(
             &config("Parakeet", "parakeet-unified-en-0.6b"),
             recommendation(),
         );
         assert!(!review.due);
+    }
+
+    #[test]
+    fn review_is_due_when_running_a_lesser_offered_choice() {
+        let review = review(
+            &config("Parakeet", "parakeet-unified-en-0.6b"),
+            graphics_card_recommendation(),
+        );
+        assert!(review.due);
+        assert_eq!(
+            review.recommended.unwrap().engine,
+            crate::engines::ModelEngine::ParakeetGpu
+        );
     }
 
     #[test]

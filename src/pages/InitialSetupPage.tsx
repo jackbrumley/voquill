@@ -178,6 +178,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
               config={config}
               recommendation={recommendation}
               recommendationError={recommendationError}
+              reviewChoice={setupReview?.recommended ?? null}
               availableEngines={props.availableEngines}
               availableModels={props.availableModels}
               isDownloading={props.isDownloading}

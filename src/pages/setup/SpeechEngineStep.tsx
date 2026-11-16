@@ -17,6 +17,10 @@ interface SpeechEngineStepProps {
   config: SetupConfig;
   recommendation: SetupRecommendation | null;
   recommendationError: string | null;
+  /// The backend's recommended choice when setup opened as an after-update
+  /// review. Setup starts from it; "Keep my current setup" restores the
+  /// original engine.
+  reviewChoice: SetupOption | null;
   availableEngines: EngineInfo[];
   availableModels: ModelInfo[];
   isDownloading: boolean;
@@ -73,6 +77,8 @@ export function SpeechEngineStep(props: SpeechEngineStepProps) {
   // Once, start from the backend's first choice, unless the configured
   // model is already downloaded or is one of the offered choices. Waits for
   // the download status so a working setup is never switched away from.
+  // A review starts from the choice it was opened for: offering something
+  // better is its whole purpose.
   useEffect(() => {
     const options = recommendation?.options ?? [];
     if (hasAppliedRecommendation.value || !isModelStatusKnown || options.length === 0) {
@@ -80,6 +86,10 @@ export function SpeechEngineStep(props: SpeechEngineStepProps) {
     }
     hasAppliedRecommendation.value = true;
     if (config.transcription_mode !== 'Local') {
+      return;
+    }
+    if (props.reviewChoice) {
+      chooseOption(props.reviewChoice);
       return;
     }
     const alreadyChosen = options.some((option) => isSelected(option, config));
