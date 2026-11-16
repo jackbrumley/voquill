@@ -1,28 +1,44 @@
 //! Whether people who already use Voquill should see the setup screen again
 //! after an update.
 //!
-//! `SETUP_REVISION` is bumped deliberately, in a release whose setup offers
-//! something worth seeing again (such as a better engine recommendation),
-//! never automatically per version. A user whose completed revision is
-//! behind is shown setup once, but only if it has something to offer: the
-//! first (recommended) choice differs from the engine they run. Otherwise the
-//! revision is recorded silently.
+//! `SETUP_REVISION` is bumped deliberately, in a release whose setup is
+//! worth seeing again, never automatically per version. Every user whose
+//! completed revision is behind sees setup once as a review, whichever
+//! version they updated from and whatever engine they run: it shows the
+//! choice recommended for their hardware (selected, for Local users) and
+//! says whether they already run it. The revision is recorded only when the
+//! user finishes the review or keeps their setup, so a review that was
+//! closed unanswered opens again on the next launch.
 
 use crate::config::{Config, TranscriptionMode};
 use crate::setup_recommendation::{SetupOption, SetupRecommendation};
 use serde::Serialize;
 
 /// Bump when setup has something new for existing users to review.
-/// Revision 2: revision 1 skipped users on a lesser offered choice (the
-/// processor model on a computer with a suitable graphics card).
-pub const SETUP_REVISION: u32 = 2;
+/// Revision 3: revisions 1 and 2 skipped everyone already on an offered or
+/// the recommended choice, so most people updating never saw the review.
+pub const SETUP_REVISION: u32 = 3;
 
 #[derive(Debug, Serialize)]
 pub struct SetupReview {
-    /// Show the setup screen as a review of new options.
+    /// Show the setup screen as a review after an update.
     pub due: bool,
-    /// The choice setup would recommend, when the review is due.
+    /// The choice setup recommends for this computer, which the review
+    /// selects. None for cloud users (their engine was chosen deliberately)
+    /// or when the hardware could not be checked.
     pub recommended: Option<SetupOption>,
+    /// The user already runs the recommended choice.
+    pub already_recommended: bool,
+}
+
+impl SetupReview {
+    pub fn not_due() -> Self {
+        SetupReview {
+            due: false,
+            recommended: None,
+            already_recommended: false,
+        }
+    }
 }
 
 /// Whether the completed setup revision is behind the current one. Cheap, so
@@ -31,19 +47,23 @@ pub fn revision_is_behind(config: &Config) -> bool {
     config.completed_setup_revision < SETUP_REVISION
 }
 
-/// Decides the review for a user whose revision is behind. Cloud users chose
-/// their engine deliberately, and a user already running the recommended
-/// (first) choice has nothing new to see. A user on a lesser offered choice
-/// is reviewed; "Keep my current setup" keeps it if they chose it on purpose.
-pub fn review(config: &Config, recommendation: SetupRecommendation) -> SetupReview {
-    let recommended = recommendation.options.into_iter().next().filter(|first| {
-        let runs_first_choice = first.engine.name() == config.local_engine
-            && first.model_size == config.local_model_size;
-        config.transcription_mode == TranscriptionMode::Local && !runs_first_choice
+/// The review for a user whose revision is behind: always due. A failed
+/// hardware check (`recommendation` is None) still shows the review; the
+/// setup screen reports the error itself.
+pub fn review(config: &Config, recommendation: Option<SetupRecommendation>) -> SetupReview {
+    let recommended = match config.transcription_mode {
+        TranscriptionMode::Local => {
+            recommendation.and_then(|recommendation| recommendation.options.into_iter().next())
+        }
+        TranscriptionMode::Api => None,
+    };
+    let already_recommended = recommended.as_ref().is_some_and(|first| {
+        first.engine.name() == config.local_engine && first.model_size == config.local_model_size
     });
     SetupReview {
-        due: recommended.is_some(),
+        due: true,
         recommended,
+        already_recommended,
     }
 }
 
@@ -111,8 +131,9 @@ mod tests {
 
     #[test]
     fn review_is_due_when_the_recommendation_differs() {
-        let review = review(&config("Whisper.cpp", "small.en"), recommendation());
+        let review = review(&config("Whisper.cpp", "small.en"), Some(recommendation()));
         assert!(review.due);
+        assert!(!review.already_recommended);
         assert_eq!(
             review.recommended.unwrap().engine,
             crate::engines::ModelEngine::ParakeetCpu
@@ -120,21 +141,23 @@ mod tests {
     }
 
     #[test]
-    fn no_review_when_already_running_the_first_choice() {
+    fn review_is_due_when_already_running_the_first_choice() {
         let review = review(
             &config("Parakeet", "parakeet-unified-en-0.6b"),
-            recommendation(),
+            Some(recommendation()),
         );
-        assert!(!review.due);
+        assert!(review.due);
+        assert!(review.already_recommended);
     }
 
     #[test]
-    fn review_is_due_when_running_a_lesser_offered_choice() {
+    fn review_selects_the_graphics_card_over_a_lesser_choice() {
         let review = review(
             &config("Parakeet", "parakeet-unified-en-0.6b"),
-            graphics_card_recommendation(),
+            Some(graphics_card_recommendation()),
         );
         assert!(review.due);
+        assert!(!review.already_recommended);
         assert_eq!(
             review.recommended.unwrap().engine,
             crate::engines::ModelEngine::ParakeetGpu
@@ -142,9 +165,18 @@ mod tests {
     }
 
     #[test]
-    fn cloud_users_are_not_reviewed() {
+    fn cloud_users_are_reviewed_without_switching_engine() {
         let mut cloud = config("Whisper.cpp", "small.en");
         cloud.transcription_mode = TranscriptionMode::Api;
-        assert!(!review(&cloud, recommendation()).due);
+        let review = review(&cloud, Some(recommendation()));
+        assert!(review.due);
+        assert!(review.recommended.is_none());
+    }
+
+    #[test]
+    fn a_failed_hardware_check_still_shows_the_review() {
+        let review = review(&config("Whisper.cpp", "small.en"), None);
+        assert!(review.due);
+        assert!(review.recommended.is_none());
     }
 }

@@ -88,11 +88,11 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
     window.location.hash = nextHash;
   };
 
-  /// A ready app normally opens Home, but after an update whose setup has
-  /// new options worth seeing (the backend decides, see `setup_review`),
-  /// setup opens once as a review. The app stays fully usable either way.
+  /// A ready app normally opens Home, but after an update that bumped the
+  /// setup revision (the backend decides, see `setup_review`), setup opens
+  /// as a review until it is finished or kept. The app stays fully usable.
   const routeReadyLaunch = async (hasExplicitRoute: boolean, currentHashRoute: AppRoute, explanation: string) => {
-    let review: SetupReview = { due: false, recommended: null };
+    let review: SetupReview = { due: false, recommended: null, already_recommended: false };
     try {
       review = await invoke<SetupReview>('get_setup_review');
     } catch (error) {
@@ -120,11 +120,12 @@ export function useInitialRoute(options: UseInitialRouteOptions): UseInitialRout
   };
 
   /// Debug: opens setup as the after-update review with this computer's
-  /// real recommendation, whether or not a review is actually due.
+  /// real recommendation, whether or not a review is actually due. Previews
+  /// the "better choice" variant of the review.
   const previewSetupReview = async () => {
     try {
       const recommendation = await invoke<SetupRecommendation>('get_setup_recommendation');
-      setupReview.value = { due: true, recommended: recommendation.options[0] ?? null };
+      setupReview.value = { due: true, recommended: recommendation.options[0] ?? null, already_recommended: false };
       navigate('setup');
     } catch (error) {
       showToast(`Couldn't load the setup recommendation: ${error}`, 'error');

@@ -144,30 +144,48 @@ pub async fn get_setup_recommendation(
     Ok(crate::setup_recommendation::recommend(&hardware, &language))
 }
 
-/// Whether a user who already has a working setup should review new setup
-/// options after an update. Detection runs only when the completed setup
-/// revision is behind; when there is nothing new to show, the revision is
-/// recorded here so the check stays cheap on later launches.
+/// Whether a user who already has a working setup should see setup again as
+/// a review after an update: whenever the completed setup revision is
+/// behind. Hardware detection runs only then. The revision is recorded by
+/// `complete_setup_review`, never here, so an unanswered review reopens.
 #[tauri::command]
 pub async fn get_setup_review(
     state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<crate::setup_review::SetupReview, String> {
     let config = state.config.lock().unwrap().clone();
     if !crate::setup_review::revision_is_behind(&config) {
-        return Ok(crate::setup_review::SetupReview {
-            due: false,
-            recommended: None,
-        });
+        return Ok(crate::setup_review::SetupReview::not_due());
     }
-    let hardware = tokio::task::spawn_blocking(crate::hardware_detection::detect_hardware)
-        .await
-        .map_err(|e| format!("Hardware detection failed: {}", e))?;
-    let recommendation = crate::setup_recommendation::recommend(&hardware, &config.language);
+    let recommendation =
+        match tokio::task::spawn_blocking(crate::hardware_detection::detect_hardware).await {
+            Ok(hardware) => Some(crate::setup_recommendation::recommend(
+                &hardware,
+                &config.language,
+            )),
+            Err(error) => {
+                crate::log_warn!(
+                "Hardware detection failed; showing the setup review without a recommendation: {}",
+                error
+            );
+                None
+            }
+        };
     let review = crate::setup_review::review(&config, recommendation);
-    crate::log_info!("Setup review: due={}", review.due);
-    if !review.due {
-        record_setup_revision(&state)?;
-    }
+    crate::log_info!(
+        "Setup review due (revision {} behind {}): recommended={:?}, already_recommended={}",
+        config.completed_setup_revision,
+        crate::setup_review::SETUP_REVISION,
+        review.recommended.as_ref().map(|option| format!(
+            "{} {}",
+            option.engine.name(),
+            option.model_size
+        )),
+        review.already_recommended
+    );
+    // Shown even when Voquill started hidden (autostart after an update), so
+    // nobody misses the review.
+    crate::app::tray::show_main_window(&app_handle);
     Ok(review)
 }
 

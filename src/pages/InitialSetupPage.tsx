@@ -106,12 +106,10 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
       <div style={{ ...tabPanelPaddedStyle, flex: 1, paddingTop: tokens.spacing.md }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em', color: tokens.colors.textPrimary }}>
-            {isReviewing ? 'Voquill has new options for your computer' : 'Set up Voquill'}
+            {reviewHeading(setupReview)}
           </h2>
           <p style={{ ...helperTextStyle, margin: 0 }}>
-            {isReviewing
-              ? `You're using ${originalModelLabel}. Voquill found a choice that should be faster or more accurate. Your current setup still works.`
-              : "A few quick steps and you're ready to dictate."}
+            {reviewIntroduction(setupReview, originalModelLabel)}
           </p>
         </div>
 
@@ -242,7 +240,7 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
           >
             {readiness.isAllReady ? 'Start using Voquill' : 'Finish the steps above'}
           </Button>
-          {isReviewing && (
+          {offersBetterChoice(setupReview) && (
             <Button variant="ghost" pill onClick={keepCurrentSetup}>
               Keep my current setup
             </Button>
@@ -251,4 +249,29 @@ export function InitialSetupPage(props: InitialSetupPageProps) {
       </div>
     </div>
   );
+}
+
+/// The backend recommended a different choice than the one the user runs.
+function offersBetterChoice(review: SetupReview | null): boolean {
+  return review !== null && review.recommended !== null && !review.already_recommended;
+}
+
+function reviewHeading(review: SetupReview | null): string {
+  if (review === null) {
+    return 'Set up Voquill';
+  }
+  return offersBetterChoice(review) ? 'Voquill has new options for your computer' : 'Voquill has been updated';
+}
+
+function reviewIntroduction(review: SetupReview | null, currentModelLabel: string): string {
+  if (review === null) {
+    return "A few quick steps and you're ready to dictate.";
+  }
+  if (offersBetterChoice(review)) {
+    return `You're using ${currentModelLabel}. Voquill found a choice that should be faster or more accurate. Your current setup still works.`;
+  }
+  if (review.already_recommended) {
+    return `You're using ${currentModelLabel}, the best choice for this computer. Check your setup below, then carry on.`;
+  }
+  return 'Check your setup below, then carry on.';
 }

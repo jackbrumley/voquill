@@ -52,7 +52,10 @@ export interface SetupRecommendation {
 /** Whether an existing user should review new setup options after an update. */
 export interface SetupReview {
   due: boolean;
+  /** The choice recommended for this computer, which the review selects. */
   recommended: SetupOption | null;
+  /** The user already runs the recommended choice. */
+  already_recommended: boolean;
 }
 
 export type SetupStepId = 'permissions' | 'microphone' | 'speech' | 'try';
