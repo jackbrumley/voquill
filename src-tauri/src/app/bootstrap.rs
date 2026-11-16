@@ -170,6 +170,17 @@ fn build_app_state(initial_config: &Config) -> AppState {
     }
 }
 
+/// Builds the windows listed in `tauri.conf.json`, which are marked
+/// `"create": false`. Tauri would otherwise build them before the setup hook,
+/// and a page that loads first then calls commands such as `get_config`
+/// before `AppState` is managed ("state not managed" at startup).
+fn create_windows(app: &tauri::App<tauri::Wry>) -> tauri::Result<()> {
+    for window_config in app.config().app.windows.clone() {
+        tauri::WebviewWindowBuilder::from_config(app.handle(), &window_config)?.build()?;
+    }
+    Ok(())
+}
+
 /// How this instance was launched (from the command line).
 pub struct LaunchOptions {
     /// Autostart: stay in the tray.
@@ -187,6 +198,7 @@ pub fn run_setup(
         recovery: config_recovery,
     } = initialize_storage_and_logging();
     app.manage(build_app_state(&initial_config));
+    create_windows(app)?;
 
     crate::app::status::initialize(app.handle().clone());
     app.state::<AppState>()
