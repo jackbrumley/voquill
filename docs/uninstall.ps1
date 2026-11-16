@@ -84,8 +84,10 @@ $RegistryPaths = @(
 $uninstalledAny = $false
 
 foreach ($path in $RegistryPaths) {
+  # Exactly Voquill's own entry: other apps share the publisher, and an
+  # unrelated app is also called Voquill.
   $entries = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | Where-Object {
-    $_.DisplayName -and ($_.DisplayName -like "*Voquill*" -or $_.Publisher -like "*Voquill*" -or $_.Publisher -like "*Jack Brumley*")
+    $_.DisplayName -eq "Voquill" -and $_.Publisher -eq "Jack Brumley"
   }
 
   foreach ($entry in $entries) {
