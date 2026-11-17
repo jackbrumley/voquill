@@ -52,6 +52,26 @@ if [[ -z "$base_url" ]]; then
   finish_failed
 fi
 
+# Voquill exits once it sees the started line, but it is this script's
+# ancestor, and the installer does not stop its own ancestors (an AppImage
+# runtime is also named voquill). Wait for it, so the install never replaces
+# a running app.
+app_pid=""
+pid="$PPID"
+while [[ -n "$pid" && "$pid" -gt 1 ]]; do
+  if [[ "$(ps -o comm= -p "$pid" 2>/dev/null)" == *voquill ]]; then
+    app_pid="$pid"
+    break
+  fi
+  pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
+done
+if [[ -n "$app_pid" ]]; then
+  for _ in $(seq 1 30); do
+    kill -0 "$app_pid" 2>/dev/null || break
+    sleep 0.5
+  done
+fi
+
 # Nobody is at a terminal to answer prompts. AppImage installs stay AppImage
 # installs rather than switching to a package.
 install_args=(--yes)

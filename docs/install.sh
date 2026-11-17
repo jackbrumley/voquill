@@ -126,15 +126,32 @@ acquire_root() {
   fi
 }
 
+# This script's process and its parents, up to init. An AppImage runtime is a
+# process named voquill, so a plain `pkill -x voquill` could stop the very
+# process this installer runs under.
+ancestor_pids() {
+  local pid=$$ stat
+  while [[ -n "$pid" && "$pid" != "0" ]]; do
+    printf '%s\n' "$pid"
+    stat="$(cat "/proc/${pid}/stat" 2>/dev/null)" || break
+    # "pid (name) state ppid ...": the name may contain spaces and ")".
+    read -r _ pid _ <<<"${stat##*) }"
+  done
+}
+
+# Stops every running Voquill except the ones this script runs under.
 stop_running_process() {
-  if optional_cmd pgrep && pgrep -x voquill >/dev/null 2>&1; then
-    log "Stopping running Voquill process"
-    if optional_cmd pkill; then
-      pkill -TERM -x voquill >/dev/null 2>&1 || true
-      sleep 1
-      pkill -KILL -x voquill >/dev/null 2>&1 || true
-    fi
-  fi
+  optional_cmd pgrep || return 0
+  local ancestors running=()
+  ancestors="$(ancestor_pids)"
+  while read -r pid; do
+    [[ -n "$pid" ]] && ! grep -qx "$pid" <<<"$ancestors" && running+=("$pid")
+  done < <(pgrep -x voquill 2>/dev/null)
+  [[ ${#running[@]} -gt 0 ]] || return 0
+  log "Stopping running Voquill process"
+  kill -TERM "${running[@]}" >/dev/null 2>&1 || true
+  sleep 1
+  kill -KILL "${running[@]}" >/dev/null 2>&1 || true
 }
 
 resolve_arch() {

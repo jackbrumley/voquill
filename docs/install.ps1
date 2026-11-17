@@ -41,6 +41,15 @@ if ($Help) {
   exit 0
 }
 
+# Windows PowerShell started from PowerShell 7 (or from anything started from
+# it) inherits PowerShell 7's PSModulePath and loads its modules, which breaks
+# built-in commands such as Get-FileHash ("not recognized"). Its own folders
+# are named WindowsPowerShell, so they stay. This also covers the in-app
+# updaters of Voquill 1.11.5 and earlier, which pass the environment on.
+if ($PSVersionTable.PSEdition -ne "Core") {
+  $env:PSModulePath = ($env:PSModulePath -split ";" | Where-Object { $_ -and $_ -notmatch '\\PowerShell\\' }) -join ";"
+}
+
 $Repo = "jackbrumley/voquill"
 
 # GitHub API request headers. VOQUILL_GITHUB_TOKEN is optional: anonymous

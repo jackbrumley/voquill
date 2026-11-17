@@ -369,6 +369,11 @@ fn spawn_updater(
 /// at once without running a line, which made every in-app update before
 /// 1.11.3 close the app and do nothing. A console of its own also keeps the
 /// updater alive after Voquill exits.
+///
+/// `PSModulePath` is removed so Windows PowerShell builds its own: when
+/// Voquill was started from PowerShell 7, the inherited value loads
+/// PowerShell 7's modules and built-in commands such as `Get-FileHash`
+/// disappear, failing the install.
 #[cfg(target_os = "windows")]
 fn spawn_updater(
     base_url: &str,
@@ -398,6 +403,7 @@ fn spawn_updater(
             "-Command",
             &script,
         ])
+        .env_remove("PSModulePath")
         .stdin(Stdio::null())
         .stdout(stdout)
         .stderr(stderr)
