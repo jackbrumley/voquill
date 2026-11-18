@@ -41,6 +41,11 @@ if ($Help) {
   exit 0
 }
 
+# Older Windows 10 PCs offer only TLS 1.0 by default, which GitHub refuses
+# ("Could not create SSL/TLS secure channel"). Add TLS 1.2 for this session,
+# including the copy this script starts as administrator.
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
 # Windows PowerShell started from PowerShell 7 (or from anything started from
 # it) inherits PowerShell 7's PSModulePath and loads its modules, which breaks
 # built-in commands such as Get-FileHash ("not recognized"). Its own folders
