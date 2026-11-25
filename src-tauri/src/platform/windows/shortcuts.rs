@@ -1,8 +1,8 @@
 //! Windows global hotkeys.
 //!
 //! Normal combos use `tauri-plugin-global-shortcut` (`RegisterHotKey`). OS-reserved
-//! two-key chords like Alt+Space and Win+Space never reach that API, so those use a
-//! `WH_KEYBOARD_LL` hook that can see and swallow them before the shell handles them.
+//! two-key chords like Alt+Space and Win+Space never reach that API reliably, so those
+//! use a `WH_KEYBOARD_LL` hook that can see and swallow them before the shell handles them.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
@@ -11,22 +11,19 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    VK_CONTROL, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_MENU, VK_RCONTROL, VK_RMENU,
-    VK_RSHIFT, VK_RWIN, VK_SHIFT, VK_SPACE,
+    GetAsyncKeyState, VK_CONTROL, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT, VK_SPACE,
 };
+use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, DispatchMessageW, GetMessageW, PostThreadMessageW, SetWindowsHookExW,
-    TranslateMessage, UnhookWindowsHookEx, KBDLLHOOKSTRUCT, LLKHF_INJECTED, LLKHF_UP, MSG,
-    WH_KEYBOARD_LL, WM_KEYDOWN, WM_KEYUP, WM_QUIT, WM_SYSKEYDOWN, WM_SYSKEYUP,
+    TranslateMessage, UnhookWindowsHookEx, KBDLLHOOKSTRUCT, LLKHF_ALTDOWN, LLKHF_INJECTED,
+    LLKHF_LOWER_IL_INJECTED, LLKHF_UP, MSG, WH_KEYBOARD_LL, WM_KEYDOWN, WM_KEYUP, WM_QUIT,
+    WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
 
 /// Combos Windows reserves that RegisterHotKey cannot reliably own.
 pub const RESERVED_HOTKEY_PRESETS: &[&str] = &["alt+space", "super+space"];
 
-static CTRL_DOWN: AtomicBool = AtomicBool::new(false);
-static SHIFT_DOWN: AtomicBool = AtomicBool::new(false);
-static ALT_DOWN: AtomicBool = AtomicBool::new(false);
-static SUPER_DOWN: AtomicBool = AtomicBool::new(false);
 static HOTKEY_HELD: AtomicBool = AtomicBool::new(false);
 static CAPTURE_RESERVED: AtomicBool = AtomicBool::new(false);
 static CAPTURE_EMITTED: AtomicBool = AtomicBool::new(false);
@@ -54,11 +51,12 @@ struct HookShortcut {
 }
 
 impl HookShortcut {
-    fn matches_modifiers(&self) -> bool {
-        CTRL_DOWN.load(Ordering::SeqCst) == self.ctrl
-            && SHIFT_DOWN.load(Ordering::SeqCst) == self.shift
-            && ALT_DOWN.load(Ordering::SeqCst) == self.alt
-            && SUPER_DOWN.load(Ordering::SeqCst) == self.super_key
+    fn matches_os_modifiers(&self, info: &KBDLLHOOKSTRUCT) -> bool {
+        let (ctrl, shift, alt, super_key) = os_modifiers_down(info);
+        ctrl == self.ctrl
+            && shift == self.shift
+            && alt == self.alt
+            && super_key == self.super_key
     }
 
     fn as_hotkey_string(&self) -> String {
@@ -151,6 +149,21 @@ fn reserved_capture_targets() -> [HookShortcut; 2] {
             vk: u32::from(VK_SPACE.0),
         },
     ]
+}
+
+fn key_is_down(vk: u16) -> bool {
+    // High bit set => key is currently down.
+    unsafe { GetAsyncKeyState(i32::from(vk)) as u16 & 0x8000 != 0 }
+}
+
+/// Read modifier state from the OS at match time. Incremental tracking misses Alt
+/// on some machines; LLKHF_ALTDOWN on the Space event is an extra Alt signal.
+fn os_modifiers_down(info: &KBDLLHOOKSTRUCT) -> (bool, bool, bool, bool) {
+    let ctrl = key_is_down(VK_CONTROL.0);
+    let shift = key_is_down(VK_SHIFT.0);
+    let alt = key_is_down(VK_MENU.0) || (info.flags & LLKHF_ALTDOWN).0 != 0;
+    let super_key = key_is_down(VK_LWIN.0) || key_is_down(VK_RWIN.0);
+    (ctrl, shift, alt, super_key)
 }
 
 pub async fn start_windows_hotkey_engine(app_handle: tauri::AppHandle) -> Result<(), String> {
@@ -251,10 +264,17 @@ fn ensure_hook_thread() -> Result<(), String> {
     std::thread::Builder::new()
         .name("voquill-windows-hotkey-hook".to_string())
         .spawn(move || {
+            // For WH_KEYBOARD_LL, pass this process module so the hook is
+            // associated with our image (NULL works on many builds, but not all).
+            let module = unsafe {
+                GetModuleHandleW(windows::core::PCWSTR::null())
+                    .ok()
+                    .map(|handle| windows::Win32::Foundation::HINSTANCE(handle.0))
+            };
             // SAFETY: Installing a process-wide WH_KEYBOARD_LL hook; the proc is
             // static and the message loop below keeps the hook thread alive.
             let hook = unsafe {
-                SetWindowsHookExW(WH_KEYBOARD_LL, Some(low_level_keyboard_proc), None, 0)
+                SetWindowsHookExW(WH_KEYBOARD_LL, Some(low_level_keyboard_proc), module, 0)
             };
             let hook = match hook {
                 Ok(hook) => hook,
@@ -287,6 +307,8 @@ fn ensure_hook_thread() -> Result<(), String> {
                 let _ = UnhookWindowsHookEx(hook);
             }
             HOTKEY_HELD.store(false, Ordering::SeqCst);
+            // Clear so a later ensure_hook_thread can start a fresh hook.
+            *HOOK_THREAD.lock().unwrap() = None;
             crate::log_info!("Windows WH_KEYBOARD_LL hotkey hook stopped");
         })
         .map_err(|error| format!("Failed to start Windows hotkey hook thread: {error}"))?;
@@ -311,6 +333,15 @@ fn maybe_stop_hook_thread() {
     }
 }
 
+fn is_key_message(wparam: WPARAM, down: bool) -> bool {
+    let msg = wparam.0 as u32;
+    if down {
+        msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN
+    } else {
+        msg == WM_KEYUP || msg == WM_SYSKEYUP
+    }
+}
+
 unsafe extern "system" fn low_level_keyboard_proc(
     code: i32,
     wparam: WPARAM,
@@ -321,32 +352,40 @@ unsafe extern "system" fn low_level_keyboard_proc(
     }
 
     let info = unsafe { &*(lparam.0 as *const KBDLLHOOKSTRUCT) };
-    if (info.flags & LLKHF_INJECTED).0 != 0 {
+    // Only skip cross-integrity injected events. Some keyboard filters mark
+    // normal presses as INJECTED; ignoring those would never match Alt+Space.
+    if (info.flags & LLKHF_INJECTED).0 != 0 && (info.flags & LLKHF_LOWER_IL_INJECTED).0 != 0 {
         return unsafe { CallNextHookEx(None, code, wparam, lparam) };
     }
 
     let vk = info.vkCode;
-    let key_up =
-        matches!(wparam.0 as u32, WM_KEYUP | WM_SYSKEYUP) || (info.flags & LLKHF_UP).0 != 0;
-    let key_down = matches!(wparam.0 as u32, WM_KEYDOWN | WM_SYSKEYDOWN) && !key_up;
-
-    update_modifier_state(vk, key_up);
+    let key_up = is_key_message(wparam, false) || (info.flags & LLKHF_UP).0 != 0;
+    let key_down = is_key_message(wparam, true) && !key_up;
 
     if key_down {
         if CAPTURE_RESERVED.load(Ordering::SeqCst) {
             for target in reserved_capture_targets() {
-                if vk == target.vk && target.matches_modifiers() {
+                if vk == target.vk && target.matches_os_modifiers(info) {
                     if !CAPTURE_EMITTED.swap(true, Ordering::SeqCst) {
+                        crate::log_info!(
+                            "Windows reserved hotkey captured: {}",
+                            target.as_hotkey_string()
+                        );
                         emit_captured_hotkey(target.as_hotkey_string());
                     }
+                    // Non-zero return swallows the event (blocks the system menu).
                     return LRESULT(1);
                 }
             }
         }
 
         if let Some(target) = current_dictation_target() {
-            if vk == target.vk && target.matches_modifiers() {
+            if vk == target.vk && target.matches_os_modifiers(info) {
                 if !HOTKEY_HELD.swap(true, Ordering::SeqCst) {
+                    crate::log_info!(
+                        "Windows reserved hotkey pressed: {}",
+                        target.as_hotkey_string()
+                    );
                     dispatch_press();
                 }
                 return LRESULT(1);
@@ -359,10 +398,18 @@ unsafe extern "system" fn low_level_keyboard_proc(
 
         if let Some(target) = current_dictation_target() {
             let primary_released = vk == target.vk;
-            let required_modifier_released = is_modifier_vk(vk) && !target.matches_modifiers();
-            if HOTKEY_HELD.load(Ordering::SeqCst) && (primary_released || required_modifier_released)
-            {
+            let modifiers = os_modifiers_down(info);
+            let required_modifier_released = primary_released
+                || (target.ctrl && !modifiers.0)
+                || (target.shift && !modifiers.1)
+                || (target.alt && !modifiers.2)
+                || (target.super_key && !modifiers.3);
+            if HOTKEY_HELD.load(Ordering::SeqCst) && required_modifier_released {
                 if HOTKEY_HELD.swap(false, Ordering::SeqCst) {
+                    crate::log_info!(
+                        "Windows reserved hotkey released: {}",
+                        target.as_hotkey_string()
+                    );
                     dispatch_release();
                 }
                 if primary_released {
@@ -373,51 +420,6 @@ unsafe extern "system" fn low_level_keyboard_proc(
     }
 
     unsafe { CallNextHookEx(None, code, wparam, lparam) }
-}
-
-fn is_modifier_vk(vk: u32) -> bool {
-    matches!(
-        vk,
-        code if code == u32::from(VK_CONTROL.0)
-            || code == u32::from(VK_LCONTROL.0)
-            || code == u32::from(VK_RCONTROL.0)
-            || code == u32::from(VK_SHIFT.0)
-            || code == u32::from(VK_LSHIFT.0)
-            || code == u32::from(VK_RSHIFT.0)
-            || code == u32::from(VK_MENU.0)
-            || code == u32::from(VK_LMENU.0)
-            || code == u32::from(VK_RMENU.0)
-            || code == u32::from(VK_LWIN.0)
-            || code == u32::from(VK_RWIN.0)
-    )
-}
-
-fn update_modifier_state(vk: u32, is_up: bool) {
-    let down = !is_up;
-    match vk {
-        code if code == u32::from(VK_CONTROL.0)
-            || code == u32::from(VK_LCONTROL.0)
-            || code == u32::from(VK_RCONTROL.0) =>
-        {
-            CTRL_DOWN.store(down, Ordering::SeqCst);
-        }
-        code if code == u32::from(VK_SHIFT.0)
-            || code == u32::from(VK_LSHIFT.0)
-            || code == u32::from(VK_RSHIFT.0) =>
-        {
-            SHIFT_DOWN.store(down, Ordering::SeqCst);
-        }
-        code if code == u32::from(VK_MENU.0)
-            || code == u32::from(VK_LMENU.0)
-            || code == u32::from(VK_RMENU.0) =>
-        {
-            ALT_DOWN.store(down, Ordering::SeqCst);
-        }
-        code if code == u32::from(VK_LWIN.0) || code == u32::from(VK_RWIN.0) => {
-            SUPER_DOWN.store(down, Ordering::SeqCst);
-        }
-        _ => {}
-    }
 }
 
 fn emit_captured_hotkey(hotkey: String) {
