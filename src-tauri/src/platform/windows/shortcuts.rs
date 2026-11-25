@@ -5,7 +5,7 @@
 //! `WH_KEYBOARD_LL` hook that can see and swallow them before the shell handles them.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
 
 use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
@@ -16,7 +16,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, DispatchMessageW, GetMessageW, PostThreadMessageW, SetWindowsHookExW,
-    TranslateMessage, UnhookWindowsHookEx, HHOOK, KBDLLHOOKSTRUCT, LLKHF_INJECTED, LLKHF_UP, MSG,
+    TranslateMessage, UnhookWindowsHookEx, KBDLLHOOKSTRUCT, LLKHF_INJECTED, LLKHF_UP, MSG,
     WH_KEYBOARD_LL, WM_KEYDOWN, WM_KEYUP, WM_QUIT, WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
 
@@ -39,7 +39,6 @@ static DICTATION_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 static APP_HANDLE: Mutex<Option<tauri::AppHandle>> = Mutex::new(None);
 static HOOK_THREAD: Mutex<Option<HookThread>> = Mutex::new(None);
-static HOOK_HANDLE: OnceLock<Mutex<HHOOK>> = OnceLock::new();
 
 struct HookThread {
     thread_id: u32,
@@ -267,9 +266,6 @@ fn ensure_hook_thread() -> Result<(), String> {
                 }
             };
 
-            let hook_slot = HOOK_HANDLE.get_or_init(|| Mutex::new(HHOOK::default()));
-            *hook_slot.lock().unwrap() = hook;
-
             let thread_id = unsafe { windows::Win32::System::Threading::GetCurrentThreadId() };
             if ready_tx.send(Ok(thread_id)).is_err() {
                 unsafe {
@@ -289,9 +285,6 @@ fn ensure_hook_thread() -> Result<(), String> {
 
             unsafe {
                 let _ = UnhookWindowsHookEx(hook);
-            }
-            if let Some(hook_slot) = HOOK_HANDLE.get() {
-                *hook_slot.lock().unwrap() = HHOOK::default();
             }
             HOTKEY_HELD.store(false, Ordering::SeqCst);
             crate::log_info!("Windows WH_KEYBOARD_LL hotkey hook stopped");
