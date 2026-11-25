@@ -194,6 +194,7 @@ impl Default for Config {
             noise_reduction_enabled: false,
             noise_reduction_strength: default_noise_reduction_strength(),
             other_audio_while_recording: OtherAudioWhileRecording::default(),
+            release_mic_when_idle: false,
             append_trailing_space: default_append_trailing_space(),
             auto_submit: false,
             paste_after_copy: default_paste_after_copy(),

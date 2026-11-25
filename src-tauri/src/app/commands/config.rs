@@ -1,4 +1,4 @@
-use crate::app::capture::{ensure_capture_engine, CaptureSettings};
+use crate::app::capture::{ensure_capture_engine, sync_idle_capture, CaptureSettings};
 use crate::app::commands::hotkey::re_register_hotkey;
 use crate::config::Config;
 use crate::{config, history, AppState};
@@ -67,6 +67,7 @@ pub async fn save_config(
     crate::app::readiness::publish(&app_handle).await;
 
     crate::voice_macro::sync_voice_macro_listener(&app_handle);
+    sync_idle_capture(&app_handle);
 
     Ok(())
 }
@@ -104,7 +105,22 @@ fn apply_audio_input_config(
         );
     }
 
-    ensure_capture_engine(app_handle, &CaptureSettings::from_config(next_config))
+    if crate::app::capture::should_hold_mic(next_config) {
+        ensure_capture_engine(app_handle, &CaptureSettings::from_config(next_config))
+    } else {
+        // Validate the selection without holding the microphone open.
+        crate::audio::resolve_capture_endpoint(next_config.audio_device.as_deref()).map_err(
+            |error| {
+                format!(
+                    "Input device '{}' is unavailable: {}",
+                    next_config.audio_device.as_deref().unwrap_or("default"),
+                    error
+                )
+            },
+        )?;
+        crate::app::capture::release_capture_engine(app_handle);
+        Ok(())
+    }
 }
 
 /// Reconciles engine warm-up state with a freshly saved config. The local
@@ -218,14 +234,7 @@ pub async fn reset_application_to_defaults(
 
     state.audio_player.stop_all();
 
-    if let Err(error) =
-        ensure_capture_engine(&app_handle, &CaptureSettings::from_config(&default_config))
-    {
-        crate::log_warn!(
-            "Factory reset: capture engine not started on the default device: {}",
-            error
-        );
-    }
+    sync_idle_capture(&app_handle);
 
     crate::app::commands::hotkey::set_hotkey_error(&app_handle, None);
 

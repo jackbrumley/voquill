@@ -124,6 +124,8 @@ export interface Config {
   noise_reduction_enabled: boolean;
   noise_reduction_strength: number;
   other_audio_while_recording: OtherAudioWhileRecording;
+  /** Open the mic only while dictating/mic-testing; release it when idle. */
+  release_mic_when_idle: boolean;
   history_limit: number;
   log_level: string;
   diarization_enabled_files: boolean;

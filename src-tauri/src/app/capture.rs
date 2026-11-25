@@ -12,7 +12,12 @@
 //!
 //! The watchdog runs the same check while nothing is recording, so device
 //! changes between dictations take effect without waiting for the next use.
+//!
+//! When `release_mic_when_idle` is on (and voice macros are off), the engine
+//! is opened only for dictation / mic test and released afterward so shared
+//! headsets can switch to a phone or another device.
 
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager};
@@ -47,6 +52,12 @@ impl CaptureSettings {
         let config = state.config.lock().unwrap();
         Self::from_config(&config)
     }
+}
+
+/// Whether the capture stream should stay open while nothing is recording.
+/// Voice macros need continuous listening, so they always hold the mic.
+pub fn should_hold_mic(config: &Config) -> bool {
+    !config.release_mic_when_idle || config.voice_macros_enabled
 }
 
 /// Makes the capture engine run on the endpoint `settings` resolve to now.
@@ -86,6 +97,9 @@ pub fn ensure_capture_engine(
     match audio::PersistentAudioEngine::new(&endpoint, settings.sensitivity) {
         Ok(engine) => {
             *engine_slot = Some(engine);
+            state
+                .mic_permission_granted
+                .store(true, Ordering::SeqCst);
             drop(engine_slot);
             announce_capture_change(app_handle);
             Ok(())
@@ -105,12 +119,45 @@ pub fn ensure_capture_engine(
     }
 }
 
-/// Starts the capture engine for the loaded config and the watchdog that
-/// keeps it on the configured endpoint.
-pub fn start(app_handle: &AppHandle) {
-    if let Err(error) = ensure_capture_engine(app_handle, &CaptureSettings::current(app_handle)) {
-        crate::log_warn!("Capture engine not started: {}", error);
+/// Tears down the capture engine so the OS releases the microphone device.
+pub fn release_capture_engine(app_handle: &AppHandle) {
+    let state = app_handle.state::<AppState>();
+    let mut engine_slot = state.audio_engine.lock().unwrap();
+    if engine_slot.take().is_some() {
+        drop(engine_slot);
+        crate::log_info!("Capture engine released (microphone idle)");
+        announce_capture_change(app_handle);
     }
+}
+
+/// While idle, either keeps the configured capture endpoint open or releases
+/// it, depending on `release_mic_when_idle` / voice macros.
+pub fn sync_idle_capture(app_handle: &AppHandle) {
+    if !is_capture_idle(app_handle) {
+        return;
+    }
+
+    let should_hold = {
+        let state = app_handle.state::<AppState>();
+        let config = state.config.lock().unwrap();
+        should_hold_mic(&config)
+    };
+
+    if should_hold {
+        if let Err(error) =
+            ensure_capture_engine(app_handle, &CaptureSettings::current(app_handle))
+        {
+            crate::log_warn!("Capture engine not started: {}", error);
+        }
+    } else {
+        release_capture_engine(app_handle);
+    }
+}
+
+/// Starts the capture engine for the loaded config (when holding the mic) and
+/// the watchdog that keeps hold/release policy in sync while idle.
+pub fn start(app_handle: &AppHandle) {
+    sync_idle_capture(app_handle);
     spawn_watchdog(app_handle.clone());
 }
 
@@ -158,8 +205,19 @@ fn spawn_watchdog(app_handle: AppHandle) {
             }
 
             let check_handle = app_handle.clone();
+            let should_hold = {
+                let state = check_handle.state::<AppState>();
+                let config = state.config.lock().unwrap();
+                should_hold_mic(&config)
+            };
+
             let outcome = tauri::async_runtime::spawn_blocking(move || {
-                ensure_capture_engine(&check_handle, &CaptureSettings::current(&check_handle))
+                if should_hold {
+                    ensure_capture_engine(&check_handle, &CaptureSettings::current(&check_handle))
+                } else {
+                    release_capture_engine(&check_handle);
+                    Ok(())
+                }
             })
             .await;
 

@@ -54,6 +54,7 @@ pub async fn start_recording(
     if let Err(error) = ensure_capture_engine(&app_handle, &capture_settings) {
         crate::log_warn!("Recording cannot start: {}", error);
         *state.session_state.lock().unwrap() = SessionState::Idle;
+        crate::app::capture::sync_idle_capture(&app_handle);
         crate::app::status::emit_status_to_frontend("Error").await;
         return Ok(());
     }
@@ -65,6 +66,7 @@ pub async fn start_recording(
             "start_recording: session left Recording during engine init; aborting start"
         );
         *state.session_state.lock().unwrap() = SessionState::Idle;
+        crate::app::capture::sync_idle_capture(&app_handle);
         crate::app::status::emit_status_to_frontend("Ready").await;
         return Ok(());
     }
@@ -126,7 +128,7 @@ pub async fn stop_recording(state: tauri::State<'_, AppState>) -> Result<(), Str
 /// Cancels the in-flight dictation session, discarding any captured audio and
 /// transcription output. Triggered by pressing the hotkey while a session is
 /// active past the recording phase.
-pub async fn cancel_session(state: tauri::State<'_, AppState>) {
+pub async fn cancel_session(state: tauri::State<'_, AppState>, app_handle: tauri::AppHandle) {
     let session = *state.session_state.lock().unwrap();
     if session == SessionState::Idle {
         return;
@@ -154,6 +156,7 @@ pub async fn cancel_session(state: tauri::State<'_, AppState>) {
             // newer session because its token no longer matches.
             *state.active_session.lock().unwrap() = None;
             *state.session_state.lock().unwrap() = SessionState::Idle;
+            crate::app::capture::sync_idle_capture(&app_handle);
             crate::app::status::emit_status_to_frontend("Ready").await;
         }
         SessionState::Idle => {}
@@ -256,6 +259,8 @@ pub async fn start_mic_test(
             *mic_test_flag = false;
             crate::log_info!("Mic test active flag reset after mic test completion");
         }
+        drop(mic_test_flag);
+        crate::app::capture::sync_idle_capture(&app_handle_clone);
     });
 
     Ok(())
@@ -330,11 +335,18 @@ async fn prepare_mic_test_playback(
 }
 
 #[tauri::command]
-pub async fn stop_mic_test(state: tauri::State<'_, AppState>) -> Result<(), String> {
+pub async fn stop_mic_test(
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
     crate::log_info!("Tauri Command: stop_mic_test invoked");
     let mut mic_test_flag = state.is_mic_test_active.lock().unwrap();
     *mic_test_flag = false;
     crate::log_info!("Mic test flag set to false");
+    drop(mic_test_flag);
+    // Capture may still be draining / playing back; the mic-test task calls
+    // sync_idle_capture when it fully finishes. Nudge now in case it already ended.
+    crate::app::capture::sync_idle_capture(&app_handle);
     Ok(())
 }
 

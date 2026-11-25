@@ -92,7 +92,11 @@ impl PermissionManager for MacosBackend {
             let config = state.config.lock().unwrap();
             crate::app::capture::CaptureSettings::from_config(&config)
         };
-        crate::app::capture::ensure_capture_engine(&app_handle, &settings)
+        crate::app::capture::ensure_capture_engine(&app_handle, &settings)?;
+        // Permission is granted once a stream opens; release immediately when
+        // the user asked not to hold the mic while idle.
+        crate::app::capture::sync_idle_capture(&app_handle);
+        Ok(())
     }
 
     async fn request_input_permission(&self, app_handle: tauri::AppHandle) -> Result<(), String> {

@@ -162,9 +162,12 @@ pub async fn platform_setup_status(state: &AppState) -> PlatformPermissions {
     }
     #[cfg(target_os = "macos")]
     {
-        // The microphone TCC prompt fires when the persistent engine opens
-        // its input stream, so a live engine is the grant signal.
-        permissions.audio = state.audio_engine.lock().unwrap().is_some();
+        // The microphone TCC prompt fires when a capture stream opens.
+        // With release_mic_when_idle the stream may be closed between
+        // dictations, so a successful prior open also counts as granted.
+        use std::sync::atomic::Ordering;
+        permissions.audio = state.audio_engine.lock().unwrap().is_some()
+            || state.mic_permission_granted.load(Ordering::SeqCst);
     }
     permissions
 }

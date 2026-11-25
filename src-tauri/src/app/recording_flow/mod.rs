@@ -52,6 +52,7 @@ async fn finish_session(
     }
     *state.active_session.lock().unwrap() = None;
     *session_state.lock().unwrap() = SessionState::Idle;
+    crate::app::capture::sync_idle_capture(app_handle);
     crate::app::status::emit_status_to_frontend("Ready").await;
 }
 

@@ -28,7 +28,7 @@ pub async fn handle_hotkey_press(state: tauri::State<'_, AppState>, app_handle: 
             }
         }
         SessionState::Transcribing | SessionState::Typing => {
-            cancel_session(state).await;
+            cancel_session(state, app_handle).await;
         }
     }
 }

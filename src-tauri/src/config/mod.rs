@@ -160,6 +160,11 @@ pub struct Config {
     pub noise_reduction_strength: f32,
     #[serde(default)]
     pub other_audio_while_recording: OtherAudioWhileRecording,
+    /// When true, the capture stream is opened only while dictating or running
+    /// a mic test, then released so shared headsets can switch to a phone.
+    /// Ignored while voice macros are enabled (they need continuous listening).
+    #[serde(default)]
+    pub release_mic_when_idle: bool,
     #[serde(default = "default_append_trailing_space")]
     pub append_trailing_space: bool,
     #[serde(default)]

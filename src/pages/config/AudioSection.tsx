@@ -94,6 +94,21 @@ export function AudioSection({
         </ConfigField>
       )}
 
+      <ConfigField
+        label="Release Mic When Idle"
+        description={
+          config.voice_macros_enabled
+            ? 'Unavailable while Voice Macros are on — they need the microphone open to listen for triggers.'
+            : 'Open the microphone only while dictating or testing. Releases it afterward so shared headsets can switch to a desk phone or mobile. First words may clip slightly on slow Bluetooth devices.'
+        }
+      >
+        <Switch
+          name="Release Mic When Idle"
+          checked={config.release_mic_when_idle}
+          onChange={(checked) => updateConfig('release_mic_when_idle', checked)}
+        />
+      </ConfigField>
+
       <ConfigField label="Noise Reduction" description="Reduce background noise from your microphone using spectral gating. Improves transcription accuracy in noisy environments.">
         <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.sm, width: '100%' }}>
           <Switch name="Noise Reduction" checked={config.noise_reduction_enabled} onChange={(checked) => updateConfig('noise_reduction_enabled', checked)} />
