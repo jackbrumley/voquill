@@ -363,12 +363,26 @@ pub async fn set_configuring_hotkey(
 pub async fn set_configuring_hotkey(
     is_configuring: bool,
     state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     {
         let mut config_flag = state.is_configuring_hotkey.lock().unwrap();
         *config_flag = is_configuring;
     }
     crate::log_info!("set_configuring_hotkey: {}", is_configuring);
+
+    #[cfg(target_os = "windows")]
+    {
+        crate::platform::windows::shortcuts::set_windows_hotkey_capture_mode(
+            &app_handle,
+            is_configuring,
+        )?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app_handle;
+    }
+
     Ok(())
 }
 

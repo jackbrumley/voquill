@@ -84,6 +84,10 @@ impl GlobalShortcutEngine for WindowsBackend {
         false
     }
 
+    fn reserved_hotkey_presets(&self) -> &'static [&'static str] {
+        shortcuts::RESERVED_HOTKEY_PRESETS
+    }
+
     async fn start_engine(&self, app_handle: tauri::AppHandle, _force: bool) -> Result<(), String> {
         shortcuts::start_windows_hotkey_engine(app_handle).await
     }

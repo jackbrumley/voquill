@@ -1,6 +1,7 @@
 import { useSignal } from '@preact/signals';
 import { useEffect } from 'preact/hooks';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import type { HotkeyBindingState, SystemShortcutContext, OverlayPositioningCapabilities, ConfigureHotkeyResult } from '../types.ts';
 
 interface UseHotkeySetupOptions {
@@ -27,6 +28,7 @@ interface UseHotkeySetupReturn {
   setShowFactoryResetModal: (show: boolean) => void;
   setIsApplyingHotkey: (applying: boolean) => void;
   toggleFnModifier: () => void;
+  applyPresetHotkey: (hotkey: string) => void;
   handleConfigureHotkey: () => Promise<void>;
   setRecordingState: (isRecording: boolean) => Promise<void>;
   cancelHotkeyCapture: () => Promise<void>;
@@ -75,6 +77,29 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
         };
         console.log('Overlay positioning capabilities unavailable:', e);
       });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+
+    void listen<string>('windows-reserved-hotkey-captured', (event) => {
+      if (cancelled || !isRecordingHotkey.value || isApplyingHotkey.value) return;
+      const normalized = event.payload.trim().toLowerCase();
+      if (!normalized) return;
+      void onApplyCapturedHotkey(normalized);
+    }).then((fn) => {
+      if (cancelled) {
+        fn();
+      } else {
+        unlisten = fn;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, []);
 
   const handleConfigureHotkey = async () => {
@@ -188,6 +213,13 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
     e.stopPropagation();
   };
 
+  const applyPresetHotkey = (hotkey: string) => {
+    if (!isRecordingHotkey.value || isApplyingHotkey.value) return;
+    const normalized = hotkey.trim().toLowerCase();
+    if (!normalized) return;
+    void onApplyCapturedHotkey(normalized);
+  };
+
   return {
     hotkeyBindingState: hotkeyBindingState.value,
     systemShortcutContext: systemShortcutContext.value,
@@ -207,6 +239,7 @@ export function useHotkeySetup(options: UseHotkeySetupOptions): UseHotkeySetupRe
     setShowFactoryResetModal: (show) => { showFactoryResetModal.value = show; },
     setIsApplyingHotkey: (applying) => { isApplyingHotkey.value = applying; },
     toggleFnModifier: () => { useFnModifier.value = !useFnModifier.value; },
+    applyPresetHotkey,
     handleConfigureHotkey,
     setRecordingState,
     cancelHotkeyCapture,

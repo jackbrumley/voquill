@@ -31,6 +31,8 @@ pub struct SystemShortcutContext {
 pub struct InputCapabilities {
     paste_shortcuts: Vec<crate::config::PasteShortcut>,
     fn_modifier_supported: bool,
+    /// OS-reserved chords the backend can bind with a low-level hook.
+    reserved_hotkey_presets: Vec<String>,
 }
 
 /// Input features the active display backend supports, so the UI offers
@@ -42,6 +44,12 @@ pub async fn get_input_capabilities(
     Ok(InputCapabilities {
         paste_shortcuts: state.display_backend.supported_paste_shortcuts().to_vec(),
         fn_modifier_supported: state.display_backend.supports_fn_modifier(),
+        reserved_hotkey_presets: state
+            .display_backend
+            .reserved_hotkey_presets()
+            .iter()
+            .map(|preset| (*preset).to_string())
+            .collect(),
     })
 }
 

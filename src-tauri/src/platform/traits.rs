@@ -39,6 +39,11 @@ pub trait GlobalShortcutEngine: Send + Sync {
     /// Whether hotkeys may include the Fn modifier (needs a raw key event tap).
     fn supports_fn_modifier(&self) -> bool;
 
+    /// OS-reserved chords this backend can bind via a low-level hook (e.g. Alt+Space).
+    fn reserved_hotkey_presets(&self) -> &'static [&'static str] {
+        &[]
+    }
+
     async fn start_engine(&self, app_handle: AppHandle, force: bool) -> Result<(), String>;
 }
 

@@ -218,6 +218,8 @@ export interface SystemShortcutContext {
 export interface InputCapabilities {
   paste_shortcuts: PasteShortcut[];
   fn_modifier_supported: boolean;
+  /** OS-reserved chords the backend can bind with a low-level hook (Windows). */
+  reserved_hotkey_presets: string[];
 }
 
 export interface AudioCapabilities {

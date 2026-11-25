@@ -6,6 +6,21 @@ import { helperTextStyle, modalShortcutNoteStyle, modalShortcutPathStyle, modalT
 import { tokens } from '../design-tokens.ts';
 import type { HotkeyBindingState, SystemShortcutContext, UpdateCheckResult } from '../types.ts';
 
+function formatHotkeyPreset(hotkey: string): string {
+  return hotkey
+    .split('+')
+    .map((part) => {
+      const lower = part.trim().toLowerCase();
+      if (lower === 'super' || lower === 'win' || lower === 'meta') return 'Win';
+      if (lower === 'ctrl' || lower === 'control') return 'Ctrl';
+      if (lower === 'alt') return 'Alt';
+      if (lower === 'shift') return 'Shift';
+      if (lower === 'space') return 'Space';
+      return part.trim();
+    })
+    .join('+');
+}
+
 interface ModalsProps {
   showHotkeyCaptureModal: boolean;
   showSystemShortcutModal: boolean;
@@ -17,6 +32,7 @@ interface ModalsProps {
   isApplyingHotkey: boolean;
   supportsFnHotkey: boolean;
   useFnModifier: boolean;
+  reservedHotkeyPresets: string[];
   configHotkey: string;
   systemShortcutContext: SystemShortcutContext | null;
   hotkeyBindingState: HotkeyBindingState | null;
@@ -27,6 +43,7 @@ interface ModalsProps {
   getLastCheckedLabel: () => string;
   onCancelHotkeyCapture: () => void;
   onToggleFnModifier: () => void;
+  onApplyPresetHotkey: (hotkey: string) => void;
   onCloseSystemShortcut: () => void;
   onChangedSystemShortcut: () => void;
   onCloseFactoryReset: () => void;
@@ -62,6 +79,26 @@ export function Modals(props: ModalsProps) {
               <Button variant={props.useFnModifier ? 'primary' : 'ghost'} pill onClick={props.onToggleFnModifier}>
                 {props.useFnModifier ? 'Fn modifier enabled' : 'Use Fn modifier'}
               </Button>
+            )}
+            {props.reservedHotkeyPresets.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                {props.reservedHotkeyPresets.map((preset) => (
+                  <Button
+                    key={preset}
+                    variant="ghost"
+                    pill
+                    disabled={props.isApplyingHotkey}
+                    onClick={() => props.onApplyPresetHotkey(preset)}
+                  >
+                    Use {formatHotkeyPreset(preset)}
+                  </Button>
+                ))}
+              </div>
+            )}
+            {props.reservedHotkeyPresets.length > 0 && (
+              <p style={{ ...helperTextStyle, fontSize: tokens.typography.sizeXs }}>
+                Windows reserves some shortcuts (like Alt+Space). Voquill can override those via a low-level hook — press them now, or pick a button above.
+              </p>
             )}
             <div
               style={{

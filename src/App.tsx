@@ -386,6 +386,7 @@ function App() {
         isApplyingHotkey={hotkeySetup.isApplyingHotkey}
         supportsFnHotkey={inputCapabilities?.fn_modifier_supported ?? false}
         useFnModifier={hotkeySetup.useFnModifier}
+        reservedHotkeyPresets={inputCapabilities?.reserved_hotkey_presets ?? []}
         configHotkey={configHook.config.hotkey}
         systemShortcutContext={hotkeySetup.systemShortcutContext}
         hotkeyBindingState={hotkeySetup.hotkeyBindingState}
@@ -396,6 +397,7 @@ function App() {
         getLastCheckedLabel={updatesHook.getLastCheckedLabel}
         onCancelHotkeyCapture={() => void hotkeySetup.cancelHotkeyCapture()}
         onToggleFnModifier={hotkeySetup.toggleFnModifier}
+        onApplyPresetHotkey={hotkeySetup.applyPresetHotkey}
         onCloseSystemShortcut={() => hotkeySetup.setShowSystemShortcutModal(false)}
         onChangedSystemShortcut={() => {
           hotkeySetup.setShowSystemShortcutModal(false);
