@@ -107,6 +107,12 @@ UI visualizers, indicators, meters, and status badges must NEVER re-implement, s
 - **No Parallel Business Logic:** Never compute an independent `is_triggered`, `is_ready`, or `is_valid` state in TypeScript/Preact if that concept is decided by the backend. The backend must compute and emit the authoritative state (e.g., emitting `{ volume: f32, is_triggered: bool }`), and the UI must purely render that payload.
 - **Zero Semantic Drift:** If a visual gauge in Settings represents a background capability (such as Voice Activation Threshold), what the user sees in the UI must be powered by the exact same engine running in production. Any divergence between what the UI displays and how the backend executes is a critical architectural defect.
 
+### 10. Supported OS APIs Only (No Interception)
+Voquill uses only the APIs each operating system provides for hotkeys, input, audio and permissions, and asks the OS for permission the documented way. It never hooks or intercepts underneath the OS, even when that would unlock a feature.
+- **Supported Paths:** Windows `RegisterHotKey` (through `tauri-plugin-global-shortcut`), XDG Portals on Wayland, native X11 backends, and macOS TCC prompts (Accessibility, Input Monitoring, Microphone).
+- **Forbidden:** System-wide keyboard or mouse hooks (`WH_KEYBOARD_LL`, `WH_MOUSE_LL`), swallowing input the OS reserves (Alt+Space, Win+Space and other shell shortcuts), exclusive device access, and any workaround that defeats an OS permission or security boundary.
+- **Why:** Supported APIs keep working across OS updates; interception breaks with them, or breaks the OS features it overrides. A feature that needs interception is declined (see pull request 20, reserved Windows hotkeys), not shipped behind a hack.
+
 ---
 
 ## Pre-Submit Verification (Mandatory)
