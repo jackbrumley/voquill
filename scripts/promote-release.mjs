@@ -4,7 +4,9 @@
 // tauri.conf.json as the latest release and fast-forwards `main` to the
 // release tag, which also deploys the website and install scripts (GitHub
 // Pages serves main:/docs). Refuses while assets are missing or the notes
-// still contain TODO lines.
+// still contain TODO lines. A release already published by hand (for example
+// marked latest on GitHub) is left as it is, and main is still brought up to
+// it, so the website never lags the published release.
 //
 //   npm run release:promote
 //
@@ -50,9 +52,7 @@ function run(command, args) {
 assertPlainVersion();
 
 const release = fetchRelease(TAG);
-if (!release.prerelease) {
-  fail(`${TAG} is already published`);
-}
+const alreadyPublished = !release.prerelease;
 
 const problems = findAssetProblems(release);
 if (/\bTODO\b/.test(release.body ?? "")) {
@@ -64,7 +64,11 @@ if (problems.length > 0) {
 
 assertMainFastForwards();
 
-run("gh", ["release", "edit", TAG, "--prerelease=false", "--latest"]);
+if (alreadyPublished) {
+  console.log(`${TAG} is already published; only fast-forwarding main.`);
+} else {
+  run("gh", ["release", "edit", TAG, "--prerelease=false", "--latest"]);
+}
 // A plain (non-force) push only succeeds as a fast-forward, so main can never
 // lose commits here.
 run("git", ["push", "origin", `${TAG}^{commit}:refs/heads/main`]);

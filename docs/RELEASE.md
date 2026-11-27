@@ -155,6 +155,8 @@ npm run release:promote
 any commits only `main` has) and the pre-release carries all six assets with
 digests and its notes contain no `TODO`. It then marks the release as latest
 and fast-forwards `main` to the tag, which deploys the website and installers.
+If the release was already marked latest by hand (on GitHub), it leaves the
+release as it is and still fast-forwards `main`, so run it anyway.
 From that moment the in-app updater and the one-line installers serve the new
 version.
 
