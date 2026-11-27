@@ -5,9 +5,9 @@ use cpal::SampleFormat;
 use ringbuf::traits::*;
 use ringbuf::HeapRb;
 
-/// Always-on mono capture stream feeding the pre-roll buffer, dictation and
-/// the voice macro listener. Created and replaced only by
-/// `app::capture::ensure_capture_engine`.
+/// Mono capture stream feeding the pre-roll buffer, dictation and the voice
+/// macro listener. Created, replaced and closed only by `app::capture`, which
+/// keeps it running while anything needs the microphone.
 pub struct PersistentAudioEngine {
     _stream: cpal::Stream,
     /// The most recent ~200 ms of audio, oldest samples overwritten first, so

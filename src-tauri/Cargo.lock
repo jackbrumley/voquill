@@ -6153,6 +6153,7 @@ dependencies = [
  "libloading 0.9.0",
  "log",
  "nix",
+ "objc2",
  "once_cell",
  "pulseaudio",
  "regex",

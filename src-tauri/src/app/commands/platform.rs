@@ -160,12 +160,6 @@ pub async fn platform_setup_status(state: &AppState) -> PlatformPermissions {
             Some("Manual overlay position adjustment is not available on your system.".to_string())
         };
     }
-    #[cfg(target_os = "macos")]
-    {
-        // The microphone TCC prompt fires when the persistent engine opens
-        // its input stream, so a live engine is the grant signal.
-        permissions.audio = state.audio_engine.lock().unwrap().is_some();
-    }
     permissions
 }
 

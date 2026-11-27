@@ -3,7 +3,8 @@
 
 use super::post_process;
 use super::{
-    Config, HotkeyMode, OtherAudioWhileRecording, OutputMethod, PasteShortcut, TranscriptionMode,
+    Config, HotkeyMode, MicrophoneWhenIdle, OtherAudioWhileRecording, OutputMethod, PasteShortcut,
+    TranscriptionMode,
 };
 
 pub(super) fn default_api_key() -> String {
@@ -194,6 +195,7 @@ impl Default for Config {
             noise_reduction_enabled: false,
             noise_reduction_strength: default_noise_reduction_strength(),
             other_audio_while_recording: OtherAudioWhileRecording::default(),
+            microphone_when_idle: MicrophoneWhenIdle::default(),
             append_trailing_space: default_append_trailing_space(),
             auto_submit: false,
             paste_after_copy: default_paste_after_copy(),

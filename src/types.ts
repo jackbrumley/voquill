@@ -75,6 +75,7 @@ export interface VoiceMacroCommand {
 export type PasteShortcut = 'ShiftInsert' | 'CtrlV' | 'CtrlShiftV' | 'CommandV';
 
 export type OtherAudioWhileRecording = 'Keep' | 'Lower' | 'Mute';
+export type MicrophoneWhenIdle = 'KeepOpen' | 'Release';
 
 export interface Config {
   openai_api_key: string;
@@ -124,6 +125,7 @@ export interface Config {
   noise_reduction_enabled: boolean;
   noise_reduction_strength: number;
   other_audio_while_recording: OtherAudioWhileRecording;
+  microphone_when_idle: MicrophoneWhenIdle;
   history_limit: number;
   log_level: string;
   diarization_enabled_files: boolean;

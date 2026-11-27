@@ -1,6 +1,18 @@
 use std::ffi::c_void;
 
+use objc2::runtime::AnyObject;
+use objc2::{class, msg_send};
+
 use crate::platform::permissions::PlatformPermissions;
+
+#[link(name = "AVFoundation", kind = "framework")]
+extern "C" {
+    /// `AVMediaTypeAudio`, an `NSString *` constant.
+    static AVMediaTypeAudio: *const AnyObject;
+}
+
+/// `AVAuthorizationStatusAuthorized` from `AVAuthorizationStatus`.
+const AV_AUTHORIZATION_STATUS_AUTHORIZED: isize = 3;
 
 #[link(name = "ApplicationServices", kind = "framework")]
 extern "C" {
@@ -28,6 +40,21 @@ extern "C" {
 pub fn accessibility_is_trusted() -> bool {
     // SAFETY: This is a side-effect-free macOS accessibility trust query.
     unsafe { AXIsProcessTrusted() }
+}
+
+/// Whether the user has allowed Voquill to use the microphone. Asked of TCC
+/// directly, so it is right whether or not the microphone is open now.
+pub fn microphone_is_authorized() -> bool {
+    // SAFETY: `+[AVCaptureDevice authorizationStatusForMediaType:]` is a
+    // side-effect-free TCC query taking an `AVMediaType` string constant and
+    // returning an `NSInteger`.
+    let status: isize = unsafe {
+        msg_send![
+            class!(AVCaptureDevice),
+            authorizationStatusForMediaType: AVMediaTypeAudio
+        ]
+    };
+    status == AV_AUTHORIZATION_STATUS_AUTHORIZED
 }
 
 pub fn input_monitoring_is_trusted() -> bool {
@@ -107,14 +134,15 @@ pub fn check_macos_permissions(config: &crate::config::Config) -> PlatformPermis
     let fn_hotkey = super::shortcuts::hotkey_uses_fn(&config.hotkey);
     let input_monitoring_trusted = input_monitoring_is_trusted();
     let input_monitoring_missing = fn_hotkey && !input_monitoring_trusted;
+    let microphone_authorized = microphone_is_authorized();
     crate::log_info!(
-        "macOS permission status: accessibility_trusted={}, input_monitoring_trusted={}",
+        "macOS permission status: microphone_authorized={}, accessibility_trusted={}, input_monitoring_trusted={}",
+        microphone_authorized,
         accessibility_trusted,
         input_monitoring_trusted
     );
     PlatformPermissions {
-        // CoreAudio triggers the microphone TCC prompt when the input stream opens.
-        audio: true,
+        audio: microphone_authorized,
         shortcuts: !input_monitoring_missing,
         input_emulation: accessibility_trusted,
         input_emulation_restoring: false,

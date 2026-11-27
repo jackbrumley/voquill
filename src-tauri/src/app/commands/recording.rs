@@ -1,4 +1,4 @@
-use crate::app::capture::{ensure_capture_engine, CaptureSettings};
+use crate::app::capture::{self, CapturePurpose};
 use crate::app::state::SessionState;
 use crate::{audio, AppState};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -43,31 +43,36 @@ pub async fn start_recording(
     }
 
     // Mark the session as Recording up front so a hotkey release landing
-    // while the audio engine initializes is still observed as a stop.
+    // while the microphone opens is still observed as a stop.
     {
         let mut session = state.session_state.lock().unwrap();
         *session = SessionState::Recording;
     }
-    crate::app::status::emit_status_update("Recording").await;
 
-    let capture_settings = CaptureSettings::from_config(&state.config.lock().unwrap());
-    if let Err(error) = ensure_capture_engine(&app_handle, &capture_settings) {
-        crate::log_warn!("Recording cannot start: {}", error);
-        *state.session_state.lock().unwrap() = SessionState::Idle;
-        crate::app::status::emit_status_to_frontend("Error").await;
-        return Ok(());
-    }
+    // Opening a released microphone can take a moment (webcams, Bluetooth
+    // headsets). "Recording" is shown only once it is open, so the user never
+    // speaks into a microphone that is not listening yet.
+    let capture_hold = match capture::hold(&app_handle, CapturePurpose::Dictation) {
+        Ok(capture_hold) => capture_hold,
+        Err(error) => {
+            crate::log_warn!("Recording cannot start: {}", error);
+            *state.session_state.lock().unwrap() = SessionState::Idle;
+            crate::app::status::emit_status_to_frontend("Error").await;
+            return Ok(());
+        }
+    };
 
-    // If a release (or toggle stop) landed while the engine was initializing,
+    // If a release (or toggle stop) landed while the microphone was opening,
     // stop_recording already moved the session on; do not start a capture.
     if *state.session_state.lock().unwrap() != SessionState::Recording {
         crate::log_info!(
-            "start_recording: session left Recording during engine init; aborting start"
+            "start_recording: session left Recording while the microphone opened; aborting start"
         );
         *state.session_state.lock().unwrap() = SessionState::Idle;
         crate::app::status::emit_status_to_frontend("Ready").await;
         return Ok(());
     }
+    crate::app::status::emit_status_update("Recording").await;
 
     let session_token = Arc::new(AtomicBool::new(false));
     {
@@ -89,6 +94,7 @@ pub async fn start_recording(
             session_state,
             session_token,
             app_handle_clone,
+            capture_hold,
             audio_engine,
             engine_factory,
         )
@@ -175,12 +181,14 @@ pub async fn start_mic_test(
 
     // The mic-test flag stays locked until the test is running, so a
     // concurrent `save_config` cannot swap the engine underneath it.
-    let capture_settings = CaptureSettings::from_config(&state.config.lock().unwrap());
-    if let Err(error) = ensure_capture_engine(&app_handle, &capture_settings) {
-        *mic_test_flag = false;
-        crate::log_warn!("Mic test cannot start: {}", error);
-        return Err(error);
-    }
+    let capture_hold = match capture::hold(&app_handle, CapturePurpose::MicTest) {
+        Ok(capture_hold) => capture_hold,
+        Err(error) => {
+            *mic_test_flag = false;
+            crate::log_warn!("Mic test cannot start: {}", error);
+            return Err(error);
+        }
+    };
 
     let is_mic_test_clone = state.is_mic_test_active.clone();
     let audio_engine = state.audio_engine.clone();
@@ -210,6 +218,8 @@ pub async fn start_mic_test(
             }
         })
         .await;
+        // Recording is over; playback does not need the microphone.
+        drop(capture_hold);
 
         match result {
             Ok(captured_samples) => {

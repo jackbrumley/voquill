@@ -85,14 +85,14 @@ impl GlobalShortcutEngine for MacosBackend {
 #[async_trait]
 impl PermissionManager for MacosBackend {
     /// CoreAudio shows the microphone prompt when an input stream opens, so
-    /// opening the persistent audio engine is the request.
+    /// briefly holding the microphone is the request. The engine stays open
+    /// afterwards only if the settings keep it open.
     async fn request_audio_permission(&self, app_handle: tauri::AppHandle) -> Result<(), String> {
-        let settings = {
-            let state = app_handle.state::<crate::AppState>();
-            let config = state.config.lock().unwrap();
-            crate::app::capture::CaptureSettings::from_config(&config)
-        };
-        crate::app::capture::ensure_capture_engine(&app_handle, &settings)
+        let _permission_hold = crate::app::capture::hold(
+            &app_handle,
+            crate::app::capture::CapturePurpose::PermissionRequest,
+        )?;
+        Ok(())
     }
 
     async fn request_input_permission(&self, app_handle: tauri::AppHandle) -> Result<(), String> {

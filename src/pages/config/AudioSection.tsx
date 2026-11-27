@@ -5,7 +5,7 @@ import { Button } from '../../components/Button.tsx';
 import { SliderField } from '../../components/SliderField.tsx';
 import { MicSetupPanel } from '../../components/MicSetupPanel.tsx';
 import { SelectField } from '../../components/SelectField.tsx';
-import type { AudioDevice, Config, OtherAudioWhileRecording } from '../../types.ts';
+import type { AudioDevice, Config, MicrophoneWhenIdle, OtherAudioWhileRecording } from '../../types.ts';
 import { selectWrapperStyle } from '../../theme/ui-primitives.ts';
 import { tokens } from '../../design-tokens.ts';
 import { useNoiseReductionError } from '../../hooks/useNoiseReductionError.ts';
@@ -15,6 +15,11 @@ const otherAudioOptions: { value: OtherAudioWhileRecording; label: string }[] = 
   { value: 'Keep', label: 'Keep playing' },
   { value: 'Lower', label: 'Lower volume' },
   { value: 'Mute', label: 'Mute' },
+];
+
+const microphoneWhenIdleOptions: { value: MicrophoneWhenIdle; label: string }[] = [
+  { value: 'Release', label: 'Release when idle' },
+  { value: 'KeepOpen', label: 'Keep open (instant start)' },
 ];
 
 interface AudioSectionProps {
@@ -64,6 +69,20 @@ export function AudioSection({
           <Button variant="icon" onClick={loadMics} title="Refresh Devices">
             <IconRefresh size={16} />
           </Button>
+        </div>
+      </ConfigField>
+
+      <ConfigField
+        label="Microphone Between Dictations"
+        description="Release it so the webcam light turns off and headsets can switch to a phone or other device, or keep it open so dictation starts instantly. A released microphone takes a moment to open, so wait for the recording pop-up before speaking. Voice macros keep the microphone open while they are on."
+      >
+        <div style={selectWrapperStyle}>
+          <SelectField
+            value={config.microphone_when_idle}
+            options={microphoneWhenIdleOptions}
+            onChange={(nextSetting) => updateConfig('microphone_when_idle', nextSetting as MicrophoneWhenIdle)}
+            ariaLabel="Microphone Between Dictations"
+          />
         </div>
       </ConfigField>
 

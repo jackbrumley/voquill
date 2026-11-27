@@ -2,6 +2,7 @@ pub mod audio_processing;
 pub mod output;
 mod transcription;
 
+use crate::app::capture::CaptureHold;
 use crate::app::state::SessionState;
 use crate::config::Config;
 use crate::engine_residency::EngineResidency;
@@ -15,6 +16,7 @@ pub async fn record_and_transcribe(
     session_state: Arc<Mutex<SessionState>>,
     session_token: Arc<AtomicBool>,
     app_handle: AppHandle,
+    capture_hold: CaptureHold,
     audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
     engine_factory: Arc<engine_factory::EngineFactory>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -23,6 +25,7 @@ pub async fn record_and_transcribe(
         &session_state,
         &session_token,
         &app_handle,
+        capture_hold,
         audio_engine,
         &engine_factory,
     )
@@ -71,6 +74,7 @@ async fn record_and_transcribe_inner(
     session_state: &Arc<Mutex<SessionState>>,
     session_token: &Arc<AtomicBool>,
     app_handle: &AppHandle,
+    capture_hold: CaptureHold,
     audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
     engine_factory: &Arc<engine_factory::EngineFactory>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -109,8 +113,10 @@ async fn record_and_transcribe_inner(
     )
     .await;
 
-    // Capture has ended (whether it succeeded or not): give other
-    // applications their audio back before anything else happens.
+    // Capture has ended (whether it succeeded or not): let go of the
+    // microphone and give other applications their audio back before
+    // anything else happens.
+    drop(capture_hold);
     let _ = other_audio_adjustment.await;
     let _ = tokio::task::spawn_blocking(audio::other_audio::restore).await;
     let audio_data = audio_data?;

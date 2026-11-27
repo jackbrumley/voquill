@@ -30,6 +30,9 @@ pub struct AppState {
     pub setup_status: Arc<Mutex<Option<String>>>,
     /// Owned by `app::capture`; everything else only reads from it.
     pub audio_engine: Arc<Mutex<Option<audio::PersistentAudioEngine>>>,
+    /// How many `app::capture::CaptureHold`s are alive. Owned by
+    /// `app::capture`; lock it before `audio_engine`, never after.
+    pub capture_holds: Mutex<usize>,
     pub audio_player: Arc<audio::AudioPlayer>,
     #[cfg(target_os = "linux")]
     pub hotkey_engine_cancel: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
@@ -181,6 +184,7 @@ impl Default for AppState {
             hotkey_binding_state: Arc::new(Mutex::new(HotkeyBindingState::default())),
             setup_status: Arc::new(Mutex::new(None)),
             audio_engine: Arc::new(Mutex::new(None)),
+            capture_holds: Mutex::new(0),
             audio_player: Arc::new(audio::AudioPlayer::default()),
             #[cfg(target_os = "linux")]
             hotkey_engine_cancel: Arc::new(Mutex::new(None)),

@@ -38,7 +38,14 @@ const SPOKEN_TEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(
 #[command]
 pub async fn test_spoken_voice_macro(
     state: State<'_, AppState>,
+    app_handle: AppHandle,
 ) -> Result<SpokenMacroTestResult, String> {
+    // Held until the phrase is captured; the microphone may be released
+    // between dictations.
+    let capture_hold = crate::app::capture::hold(
+        &app_handle,
+        crate::app::capture::CapturePurpose::SpokenMacroTest,
+    )?;
     let (sample_rate, rx) = {
         let (tx, rx) = std::sync::mpsc::sync_channel::<f32>(65536);
         let mut audio_guard = state.audio_engine.lock().unwrap();
@@ -75,6 +82,7 @@ pub async fn test_spoken_voice_macro(
     if let Some(engine) = state.audio_engine.lock().unwrap().as_ref() {
         *engine.recording_tx.lock().unwrap() = None;
     }
+    drop(capture_hold);
 
     let Some(phrase) = capture? else {
         return Ok(SpokenMacroTestResult {

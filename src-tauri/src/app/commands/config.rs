@@ -1,4 +1,4 @@
-use crate::app::capture::{ensure_capture_engine, CaptureSettings};
+use crate::app::capture;
 use crate::app::commands::hotkey::re_register_hotkey;
 use crate::config::Config;
 use crate::{config, history, AppState};
@@ -66,6 +66,9 @@ pub async fn save_config(
     let _ = app_handle.emit("config-updated", ());
     crate::app::readiness::publish(&app_handle).await;
 
+    // Opens or closes the microphone for a changed `microphone_when_idle` or
+    // voice macro switch (input changes were applied before saving).
+    capture::sync_with_settings(&app_handle);
     crate::voice_macro::sync_voice_macro_listener(&app_handle);
 
     Ok(())
@@ -104,7 +107,7 @@ fn apply_audio_input_config(
         );
     }
 
-    ensure_capture_engine(app_handle, &CaptureSettings::from_config(next_config))
+    capture::apply_input_change(app_handle, next_config)
 }
 
 /// Reconciles engine warm-up state with a freshly saved config. The local
@@ -218,14 +221,7 @@ pub async fn reset_application_to_defaults(
 
     state.audio_player.stop_all();
 
-    if let Err(error) =
-        ensure_capture_engine(&app_handle, &CaptureSettings::from_config(&default_config))
-    {
-        crate::log_warn!(
-            "Factory reset: capture engine not started on the default device: {}",
-            error
-        );
-    }
+    capture::sync_with_settings(&app_handle);
 
     crate::app::commands::hotkey::set_hotkey_error(&app_handle, None);
 

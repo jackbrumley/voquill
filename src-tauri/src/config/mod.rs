@@ -58,6 +58,19 @@ pub enum OtherAudioWhileRecording {
     Mute,
 }
 
+/// Whether the microphone stays open between dictations. Releasing it is the
+/// default: webcam lights turn off, Bluetooth headsets leave call mode and
+/// headset bases can switch to a phone. Keeping it open starts dictation
+/// instantly and keeps the speech from just before the hotkey press. Voice
+/// macros keep the microphone open while they are on, whatever this says
+/// (`app::capture` owns that rule).
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub enum MicrophoneWhenIdle {
+    KeepOpen,
+    #[default]
+    Release,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default = "default_api_key")]
@@ -160,6 +173,8 @@ pub struct Config {
     pub noise_reduction_strength: f32,
     #[serde(default)]
     pub other_audio_while_recording: OtherAudioWhileRecording,
+    #[serde(default)]
+    pub microphone_when_idle: MicrophoneWhenIdle,
     #[serde(default = "default_append_trailing_space")]
     pub append_trailing_space: bool,
     #[serde(default)]
@@ -387,6 +402,7 @@ mod tests {
             config.other_audio_while_recording,
             OtherAudioWhileRecording::Lower
         );
+        assert_eq!(config.microphone_when_idle, MicrophoneWhenIdle::Release);
         assert_eq!(config.output_method, OutputMethod::Clipboard);
         assert!(config.paste_after_copy);
         #[cfg(target_os = "macos")]

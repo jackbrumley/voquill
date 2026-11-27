@@ -97,6 +97,10 @@ gtk-layer-shell = { version = "0.8.2", features = ["v0_6"] }
 arboard = { version = "3.6.1", features = ["wayland-data-control"] }
 ksni = { version = "0.3.7", default-features = false, features = ["tokio"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+# Microphone permission query (AVCaptureDevice); already in the tree via tao.
+objc2 = "0.6.5"
+
 [target.'cfg(target_os = "windows")'.dependencies]
 winreg = "0.55"
 windows = { version = "0.62", features = [
