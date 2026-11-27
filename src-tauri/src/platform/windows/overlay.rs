@@ -6,7 +6,6 @@ pub fn apply_overlay_hints(window: &WebviewWindow) {
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
         log_info!("Applying Ghost Mode attributes...");
         let _ = window_clone.set_focusable(false);
-        let _ = window_clone.set_ignore_cursor_events(true);
     });
 }
 

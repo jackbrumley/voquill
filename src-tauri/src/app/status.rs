@@ -75,7 +75,21 @@ async fn show_overlay_window(app_handle: &AppHandle) -> Result<(), String> {
 
     let state = app_handle.state::<AppState>();
     state.display_backend.apply_overlay_hints(&overlay_window);
+    make_overlay_click_through(&overlay_window);
     Ok(())
+}
+
+/// The overlay only shows status, but its transparent window is larger than the
+/// visible pill. Clicks anywhere on it must reach the application underneath, on
+/// every platform. Applied after `show()` because on Linux the input shape can
+/// only be set once GTK has realized the window.
+fn make_overlay_click_through(overlay_window: &WebviewWindow) {
+    if let Err(error) = overlay_window.set_ignore_cursor_events(true) {
+        crate::log_warn!(
+            "Overlay click-through could not be enabled; clicks near the status pop-up will hit it instead of the window below: {}",
+            error
+        );
+    }
 }
 
 pub async fn emit_status_update(status: &str) {

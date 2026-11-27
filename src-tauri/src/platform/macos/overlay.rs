@@ -5,7 +5,6 @@ pub fn apply_overlay_hints(window: &WebviewWindow) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
         let _ = window.set_focusable(false);
-        let _ = window.set_ignore_cursor_events(true);
     });
 }
 
