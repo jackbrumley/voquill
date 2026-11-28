@@ -42,9 +42,15 @@ impl PythonRunner {
         let port = crate::sidecar::find_free_port(RUNNER_PORT_START, RUNNER_PORT_END)
             .map_err(|e| e.to_string())?;
         let mut process = spawn_server(&runner_dir, port).await?;
+        let output = output::drain_runner_output(
+            process
+                .stderr
+                .take()
+                .ok_or("Python runner started without an error output pipe")?,
+        );
         let base_url = format!("http://127.0.0.1:{}", port);
 
-        wait_for_health(&mut process, &base_url).await?;
+        wait_for_health(&mut process, &base_url, output).await?;
 
         crate::log_info!(
             "Python runner started on port {} (dir={})",
@@ -481,25 +487,21 @@ async fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
     Ok(child)
 }
 
-async fn wait_for_health(process: &mut Child, base_url: &str) -> Result<(), String> {
+async fn wait_for_health(
+    process: &mut Child,
+    base_url: &str,
+    output: output::RunnerOutput,
+) -> Result<(), String> {
     let health_url = format!("{}/health", base_url);
     let start = std::time::Instant::now();
 
     while start.elapsed() < STARTUP_TIMEOUT {
         match process.try_wait() {
             Ok(Some(status)) => {
-                let stderr_output = if let Some(mut stderr) = process.stderr.take() {
-                    use tokio::io::AsyncReadExt;
-                    let mut buf = String::new();
-                    let _ = stderr.read_to_string(&mut buf).await;
-                    buf
-                } else {
-                    String::new()
-                };
                 return Err(format!(
                     "Python runner exited prematurely with status {} ({})",
                     status,
-                    stderr_output.trim()
+                    output.final_lines().await.trim()
                 ));
             }
             Ok(None) => {}
@@ -523,6 +525,7 @@ async fn wait_for_health(process: &mut Child, base_url: &str) -> Result<(), Stri
 // ── HTTP client, TTS models & Diarization models ───────────────────────────
 pub mod client;
 pub mod diarization_models;
+mod output;
 pub mod tts_models;
 pub use client::TtsSynthesizeResponse;
 pub use diarization_models::{download_diarization_models, is_diarization_ready};
