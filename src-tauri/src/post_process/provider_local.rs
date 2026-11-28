@@ -126,7 +126,7 @@ impl SidecarPostProcess {
             "-c".to_string(),
             "8192".to_string(),
         ];
-        let mut child = crate::sidecar::spawn_sidecar(&binary_path, &args)
+        let mut child = crate::sidecar::spawn_sidecar(&binary_path, &args, &[])
             .map_err(|e| PostProcessError::Api(format!("Failed to spawn llama-server: {}", e)))?;
 
         let stderr = child.stderr.take().unwrap();

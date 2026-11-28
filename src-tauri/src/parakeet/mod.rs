@@ -127,7 +127,7 @@ impl ParakeetService {
         let args = backend.args(&model_path, port, num_threads);
         let label = backend.log_label();
 
-        let mut child = crate::sidecar::spawn_sidecar(&binary_path, &args)
+        let mut child = crate::sidecar::spawn_sidecar(&binary_path, &args, &[])
             .map_err(|e| TranscriptionError::Model(format!("Failed to spawn {}: {}", label, e)))?;
 
         let stderr = child.stderr.take().unwrap();

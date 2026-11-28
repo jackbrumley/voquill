@@ -41,7 +41,7 @@ impl PythonRunner {
 
         let port = crate::sidecar::find_free_port(RUNNER_PORT_START, RUNNER_PORT_END)
             .map_err(|e| e.to_string())?;
-        let mut process = spawn_server(&runner_dir, port).await?;
+        let mut process = spawn_server(&runner_dir, port)?;
         let output = output::drain_runner_output(
             process
                 .stderr
@@ -451,40 +451,27 @@ fn python_bin_path(runner_dir: &Path) -> PathBuf {
     }
 }
 
-async fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
+fn spawn_server(runner_dir: &Path, port: u16) -> Result<Child, String> {
     let python_bin = python_bin_path(runner_dir);
     let server_script = runner_dir.join("server.py");
+    let server_script = server_script
+        .to_str()
+        .ok_or_else(|| format!("Invalid server.py path: {}", server_script.display()))?
+        .to_string();
     let app_root = crate::paths::app_root()?;
     crate::log_info!("Starting Python runner on port {}", port);
 
-    let server_script_str = server_script
-        .to_str()
-        .ok_or_else(|| "Invalid server.py path".to_string())?;
-    let mut cmd = silent_command(&python_bin);
-    cmd.args([server_script_str])
-        .env("VOQUILL_PORT", port.to_string())
-        .env(
+    let environment = [
+        ("VOQUILL_PORT", port.to_string()),
+        (
             "VOQUILL_PYTHON_RUNNER_DIR",
-            runner_dir.to_string_lossy().as_ref(),
-        )
-        .env("VOQUILL_APP_ROOT", app_root.to_string_lossy().as_ref())
-        .env("VOQUILL_PARENT_PID", std::process::id().to_string())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .stdin(Stdio::null())
-        .kill_on_drop(true);
-
-    crate::process_guard::configure_tokio_command_death_signal(&mut cmd);
-
-    let child = cmd
-        .spawn()
-        .map_err(|e| format!("Failed to spawn Python runner: {}", e))?;
-
-    if let Some(pid) = child.id() {
-        crate::process_guard::bind_child_process(pid);
-    }
-
-    Ok(child)
+            runner_dir.to_string_lossy().into_owned(),
+        ),
+        ("VOQUILL_APP_ROOT", app_root.to_string_lossy().into_owned()),
+        ("VOQUILL_PARENT_PID", std::process::id().to_string()),
+    ];
+    crate::sidecar::spawn_sidecar(&python_bin, &[server_script], &environment)
+        .map_err(|e| format!("Failed to spawn Python runner: {:#}", e))
 }
 
 async fn wait_for_health(

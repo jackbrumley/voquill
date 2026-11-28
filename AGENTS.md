@@ -52,7 +52,7 @@ The `python-runner/` directory at the project root is a self-contained Python Fa
 2. **Extraction:** On first use (or when the version in `python-runner/.version` differs from the expected `RUNNER_VERSION` in `src-tauri/src/python_runner/mod.rs`), Rust copies the bundled files to `~/.config/voquill-app/python-runner/`.
 3. **Portable Python:** Rust downloads `python-build-standalone` (~25MB) — a relocatable Python build — to `python-runner/python/` if not present. No system Python required.
 4. **Venv + Dependencies:** Rust creates a Python venv from the portable Python at `python-runner/venv/` and `pip install`s requirements from `python-runner/requirements/*.txt`.
-5. **Lifecycle:** Rust spawns `uvicorn server:app` as a sidecar process (same pattern as llama-server). The server exposes:
+5. **Lifecycle:** Rust runs `server.py` (which starts uvicorn itself) through `sidecar::spawn_sidecar`, the same path as llama-server, passing its port and directories as `VOQUILL_*` environment variables. Its error output is read for as long as it runs (`python_runner/output.rs`) into the session log. The server exposes:
    - `GET /health` — health check
    - `GET /capabilities` — discover available endpoints
    - `POST /diarize` — speaker diarization

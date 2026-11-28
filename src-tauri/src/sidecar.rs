@@ -150,11 +150,17 @@ fn port_is_free(port: u16) -> bool {
 
 /// Spawns a sidecar server process with consistent behavior: stdout/stdin
 /// silenced, stderr piped for readiness probing, killed when the handle is
-/// dropped, and no console window popping up on Windows.
-pub fn spawn_sidecar(binary_path: &std::path::Path, args: &[String]) -> anyhow::Result<Child> {
+/// dropped, and no console window popping up on Windows. `environment` adds
+/// variables to the inherited environment.
+pub fn spawn_sidecar(
+    binary_path: &std::path::Path,
+    args: &[String],
+    environment: &[(&str, String)],
+) -> anyhow::Result<Child> {
     let mut command = Command::new(binary_path);
     command
         .args(args)
+        .envs(environment.iter().map(|(name, value)| (*name, value)))
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .stdin(Stdio::null())
