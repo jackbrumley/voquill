@@ -80,6 +80,40 @@ jobs:
             /bin/bash -n "$script"
           done
 
+  # Starts the bundled Python runner (AI voices, file speaker detection, noise
+  # reduction) as the app does and calls every endpoint. Nothing else starts
+  # it before a release; v1.11.0 to v1.12.0 shipped a runner that could not.
+  python-runner:
+    name: Python runner (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            runner: ubuntu-24.04
+          - name: Windows
+            runner: windows-2022
+          - name: macOS
+            runner: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: python-runner/.python-version
+      - name: Install runner requirements
+        shell: bash
+        run: |
+          for requirements in python-runner/requirements/*.txt; do
+            python -m pip install -r "$requirements"
+          done
+      - name: Start the runner and call every endpoint
+        run: node scripts/check-python-runner.mjs python
+
   # Runs the one-line installer exactly as users and the in-app updater do (no
   # --version), so the "find the latest release" path is exercised on every
   # push. release.yml's install tests pin --version and cannot cover it.

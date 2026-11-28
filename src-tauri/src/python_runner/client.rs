@@ -58,38 +58,6 @@ pub async fn check_health(base_url: &str) -> Result<(), String> {
     }
 }
 
-#[allow(dead_code)]
-pub async fn get_capabilities(base_url: &str) -> Result<Vec<String>, String> {
-    let url = format!("{}/capabilities", base_url);
-    let client = http_client();
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("Capabilities check failed: {}", e))?;
-
-    if !response.status().is_success() {
-        return Err(format!(
-            "Capabilities check returned status: {}",
-            response.status()
-        ));
-    }
-
-    #[derive(serde::Deserialize)]
-    struct CapResponse {
-        capabilities: Vec<String>,
-        #[allow(dead_code)]
-        version: String,
-    }
-
-    let cap: CapResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse capabilities: {}", e))?;
-
-    Ok(cap.capabilities)
-}
-
 pub async fn diarize(
     base_url: &str,
     audio_path: &str,

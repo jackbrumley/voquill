@@ -89,6 +89,12 @@ The `python-runner/` directory at the project root is a self-contained Python Fa
 - `RUNNER_VERSION` constant in `python_runner/mod.rs` is the expected version
 - On mismatch, Rust re-extracts from the app bundle (handles app updates)
 - This ensures fresh installs AND upgrades always get the latest Python source
+- Bump both whenever any file under `python-runner/` changes, or installed copies keep the old code
+- `python-runner/.python-version` is the only pin of the portable Python version (read by Rust and by CI)
+
+**Startup and verification:**
+- Every capability in `_discover_capabilities` must load, or `server.py` exits with an error naming each one that failed; Rust reports that exit with the runner's output. A capability is never skipped silently.
+- `scripts/check-python-runner.mjs` starts the runner as the app does and calls every endpoint; CI's `python-runner` job runs it on Linux, Windows and macOS. Add a new endpoint to its `ENDPOINT_CHECKS`.
 
 ### 6. Platform Adaptation Pattern
 When implementing platform-sensitive features, follow this structure:

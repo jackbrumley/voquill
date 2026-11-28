@@ -145,28 +145,30 @@ def _discover_capabilities() -> dict[str, dict[str, Any]]:
 def _load_capability_handlers(
     capabilities: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
+    """Loads every declared capability, or raises naming each one that
+    failed. Every capability ships with the app, so one that does not load
+    is a broken install; starting without it would only fail later, with a
+    vaguer error, when that feature is used."""
     handlers: dict[str, Any] = {}
+    failures: list[str] = []
     for name, info in capabilities.items():
         try:
             mod = importlib.import_module(info["module"])
-            if not hasattr(mod, "run"):
-                logger.warning("Capability '%s' has no run() function, skipping", name)
-                continue
-            if hasattr(mod, "is_available") and not mod.is_available():
-                logger.warning(
-                    "Capability '%s' is not available (deps missing?), skipping", name
-                )
-                continue
-            handlers[name] = {"module": mod, "info": info}
-            logger.info("Loaded capability: %s (%s)", name, info["provider"])
-        except ImportError as e:
-            logger.warning(
-                "Capability '%s' failed to load (%s), skipping", name, e
-            )
         except Exception as e:
-            logger.warning(
-                "Capability '%s' errored during load (%s), skipping", name, e
-            )
+            failures.append(f"{name}: {info['module']} failed to import ({e})")
+            continue
+        if not hasattr(mod, "run"):
+            failures.append(f"{name}: {info['module']} has no run() function")
+            continue
+        if hasattr(mod, "is_available") and not mod.is_available():
+            failures.append(f"{name}: dependencies are not installed")
+            continue
+        handlers[name] = {"module": mod, "info": info}
+        logger.info("Loaded capability: %s (%s)", name, info["provider"])
+    if failures:
+        raise RuntimeError(
+            "Python runner capabilities failed to load: " + "; ".join(failures)
+        )
     return handlers
 
 
@@ -279,10 +281,18 @@ def render_tts(request: TtsRenderRequest) -> dict:
             detail="TTS capability not available (sherpa-onnx not installed?)",
         )
     try:
-        return handlers["tts"]["module"].render(request).model_dump()
+        return handlers["tts"]["module"].run(request).model_dump()
     except Exception as e:
         logger.exception("TTS render failed")
         raise HTTPException(status_code=500, detail=f"TTS render failed: {e}")
+
+
+# ── Entry point (used when Rust spawns the server) ─────────────────────────
+def main():
+    _start_parent_watchdog(os.environ.get("VOQUILL_PARENT_PID"))
+    port = int(os.environ.get("VOQUILL_PORT", "9000"))
+    logger.info("Starting on port %d (base_dir=%s)", port, RUNNER_BASE_DIR)
+    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
 
 
 if __name__ == "__main__":

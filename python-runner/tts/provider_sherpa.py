@@ -82,7 +82,7 @@ def _get_tts_instance(request: TtsRenderRequest) -> Any:
     return tts
 
 
-def render(request: TtsRenderRequest) -> TtsSynthesizeResponse:
+def run(request: TtsRenderRequest) -> TtsSynthesizeResponse:
     text = request.text.strip()
     if not text:
         raise ValueError("Text to synthesize cannot be empty")

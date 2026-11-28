@@ -12,8 +12,12 @@ const RUNNER_PORT_START: u16 = 6201;
 const RUNNER_PORT_END: u16 = 6350;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
 const HEALTH_RETRY_INTERVAL: Duration = Duration::from_millis(500);
-const RUNNER_VERSION: &str = "1.2.27";
-const PYTHON_VERSION: &str = "20250115";
+const RUNNER_VERSION: &str = "1.2.28";
+/// The portable Python the runner uses. Pinned only in
+/// `python-runner/.python-version`, which CI's runner check also reads.
+const PYTHON_VERSION: &str = include_str!("../../../python-runner/.python-version");
+/// The python-build-standalone release that provides `PYTHON_VERSION`.
+const PYTHON_BUILD_RELEASE: &str = "20250115";
 const PYTHON_DOWNLOAD_BASE: &str =
     "https://github.com/astral-sh/python-build-standalone/releases/download";
 
@@ -107,8 +111,10 @@ fn portable_python_archive_name() -> Result<String, String> {
         _ => return Err(format!("Unsupported platform: {}-{}", os, arch)),
     };
     Ok(format!(
-        "cpython-3.12.8+{}-{}-install_only.tar.gz",
-        PYTHON_VERSION, triple
+        "cpython-{}+{}-{}-install_only.tar.gz",
+        PYTHON_VERSION.trim(),
+        PYTHON_BUILD_RELEASE,
+        triple
     ))
 }
 
@@ -116,7 +122,7 @@ fn portable_python_url() -> Result<String, String> {
     let name = portable_python_archive_name()?;
     Ok(format!(
         "{}/{}/{}",
-        PYTHON_DOWNLOAD_BASE, PYTHON_VERSION, name
+        PYTHON_DOWNLOAD_BASE, PYTHON_BUILD_RELEASE, name
     ))
 }
 
@@ -520,3 +526,22 @@ pub mod diarization_models;
 pub mod tts_models;
 pub use client::TtsSynthesizeResponse;
 pub use diarization_models::{download_diarization_models, is_diarization_ready};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn portable_python_archive_uses_the_pinned_version() {
+        let name = portable_python_archive_name().unwrap();
+        assert!(
+            name.starts_with(&format!(
+                "cpython-{}+{}-",
+                PYTHON_VERSION.trim(),
+                PYTHON_BUILD_RELEASE
+            )),
+            "unexpected archive name {name}"
+        );
+        assert!(!PYTHON_VERSION.trim().is_empty());
+    }
+}
