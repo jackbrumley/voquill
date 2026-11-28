@@ -58,6 +58,8 @@ export interface VoicePersonaInfo {
 
 export interface VoiceMacroCommand {
   id: string;
+  /** A switched-off macro is kept but never runs. */
+  enabled: boolean;
   phrase: string;
   phrases?: string[];
   steps: MacroStep[];

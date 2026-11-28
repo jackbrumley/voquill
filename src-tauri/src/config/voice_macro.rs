@@ -32,6 +32,11 @@ fn default_macro_step_hold_ms() -> u64 {
     50
 }
 
+/// Macros saved before the on/off switch existed are on.
+fn default_macro_enabled() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum MacroSoundMode {
@@ -46,6 +51,9 @@ pub enum MacroSoundMode {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct VoiceMacroCommand {
     pub id: String,
+    /// A switched-off macro is kept but never runs; see `voice_macro::matcher`.
+    #[serde(default = "default_macro_enabled")]
+    pub enabled: bool,
     pub phrase: String,
     #[serde(default)]
     pub phrases: Vec<String>,

@@ -43,6 +43,13 @@ export function useMacroLibrary({ config, updateConfig, showToast }: UseMacroLib
     closeEditor();
   };
 
+  /// Switches a macro on or off without deleting it; a switched-off macro
+  /// keeps its phrase but never runs.
+  const setMacroEnabled = (macro: VoiceMacroCommand, enabled: boolean) => {
+    saveMacros(macros.map((existing) => (existing.id === macro.id ? { ...existing, enabled } : existing)));
+    showToast?.(enabled ? `Switched on "${macro.phrase}"` : `Switched off "${macro.phrase}"`, 'info');
+  };
+
   const saveMacroAsCopy = (macro: VoiceMacroCommand) => {
     saveMacros([...macros, macro]);
     showToast?.(`Created copy "${macro.phrase}"`, 'success');
@@ -155,6 +162,7 @@ export function useMacroLibrary({ config, updateConfig, showToast }: UseMacroLib
     closeImport: () => { isImportOpen.value = false; },
     saveMacro,
     saveMacroAsCopy,
+    setMacroEnabled,
     duplicateMacro,
     deleteMacro,
     shareMacro,

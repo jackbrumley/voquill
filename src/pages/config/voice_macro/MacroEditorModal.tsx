@@ -91,8 +91,9 @@ export function MacroEditorModal({
     return all.length === 0 || sequence.steps.value.length === 0 ? null : all;
   };
 
-  const buildCommand = (id: string, phrase: string, aliases: string[]): VoiceMacroCommand => ({
+  const buildCommand = (id: string, phrase: string, aliases: string[], enabled: boolean): VoiceMacroCommand => ({
     id,
+    enabled,
     phrase,
     phrases: aliases,
     steps: [...sequence.steps.value],
@@ -131,7 +132,7 @@ export function MacroEditorModal({
     const all = collectPhrases();
     if (!all) return;
     await prerenderSpokenFeedback(macroId.value);
-    onSave(buildCommand(macroId.value, all[0], all.slice(1)));
+    onSave(buildCommand(macroId.value, all[0], all.slice(1), initialCommand?.enabled ?? true));
   };
 
   const handleSaveAsCopy = async () => {
@@ -140,7 +141,7 @@ export function MacroEditorModal({
     const primaryPhrase = initialCommand && all[0] === initialCommand.phrase ? `copy of ${all[0]}` : all[0];
     const newId = generateMacroId();
     await prerenderSpokenFeedback(newId);
-    onSaveAsCopy(buildCommand(newId, primaryPhrase, all.slice(1)));
+    onSaveAsCopy(buildCommand(newId, primaryPhrase, all.slice(1), true));
   };
 
   const totalPhraseCount = phrases.value.length + (phraseInput.value.trim() ? 1 : 0);

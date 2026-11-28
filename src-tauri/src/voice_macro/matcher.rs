@@ -1,11 +1,39 @@
 use crate::config::voice_macro::VoiceMacroCommand;
 
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug)]
 pub struct MacroMatchResult {
-    pub matched: bool,
     pub similarity: f32,
     pub transcript: String,
-    pub matched_command: Option<VoiceMacroCommand>,
+    pub outcome: MacroMatch,
+}
+
+/// Which macro, if any, a phrase matched. Switched-off macros still take
+/// part in matching: removing them first would let their phrase fall
+/// through to the next most similar macro and fire that one instead.
+#[derive(Clone, Debug, PartialEq)]
+pub enum MacroMatch {
+    NoMatch,
+    Enabled(VoiceMacroCommand),
+    SwitchedOff(VoiceMacroCommand),
+}
+
+impl MacroMatch {
+    /// The macro to run, or `None` when nothing matched or the macro that
+    /// matched is switched off.
+    pub fn runnable(&self) -> Option<&VoiceMacroCommand> {
+        match self {
+            MacroMatch::Enabled(command) => Some(command),
+            MacroMatch::NoMatch | MacroMatch::SwitchedOff(_) => None,
+        }
+    }
+
+    /// The macro whose phrase matched, whether or not it is switched on.
+    pub fn command(&self) -> Option<&VoiceMacroCommand> {
+        match self {
+            MacroMatch::Enabled(command) | MacroMatch::SwitchedOff(command) => Some(command),
+            MacroMatch::NoMatch => None,
+        }
+    }
 }
 
 pub fn normalize_phrase(input: &str) -> String {
@@ -86,10 +114,9 @@ pub fn find_best_match(
     let candidate_phrase = if !clean_trigger.is_empty() {
         if !clean_transcript.contains(&clean_trigger) {
             return MacroMatchResult {
-                matched: false,
                 similarity: 0.0,
                 transcript: clean_transcript,
-                matched_command: None,
+                outcome: MacroMatch::NoMatch,
             };
         }
         clean_transcript.replacen(&clean_trigger, "", 1)
@@ -100,10 +127,9 @@ pub fn find_best_match(
     let clean_candidate = candidate_phrase.trim();
     if clean_candidate.is_empty() {
         return MacroMatchResult {
-            matched: false,
             similarity: 0.0,
             transcript: clean_transcript,
-            matched_command: None,
+            outcome: MacroMatch::NoMatch,
         };
     }
 
@@ -156,27 +182,34 @@ pub fn find_best_match(
         0.75
     };
 
-    let matched = best_sim >= required_threshold;
+    let outcome = match best_cmd {
+        Some(command) if best_sim >= required_threshold => {
+            if command.enabled {
+                MacroMatch::Enabled(command)
+            } else {
+                MacroMatch::SwitchedOff(command)
+            }
+        }
+        _ => MacroMatch::NoMatch,
+    };
 
     MacroMatchResult {
-        matched,
         similarity: best_sim,
         transcript: clean_transcript,
-        matched_command: if matched { best_cmd } else { None },
+        outcome,
     }
 }
 
+/// The macro a phrase should run, if any.
 pub fn match_phrase(
     transcript: &str,
     trigger_word: &str,
     commands: &[VoiceMacroCommand],
 ) -> Option<VoiceMacroCommand> {
-    let res = find_best_match(transcript, trigger_word, commands);
-    if res.matched {
-        res.matched_command
-    } else {
-        None
-    }
+    find_best_match(transcript, trigger_word, commands)
+        .outcome
+        .runnable()
+        .cloned()
 }
 
 #[cfg(test)]
@@ -191,6 +224,7 @@ mod tests {
     ) -> VoiceMacroCommand {
         VoiceMacroCommand {
             id: id.to_string(),
+            enabled: true,
             phrase: phrase.to_string(),
             phrases: phrases.into_iter().map(String::from).collect(),
             steps,
@@ -322,9 +356,9 @@ mod tests {
         )];
 
         let res = find_best_match("Coal Air Strike.", "", &commands);
-        assert!(res.matched);
+        assert!(res.outcome.runnable().is_some());
         assert!(res.similarity >= 0.78);
-        assert_eq!(res.matched_command.unwrap().phrase, "call airstrike");
+        assert_eq!(res.outcome.runnable().unwrap().phrase, "call airstrike");
     }
 
     #[test]
@@ -340,8 +374,8 @@ mod tests {
         )];
 
         let res = find_best_match("Can we call an airstrike on that hill?", "", &commands);
-        assert!(res.matched);
-        assert_eq!(res.matched_command.unwrap().phrase, "call airstrike");
+        assert!(res.outcome.runnable().is_some());
+        assert_eq!(res.outcome.runnable().unwrap().phrase, "call airstrike");
     }
 
     #[test]
@@ -361,7 +395,48 @@ mod tests {
         assert!(match_phrase("strike", "", &commands).is_some());
 
         let res = find_best_match("Please rain fire on my mark", "", &commands);
-        assert!(res.matched);
-        assert_eq!(res.matched_command.unwrap().id, "1");
+        assert!(res.outcome.runnable().is_some());
+        assert_eq!(res.outcome.runnable().unwrap().id, "1");
+    }
+
+    fn switched_off(mut command: VoiceMacroCommand) -> VoiceMacroCommand {
+        command.enabled = false;
+        command
+    }
+
+    fn key_step(key: &str) -> Vec<crate::config::voice_macro::MacroStep> {
+        vec![crate::config::voice_macro::MacroStep::KeyPress {
+            key: key.into(),
+            hold_ms: 50,
+        }]
+    }
+
+    #[test]
+    fn test_switched_off_macro_matches_but_does_not_run() {
+        let commands = vec![switched_off(test_cmd(
+            "1",
+            "open map",
+            vec![],
+            key_step("M"),
+        ))];
+
+        let res = find_best_match("open map", "", &commands);
+        assert!(matches!(res.outcome, MacroMatch::SwitchedOff(_)));
+        assert!(res.outcome.runnable().is_none());
+        assert_eq!(res.outcome.command().unwrap().id, "1");
+        assert!(match_phrase("open map", "", &commands).is_none());
+    }
+
+    #[test]
+    fn test_switched_off_macro_does_not_hand_its_phrase_to_a_similar_macro() {
+        let commands = vec![
+            switched_off(test_cmd("off", "open map", vec![], key_step("M"))),
+            test_cmd("on", "open maps", vec![], key_step("N")),
+        ];
+
+        let res = find_best_match("open map", "", &commands);
+        assert_eq!(res.outcome, MacroMatch::SwitchedOff(commands[0].clone()));
+        assert!(match_phrase("open map", "", &commands).is_none());
+        assert_eq!(match_phrase("open maps", "", &commands).unwrap().id, "on");
     }
 }

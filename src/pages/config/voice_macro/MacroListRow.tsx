@@ -9,6 +9,7 @@ import {
   IconVolume,
   IconVolumeOff,
 } from '@tabler/icons-preact';
+import { Switch } from '../../../components/Switch.tsx';
 import { tokens } from '../../../design-tokens.ts';
 import type { VoiceMacroCommand } from '../../../types.ts';
 import { resolveMacroSteps } from './keyUtils.ts';
@@ -17,6 +18,7 @@ interface MacroListRowProps {
   macro: VoiceMacroCommand;
   triggerWord: string;
   isTesting: boolean;
+  onEnabledChange: (enabled: boolean) => void;
   onRun: () => void;
   onPlaySound: () => void;
   onDuplicate: () => void;
@@ -64,6 +66,9 @@ function soundStyle(macro: VoiceMacroCommand): SoundStyle | null {
 /// Everything the row leaves out, for its tooltip.
 function rowDetails(macro: VoiceMacroCommand, triggerWord: string, sound: SoundStyle | null): string {
   const lines = [`Say: "${triggerWord ? `${triggerWord} ` : ''}${macro.phrase}"`];
+  if (!macro.enabled) {
+    lines.push('Switched off: Voquill hears this phrase but does nothing.');
+  }
   const aliases = macro.phrases ?? [];
   if (aliases.length > 0) {
     lines.push(`Also: ${aliases.map((alias) => `"${alias}"`).join(', ')}`);
@@ -75,7 +80,7 @@ function rowDetails(macro: VoiceMacroCommand, triggerWord: string, sound: SoundS
 }
 
 /// One macro in the library list: its phrase, a summary, and its actions.
-export function MacroListRow({ macro, triggerWord, isTesting, onRun, onPlaySound, onDuplicate, onShare, onEdit }: MacroListRowProps) {
+export function MacroListRow({ macro, triggerWord, isTesting, onEnabledChange, onRun, onPlaySound, onDuplicate, onShare, onEdit }: MacroListRowProps) {
   const stepCount = resolveMacroSteps(macro).length;
   const sound = soundStyle(macro);
   const SoundIcon = sound?.icon;
@@ -95,10 +100,15 @@ export function MacroListRow({ macro, triggerWord, isTesting, onRun, onPlaySound
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+        <Switch
+          name={`Voice macro "${macro.phrase}"`}
+          checked={macro.enabled}
+          onChange={onEnabledChange}
+        />
         <span
           style={{
             fontSize: '13px',
-            color: tokens.colors.textPrimary,
+            color: macro.enabled ? tokens.colors.textPrimary : tokens.colors.textMuted,
             fontWeight: 600,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -107,6 +117,9 @@ export function MacroListRow({ macro, triggerWord, isTesting, onRun, onPlaySound
         >
           "{macro.phrase}"
         </span>
+        {!macro.enabled && (
+          <span style={{ fontSize: '11px', color: tokens.colors.textMuted, whiteSpace: 'nowrap' }}>Off</span>
+        )}
         <span style={{ fontSize: '11px', color: tokens.colors.textMuted, whiteSpace: 'nowrap' }}>
           {stepCount} {stepCount === 1 ? 'step' : 'steps'}
         </span>

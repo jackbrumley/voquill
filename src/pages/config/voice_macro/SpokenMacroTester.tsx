@@ -10,7 +10,10 @@ import { MacroStepChip } from './MacroStepChip.tsx';
 export interface SpokenMacroTestResult {
   transcript: string;
   similarity: number;
+  /** A macro's phrase matched; it runs only when the macro is switched on. */
   matched: boolean;
+  /** The macro that matched is switched off, so voice macros would not run it. */
+  matched_switched_off: boolean;
   matched_phrase?: string | null;
   matched_command?: VoiceMacroCommand | null;
   /** Length of the phrase the listener would have heard; 0 if none. */
@@ -31,7 +34,9 @@ export function SpokenMacroTester({ showToast }: SpokenMacroTesterProps) {
     try {
       const result = await invoke<SpokenMacroTestResult>('test_spoken_voice_macro');
       testResult.value = result;
-      if (result.matched) {
+      if (result.matched_switched_off) {
+        showToast?.(`Matched "${result.matched_phrase}", which is switched off`, 'info');
+      } else if (result.matched) {
         showToast?.(`Matched macro "${result.matched_phrase}"!`, 'success');
       } else if (result.transcript) {
         showToast?.(`Heard "${result.transcript}" (No match)`, 'info');
@@ -43,6 +48,16 @@ export function SpokenMacroTester({ showToast }: SpokenMacroTesterProps) {
     } finally {
       isTesting.value = false;
     }
+  };
+
+  const willRun = testResult.value !== null && testResult.value.matched && !testResult.value.matched_switched_off;
+
+  const resultLabel = (result: SpokenMacroTestResult): string => {
+    const score = `${Math.round(result.similarity * 100)}% match`;
+    if (result.matched_switched_off) {
+      return `Matched: "${result.matched_phrase}" (${score}), switched off, so it would not run`;
+    }
+    return result.matched ? `Matched: "${result.matched_phrase}" (${score})` : 'No Macro Matched';
   };
 
   const steps: MacroStep[] = testResult.value?.matched_command
@@ -91,10 +106,10 @@ export function SpokenMacroTester({ showToast }: SpokenMacroTesterProps) {
           style={{
             padding: '10px',
             borderRadius: '6px',
-            background: testResult.value.matched
+            background: willRun
               ? 'rgba(34, 197, 94, 0.1)'
               : 'rgba(234, 179, 8, 0.1)',
-            border: testResult.value.matched
+            border: willRun
               ? '1px solid rgba(34, 197, 94, 0.3)'
               : '1px solid rgba(234, 179, 8, 0.3)',
             display: 'flex',
@@ -103,7 +118,7 @@ export function SpokenMacroTester({ showToast }: SpokenMacroTesterProps) {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {testResult.value.matched ? (
+            {willRun ? (
               <IconCheck size={16} color="#22c55e" />
             ) : (
               <IconAlertTriangle size={16} color="#eab308" />
@@ -112,12 +127,10 @@ export function SpokenMacroTester({ showToast }: SpokenMacroTesterProps) {
               style={{
                 fontSize: '12px',
                 fontWeight: 600,
-                color: testResult.value.matched ? '#22c55e' : '#fde047',
+                color: willRun ? '#22c55e' : '#fde047',
               }}
             >
-              {testResult.value.matched
-                ? `Matched: "${testResult.value.matched_phrase}" (${Math.round(testResult.value.similarity * 100)}% match)`
-                : 'No Macro Matched'}
+              {resultLabel(testResult.value)}
             </span>
           </div>
 

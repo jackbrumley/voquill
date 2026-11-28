@@ -6,7 +6,7 @@ pub mod sound;
 pub use executor::{execute_macro_command, execute_macro_steps};
 pub use matcher::{
     find_best_match, levenshtein_distance, match_phrase, normalize_phrase, string_similarity,
-    MacroMatchResult,
+    MacroMatch, MacroMatchResult,
 };
 pub use sound::{
     cleanup_orphaned_macro_sounds, clone_macro_sound, delete_macro_sound, import_macro_audio_file,
@@ -49,7 +49,7 @@ pub fn sync_voice_macro_listener(app_handle: &AppHandle) {
         let ids: Vec<String> = config.voice_macros.iter().map(|m| m.id.clone()).collect();
         (
             config.voice_macros_enabled,
-            !config.voice_macros.is_empty(),
+            config.voice_macros.iter().any(|command| command.enabled),
             ids,
         )
     };
@@ -210,7 +210,7 @@ async fn run_voice_macro_listener_loop(
                     let config = state.config.lock().unwrap();
                     (
                         config.voice_macros_enabled,
-                        !config.voice_macros.is_empty(),
+                        config.voice_macros.iter().any(|command| command.enabled),
                         config.voice_macro_sound_feedback,
                     )
                 };
@@ -237,13 +237,25 @@ async fn run_voice_macro_listener_loop(
                 }
 
                 let match_result = recognition.match_result;
-                let Some(matched_cmd) = match_result.matched_command.filter(|_| match_result.matched) else {
-                    crate::log_info!(
-                        "[Voice Macro] No macro matched for phrase: \"{}\" (best similarity: {:.1}%)",
-                        recognition.transcript,
-                        match_result.similarity * 100.0
-                    );
-                    continue;
+                let matched_cmd = match match_result.outcome {
+                    MacroMatch::Enabled(command) => command,
+                    MacroMatch::SwitchedOff(command) => {
+                        crate::log_info!(
+                            "[Voice Macro] Phrase \"{}\" matched \"{}\" ({:.1}% match), which is switched off; not running it",
+                            recognition.transcript,
+                            command.phrase,
+                            match_result.similarity * 100.0
+                        );
+                        continue;
+                    }
+                    MacroMatch::NoMatch => {
+                        crate::log_info!(
+                            "[Voice Macro] No macro matched for phrase: \"{}\" (best similarity: {:.1}%)",
+                            recognition.transcript,
+                            match_result.similarity * 100.0
+                        );
+                        continue;
+                    }
                 };
                 crate::log_info!(
                     "[Voice Macro] MATCHED ({:.1}% match): \"{}\" -> \"{}\" ({} steps)",

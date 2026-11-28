@@ -11,6 +11,7 @@ export function cloneMacro(cmd: VoiceMacroCommand, customPhrase?: string): Voice
 
   return {
     id: generateMacroId(),
+    enabled: true,
     phrase,
     phrases: phrasesCopy,
     steps: stepsCopy,
@@ -26,15 +27,19 @@ export function cloneMacro(cmd: VoiceMacroCommand, customPhrase?: string): Voice
   };
 }
 
+/// A macro as it is shared or exported. Whether a macro is switched on is
+/// the owner's local choice, so it is left out; imported macros arrive on.
+export type SharedMacro = Omit<VoiceMacroCommand, 'enabled'>;
+
 export interface MacroExportBundle {
   voquill_version: string;
   type: 'voice_macros';
   created_at: string;
-  macros: VoiceMacroCommand[];
+  macros: SharedMacro[];
 }
 
-export function serializeSingleMacro(cmd: VoiceMacroCommand): string {
-  const clean: VoiceMacroCommand = {
+function toSharedMacro(cmd: VoiceMacroCommand): SharedMacro {
+  return {
     id: cmd.id,
     phrase: cmd.phrase,
     phrases: cmd.phrases ? [...cmd.phrases] : [],
@@ -49,7 +54,10 @@ export function serializeSingleMacro(cmd: VoiceMacroCommand): string {
     sound_tts_effect: cmd.sound_tts_effect || null,
     sound_tts_pitch: cmd.sound_tts_pitch || null,
   };
-  return JSON.stringify(clean, null, 2);
+}
+
+export function serializeSingleMacro(cmd: VoiceMacroCommand): string {
+  return JSON.stringify(toSharedMacro(cmd), null, 2);
 }
 
 export function serializeMacroBundle(macros: VoiceMacroCommand[]): string {
@@ -57,21 +65,7 @@ export function serializeMacroBundle(macros: VoiceMacroCommand[]): string {
     voquill_version: '1.0',
     type: 'voice_macros',
     created_at: new Date().toISOString(),
-    macros: macros.map((cmd) => ({
-      id: cmd.id,
-      phrase: cmd.phrase,
-      phrases: cmd.phrases ? [...cmd.phrases] : [],
-      steps: cmd.steps ? cmd.steps.map((s) => ({ ...s })) : [],
-      key_combination: null,
-      hold_ms: null,
-      delay_after_ms: null,
-      sound_mode: cmd.sound_mode || 'default',
-      sound_tts_text: cmd.sound_tts_text || null,
-      sound_tts_voice: cmd.sound_tts_voice || null,
-      sound_tts_speed: cmd.sound_tts_speed || null,
-      sound_tts_effect: cmd.sound_tts_effect || null,
-      sound_tts_pitch: cmd.sound_tts_pitch || null,
-    })),
+    macros: macros.map(toSharedMacro),
   };
   return JSON.stringify(bundle, null, 2);
 }
@@ -190,6 +184,7 @@ export function parseAndValidateMacros(jsonText: string): {
 
     valid.push({
       id: generateMacroId(),
+      enabled: true,
       phrase,
       phrases,
       steps,

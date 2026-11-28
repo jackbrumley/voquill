@@ -8,7 +8,10 @@ use crate::AppState;
 pub struct SpokenMacroTestResult {
     pub transcript: String,
     pub similarity: f32,
+    /// A macro's phrase matched (it runs only when it is switched on).
     pub matched: bool,
+    /// The macro that matched is switched off, so the listener would not run it.
+    pub matched_switched_off: bool,
     pub matched_phrase: Option<String>,
     pub matched_command: Option<VoiceMacroCommand>,
     /// Length of the phrase the listener would have heard (0 if none).
@@ -89,6 +92,7 @@ pub async fn test_spoken_voice_macro(
             transcript: String::new(),
             similarity: 0.0,
             matched: false,
+            matched_switched_off: false,
             matched_phrase: None,
             matched_command: None,
             heard_seconds: 0.0,
@@ -110,15 +114,17 @@ pub async fn test_spoken_voice_macro(
         crate::voice_macro::recognition::recognize_phrase(&state, &phrase.samples, sample_rate)
             .await?;
     let match_result = recognition.match_result;
+    let matched_command = match_result.outcome.command().cloned();
     Ok(SpokenMacroTestResult {
         transcript: recognition.transcript,
         similarity: match_result.similarity,
-        matched: match_result.matched,
-        matched_phrase: match_result
-            .matched_command
-            .as_ref()
-            .map(|c| c.phrase.clone()),
-        matched_command: match_result.matched_command,
+        matched: matched_command.is_some(),
+        matched_switched_off: matches!(
+            match_result.outcome,
+            crate::voice_macro::MacroMatch::SwitchedOff(_)
+        ),
+        matched_phrase: matched_command.as_ref().map(|c| c.phrase.clone()),
+        matched_command,
         heard_seconds: phrase.duration_secs,
     })
 }
